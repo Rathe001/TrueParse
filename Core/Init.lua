@@ -19,7 +19,7 @@ local defaults = {
 			fontSize = 11,
 		},
 		history = {
-			maxFights = 15,
+			maxFights = 200,
 		},
 		debug = false,
 		probe = false,

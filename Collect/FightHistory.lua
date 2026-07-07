@@ -108,6 +108,25 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		totals = totals,
 	}
 
+	-- Where the fight happened; separates boss/trash/dungeon/raid rows when
+	-- calibrating scoring weights from real runs.
+	local zone, instanceType, difficultyID, difficultyName = GetInstanceInfo()
+	if zone and not IsSecret(zone) then
+		fight.zone = zone
+	end
+	if instanceType and not IsSecret(instanceType) then
+		fight.instanceType = instanceType
+	end
+	if difficultyName and not IsSecret(difficultyName) then
+		fight.difficulty = difficultyName
+	end
+	if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
+		local ok, keystoneLevel = pcall(C_ChallengeMode.GetActiveKeystoneInfo)
+		if ok and keystoneLevel and not IsSecret(keystoneLevel) and keystoneLevel > 0 then
+			fight.keystoneLevel = keystoneLevel
+		end
+	end
+
 	-- Replace an earlier capture of the same session (resume case)
 	for i = #self.fights, 1, -1 do
 		if self.fights[i].sessionID == sessionID then
