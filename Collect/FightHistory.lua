@@ -204,7 +204,9 @@ local function queueSweep(delay)
 end
 
 function FightHistory:Persist()
-	TP.Addon.db.global.recentFights = self.fights
+	-- Per character: your monk's dungeon history has no business showing up
+	-- on your evoker.
+	TP.Addon.db.char.recentFights = self.fights
 end
 
 local eventFrame = CreateFrame("Frame")
@@ -257,7 +259,9 @@ function FightHistory:OnEnable()
 		end
 	end
 
-	self.fights = TP.Addon.db.global.recentFights or {}
+	self.fights = TP.Addon.db.char.recentFights or {}
+	-- Migrate away the account-wide storage used by earlier builds
+	TP.Addon.db.global.recentFights = nil
 
 	for _, ev in ipairs({
 		"DAMAGE_METER_COMBAT_SESSION_UPDATED",
