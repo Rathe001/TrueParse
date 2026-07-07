@@ -367,6 +367,29 @@ check(run.zone == "Testhall", "run keeps zone")
 local runScored = TP.Scoring.Engine.ScoreFight(run, { normalizeIlvl = false })
 check(#runScored == 2, "aggregated run is scoreable")
 
+-- 11. Death timing: dying late in the fight costs less than dying early
+local deathFight = {
+	name = "Death Timing", duration = 100,
+	players = {
+		e = mkPlayer("e", "EarlyDeath", "MAGE", "DAMAGER", { damage = 1000000, deaths = 1 }),
+		l = mkPlayer("l", "LateDeath", "ROGUE", "DAMAGER", { damage = 1000000, deaths = 1 }),
+		u = mkPlayer("u", "UnknownDeath", "HUNTER", "DAMAGER", { damage = 1000000, deaths = 1 }),
+		h = mkPlayer("h", "Heal", "SHAMAN", "HEALER", { healing = 500000 }),
+	},
+}
+deathFight.players.e.deathTime = 5
+deathFight.players.l.deathTime = 95
+local deathResults = TP.Scoring.Engine.ScoreFight(deathFight, { normalizeIlvl = false })
+local deathByName = {}
+for _, r in ipairs(deathResults) do
+	deathByName[r.name] = r
+end
+check(deathByName.EarlyDeath.penaltyDetail.deaths > 9,
+	("early death costs nearly full price (%.2f)"):format(deathByName.EarlyDeath.penaltyDetail.deaths))
+check(deathByName.LateDeath.penaltyDetail.deaths < 4,
+	("death at the end costs a fraction (%.2f)"):format(deathByName.LateDeath.penaltyDetail.deaths))
+check(deathByName.UnknownDeath.penaltyDetail.deaths == 10, "unknown timing keeps full penalty")
+
 -- Optional: smoke-test against real captured fights from a SavedVariables file
 local svPath = arg and arg[1]
 if svPath then

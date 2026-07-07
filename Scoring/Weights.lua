@@ -51,5 +51,9 @@ Weights.penalties = {
 	avoidableCap = 15,
 	perDeath = 10,
 	deathsCap = 20,
+	-- Deaths hurt less the later they happen: a death at the very end of
+	-- the fight keeps (1 - relief) of the penalty. Applies to the most
+	-- recent death when its timing is known; earlier deaths cost full price.
+	deathTimingRelief = 0.7,
 	totalCap = 25,
 }

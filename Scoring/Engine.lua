@@ -271,7 +271,17 @@ function Engine.ScoreFight(fight, opts)
 				penaltyAvoidable = math.min(W.penalties.avoidableCap, excess * W.penalties.avoidablePerExcessShare)
 			end
 		end
-		local penaltyDeaths = math.min(W.penalties.deathsCap, (m.deaths or 0) * W.penalties.perDeath)
+		local penaltyDeaths = 0
+		local deathCount = m.deaths or 0
+		if deathCount > 0 then
+			local lastDeathCost = W.penalties.perDeath
+			if p.deathTime and ctx.duration and ctx.duration > 0 then
+				local fraction = math.max(0, math.min(1, p.deathTime / ctx.duration))
+				lastDeathCost = W.penalties.perDeath * (1 - (W.penalties.deathTimingRelief or 0) * fraction)
+			end
+			penaltyDeaths = math.min(W.penalties.deathsCap,
+				(deathCount - 1) * W.penalties.perDeath + lastDeathCost)
+		end
 		local penalty = math.min(W.penalties.totalCap, penaltyAvoidable + penaltyDeaths)
 
 		results[#results + 1] = {

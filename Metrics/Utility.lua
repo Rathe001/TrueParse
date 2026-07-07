@@ -29,6 +29,9 @@ tracker.subevents.UNIT_DIED = function(seg, srcGUID, dstGUID)
 		return -- hunters fake their deaths
 	end
 	acc.deaths.total = acc.deaths.total + 1
+	if seg.startTime then
+		acc.deaths.lastTime = GetTime() - seg.startTime
+	end
 end
 
 tracker.InitPlayer = function(acc)

@@ -87,6 +87,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 							ilvl = rosterInfo and rosterInfo.ilvl or nil,
 							isLocalPlayer = src.isLocalPlayer and true or false,
 							role = rosterInfo and rosterInfo.role or nil,
+							deathTime = (not IsSecret(src.deathTimeSeconds)) and src.deathTimeSeconds or nil,
 							metrics = {},
 						}
 						for _, mm in ipairs(metrics) do
@@ -288,6 +289,7 @@ function FightHistory:AddFromSegment(seg)
 			specID = acc.specID,
 			ilvl = acc.ilvl,
 			isLocalPlayer = (guid == playerGUID),
+			deathTime = acc.deaths and acc.deaths.lastTime or nil,
 			metrics = m,
 		}
 	end
