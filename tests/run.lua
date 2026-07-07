@@ -212,6 +212,41 @@ end
 check(offByName.LowGear.breakdown.damage.normalized == offByName.HighGear.breakdown.damage.normalized,
 	"normalization off: equal damage grades equally")
 
+-- 6d. Fight-specific factors: an encounter table overrides global factors,
+-- so a spec that struggles on THIS fight is judged against this fight's curve.
+TP.Benchmarks.encounters = TP.Benchmarks.encounters or {}
+TP.Benchmarks.encounters["Testy the Mover"] = {
+	damageFactor = { [64] = 0.5 }, -- frost mage halved on this movement fight
+	healingFactor = {},
+}
+local moveFight = {
+	name = "(!) Testy the Mover", isBoss = true, duration = 60,
+	players = {
+		a = mkPlayer("a", "MoveMage", "MAGE", "DAMAGER", { damage = 500000 }),
+		b = mkPlayer("b", "OtherRogue", "ROGUE", "DAMAGER", { damage = 1000000 }),
+		c = mkPlayer("c", "Heal", "SHAMAN", "HEALER", { healing = 400000 }),
+	},
+}
+moveFight.players.a.specID = 64
+moveFight.players.b.specID = 260
+local moveResults = TP.Scoring.Engine.ScoreFight(moveFight, { normalizeIlvl = false })
+local moveByName = {}
+for _, r in ipairs(moveResults) do
+	moveByName[r.name] = r
+end
+check(moveByName.MoveMage.breakdown.damage.normalized > 90,
+	("encounter curve rescues the handicapped spec (%.0f)"):format(moveByName.MoveMage.breakdown.damage.normalized))
+-- Same fight scored as non-boss (no encounter match): global factor applies and the mage tanks
+local plainFight = { name = "Testy the Mover", isBoss = false, duration = 60, players = moveFight.players }
+local plainResults = TP.Scoring.Engine.ScoreFight(plainFight, { normalizeIlvl = false })
+local plainByName = {}
+for _, r in ipairs(plainResults) do
+	plainByName[r.name] = r
+end
+check(plainByName.MoveMage.breakdown.damage.normalized < 60,
+	("without the encounter curve the same play scores low (%.0f)"):format(plainByName.MoveMage.breakdown.damage.normalized))
+TP.Benchmarks.encounters["Testy the Mover"] = nil
+
 -- 7. Nothing-dispelled fight: dispels inapplicable for everyone
 local noDispelFight = {
 	name = "No dispels", duration = 30,

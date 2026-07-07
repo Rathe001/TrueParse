@@ -34,10 +34,34 @@ local function normalizeRole(p)
 	return TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID)
 end
 
+-- Fight-specific spec expectations: boss fights match a WCL encounter table
+-- by name (retail prefixes encounters with "(!) "), anything inside a
+-- dungeon matches the dungeon's table by zone name. This is the per-fight
+-- handicap curve — a spec that underperforms on THIS fight (movement,
+-- cleave, ...) is measured against that fight's medians, not global ones.
+local function resolveFightFactors(fight)
+	local B = TP.Benchmarks
+	if not B then
+		return nil
+	end
+	if fight.isBoss and fight.name and B.encounters then
+		local plainName = fight.name:gsub("^%(!%)%s*", "")
+		local set = B.encounters[plainName]
+		if set then
+			return set
+		end
+	end
+	if fight.zone and B.dungeons then
+		return B.dungeons[fight.zone]
+	end
+	return nil
+end
+
 -- Combined spec + item-level output factor (from Data/Benchmarks.lua, WCL
 -- statistics). A player's throughput is divided by this before comparison,
 -- so a low-output spec or low-ilvl player is graded on performance relative
--- to what their spec and gear can produce. SUPPORT keeps its hand-calibrated
+-- to what their spec and gear can produce. Fight-specific factors take
+-- precedence over global ones. SUPPORT keeps its hand-calibrated
 -- expectations (WCL aug numbers include support damage we can't see).
 local function outputFactor(p, role, key, ctx)
 	local B = TP.Benchmarks
@@ -45,8 +69,16 @@ local function outputFactor(p, role, key, ctx)
 		return 1
 	end
 	local factor = 1
-	local specTable = (key == "healing") and B.healingFactor or B.damageFactor
-	local specFactor = specTable and p.specID and specTable[p.specID]
+	local wantHealing = (key == "healing")
+	local specFactor
+	if ctx.fightFactors then
+		local t = wantHealing and ctx.fightFactors.healingFactor or ctx.fightFactors.damageFactor
+		specFactor = t and p.specID and t[p.specID]
+	end
+	if not specFactor then
+		local t = wantHealing and B.healingFactor or B.damageFactor
+		specFactor = t and p.specID and t[p.specID]
+	end
 	if specFactor and specFactor > 0 then
 		factor = factor * specFactor
 	end
@@ -138,6 +170,7 @@ function Engine.ScoreFight(fight, opts)
 		cohorts = {},
 		kickCapable = 0,
 		normalizeIlvl = opts.normalizeIlvl ~= false,
+		fightFactors = resolveFightFactors(fight),
 		totals = { damage = 0, healing = 0, damageTaken = 0, interrupts = 0, dispels = 0, avoidable = 0 },
 	}
 
