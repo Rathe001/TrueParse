@@ -119,6 +119,15 @@ function Get-Factors($medians) {
     return $factors
 }
 
+# Same medians re-keyed by spec ID (absolute per-second benchmarks)
+function Convert-MedianKeys($medians) {
+    $out = @{}
+    foreach ($k in $medians.Keys) {
+        $out[$script:specIDs[$k]] = [math]::Round($medians[$k], 0)
+    }
+    return $out
+}
+
 $encounterFactors = @{}  # [encounterName] = @{ damage=@{}; healing=@{} }
 $dungeonFactors = @{}
 
@@ -131,11 +140,18 @@ foreach ($raidZoneId in $RaidZoneIds) {
     foreach ($enc in $raidZoneObj.encounters) {
         Write-Host ("=== raid encounter {0}: {1}" -f $enc.id, $enc.name)
         $medians = Fetch-EncounterMedians $enc.id $true
+        $ilvlMedian = $null
+        if ($ilvlPairsByEncounter.ContainsKey($enc.id)) {
+            $ilvlMedian = Get-Median ($ilvlPairsByEncounter[$enc.id] | ForEach-Object { $_[0] })
+        }
         $encounterFactors[$enc.name] = @{
             damage = Get-Factors $medians.damage
             healing = Get-Factors $medians.healing
+            damageMedian = Convert-MedianKeys $medians.damage
+            healingMedian = Convert-MedianKeys $medians.healing
+            ilvlMedian = $ilvlMedian
         }
-        Write-Host ("    specs: {0} dps, {1} hps" -f $medians.damage.Count, $medians.healing.Count)
+        Write-Host ("    specs: {0} dps, {1} hps (median ilvl {2})" -f $medians.damage.Count, $medians.healing.Count, $ilvlMedian)
     }
 }
 
@@ -146,6 +162,9 @@ foreach ($enc in $dungeonZoneObj.encounters) {
     $dungeonFactors[$enc.name] = @{
         damage = Get-Factors $medians.damage
         healing = Get-Factors $medians.healing
+        damageMedian = Convert-MedianKeys $medians.damage
+        healingMedian = Convert-MedianKeys $medians.healing
+        ilvlMedian = $null
     }
     Write-Host ("    specs: {0} dps, {1} hps" -f $medians.damage.Count, $medians.healing.Count)
 }
@@ -208,10 +227,14 @@ function Emit-FactorTable($indent, $name, $factors) {
     Emit ("$indent},")
 }
 function Emit-EncounterSet($name, $set) {
-    $safe = $set -eq $null
     Emit ("`t`t[`"{0}`"] = {{" -f ($name -replace '"', '\"'))
     Emit-FactorTable "`t`t`t" "damageFactor" $set.damage
     Emit-FactorTable "`t`t`t" "healingFactor" $set.healing
+    Emit-FactorTable "`t`t`t" "damageMedian" $set.damageMedian
+    Emit-FactorTable "`t`t`t" "healingMedian" $set.healingMedian
+    if ($null -ne $set.ilvlMedian) {
+        Emit ("`t`t`tilvlMedian = {0}," -f [math]::Round($set.ilvlMedian, 0))
+    }
     Emit "`t`t},"
 }
 

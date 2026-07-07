@@ -37,6 +37,13 @@ Weights.expectedShare = {
 	SUPPORT = { damage = 0.14,  healing = 0.15 },
 }
 
+-- When a WCL absolute benchmark exists for the fight+spec, throughput
+-- scores blend "fraction of the top-logs median you produced" (consistent
+-- across groups) with the within-group comparison (differentiates the
+-- room, absorbs content-difficulty mismatch). 0 = pure group-relative,
+-- 1 = pure absolute.
+Weights.absoluteBlend = 0.6
+
 Weights.penalties = {
 	-- Avoidable damage: penalize taking MORE than your equal share of the
 	-- group's avoidable damage. Eating ~40% above your share = full cap.

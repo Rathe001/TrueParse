@@ -246,6 +246,24 @@ for _, r in ipairs(plainResults) do
 end
 check(plainByName.MoveMage.breakdown.damage.normalized < 60,
 	("without the encounter curve the same play scores low (%.0f)"):format(plainByName.MoveMage.breakdown.damage.normalized))
+
+-- 6e. Absolute blend: with a WCL median for the fight+spec, the score blends
+-- "fraction of top-logs median produced" with the group-relative view.
+TP.Benchmarks.encounters["Testy the Mover"].damageMedian = { [64] = 10000 } -- mage median dps here
+TP.Benchmarks.encounters["Testy the Mover"].healingMedian = {}
+local blendResults = TP.Scoring.Engine.ScoreFight(moveFight, { normalizeIlvl = false })
+local blendByName = {}
+for _, r in ipairs(blendResults) do
+	blendByName[r.name] = r
+end
+-- mage: 500000 dmg / 60s = 8333 dps vs 10000 median -> absolute ~83
+local mageAbs = blendByName.MoveMage.breakdown.damage.absolute
+check(mageAbs and math.abs(mageAbs - 83.3) < 1, ("absolute component vs WCL median (%.1f)"):format(mageAbs or -1))
+local mageNorm = blendByName.MoveMage.breakdown.damage.normalized
+check(mageNorm > mageAbs and mageNorm < 100,
+	("blended score sits between absolute and relative (%.1f)"):format(mageNorm))
+-- rogue has no median entry on this fight: pure relative, unchanged shape
+check(blendByName.OtherRogue.breakdown.damage.absolute == nil, "no benchmark -> no absolute component")
 TP.Benchmarks.encounters["Testy the Mover"] = nil
 
 -- 7. Nothing-dispelled fight: dispels inapplicable for everyone

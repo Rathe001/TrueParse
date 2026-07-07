@@ -120,9 +120,27 @@ local function normalizeMetric(p, role, key, ctx)
 		return 0, false
 	end
 
-	-- Throughput family: cohort-relative, expected-share fallback. Values
-	-- are spec/ilvl-adjusted so cohort members compete on performance
-	-- relative to their spec and gear, not raw output.
+	-- Throughput family. Two views, blended when both exist:
+	--  * ABSOLUTE: your per-second output as a fraction of the WCL top-logs
+	--    median for your spec on this fight (ilvl-scaled) — consistent
+	--    across groups.
+	--  * RELATIVE: cohort comparison (spec/ilvl-adjusted), expected-share
+	--    fallback for solo-role slots — differentiates the room.
+	local absolute
+	if role ~= "SUPPORT" and ctx.fightFactors and ctx.duration and ctx.duration > 0 then
+		local medians = (key == "healing") and ctx.fightFactors.healingMedian
+			or (key == "damage") and ctx.fightFactors.damageMedian
+		local bench = medians and p.specID and medians[p.specID]
+		if bench and bench > 0 then
+			local B = TP.Benchmarks
+			if ctx.normalizeIlvl and B.ilvlSlopePct and p.ilvl and ctx.fightFactors.ilvlMedian then
+				bench = bench * (1 + B.ilvlSlopePct / 100) ^ (p.ilvl - ctx.fightFactors.ilvlMedian)
+			end
+			absolute = math.min(100, 100 * (metricValue(p, key) / ctx.duration) / bench)
+		end
+	end
+
+	local relative, applicable
 	local adjusted = adjustedValue(p, role, key, ctx)
 	local cohort = ctx.cohorts[role]
 	if #cohort > 1 then
@@ -133,18 +151,26 @@ local function normalizeMetric(p, role, key, ctx)
 				best = v
 			end
 		end
-		if best <= 0 then
-			return 0, false
+		if best > 0 then
+			relative, applicable = math.min(100, 100 * adjusted / best), true
 		end
-		return math.min(100, 100 * adjusted / best), true
+	else
+		local expected = W.expectedShare[role] and W.expectedShare[role][key]
+		local groupTotal = ctx.totals[key]
+		if expected and groupTotal and groupTotal > 0 then
+			relative, applicable = math.min(100, 100 * (adjusted / groupTotal) / expected), true
+		end
 	end
 
-	local expected = W.expectedShare[role] and W.expectedShare[role][key]
-	local groupTotal = ctx.totals[key]
-	if not expected or not groupTotal or groupTotal <= 0 then
-		return 0, false
+	if absolute and relative then
+		local blend = W.absoluteBlend or 0
+		return blend * absolute + (1 - blend) * relative, true, absolute
+	elseif absolute then
+		return absolute, true, absolute
+	elseif relative then
+		return relative, applicable
 	end
-	return math.min(100, 100 * (adjusted / groupTotal) / expected), true
+	return 0, false
 end
 
 -- fight: a FightHistory record. opts.normalizeIlvl (default true) grades
@@ -171,6 +197,7 @@ function Engine.ScoreFight(fight, opts)
 		kickCapable = 0,
 		normalizeIlvl = opts.normalizeIlvl ~= false,
 		fightFactors = resolveFightFactors(fight),
+		duration = fight.duration,
 		totals = { damage = 0, healing = 0, damageTaken = 0, interrupts = 0, dispels = 0, avoidable = 0 },
 	}
 
@@ -210,11 +237,12 @@ function Engine.ScoreFight(fight, opts)
 		local breakdown = {}
 		local activeWeight = 0
 		for key, weight in pairs(weights) do
-			local normalized, applicable = normalizeMetric(p, role, key, ctx)
+			local normalized, applicable, absolute = normalizeMetric(p, role, key, ctx)
 			breakdown[key] = {
 				weight = weight,
 				normalized = normalized,
 				applicable = applicable,
+				absolute = absolute, -- vs WCL top-logs median, when available
 				value = metricValue(p, key),
 			}
 			if applicable then
