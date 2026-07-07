@@ -74,6 +74,10 @@ local function createWindow()
 
 	window.subtitle = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	window.subtitle:SetPoint("TOPRIGHT", -PADDING, -PADDING)
+	-- Bound by the title so long fight names truncate instead of overlapping
+	window.subtitle:SetPoint("LEFT", window.title, "RIGHT", 6, 0)
+	window.subtitle:SetJustifyH("RIGHT")
+	window.subtitle:SetWordWrap(false)
 
 	-- Title bar: click toggles collapse, drag moves (rows eat mouse below)
 	window.headerButton = CreateFrame("Button", nil, window)
@@ -195,7 +199,7 @@ function MeterWindow:RenderScorecard(fight)
 		end
 		local groupGrade = TP.Scoring.Grades.ForScore(sum / #results)
 		local gr, gg, gb = TP.Scoring.Grades.Color(groupGrade)
-		window.groupGradeText = ("group |cff%02x%02x%02x%s|r · "):format(gr * 255, gg * 255, gb * 255, groupGrade)
+		window.groupGradeText = ("grp |cff%02x%02x%02x%s|r · "):format(gr * 255, gg * 255, gb * 255, groupGrade)
 	end
 	window.subtitle:SetText(window.groupGradeText .. label)
 	local awards = TP.Scoring.Awards.Compute(fight)
