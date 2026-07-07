@@ -181,34 +181,23 @@ function MeterWindow:RenderScorecard(fight)
 		label = label .. " |cffff8888· fighting…|r"
 	end
 
+	window.subtitle:SetText(label)
 	if lastRenderedFight == fight then
-		window.subtitle:SetText((window.groupGradeText or "") .. label)
 		return -- scores are static once captured; only the subtitle changes
 	end
 	lastRenderedFight = fight
 	releaseAllBars()
 
 	local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
-
-	-- Collective grade: the whole point is playing for the group
-	window.groupGradeText = ""
-	if #results >= 3 then
-		local sum = 0
-		for _, r in ipairs(results) do
-			sum = sum + r.score
-		end
-		local groupGrade = TP.Scoring.Grades.ForScore(sum / #results)
-		local gr, gg, gb = TP.Scoring.Grades.Color(groupGrade)
-		window.groupGradeText = ("grp |cff%02x%02x%02x%s|r · "):format(gr * 255, gg * 255, gb * 255, groupGrade)
-	end
-	window.subtitle:SetText(window.groupGradeText .. label)
 	local awards = TP.Scoring.Awards.Compute(fight)
 	local conf = db().bars
 	local rowHeight = SCORECARD_ROW_HEIGHT
 	local shown = math.min(#results, conf.max)
 	local width = db().window.width - PADDING * 2
+	local hasFooter = #results >= 3
+	local totalRows = shown + (hasFooter and 1 or 0)
 
-	for i = #activeRows, shown + 1, -1 do
+	for i = #activeRows, totalRows + 1, -1 do
 		TP.Scorecard:Release(activeRows[i])
 		activeRows[i] = nil
 	end
@@ -240,11 +229,45 @@ function MeterWindow:RenderScorecard(fight)
 		end
 		row.score:SetText(scoreText)
 
+		row.baseBg = nil
+		row.bg:SetColorTexture(1, 1, 1, 0.04)
 		row.fight = fight
 		row.result = r
 	end
 
-	setWindowHeight(shown, rowHeight)
+	-- Footer: the collective grade, visually distinct from player rows
+	if hasFooter then
+		local sum = 0
+		for _, r in ipairs(results) do
+			sum = sum + r.score
+		end
+		local groupScore = sum / #results
+		local groupGrade = TP.Scoring.Grades.ForScore(groupScore)
+
+		local row = activeRows[totalRows]
+		if not row then
+			row = TP.Scorecard:Acquire(window)
+			activeRows[totalRows] = row
+		end
+		row:SetSize(width, rowHeight)
+		row:ClearAllPoints()
+		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (totalRows - 1) * (rowHeight + 1)))
+
+		row.grade:SetText(groupGrade)
+		row.grade:SetTextColor(TP.Scoring.Grades.Color(groupGrade))
+		local label = (#results > 5) and "Raid" or "Group"
+		row.name:SetText(label)
+		row.name:SetTextColor(1, 0.82, 0.2)
+		row.score:SetText(("%.0f"):format(groupScore))
+		row.baseBg = { 1, 0.82, 0.2, 0.10 }
+		row.bg:SetColorTexture(1, 0.82, 0.2, 0.10)
+		row.awards = nil
+		row.playerName = label
+		row.fight = nil
+		row.result = nil -- not clickable: no individual breakdown behind it
+	end
+
+	setWindowHeight(totalRows, rowHeight)
 	TP.BreakdownPanel:OnFightRendered(fight, results)
 end
 

@@ -27,7 +27,12 @@ function Scorecard:Acquire(parent)
 			end
 		end)
 		row:SetScript("OnLeave", function(self)
-			self.bg:SetColorTexture(1, 1, 1, 0.04)
+			local base = self.baseBg
+			if base then
+				self.bg:SetColorTexture(base[1], base[2], base[3], base[4])
+			else
+				self.bg:SetColorTexture(1, 1, 1, 0.04)
+			end
 			GameTooltip:Hide()
 		end)
 
