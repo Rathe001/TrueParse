@@ -119,21 +119,29 @@ local function sortByTotal(a, b)
 	return a.totalAmount > b.totalAmount
 end
 
+local SCOPE_LABEL = {
+	current = "Damage",
+	last = "Damage · last fight",
+	overall = "Damage · overall",
+	none = "Damage",
+}
+
 -- Retail (12.0+): render straight from Blizzard's meter session.
 function MeterWindow:RefreshFromBlizzardMeter()
 	local Meter = TP.BlizzardMeter
-	local session = Meter:GetSession(Enum.DamageMeterType.DamageDone)
+	local session, scope = Meter:GetSession(Enum.DamageMeterType.DamageDone)
 	local conf = db().bars
 
 	if Meter:IsLocked(session) then
-		-- Mid-combat secret values: can't sort or format them. Keep the last
-		-- drawn bars; this refresh loop recovers as soon as values unlock.
-		window.subtitle:SetText("Damage · |cffff8888in combat|r")
+		-- Mid-combat secret values: can't sort or format them, and showing an
+		-- older session's bars here is misleading. Clear until values unlock.
+		window.subtitle:SetText("|cffff8888in combat · live data locked|r")
+		finishDraw(0, conf.height)
 		return
 	end
 
 	local duration = math.max(session.durationSeconds or 0, 1)
-	window.subtitle:SetText(("Damage · %d:%02d"):format(math.floor(duration / 60), duration % 60))
+	window.subtitle:SetText(("%s · %d:%02d"):format(SCOPE_LABEL[scope], math.floor(duration / 60), duration % 60))
 
 	wipe(sortScratch)
 	local sources = session.combatSources

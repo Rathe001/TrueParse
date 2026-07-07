@@ -16,17 +16,27 @@ Meter.available = (C_DamageMeter ~= nil)
 
 local EMPTY = { combatSources = {}, totalAmount = 0, maxAmount = 0, durationSeconds = 0 }
 
--- Session for one attribute (Enum.DamageMeterType.*): the live fight if one
--- has data, otherwise the overall session.
+-- Session for one attribute (Enum.DamageMeterType.*). Display priority:
+-- live fight -> most recent finished fight -> overall. Returns the session
+-- plus a scope tag for labeling.
 function Meter:GetSession(meterType)
 	if not self.available then
-		return EMPTY
+		return EMPTY, "none"
 	end
 	local session = C_DamageMeter.GetCombatSessionFromType(Enum.DamageMeterSessionType.Current, meterType)
-	if not session or #session.combatSources == 0 then
-		session = C_DamageMeter.GetCombatSessionFromType(Enum.DamageMeterSessionType.Overall, meterType)
+	if session and #session.combatSources > 0 then
+		return session, "current"
 	end
-	return session or EMPTY
+	local all = C_DamageMeter.GetAvailableCombatSessions()
+	local latest = all and all[#all] -- list is oldest -> newest
+	if latest and latest.sessionID then
+		session = C_DamageMeter.GetCombatSessionFromID(latest.sessionID, meterType)
+		if session and #session.combatSources > 0 then
+			return session, "last"
+		end
+	end
+	session = C_DamageMeter.GetCombatSessionFromType(Enum.DamageMeterSessionType.Overall, meterType)
+	return session or EMPTY, "overall"
 end
 
 -- True while the session's values are secrets (mid-combat in restricted
