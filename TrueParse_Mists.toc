@@ -43,4 +43,6 @@ UI\Scorecard.lua
 UI\BreakdownPanel.lua
 UI\CoachLine.lua
 UI\RunSummary.lua
+UI\Options.lua
+UI\Minimap.lua
 UI\MeterWindow.lua
