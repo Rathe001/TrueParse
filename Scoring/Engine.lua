@@ -30,11 +30,8 @@ local function metricValue(p, key)
 	return p.metrics[key] or 0
 end
 
-local function normalizeRole(role)
-	if role == "TANK" or role == "HEALER" then
-		return role
-	end
-	return "DAMAGER"
+local function normalizeRole(p)
+	return TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID)
 end
 
 -- Returns normalizedScore (0-100), applicable (boolean)
@@ -120,7 +117,7 @@ function Engine.ScoreFight(fight)
 		ctx.totals.dispels = ctx.totals.dispels + (m.dispels or 0)
 		ctx.totals.avoidable = ctx.totals.avoidable + (m.avoidableTaken or 0)
 
-		local role = normalizeRole(p.role)
+		local role = normalizeRole(p)
 		ctx.cohorts[role] = ctx.cohorts[role] or {}
 		table.insert(ctx.cohorts[role], p)
 		if Cap.CanInterrupt(p.class, role) then
@@ -130,7 +127,7 @@ function Engine.ScoreFight(fight)
 
 	local results = {}
 	for _, p in ipairs(players) do
-		local role = normalizeRole(p.role)
+		local role = normalizeRole(p)
 		local weights = W.roleWeights[role]
 
 		local breakdown = {}

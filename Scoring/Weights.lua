@@ -21,6 +21,9 @@ Weights.roleWeights = {
 	TANK    = { damage = 0.25, healing = 0.10, damageTaken = 0.35, interrupts = 0.20, dispels = 0.10 },
 	HEALER  = { damage = 0.15, healing = 0.55, interrupts = 0.15, dispels = 0.15 },
 	DAMAGER = { damage = 0.50, healing = 0.15, interrupts = 0.25, dispels = 0.10 },
+	-- Augmentation & friends: personal damage is a small, expected slice
+	-- (their real output lives in allies' numbers), so utility weighs more.
+	SUPPORT = { damage = 0.40, healing = 0.20, interrupts = 0.25, dispels = 0.15 },
 }
 
 -- Solo-role-cohort fallback: when you're the only one of your role, your
@@ -29,6 +32,9 @@ Weights.expectedShare = {
 	TANK    = { damage = 0.105, healing = 0.15, damageTaken = 0.40 },
 	HEALER  = { damage = 0.04,  healing = 0.50 },
 	DAMAGER = { damage = 0.29,  healing = 0.15 },
+	-- Calibrated from a real aug run (King Dazar TW, 2026-07-07): aug did
+	-- ~13-16% of group damage while fully buffing.
+	SUPPORT = { damage = 0.14,  healing = 0.15 },
 }
 
 Weights.penalties = {

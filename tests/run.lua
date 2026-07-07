@@ -119,6 +119,36 @@ check(byName.DpsB.penaltyDetail.deaths == 10, "one death costs 10")
 check(byName.Tank.score >= 80, ("well-played tank scores high (%.1f)"):format(byName.Tank.score))
 check(byName.Heal.score >= 80, ("well-played healer scores high (%.1f)"):format(byName.Heal.score))
 
+-- 6b. Augmentation: detected by spec icon, scored as SUPPORT with its own
+-- expectations instead of being crushed by the DPS cohort comparison.
+local augFight = {
+	name = "Aug Test", duration = 60,
+	players = {
+		t = mkPlayer("t", "Tank", "WARRIOR", "TANK",
+			{ damage = 900000, healing = 80000, damageTaken = 500000, interrupts = 1 }),
+		h = mkPlayer("h", "Heal", "PRIEST", "HEALER",
+			{ damage = 60000, healing = 700000, damageTaken = 100000, dispels = 1 }),
+		d1 = mkPlayer("d1", "DpsA", "MAGE", "DAMAGER",
+			{ damage = 4000000, healing = 100000, interrupts = 1 }),
+		d2 = mkPlayer("d2", "DpsB", "ROGUE", "DAMAGER",
+			{ damage = 2000000, healing = 150000, interrupts = 1 }),
+	},
+}
+augFight.players.aug = mkPlayer("aug", "Auggy", "EVOKER", "DAMAGER",
+	{ damage = 1250000, healing = 120000, interrupts = 1 })
+augFight.players.aug.specIconID = 5198700
+
+local augResults = TP.Scoring.Engine.ScoreFight(augFight)
+local augByName = {}
+for _, r in ipairs(augResults) do
+	augByName[r.name] = r
+end
+check(augByName.Auggy.role == "SUPPORT", "aug detected as SUPPORT via spec icon")
+check(augByName.Auggy.breakdown.damage.normalized >= 90,
+	("aug damage share ~13%% scores high (%.0f)"):format(augByName.Auggy.breakdown.damage.normalized))
+check(augByName.Auggy.score >= 70, ("well-played aug scores high (%.1f)"):format(augByName.Auggy.score))
+check(augByName.DpsB.breakdown.damage.normalized == 50, "DPS cohort unaffected by aug (B vs A = 50)")
+
 -- 7. Nothing-dispelled fight: dispels inapplicable for everyone
 local noDispelFight = {
 	name = "No dispels", duration = 30,

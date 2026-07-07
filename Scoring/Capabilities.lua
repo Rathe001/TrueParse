@@ -31,3 +31,22 @@ function Capabilities.CanInterrupt(class, role)
 	end
 	return true
 end
+
+-- Support specs whose output is transferred into OTHER players' numbers
+-- (Augmentation Evoker). Their personal damage massively understates their
+-- contribution and no support-damage attribute exists in C_DamageMeter, so
+-- they get their own scoring role with calibrated expectations instead of
+-- being measured against regular DPS.
+local SUPPORT_SPEC_ICONS = {
+	[5198700] = true, -- Evoker: Augmentation
+}
+
+function Capabilities.EffectiveRole(role, specIconID)
+	if specIconID and SUPPORT_SPEC_ICONS[specIconID] then
+		return "SUPPORT"
+	end
+	if role == "TANK" or role == "HEALER" then
+		return role
+	end
+	return "DAMAGER"
+end
