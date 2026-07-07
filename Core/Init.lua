@@ -86,10 +86,19 @@ function Addon:HandleSlash(input)
 	end
 end
 
+-- Secret-proof debug print: secret values crash table.concat inside
+-- AceConsole, so stringify every arg defensively first.
 function Addon:Debug(...)
-	if self.db and self.db.profile.debug then
-		self:Print("|cff888888[debug]|r", ...)
+	if not (self.db and self.db.profile.debug) then
+		return
 	end
+	local IsSecret = TP.Compat.IsSecret
+	local out = {}
+	for i = 1, select("#", ...) do
+		local v = select(i, ...)
+		out[i] = IsSecret(v) and "<secret>" or tostring(v)
+	end
+	self:Print("|cff888888[debug]|r " .. table.concat(out, " "))
 end
 
 -- TEMPORARY diagnostics: these events fire synchronously inside the blocked

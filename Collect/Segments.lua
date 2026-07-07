@@ -75,6 +75,14 @@ function Segments:StartFight(name)
 		-- Best guess at a label; boss segments get renamed by ENCOUNTER_START
 		name = (UnitExists("target") and UnitName("target")) or GetZoneText() or "Fight"
 	end
+	-- Mid-encounter even UnitName("target") can be a secret string; a secret
+	-- must never become a fight label (it poisons prints and SavedVariables)
+	if TP.Compat.IsSecret(name) then
+		name = GetZoneText() or "Fight"
+		if TP.Compat.IsSecret(name) then
+			name = "Fight"
+		end
+	end
 	local seg = newSegment(TP.SEGMENT.FIGHT, name)
 	for guid in pairs(TP.Roster.players) do
 		self:EnsurePlayer(seg, guid)
@@ -134,6 +142,9 @@ function Segments:CancelEndCheck()
 end
 
 function Segments:OnEncounterStart(encounterID, encounterName)
+	if TP.Compat.IsSecret(encounterName) then
+		encounterName = nil
+	end
 	-- Close any trash segment so the boss gets a clean one
 	if self.current and not self.current.encounterID then
 		self:EndFight()
