@@ -36,6 +36,7 @@ function Addon:OnEnable()
 	TP.Roster:OnEnable()
 	TP.Segments:OnEnable()
 	TP.EnableCombatLog()
+	TP.FightHistory:OnEnable()
 	TP.CastProbe:OnEnable()
 	TP.MeterWindow:OnEnable()
 end
@@ -55,6 +56,24 @@ function Addon:HandleSlash(input)
 	elseif cmd == "debug" then
 		self.db.profile.debug = not self.db.profile.debug
 		self:Print("Debug " .. (self.db.profile.debug and "on." or "off."))
+	elseif cmd == "fights" then
+		local fights = TP.FightHistory.fights
+		if #fights == 0 then
+			self:Print("No fights captured yet.")
+		else
+			self:Print(("Captured fights (%d, newest first):"):format(#fights))
+			for i = 1, math.min(#fights, 10) do
+				local f = fights[i]
+				local players = 0
+				for _ in pairs(f.players) do
+					players = players + 1
+				end
+				self:Print(("  %d. %s — %d:%02d, %d players, dmg %s, heal %s, kicks %d"):format(
+					i, f.name, math.floor(f.duration / 60), f.duration % 60, players,
+					TP.FormatNumber(f.totals.damage or 0), TP.FormatNumber(f.totals.healing or 0),
+					f.totals.interrupts or 0))
+			end
+		end
 	elseif cmd == "probe" then
 		if rest == "status" then
 			TP.CastProbe:Report(true)
@@ -63,7 +82,7 @@ function Addon:HandleSlash(input)
 			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 		end
 	else
-		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp debug, /tp probe")
+		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp fights, /tp debug, /tp probe")
 	end
 end
 

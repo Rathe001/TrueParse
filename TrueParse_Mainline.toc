@@ -19,6 +19,7 @@ Metrics\Damage.lua
 Collect\Segments.lua
 Collect\CombatLog.lua
 Collect\BlizzardMeter.lua
+Collect\FightHistory.lua
 Collect\CastProbe.lua
 UI\Bars.lua
 UI\MeterWindow.lua
