@@ -74,6 +74,20 @@ function Addon:HandleSlash(input)
 					f.totals.interrupts or 0))
 			end
 		end
+	elseif cmd == "score" then
+		local idx = tonumber(rest) or 1
+		local fight = TP.FightHistory.fights[idx]
+		if not fight then
+			self:Print("No captured fight #" .. idx .. " (see /tp fights).")
+		else
+			local results = TP.Scoring.Engine.ScoreFight(fight)
+			self:Print(("Contribution scores — %s (%d:%02d):"):format(
+				fight.name, math.floor(fight.duration / 60), fight.duration % 60))
+			for i, r in ipairs(results) do
+				local penaltyText = r.penalty > 0 and (" |cffff4444(-%.0f)|r"):format(r.penalty) or ""
+				self:Print(("  %d. %s [%s] — %.0f%s"):format(i, r.name, r.role, r.score, penaltyText))
+			end
+		end
 	elseif cmd == "probe" then
 		if rest == "status" then
 			TP.CastProbe:Report(true)
@@ -82,7 +96,7 @@ function Addon:HandleSlash(input)
 			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 		end
 	else
-		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp fights, /tp debug, /tp probe")
+		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp fights, /tp score [n], /tp debug, /tp probe")
 	end
 end
 

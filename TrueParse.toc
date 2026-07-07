@@ -21,5 +21,8 @@ Collect\CombatLog.lua
 Collect\BlizzardMeter.lua
 Collect\FightHistory.lua
 Collect\CastProbe.lua
+Scoring\Capabilities.lua
+Scoring\Weights.lua
+Scoring\Engine.lua
 UI\Bars.lua
 UI\MeterWindow.lua
