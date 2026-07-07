@@ -1,13 +1,14 @@
--- EXPERIMENT: can TrueParse count interrupt OPPORTUNITIES itself on Midnight?
--- The combat log is forbidden, but unit cast events are a different API
--- family. This probe counts enemy casts seen via UNIT_SPELLCAST_* events,
--- whether their payloads are readable or secret mid-fight, and whether group
--- aura data stays readable (for future buff/debuff metrics). It reports one
--- line when you leave combat. Toggle: /tp probe. Live dump: /tp probe status.
+-- EXPERIMENT (concluded 2026-07-07, Windrunner Spire follower dungeon):
+-- can TrueParse count interrupt OPPORTUNITIES itself on Midnight?
 --
--- If this works, interrupt scoring becomes true opportunity capture:
--- kickable casts counted here (denominator) x per-player kick counts from
--- C_DamageMeter (numerator).
+-- VERDICT: no. UNIT_SPELLCAST_* events never fire for hostile NPCs (0 casts,
+-- 0 secrets, 0 interrupted across many caster pulls), and group aura reads
+-- are ~90% secret mid-combat. Interrupt scoring therefore uses C_DamageMeter
+-- kick counts normalized among kick-capable specs, and buff checks must be
+-- pre-pull snapshots (out-of-combat reads are never secret).
+--
+-- Kept (default off) for re-testing on future patches and Classic clients.
+-- Toggle: /tp probe. Live dump: /tp probe status.
 --
 -- Deliberately keyed to the player's own PLAYER_REGEN_* state on a private
 -- frame, NOT to TP.Segments: follower-dungeon NPCs can hold segments open,

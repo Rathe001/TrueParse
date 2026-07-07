@@ -22,7 +22,7 @@ local defaults = {
 			maxFights = 15,
 		},
 		debug = false,
-		probe = true,
+		probe = false,
 	},
 }
 
