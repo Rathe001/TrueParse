@@ -14,6 +14,7 @@ Core\Constants.lua
 Core\Utils.lua
 Core\Compat.lua
 Data\Benchmarks.lua
+Data\Potions.lua
 Collect\Roster.lua
 Metrics\Registry.lua
 Metrics\Damage.lua

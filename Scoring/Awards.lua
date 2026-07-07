@@ -12,6 +12,7 @@ Awards.LABELS = {
 	cleanser = "Cleanser",
 	untouchable = "Untouchable",
 	lifesaver = "Lifesaver",
+	survivalist = "Survivalist",
 }
 
 -- Sole top performer for a metric, requiring a minimum and no tie.
@@ -55,6 +56,12 @@ function Awards.Compute(fight)
 				grant(guid, "untouchable")
 			end
 		end
+	end
+
+	-- Saved themselves with a potion/Healthstone and didn't die
+	local survivor = topUnique(fight, "potionHealing", 1)
+	if survivor and (fight.players[survivor].metrics.deaths or 0) == 0 then
+		grant(survivor, "survivalist")
 	end
 
 	-- Non-healer covering a meaningful slice of group healing

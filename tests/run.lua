@@ -73,6 +73,7 @@ local function mkPlayer(guid, name, class, role, m)
 	local defaults = {
 		damage = 0, healing = 0, absorbs = 0, damageTaken = 0,
 		interrupts = 0, dispels = 0, deaths = 0, avoidableTaken = 0,
+		potionHealing = 0,
 	}
 	for k, v in pairs(m) do
 		defaults[k] = v
@@ -313,6 +314,32 @@ if awards.d1 then
 	end
 end
 check(offHealerHasLifesaver, "DPS with 25% of group healing earns Lifesaver")
+-- Survivalist: most self-rescue healing, and lived
+awardFight.players.d2.metrics.potionHealing = 60000
+local awards2 = TP.Scoring.Awards.Compute(awardFight)
+local hasSurvivalist = false
+if awards2.d2 then
+	for _, a in ipairs(awards2.d2) do
+		if a == "Survivalist" then
+			hasSurvivalist = true
+		end
+	end
+end
+check(hasSurvivalist, "potion user who lived earns Survivalist")
+awardFight.players.d2.metrics.deaths = 1
+local awards3 = TP.Scoring.Awards.Compute(awardFight)
+local deadSurvivalist = false
+if awards3.d2 then
+	for _, a in ipairs(awards3.d2) do
+		if a == "Survivalist" then
+			deadSurvivalist = true
+		end
+	end
+end
+check(not deadSurvivalist, "no Survivalist if you died anyway")
+awardFight.players.d2.metrics.deaths = 0
+awardFight.players.d2.metrics.potionHealing = 0
+
 local untouchableCount = 0
 for guid, list in pairs(awards) do
 	for _, a in ipairs(list) do

@@ -101,6 +101,31 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		end
 	end
 
+	-- Self-rescue healing (potions/Healthstones) from the per-spell container
+	local healingEnum = Enum.DamageMeterType and Enum.DamageMeterType.HealingDone
+	if healingEnum and C_DamageMeter.GetCombatSessionSourceFromID then
+		totals.potionHealing = 0
+		for guid, p in pairs(players) do
+			local potion = 0
+			local ok, container = pcall(C_DamageMeter.GetCombatSessionSourceFromID,
+				sessionID, healingEnum, guid, p.isLocalPlayer)
+			if ok and container and container.combatSpells then
+				for i = 1, #container.combatSpells do
+					local spell = container.combatSpells[i]
+					local id = spell.spellID
+					if id and not IsSecret(id) and TP.POTION_HEALS[id] then
+						local amount = spell.totalAmount
+						if amount and not IsSecret(amount) then
+							potion = potion + amount
+						end
+					end
+				end
+			end
+			p.metrics.potionHealing = potion
+			totals.potionHealing = totals.potionHealing + potion
+		end
+	end
+
 	local name = descriptor and descriptor.name
 	if not name or IsSecret(name) or name == "" then
 		name = ("Fight #%d"):format(sessionID)
@@ -264,6 +289,7 @@ function FightHistory:AddFromSegment(seg)
 	local totals = {
 		damage = 0, healing = 0, absorbs = 0, damageTaken = 0,
 		avoidableTaken = 0, interrupts = 0, dispels = 0, deaths = 0,
+		potionHealing = 0,
 	}
 	local players = {}
 	local playerGUID = UnitGUID("player")
@@ -277,6 +303,7 @@ function FightHistory:AddFromSegment(seg)
 			interrupts = acc.interrupts and acc.interrupts.kicks or 0,
 			dispels = acc.dispels and acc.dispels.count or 0,
 			deaths = acc.deaths and acc.deaths.total or 0,
+			potionHealing = acc.potions and acc.potions.healing or 0,
 		}
 		for k, v in pairs(m) do
 			totals[k] = totals[k] + v
