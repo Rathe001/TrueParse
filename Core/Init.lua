@@ -41,7 +41,7 @@ function Addon:OnEnable()
 end
 
 function Addon:HandleSlash(input)
-	local cmd = (input or ""):lower():match("^%s*(%S*)")
+	local cmd, rest = (input or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
 	if cmd == "" then
 		TP.MeterWindow:Toggle()
 	elseif cmd == "lock" then
@@ -56,8 +56,12 @@ function Addon:HandleSlash(input)
 		self.db.profile.debug = not self.db.profile.debug
 		self:Print("Debug " .. (self.db.profile.debug and "on." or "off."))
 	elseif cmd == "probe" then
-		self.db.profile.probe = not self.db.profile.probe
-		self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
+		if rest == "status" then
+			TP.CastProbe:Report(true)
+		else
+			self.db.profile.probe = not self.db.profile.probe
+			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
+		end
 	else
 		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp debug, /tp probe")
 	end

@@ -2,12 +2,16 @@
 -- The combat log is forbidden, but unit cast events are a different API
 -- family. This probe counts enemy casts seen via UNIT_SPELLCAST_* events,
 -- whether their payloads are readable or secret mid-fight, and whether group
--- aura data stays readable (for future buff/debuff metrics). It prints a
--- one-line report after each fight. Toggle with /tp probe.
+-- aura data stays readable (for future buff/debuff metrics). It reports one
+-- line when you leave combat. Toggle: /tp probe. Live dump: /tp probe status.
 --
 -- If this works, interrupt scoring becomes true opportunity capture:
 -- kickable casts counted here (denominator) x per-player kick counts from
 -- C_DamageMeter (numerator).
+--
+-- Deliberately keyed to the player's own PLAYER_REGEN_* state on a private
+-- frame, NOT to TP.Segments: follower-dungeon NPCs can hold segments open,
+-- and AceEvent allows only one handler per event per object.
 local _, TP = ...
 
 local Probe = {}
@@ -21,7 +25,7 @@ local counts = {
 }
 local seenCasts = {}
 local seenInterrupts = {}
-local auraTimer
+local auraTicker
 
 local function reset()
 	wipe(seenCasts)
@@ -32,7 +36,7 @@ local function reset()
 end
 
 local function enabled()
-	return TP.Addon.db.profile.probe
+	return IsSecret ~= nil and TP.Addon.db and TP.Addon.db.profile.probe
 end
 
 local function isHostileNPC(unit)
@@ -118,8 +122,12 @@ local function sampleAuras()
 	end
 end
 
-function Probe:Report()
-	if counts.casts == 0 and counts.secret == 0 and counts.auraReads == 0 then
+function Probe:Report(force)
+	local observed = counts.casts + counts.secret + counts.auraReads + counts.errors
+	if observed == 0 then
+		if force then
+			TP.Addon:Print("Probe: nothing observed yet (no enemy cast events, no aura samples).")
+		end
 		return
 	end
 	TP.Addon:Print(("Probe: enemy casts %d (interruptible %d, secret %d), interrupted %d · aura reads %d (%d secret) · errors %d"):format(
@@ -127,34 +135,43 @@ function Probe:Report()
 		counts.auraReads, counts.auraSecrets, counts.errors))
 end
 
+local function onCombatStart()
+	reset()
+	if not auraTicker then
+		auraTicker = C_Timer.NewTicker(2, sampleAuras)
+	end
+end
+
+local function onCombatEnd()
+	if auraTicker then
+		auraTicker:Cancel()
+		auraTicker = nil
+	end
+	if enabled() then
+		Probe:Report(false)
+	end
+end
+
+local eventFrame = CreateFrame("Frame")
+eventFrame:RegisterEvent("UNIT_SPELLCAST_START")
+eventFrame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
+eventFrame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
+eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+eventFrame:SetScript("OnEvent", function(_, event, unit, castGUID, spellID)
+	if event == "UNIT_SPELLCAST_START" then
+		onCastStart(unit, castGUID, spellID, false)
+	elseif event == "UNIT_SPELLCAST_CHANNEL_START" then
+		onCastStart(unit, castGUID, spellID, true)
+	elseif event == "UNIT_SPELLCAST_INTERRUPTED" then
+		onInterrupted(unit, castGUID, spellID)
+	elseif event == "PLAYER_REGEN_DISABLED" then
+		onCombatStart()
+	elseif event == "PLAYER_REGEN_ENABLED" then
+		onCombatEnd()
+	end
+end)
+
 function Probe:OnEnable()
 	IsSecret = TP.Compat.IsSecret
-	local Addon = TP.Addon
-
-	Addon:RegisterEvent("UNIT_SPELLCAST_START", function(_, unit, castGUID, spellID)
-		onCastStart(unit, castGUID, spellID, false)
-	end)
-	Addon:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", function(_, unit, castGUID, spellID)
-		onCastStart(unit, castGUID, spellID, true)
-	end)
-	Addon:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED", function(_, unit, castGUID, spellID)
-		onInterrupted(unit, castGUID, spellID)
-	end)
-
-	Addon:RegisterMessage("TrueParse_SEGMENT_CHANGED", function()
-		if TP.Segments.current then
-			reset()
-			if not auraTimer then
-				auraTimer = Addon:ScheduleRepeatingTimer(sampleAuras, 2)
-			end
-		else
-			if auraTimer then
-				Addon:CancelTimer(auraTimer)
-				auraTimer = nil
-			end
-			if enabled() then
-				Probe:Report()
-			end
-		end
-	end)
 end
