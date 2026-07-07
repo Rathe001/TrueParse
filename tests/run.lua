@@ -16,6 +16,7 @@ loadModule("Scoring/Grades.lua", TP)
 loadModule("Data/Benchmarks.lua", TP)
 loadModule("Scoring/Awards.lua", TP)
 loadModule("Scoring/Coach.lua", TP)
+loadModule("Scoring/Runs.lua", TP)
 
 local failures = 0
 local function check(cond, label)
@@ -314,6 +315,39 @@ local advice = TP.Scoring.Coach.BiggestOpportunity(coachByName.DpsB)
 check(advice ~= nil and advice.kind == "avoidable", "penalized player coached about avoidable damage first")
 local adviceA = TP.Scoring.Coach.BiggestOpportunity(coachByName.DpsA)
 check(adviceA == nil or adviceA.kind == "metric", "clean player gets metric advice or none")
+
+-- 10. Run aggregation
+local runFights = {
+	{
+		name = "Pull 1", duration = 30, capturedAt = 100, zone = "Testhall",
+		totals = { damage = 1000, healing = 200, interrupts = 1 },
+		players = {
+			a = { guid = "a", name = "A", class = "MAGE", role = "DAMAGER", specID = 64, isLocalPlayer = true,
+				metrics = { damage = 700, healing = 0, interrupts = 1 } },
+			b = { guid = "b", name = "B", class = "PRIEST", role = "HEALER",
+				metrics = { damage = 300, healing = 200, interrupts = 0 } },
+		},
+	},
+	{
+		name = "Pull 2", duration = 45, capturedAt = 200, zone = "Testhall",
+		totals = { damage = 2000, healing = 500, interrupts = 2 },
+		players = {
+			a = { guid = "a", name = "A", class = "MAGE", role = "DAMAGER", specID = 64, ilvl = 280,
+				metrics = { damage = 1500, healing = 100, interrupts = 0 } },
+			b = { guid = "b", name = "B", class = "PRIEST", role = "HEALER",
+				metrics = { damage = 500, healing = 400, interrupts = 2 } },
+		},
+	},
+}
+local run = TP.Scoring.Runs.Aggregate(runFights, "Testhall Run")
+check(run.duration == 75, "run duration sums")
+check(run.capturedAt == 200, "run keeps latest capture time")
+check(run.players.a.metrics.damage == 2200, "player damage sums across pulls")
+check(run.players.a.ilvl == 280, "later fight fills in missing identity")
+check(run.totals.interrupts == 3, "totals sum")
+check(run.zone == "Testhall", "run keeps zone")
+local runScored = TP.Scoring.Engine.ScoreFight(run, { normalizeIlvl = false })
+check(#runScored == 2, "aggregated run is scoreable")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file
 local svPath = arg and arg[1]

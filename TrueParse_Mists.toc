@@ -23,6 +23,7 @@ Collect\Segments.lua
 Collect\CombatLog.lua
 Collect\BlizzardMeter.lua
 Collect\FightHistory.lua
+Collect\Sync.lua
 Collect\CastProbe.lua
 Scoring\Capabilities.lua
 Scoring\Weights.lua
@@ -30,9 +31,11 @@ Scoring\Engine.lua
 Scoring\Grades.lua
 Scoring\Awards.lua
 Scoring\Coach.lua
+Scoring\Runs.lua
 Core\Career.lua
 UI\Bars.lua
 UI\Scorecard.lua
 UI\BreakdownPanel.lua
 UI\CoachLine.lua
+UI\RunSummary.lua
 UI\MeterWindow.lua

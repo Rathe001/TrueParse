@@ -176,15 +176,28 @@ function MeterWindow:RenderScorecard(fight)
 	if UnitAffectingCombat("player") then
 		label = label .. " |cffff8888· fighting…|r"
 	end
-	window.subtitle:SetText(label)
 
 	if lastRenderedFight == fight then
+		window.subtitle:SetText((window.groupGradeText or "") .. label)
 		return -- scores are static once captured; only the subtitle changes
 	end
 	lastRenderedFight = fight
 	releaseAllBars()
 
 	local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
+
+	-- Collective grade: the whole point is playing for the group
+	window.groupGradeText = ""
+	if #results >= 3 then
+		local sum = 0
+		for _, r in ipairs(results) do
+			sum = sum + r.score
+		end
+		local groupGrade = TP.Scoring.Grades.ForScore(sum / #results)
+		local gr, gg, gb = TP.Scoring.Grades.Color(groupGrade)
+		window.groupGradeText = ("group |cff%02x%02x%02x%s|r · "):format(gr * 255, gg * 255, gb * 255, groupGrade)
+	end
+	window.subtitle:SetText(window.groupGradeText .. label)
 	local awards = TP.Scoring.Awards.Compute(fight)
 	local conf = db().bars
 	local rowHeight = SCORECARD_ROW_HEIGHT

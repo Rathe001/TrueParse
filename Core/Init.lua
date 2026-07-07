@@ -65,6 +65,8 @@ function Addon:OnEnable()
 	TP.CastProbe:OnEnable()
 	TP.CoachLine:OnEnable()
 	TP.Career:OnEnable()
+	TP.Sync:OnEnable()
+	TP.RunSummary:OnEnable()
 	TP.MeterWindow:OnEnable()
 end
 
@@ -106,6 +108,8 @@ function Addon:HandleSlash(input)
 					f.totals.interrupts or 0))
 			end
 		end
+	elseif cmd == "run" then
+		TP.RunSummary:Report()
 	elseif cmd == "career" then
 		TP.Career:PrintSummary()
 	elseif cmd == "coach" then
@@ -142,7 +146,7 @@ function Addon:HandleSlash(input)
 			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 		end
 	else
-		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp fights, /tp score [n], /tp career, /tp coach, /tp ilvl, /tp debug, /tp probe")
+		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp fights, /tp score [n], /tp run, /tp career, /tp coach, /tp ilvl, /tp debug, /tp probe")
 	end
 end
 
