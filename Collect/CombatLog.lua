@@ -26,6 +26,12 @@ frame:SetScript("OnEvent", function()
 end)
 
 function TP.EnableCombatLog()
+	if not TP.Compat.HAS_CLEU then
+		-- Midnight+: registering CLEU is an ADDON_ACTION_FORBIDDEN error.
+		-- Collect/BlizzardMeter.lua supplies combat data on these clients;
+		-- this path remains for Classic support later.
+		return
+	end
 	TP.Metrics:BuildDispatch()
 	dispatch = TP.Metrics.dispatch
 	frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")

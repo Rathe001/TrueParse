@@ -7,6 +7,15 @@ TP.Compat = Compat
 
 Compat.IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 
+-- Midnight (12.0+) forbids addons from registering COMBAT_LOG_EVENT_UNFILTERED
+-- and instead exposes Blizzard-computed meter data via C_DamageMeter. Presence
+-- of that namespace is the signal for which collection path to use.
+Compat.HAS_CLEU = (C_DamageMeter == nil)
+
+-- Secret values (12.0+): mid-combat meter data may be readable only by secure
+-- widgets; issecretvalue() detects them. Older clients have no secrets.
+Compat.IsSecret = issecretvalue or function() return false end
+
 -- Role from the group role assignment; NONE happens in non-matchmade groups,
 -- where we fall back to DAMAGER until spec inspection lands (later phase).
 function Compat.GetRole(unit)

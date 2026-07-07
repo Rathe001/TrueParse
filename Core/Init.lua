@@ -63,3 +63,25 @@ function Addon:Debug(...)
 		self:Print("|cff888888[debug]|r", ...)
 	end
 end
+
+-- TEMPORARY diagnostics: these events fire synchronously inside the blocked
+-- call, so debugstack() here reveals the offending call site. Remove once
+-- the load error is fixed.
+local diag = CreateFrame("Frame")
+diag:RegisterEvent("ADDON_ACTION_FORBIDDEN")
+diag:RegisterEvent("ADDON_ACTION_BLOCKED")
+diag:SetScript("OnEvent", function(_, event, addonName, func)
+	if addonName ~= ADDON_NAME then
+		return
+	end
+	local stack = debugstack(3, 20, 0)
+	print("|cffff4444TrueParse diag:|r", event, "->", tostring(func))
+	for line in stack:gmatch("[^\n]+") do
+		if line:find("TrueParse", 1, true) then
+			print("|cffff8888  at:|r", line)
+		end
+	end
+	if Addon.db then
+		Addon.db.global.lastBlocked = { event = event, func = tostring(func), stack = stack, when = date() }
+	end
+end)
