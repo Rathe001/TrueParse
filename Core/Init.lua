@@ -22,6 +22,7 @@ local defaults = {
 			maxFights = 15,
 		},
 		debug = false,
+		probe = true,
 	},
 }
 
@@ -35,6 +36,7 @@ function Addon:OnEnable()
 	TP.Roster:OnEnable()
 	TP.Segments:OnEnable()
 	TP.EnableCombatLog()
+	TP.CastProbe:OnEnable()
 	TP.MeterWindow:OnEnable()
 end
 
@@ -53,8 +55,11 @@ function Addon:HandleSlash(input)
 	elseif cmd == "debug" then
 		self.db.profile.debug = not self.db.profile.debug
 		self:Print("Debug " .. (self.db.profile.debug and "on." or "off."))
+	elseif cmd == "probe" then
+		self.db.profile.probe = not self.db.profile.probe
+		self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 	else
-		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp debug")
+		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp debug, /tp probe")
 	end
 end
 
