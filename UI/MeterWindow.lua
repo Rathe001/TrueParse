@@ -263,6 +263,7 @@ function MeterWindow:RefreshFromSegments(force)
 	end
 	lastDrawnRevision = Segments.revision
 	releaseAllRows()
+	lastRenderedFight = nil
 
 	local seg = Segments:GetDisplaySegment()
 	local duration = Segments:GetDuration(seg)
@@ -296,14 +297,19 @@ function MeterWindow:Refresh(force)
 	if not window or not window:IsShown() then
 		return
 	end
+	local fight = TP.FightHistory.fights[1]
 	if TP.BlizzardMeter.available then
-		local fight = TP.FightHistory.fights[1]
 		if fight then
 			self:RenderScorecard(fight)
 		else
 			self:RefreshFromBlizzardMeter()
 		end
 	else
-		self:RefreshFromSegments(force)
+		-- Classic: live damage bars while fighting, scorecard after
+		if TP.Segments.current or not fight then
+			self:RefreshFromSegments(force)
+		else
+			self:RenderScorecard(fight)
+		end
 	end
 end

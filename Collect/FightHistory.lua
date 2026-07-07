@@ -251,11 +251,74 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
 	end
 end)
 
-function FightHistory:OnEnable()
-	if not TP.BlizzardMeter.available then
+-- Classic path: converts a finished CLEU segment's accumulators into the
+-- same fight-record shape the retail snapshotter produces, so the scoring
+-- engine, scorecard, and history behave identically on both clients.
+function FightHistory:AddFromSegment(seg)
+	if TP.BlizzardMeter.available then
 		return
 	end
+	local totals = {
+		damage = 0, healing = 0, absorbs = 0, damageTaken = 0,
+		avoidableTaken = 0, interrupts = 0, dispels = 0, deaths = 0,
+	}
+	local players = {}
+	local playerGUID = UnitGUID("player")
+	for guid, acc in pairs(seg.players) do
+		local m = {
+			damage = acc.damage and acc.damage.useful or 0,
+			healing = acc.healing and acc.healing.effective or 0,
+			absorbs = 0,
+			damageTaken = acc.taken and acc.taken.total or 0,
+			avoidableTaken = 0,
+			interrupts = acc.interrupts and acc.interrupts.kicks or 0,
+			dispels = acc.dispels and acc.dispels.count or 0,
+			deaths = acc.deaths and acc.deaths.total or 0,
+		}
+		for k, v in pairs(m) do
+			totals[k] = totals[k] + v
+		end
+		players[guid] = {
+			guid = guid,
+			name = acc.name,
+			class = acc.class,
+			role = acc.role,
+			specID = acc.specID,
+			ilvl = acc.ilvl,
+			isLocalPlayer = (guid == playerGUID),
+			metrics = m,
+		}
+	end
+	if totals.damage <= 0 then
+		return -- trivial segment, don't pollute history
+	end
+
+	local fight = {
+		name = seg.name or "Fight",
+		duration = seg.duration or 0,
+		capturedAt = time(),
+		zone = GetZoneText(),
+		players = players,
+		totals = totals,
+	}
+	table.insert(self.fights, 1, fight)
+	local cap = TP.Addon.db.profile.history.maxFights
+	for i = #self.fights, cap + 1, -1 do
+		table.remove(self.fights, i)
+	end
+	self:Persist()
+	TP.Addon:SendMessage("TrueParse_FIGHT_CAPTURED", fight)
+end
+
+function FightHistory:OnEnable()
 	IsSecret = TP.Compat.IsSecret
+	self.fights = TP.Addon.db.char.recentFights or {}
+	-- Migrate away the account-wide storage used by earlier builds
+	TP.Addon.db.global.recentFights = nil
+
+	if not TP.BlizzardMeter.available then
+		return -- Classic: fights arrive via AddFromSegment
+	end
 	specIconMap = TP.Compat.BuildSpecIconMap()
 
 	metrics = {}
@@ -265,10 +328,6 @@ function FightHistory:OnEnable()
 			metrics[#metrics + 1] = { key = def.key, enumValue = enumValue }
 		end
 	end
-
-	self.fights = TP.Addon.db.char.recentFights or {}
-	-- Migrate away the account-wide storage used by earlier builds
-	TP.Addon.db.global.recentFights = nil
 
 	for _, ev in ipairs({
 		"DAMAGE_METER_COMBAT_SESSION_UPDATED",

@@ -36,6 +36,9 @@ function Addon:OnInitialize()
 end
 
 function Addon:OnEnable()
+	if not TP.Compat.IS_RETAIL then
+		TP.Scoring.Capabilities.SetMoPRules(true)
+	end
 	TP.Roster:OnEnable()
 	TP.Segments:OnEnable()
 	TP.EnableCombatLog()

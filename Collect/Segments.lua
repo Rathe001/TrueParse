@@ -59,7 +59,10 @@ function Segments:EnsurePlayer(seg, guid)
 		if not info then
 			return nil
 		end
-		acc = { guid = guid, name = info.name, class = info.class, role = info.role }
+		acc = {
+			guid = guid, name = info.name, class = info.class, role = info.role,
+			specID = info.specID, ilvl = info.ilvl,
+		}
 		TP.Metrics:InitPlayer(acc)
 		seg.players[guid] = acc
 	end
@@ -110,6 +113,7 @@ function Segments:EndFight()
 	end
 
 	self:MergeOverall(seg)
+	TP.FightHistory:AddFromSegment(seg)
 	self.revision = self.revision + 1
 	TP.Addon:SendMessage("TrueParse_SEGMENT_CHANGED")
 	TP.Addon:Debug("Fight ended:", seg.name, ("(%.0fs)"):format(seg.duration))

@@ -1,4 +1,4 @@
-## Interface: 120007
+## Interface: 50500
 ## Title: TrueParse
 ## Notes: A parse that shows you actually did your job. Group contribution meter.
 ## Author: Josh
@@ -13,7 +13,6 @@ Core\Init.lua
 Core\Constants.lua
 Core\Utils.lua
 Core\Compat.lua
-Data\Benchmarks.lua
 Collect\Roster.lua
 Metrics\Registry.lua
 Metrics\Damage.lua

@@ -19,9 +19,20 @@ local NO_KICK_AS_HEALER = {
 	MONK = true,    -- Mistweaver lacks Spear Hand Strike
 }
 
+-- MoP Classic: Rebuke/Spear Hand Strike/Skull Bash are available to all
+-- specs of their classes; only priests lack an interrupt.
+local mopRules = false
+
+function Capabilities.SetMoPRules(enabled)
+	mopRules = enabled and true or false
+end
+
 function Capabilities.CanInterrupt(class, role)
 	if not class then
 		return true -- unknown class: don't punish, don't exempt others
+	end
+	if mopRules then
+		return class ~= "PRIEST"
 	end
 	if NO_KICK[class] then
 		return false

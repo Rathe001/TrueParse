@@ -59,6 +59,11 @@ check(not Cap.CanInterrupt("PRIEST", "DAMAGER"), "shadow priest cannot interrupt
 check(not Cap.CanInterrupt("MONK", "HEALER"), "mistweaver cannot interrupt")
 check(Cap.CanInterrupt("MONK", "TANK"), "brewmaster can interrupt")
 check(Cap.CanInterrupt("SHAMAN", "HEALER"), "resto shaman can interrupt")
+Cap.SetMoPRules(true)
+check(Cap.CanInterrupt("PALADIN", "HEALER"), "MoP holy paladin can interrupt (Rebuke)")
+check(Cap.CanInterrupt("MONK", "HEALER"), "MoP mistweaver can interrupt")
+check(not Cap.CanInterrupt("PRIEST", "HEALER"), "MoP priest still cannot interrupt")
+Cap.SetMoPRules(false)
 
 -- Synthetic 5-man modeled on observed real shares
 local function mkPlayer(guid, name, class, role, m)
