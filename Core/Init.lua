@@ -11,8 +11,9 @@ local defaults = {
 		window = {
 			point = "CENTER", relPoint = "CENTER", x = 0, y = 0,
 			width = 240, height = 200,
-			locked = false, shown = true, collapsed = false,
+			locked = false, shown = true, collapsed = false, autoCollapse = true,
 		},
+		coach = true,
 		bars = {
 			height = 18,
 			max = 10,
@@ -44,6 +45,8 @@ function Addon:OnEnable()
 	TP.EnableCombatLog()
 	TP.FightHistory:OnEnable()
 	TP.CastProbe:OnEnable()
+	TP.CoachLine:OnEnable()
+	TP.Career:OnEnable()
 	TP.MeterWindow:OnEnable()
 end
 
@@ -85,6 +88,11 @@ function Addon:HandleSlash(input)
 					f.totals.interrupts or 0))
 			end
 		end
+	elseif cmd == "career" then
+		TP.Career:PrintSummary()
+	elseif cmd == "coach" then
+		self.db.profile.coach = not self.db.profile.coach
+		self:Print("Post-fight coach line " .. (self.db.profile.coach and "on." or "off."))
 	elseif cmd == "ilvl" then
 		self.db.profile.scoring.normalizeIlvl = not self.db.profile.scoring.normalizeIlvl
 		self:Print("Item-level normalization "
@@ -116,7 +124,7 @@ function Addon:HandleSlash(input)
 			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 		end
 	else
-		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp fights, /tp score [n], /tp ilvl, /tp debug, /tp probe")
+		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp fights, /tp score [n], /tp career, /tp coach, /tp ilvl, /tp debug, /tp probe")
 	end
 end
 

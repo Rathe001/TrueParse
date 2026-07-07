@@ -13,6 +13,15 @@ TP.SEGMENT = {
 	MPLUS = "mplus",
 }
 
+-- Display names for scored metrics (breakdown panel, coach line)
+TP.METRIC_LABELS = {
+	damage = "Damage",
+	healing = "Healing + Absorbs",
+	damageTaken = "Damage Soaked",
+	interrupts = "Interrupts",
+	dispels = "Dispels",
+}
+
 -- The C_DamageMeter attributes captured per fight (Midnight+ clients).
 -- `enum` names a key in Enum.DamageMeterType, resolved at runtime so a
 -- missing attribute on some client just drops that metric.

@@ -108,6 +108,8 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	local fight = {
 		sessionID = sessionID,
 		name = name,
+		-- Blizzard prefixes encounter sessions with "(!) "
+		isBoss = name:find("^%(!%)") ~= nil,
 		duration = duration or 0,
 		capturedAt = time(),
 		players = players,
@@ -295,6 +297,7 @@ function FightHistory:AddFromSegment(seg)
 
 	local fight = {
 		name = seg.name or "Fight",
+		isBoss = seg.encounterID and true or false,
 		duration = seg.duration or 0,
 		capturedAt = time(),
 		zone = GetZoneText(),

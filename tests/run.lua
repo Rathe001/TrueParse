@@ -14,6 +14,8 @@ loadModule("Scoring/Weights.lua", TP)
 loadModule("Scoring/Engine.lua", TP)
 loadModule("Scoring/Grades.lua", TP)
 loadModule("Data/Benchmarks.lua", TP)
+loadModule("Scoring/Awards.lua", TP)
+loadModule("Scoring/Coach.lua", TP)
 
 local failures = 0
 local function check(cond, label)
@@ -222,6 +224,61 @@ local noDispelFight = {
 for _, r in ipairs(TP.Scoring.Engine.ScoreFight(noDispelFight)) do
 	check(r.breakdown.dispels.applicable == false, ("dispels inapplicable when none happened (%s)"):format(r.name))
 end
+
+-- 8. Awards
+local awardFight = {
+	name = "Award Test", duration = 60,
+	totals = { damage = 5000000, healing = 800000, absorbs = 0, avoidableTaken = 120000 },
+	players = {
+		t = mkPlayer("t", "Tank", "WARRIOR", "TANK",
+			{ damage = 600000, healing = 50000, interrupts = 4, avoidableTaken = 0 }),
+		h = mkPlayer("h", "Heal", "PRIEST", "HEALER",
+			{ damage = 50000, healing = 500000, dispels = 3, avoidableTaken = 0 }),
+		d1 = mkPlayer("d1", "OffHealer", "PALADIN", "DAMAGER",
+			{ damage = 2000000, healing = 200000, interrupts = 1, avoidableTaken = 120000 }),
+		d2 = mkPlayer("d2", "Tied", "MAGE", "DAMAGER",
+			{ damage = 2350000, healing = 50000, interrupts = 4, avoidableTaken = 0 }),
+	},
+}
+local awards = TP.Scoring.Awards.Compute(awardFight)
+check(awards.h ~= nil and awards.h[1] == "Cleanser", "healer earns Cleanser (3 dispels)")
+check(awards.t == nil or (function()
+	for _, a in ipairs(awards.t) do
+		if a == "Kick King" then
+			return false
+		end
+	end
+	return true
+end)(), "tied kick counts award no Kick King")
+local offHealerHasLifesaver = false
+if awards.d1 then
+	for _, a in ipairs(awards.d1) do
+		if a == "Lifesaver" then
+			offHealerHasLifesaver = true
+		end
+	end
+end
+check(offHealerHasLifesaver, "DPS with 25% of group healing earns Lifesaver")
+local untouchableCount = 0
+for guid, list in pairs(awards) do
+	for _, a in ipairs(list) do
+		if a == "Untouchable" then
+			untouchableCount = untouchableCount + 1
+		end
+	end
+end
+check(untouchableCount == 3, ("everyone who dodged all avoidable damage is Untouchable (%d)"):format(untouchableCount))
+
+-- 9. Coach
+local coachResults = TP.Scoring.Engine.ScoreFight(fight) -- the original synthetic fight
+local coachByName = {}
+for _, r in ipairs(coachResults) do
+	coachByName[r.name] = r
+end
+local advice = TP.Scoring.Coach.BiggestOpportunity(coachByName.DpsB)
+check(advice ~= nil and advice.kind == "avoidable", "penalized player coached about avoidable damage first")
+local adviceA = TP.Scoring.Coach.BiggestOpportunity(coachByName.DpsA)
+check(adviceA == nil or adviceA.kind == "metric", "clean player gets metric advice or none")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file
 local svPath = arg and arg[1]

@@ -17,9 +17,18 @@ function Scorecard:Acquire(parent)
 		end)
 		row:SetScript("OnEnter", function(self)
 			self.bg:SetColorTexture(1, 1, 1, 0.12)
+			if self.awards then
+				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+				GameTooltip:SetText(self.playerName or "")
+				for _, award in ipairs(self.awards) do
+					GameTooltip:AddLine("\226\152\133 " .. award, 1, 0.82, 0.2)
+				end
+				GameTooltip:Show()
+			end
 		end)
 		row:SetScript("OnLeave", function(self)
 			self.bg:SetColorTexture(1, 1, 1, 0.04)
+			GameTooltip:Hide()
 		end)
 
 		row.bg = row:CreateTexture(nil, "BACKGROUND")

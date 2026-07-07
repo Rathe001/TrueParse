@@ -12,13 +12,6 @@ local ROW_HEIGHT = 15
 local HEADER_Y = -40
 
 local METRIC_ORDER = { "damage", "healing", "damageTaken", "interrupts", "dispels" }
-local METRIC_LABELS = {
-	damage = "Damage",
-	healing = "Healing + Absorbs",
-	damageTaken = "Damage Soaked",
-	interrupts = "Interrupts",
-	dispels = "Dispels",
-}
 
 -- x offset, width, justify for each column
 local COLUMNS = {
@@ -135,7 +128,7 @@ function Panel:ShowFor(fight, result)
 			used = used + 1
 			local row = getRow(used, y)
 			y = y - ROW_HEIGHT
-			row.label:SetText(METRIC_LABELS[key] or key)
+			row.label:SetText(TP.METRIC_LABELS[key] or key)
 			row.raw:SetText(TP.FormatNumber(b.value or 0))
 			if b.applicable then
 				row.norm:SetText(("%.0f"):format(b.normalized or 0))

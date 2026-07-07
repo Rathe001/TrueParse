@@ -29,7 +29,11 @@ Scoring\Capabilities.lua
 Scoring\Weights.lua
 Scoring\Engine.lua
 Scoring\Grades.lua
+Scoring\Awards.lua
+Scoring\Coach.lua
+Core\Career.lua
 UI\Bars.lua
 UI\Scorecard.lua
 UI\BreakdownPanel.lua
+UI\CoachLine.lua
 UI\MeterWindow.lua

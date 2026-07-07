@@ -17,6 +17,7 @@ local activeRows = {}
 local sortScratch = {}
 local lastDrawnRevision = -1
 local lastRenderedFight
+local autoCollapsed = false -- runtime combat collapse, separate from the saved toggle
 
 local function db()
 	return TP.Addon.db.profile
@@ -127,9 +128,15 @@ function MeterWindow:OnEnable()
 	end
 
 	TP.Addon:RegisterMessage("TrueParse_SEGMENT_CHANGED", function()
+		-- Retail shows no live data mid-fight, so give the screen back;
+		-- Classic keeps its live bars.
+		if TP.Segments.current and db().window.autoCollapse and TP.BlizzardMeter.available then
+			autoCollapsed = true
+		end
 		MeterWindow:Refresh(true)
 	end)
 	TP.Addon:RegisterMessage("TrueParse_FIGHT_CAPTURED", function()
+		autoCollapsed = false
 		MeterWindow:Refresh(true)
 	end)
 	TP.Addon:ScheduleRepeatingTimer(function()
@@ -178,6 +185,7 @@ function MeterWindow:RenderScorecard(fight)
 	releaseAllBars()
 
 	local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
+	local awards = TP.Scoring.Awards.Compute(fight)
 	local conf = db().bars
 	local rowHeight = SCORECARD_ROW_HEIGHT
 	local shown = math.min(#results, conf.max)
@@ -203,8 +211,11 @@ function MeterWindow:RenderScorecard(fight)
 		row.grade:SetText(grade)
 		row.grade:SetTextColor(TP.Scoring.Grades.Color(grade))
 
-		row.name:SetText(r.name)
+		local myAwards = awards[r.guid]
+		row.name:SetText(myAwards and (r.name .. " |cffffd700\226\152\133|r") or r.name)
 		row.name:SetTextColor(TP.ClassColor(r.class))
+		row.awards = myAwards
+		row.playerName = r.name
 
 		local scoreText = ("%.0f"):format(r.score)
 		if r.penalty > 0 then
@@ -333,7 +344,12 @@ end
 -- ============================== Dispatch ==============================
 
 function MeterWindow:ToggleCollapse()
-	db().window.collapsed = not db().window.collapsed
+	if autoCollapsed or db().window.collapsed then
+		autoCollapsed = false
+		db().window.collapsed = false
+	else
+		db().window.collapsed = true
+	end
 	self:Invalidate()
 end
 
@@ -341,7 +357,7 @@ function MeterWindow:Refresh(force)
 	if not window or not window:IsShown() then
 		return
 	end
-	if db().window.collapsed then
+	if db().window.collapsed or autoCollapsed then
 		releaseAllRows()
 		releaseAllBars()
 		lastRenderedFight = nil
