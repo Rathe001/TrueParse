@@ -148,6 +148,11 @@ end
 function Segments:OnEncounterEnd(encounterID)
 	if self.current and self.current.encounterID == encounterID then
 		self:EndFight()
+		-- Boss can chain straight into trash without leaving combat (M+);
+		-- PLAYER_REGEN_DISABLED won't re-fire, so open a new segment now.
+		if UnitAffectingCombat("player") then
+			self:StartFight()
+		end
 	end
 end
 
