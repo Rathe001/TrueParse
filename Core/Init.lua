@@ -21,6 +21,9 @@ local defaults = {
 		history = {
 			maxFights = 200,
 		},
+		scoring = {
+			normalizeIlvl = true,
+		},
 		debug = false,
 		probe = false,
 	},
@@ -39,6 +42,11 @@ function Addon:OnEnable()
 	TP.FightHistory:OnEnable()
 	TP.CastProbe:OnEnable()
 	TP.MeterWindow:OnEnable()
+end
+
+-- Options passed to every Engine.ScoreFight call from the UI
+function TP.GetScoringOptions()
+	return { normalizeIlvl = Addon.db.profile.scoring.normalizeIlvl }
 end
 
 function Addon:HandleSlash(input)
@@ -74,13 +82,19 @@ function Addon:HandleSlash(input)
 					f.totals.interrupts or 0))
 			end
 		end
+	elseif cmd == "ilvl" then
+		self.db.profile.scoring.normalizeIlvl = not self.db.profile.scoring.normalizeIlvl
+		self:Print("Item-level normalization "
+			.. (self.db.profile.scoring.normalizeIlvl and "on — grades are relative to gear."
+				or "off — grades compare absolute output."))
+		TP.MeterWindow:Invalidate()
 	elseif cmd == "score" then
 		local idx = tonumber(rest) or 1
 		local fight = TP.FightHistory.fights[idx]
 		if not fight then
 			self:Print("No captured fight #" .. idx .. " (see /tp fights).")
 		else
-			local results = TP.Scoring.Engine.ScoreFight(fight)
+			local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
 			self:Print(("Contribution scores — %s (%d:%02d):"):format(
 				fight.name, math.floor(fight.duration / 60), fight.duration % 60))
 			for i, r in ipairs(results) do
@@ -99,7 +113,7 @@ function Addon:HandleSlash(input)
 			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 		end
 	else
-		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp fights, /tp score [n], /tp debug, /tp probe")
+		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp fights, /tp score [n], /tp ilvl, /tp debug, /tp probe")
 	end
 end
 

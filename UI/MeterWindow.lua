@@ -74,6 +74,12 @@ local function createWindow()
 	window.subtitle:SetPoint("TOPRIGHT", -PADDING, -PADDING)
 end
 
+-- Force the next refresh to re-render (e.g. after a scoring option change)
+function MeterWindow:Invalidate()
+	lastRenderedFight = nil
+	self:Refresh(true)
+end
+
 function MeterWindow:ApplyPosition()
 	local w = db().window
 	window:ClearAllPoints()
@@ -132,7 +138,7 @@ function MeterWindow:RenderScorecard(fight)
 	lastRenderedFight = fight
 	releaseAllBars()
 
-	local results = TP.Scoring.Engine.ScoreFight(fight)
+	local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
 	local conf = db().bars
 	local rowHeight = conf.height + 2
 	local shown = math.min(#results, conf.max)

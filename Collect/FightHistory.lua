@@ -20,6 +20,7 @@ TP.FightHistory = FightHistory
 
 local IsSecret
 local metrics -- resolved METRIC_DEFS: { {key, enumValue}, ... }
+local specIconMap -- icon fileID -> { specID, role }
 local retryTicker
 local sweepQueued = false
 local lastLiveSession
@@ -74,11 +75,16 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 					local p = players[guid]
 					if not p then
 						local rosterInfo = TP.Roster.players[guid]
+						local specIconID = (not IsSecret(src.specIconID)) and src.specIconID or nil
+						local iconInfo = specIconID and specIconMap and specIconMap[specIconID]
 						p = {
 							guid = guid,
 							name = (not IsSecret(src.name)) and src.name or UNKNOWN,
 							class = (not IsSecret(src.classFilename)) and src.classFilename or nil,
-							specIconID = (not IsSecret(src.specIconID)) and src.specIconID or nil,
+							specIconID = specIconID,
+							specID = (iconInfo and iconInfo.specID)
+								or (rosterInfo and rosterInfo.specID) or nil,
+							ilvl = rosterInfo and rosterInfo.ilvl or nil,
 							isLocalPlayer = src.isLocalPlayer and true or false,
 							role = rosterInfo and rosterInfo.role or nil,
 							metrics = {},
@@ -250,6 +256,7 @@ function FightHistory:OnEnable()
 		return
 	end
 	IsSecret = TP.Compat.IsSecret
+	specIconMap = TP.Compat.BuildSpecIconMap()
 
 	metrics = {}
 	for _, def in ipairs(TP.METRIC_DEFS) do

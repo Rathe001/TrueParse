@@ -13,6 +13,7 @@ loadModule("Scoring/Capabilities.lua", TP)
 loadModule("Scoring/Weights.lua", TP)
 loadModule("Scoring/Engine.lua", TP)
 loadModule("Scoring/Grades.lua", TP)
+loadModule("Data/Benchmarks.lua", TP)
 
 local failures = 0
 local function check(cond, label)
@@ -148,6 +149,61 @@ check(augByName.Auggy.breakdown.damage.normalized >= 90,
 	("aug damage share ~13%% scores high (%.0f)"):format(augByName.Auggy.breakdown.damage.normalized))
 check(augByName.Auggy.score >= 70, ("well-played aug scores high (%.1f)"):format(augByName.Auggy.score))
 check(augByName.DpsB.breakdown.damage.normalized == 50, "DPS cohort unaffected by aug (B vs A = 50)")
+
+-- 6c. Benchmarks: spec factors and ilvl normalization
+check(TP.Benchmarks and TP.Benchmarks.ilvlSlopePct > 0, "benchmarks loaded with ilvl slope")
+check(TP.Benchmarks.damageFactor[1473] == nil, "no WCL damage factor for Augmentation (SUPPORT path)")
+
+-- Same raw damage: Vengeance DH (factor ~0.5) should normalize far above a
+-- Frost mage (factor ~1.1), because it did the same damage on a low-output spec.
+local specFight = {
+	name = "Spec Test", duration = 60,
+	players = {
+		a = mkPlayer("a", "VDH", "DEMONHUNTER", "DAMAGER", { damage = 1000000 }),
+		b = mkPlayer("b", "FrostMage", "MAGE", "DAMAGER", { damage = 1000000 }),
+		c = mkPlayer("c", "Heal", "SHAMAN", "HEALER", { healing = 500000 }),
+	},
+}
+specFight.players.a.specID = 581
+specFight.players.b.specID = 64
+local specResults = TP.Scoring.Engine.ScoreFight(specFight, { normalizeIlvl = false })
+local specByName = {}
+for _, r in ipairs(specResults) do
+	specByName[r.name] = r
+end
+check(math.abs(specByName.VDH.breakdown.damage.normalized - 100) < 0.001, "low-output spec tops the adjusted cohort")
+check(specByName.FrostMage.breakdown.damage.normalized < 60,
+	("high-output spec graded against its own ceiling (%.0f)"):format(specByName.FrostMage.breakdown.damage.normalized))
+
+-- Same spec, same damage, different gear: the lower-ilvl player scores
+-- higher with normalization on, and identically with it off.
+local ilvlFight = {
+	name = "Ilvl Test", duration = 60,
+	players = {
+		a = mkPlayer("a", "LowGear", "MAGE", "DAMAGER", { damage = 1000000 }),
+		b = mkPlayer("b", "HighGear", "MAGE", "DAMAGER", { damage = 1000000 }),
+		c = mkPlayer("c", "Heal", "SHAMAN", "HEALER", { healing = 500000 }),
+	},
+}
+ilvlFight.players.a.specID = 64
+ilvlFight.players.a.ilvl = 250
+ilvlFight.players.b.specID = 64
+ilvlFight.players.b.ilvl = 290
+local onResults = TP.Scoring.Engine.ScoreFight(ilvlFight, { normalizeIlvl = true })
+local onByName = {}
+for _, r in ipairs(onResults) do
+	onByName[r.name] = r
+end
+check(math.abs(onByName.LowGear.breakdown.damage.normalized - 100) < 0.001, "low-ilvl player tops gear-normalized cohort")
+check(onByName.HighGear.breakdown.damage.normalized < 80,
+	("high-ilvl same damage scores lower when normalized (%.0f)"):format(onByName.HighGear.breakdown.damage.normalized))
+local offResults = TP.Scoring.Engine.ScoreFight(ilvlFight, { normalizeIlvl = false })
+local offByName = {}
+for _, r in ipairs(offResults) do
+	offByName[r.name] = r
+end
+check(offByName.LowGear.breakdown.damage.normalized == offByName.HighGear.breakdown.damage.normalized,
+	"normalization off: equal damage grades equally")
 
 -- 7. Nothing-dispelled fight: dispels inapplicable for everyone
 local noDispelFight = {

@@ -34,6 +34,32 @@ local function normalizeRole(p)
 	return TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID)
 end
 
+-- Combined spec + item-level output factor (from Data/Benchmarks.lua, WCL
+-- statistics). A player's throughput is divided by this before comparison,
+-- so a low-output spec or low-ilvl player is graded on performance relative
+-- to what their spec and gear can produce. SUPPORT keeps its hand-calibrated
+-- expectations (WCL aug numbers include support damage we can't see).
+local function outputFactor(p, role, key, ctx)
+	local B = TP.Benchmarks
+	if not B or role == "SUPPORT" then
+		return 1
+	end
+	local factor = 1
+	local specTable = (key == "healing") and B.healingFactor or B.damageFactor
+	local specFactor = specTable and p.specID and specTable[p.specID]
+	if specFactor and specFactor > 0 then
+		factor = factor * specFactor
+	end
+	if ctx.normalizeIlvl and B.ilvlSlopePct and p.ilvl and ctx.meanIlvl then
+		factor = factor * (1 + B.ilvlSlopePct / 100) ^ (p.ilvl - ctx.meanIlvl)
+	end
+	return factor
+end
+
+local function adjustedValue(p, role, key, ctx)
+	return metricValue(p, key) / outputFactor(p, role, key, ctx)
+end
+
 -- Returns normalizedScore (0-100), applicable (boolean)
 local function normalizeMetric(p, role, key, ctx)
 	local W = TP.Scoring.Weights
@@ -62,12 +88,15 @@ local function normalizeMetric(p, role, key, ctx)
 		return 0, false
 	end
 
-	-- Throughput family: cohort-relative, expected-share fallback
+	-- Throughput family: cohort-relative, expected-share fallback. Values
+	-- are spec/ilvl-adjusted so cohort members compete on performance
+	-- relative to their spec and gear, not raw output.
+	local adjusted = adjustedValue(p, role, key, ctx)
 	local cohort = ctx.cohorts[role]
 	if #cohort > 1 then
 		local best = 0
 		for _, member in ipairs(cohort) do
-			local v = metricValue(member, key)
+			local v = adjustedValue(member, role, key, ctx)
 			if v > best then
 				best = v
 			end
@@ -75,7 +104,7 @@ local function normalizeMetric(p, role, key, ctx)
 		if best <= 0 then
 			return 0, false
 		end
-		return 100 * value / best, true
+		return math.min(100, 100 * adjusted / best), true
 	end
 
 	local expected = W.expectedShare[role] and W.expectedShare[role][key]
@@ -83,16 +112,18 @@ local function normalizeMetric(p, role, key, ctx)
 	if not expected or not groupTotal or groupTotal <= 0 then
 		return 0, false
 	end
-	return math.min(100, 100 * (value / groupTotal) / expected), true
+	return math.min(100, 100 * (adjusted / groupTotal) / expected), true
 end
 
--- fight: a FightHistory record. Returns an array sorted by score desc:
+-- fight: a FightHistory record. opts.normalizeIlvl (default true) grades
+-- throughput relative to gear. Returns an array sorted by score desc:
 -- { guid, name, class, role, score, base, penalty, breakdown }, where
 -- breakdown[metric] = { weight, effectiveWeight, normalized, contribution,
 -- applicable, value }.
-function Engine.ScoreFight(fight)
+function Engine.ScoreFight(fight, opts)
 	local W = TP.Scoring.Weights
 	local Cap = TP.Scoring.Capabilities
+	opts = opts or {}
 
 	local players = {}
 	for _, p in pairs(fight.players) do
@@ -106,8 +137,21 @@ function Engine.ScoreFight(fight)
 		playerCount = #players,
 		cohorts = {},
 		kickCapable = 0,
+		normalizeIlvl = opts.normalizeIlvl ~= false,
 		totals = { damage = 0, healing = 0, damageTaken = 0, interrupts = 0, dispels = 0, avoidable = 0 },
 	}
+
+	-- Reference ilvl for gear normalization: group mean of known ilvls
+	local ilvlSum, ilvlCount = 0, 0
+	for _, p in ipairs(players) do
+		if p.ilvl and p.ilvl > 0 then
+			ilvlSum = ilvlSum + p.ilvl
+			ilvlCount = ilvlCount + 1
+		end
+	end
+	if ilvlCount >= 2 then
+		ctx.meanIlvl = ilvlSum / ilvlCount
+	end
 	for _, p in ipairs(players) do
 		local m = p.metrics
 		ctx.totals.damage = ctx.totals.damage + (m.damage or 0)

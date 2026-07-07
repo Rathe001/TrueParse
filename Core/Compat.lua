@@ -43,6 +43,26 @@ function Compat.GroupUnits(out)
 	return out
 end
 
+-- specIcon fileID -> { specID, role } for every spec. Combat sources carry
+-- specIconID, so this gives fight records a stable, locale-proof spec
+-- identity (matching Data/Benchmarks.lua keys) without inspection.
+function Compat.BuildSpecIconMap()
+	local map = {}
+	if not (GetNumClasses and GetSpecializationInfoForClassID) then
+		return map -- Classic clients
+	end
+	for classID = 1, GetNumClasses() do
+		local numSpecs = GetNumSpecializationsForClassID and GetNumSpecializationsForClassID(classID) or 0
+		for i = 1, numSpecs do
+			local specID, _, _, icon, role = GetSpecializationInfoForClassID(classID, i)
+			if specID and icon then
+				map[icon] = { specID = specID, role = role }
+			end
+		end
+	end
+	return map
+end
+
 -- "player" -> "pet", "party3" -> "partypet3", "raid17" -> "raidpet17"
 function Compat.PetUnit(unit)
 	if unit == "player" then
