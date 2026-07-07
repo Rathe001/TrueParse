@@ -161,6 +161,8 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		end
 	end
 
+	TP.Readiness:StampFight(fight)
+
 	-- Replace an earlier capture of the same session (resume case)
 	for i = #self.fights, 1, -1 do
 		if self.fights[i].sessionID == sessionID then
@@ -333,6 +335,7 @@ function FightHistory:AddFromSegment(seg)
 		players = players,
 		totals = totals,
 	}
+	TP.Readiness:StampFight(fight)
 	table.insert(self.fights, 1, fight)
 	local cap = TP.Addon.db.profile.history.maxFights
 	for i = #self.fights, cap + 1, -1 do

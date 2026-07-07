@@ -282,7 +282,12 @@ function Engine.ScoreFight(fight, opts)
 			penaltyDeaths = math.min(W.penalties.deathsCap,
 				(deathCount - 1) * W.penalties.perDeath + lastDeathCost)
 		end
-		local penalty = math.min(W.penalties.totalCap, penaltyAvoidable + penaltyDeaths)
+		local penaltyBuffs = 0
+		if p.buffCoverage and p.buffCoverage < 1 then
+			penaltyBuffs = (1 - p.buffCoverage) * (W.penalties.missingBuffMax or 0)
+		end
+
+		local penalty = math.min(W.penalties.totalCap, penaltyAvoidable + penaltyDeaths + penaltyBuffs)
 
 		results[#results + 1] = {
 			guid = p.guid,
@@ -292,7 +297,7 @@ function Engine.ScoreFight(fight, opts)
 			score = math.max(0, math.min(100, base - penalty)),
 			base = base,
 			penalty = penalty,
-			penaltyDetail = { avoidable = penaltyAvoidable, deaths = penaltyDeaths },
+			penaltyDetail = { avoidable = penaltyAvoidable, deaths = penaltyDeaths, buffs = penaltyBuffs },
 			breakdown = breakdown,
 		}
 	end

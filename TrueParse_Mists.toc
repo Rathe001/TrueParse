@@ -15,6 +15,7 @@ Core\Utils.lua
 Core\Compat.lua
 Data\Benchmarks_Mists.lua
 Data\Potions.lua
+Data\GroupBuffs.lua
 Collect\Roster.lua
 Metrics\Registry.lua
 Metrics\Damage.lua
@@ -27,6 +28,7 @@ Collect\CombatLog.lua
 Collect\BlizzardMeter.lua
 Collect\FightHistory.lua
 Collect\Sync.lua
+Collect\Readiness.lua
 Collect\CastProbe.lua
 Scoring\Capabilities.lua
 Scoring\Weights.lua

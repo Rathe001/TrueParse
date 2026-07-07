@@ -160,6 +160,7 @@ function Panel:ShowFor(fight, result)
 	end
 	penaltyRow("Avoidable damage", pd.avoidable)
 	penaltyRow("Deaths", pd.deaths)
+	penaltyRow("Raid buff coverage", pd.buffs)
 
 	hideRowsFrom(used + 1)
 

@@ -67,6 +67,7 @@ function Addon:OnEnable()
 	TP.CoachLine:OnEnable()
 	TP.Career:OnEnable()
 	TP.Sync:OnEnable()
+	TP.Readiness:OnEnable()
 	TP.RunSummary:OnEnable()
 	TP.MeterWindow:OnEnable()
 end

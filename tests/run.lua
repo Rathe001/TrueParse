@@ -417,6 +417,29 @@ check(deathByName.LateDeath.penaltyDetail.deaths < 4,
 	("death at the end costs a fraction (%.2f)"):format(deathByName.LateDeath.penaltyDetail.deaths))
 check(deathByName.UnknownDeath.penaltyDetail.deaths == 10, "unknown timing keeps full penalty")
 
+-- 12. Buff-coverage penalty: providers answer for uncovered group members
+local buffFight = {
+	name = "Buff Check", duration = 60,
+	players = {
+		p = mkPlayer("p", "SlackPriest", "PRIEST", "HEALER", { healing = 500000 }),
+		d1 = mkPlayer("d1", "DpsA", "MAGE", "DAMAGER", { damage = 1000000 }),
+		d2 = mkPlayer("d2", "DpsB", "ROGUE", "DAMAGER", { damage = 900000 }),
+	},
+}
+buffFight.players.p.buffCoverage = 0.5 -- half the group missing Fortitude
+local buffResults = TP.Scoring.Engine.ScoreFight(buffFight, { normalizeIlvl = false })
+local buffByName = {}
+for _, r in ipairs(buffResults) do
+	buffByName[r.name] = r
+end
+check(math.abs(buffByName.SlackPriest.penaltyDetail.buffs - 2.5) < 0.01,
+	("half-covered provider loses 2.5 (%.2f)"):format(buffByName.SlackPriest.penaltyDetail.buffs))
+check(buffByName.DpsA.penaltyDetail.buffs == 0, "non-providers aren't penalized")
+local buffAdvice = TP.Scoring.Coach.BiggestOpportunity({
+	penaltyDetail = { buffs = 4 }, breakdown = {},
+})
+check(buffAdvice and buffAdvice.kind == "buffs", "coach flags buff coverage")
+
 -- Optional: smoke-test against real captured fights from a SavedVariables file
 local svPath = arg and arg[1]
 if svPath then

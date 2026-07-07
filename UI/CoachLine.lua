@@ -46,6 +46,8 @@ local function onFightCaptured(_, fight)
 			msg = msg .. (" · biggest opportunity: avoidable damage (-%.0f)"):format(advice.gain)
 		elseif advice.kind == "deaths" then
 			msg = msg .. (" · biggest opportunity: staying alive (-%.0f)"):format(advice.gain)
+		elseif advice.kind == "buffs" then
+			msg = msg .. (" · biggest opportunity: buff your group before the pull (-%.0f)"):format(advice.gain)
 		else
 			local label = TP.METRIC_LABELS[advice.key] or advice.key
 			msg = msg .. (" · biggest opportunity: %s (+%.0f potential)"):format(label:lower(), advice.gain)

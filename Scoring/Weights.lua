@@ -55,5 +55,8 @@ Weights.penalties = {
 	-- the fight keeps (1 - relief) of the penalty. Applies to the most
 	-- recent death when its timing is known; earlier deaths cost full price.
 	deathTimingRelief = 0.7,
+	-- Providers whose raid buff wasn't fully up at the pull lose up to this
+	-- many points, scaled by the uncovered fraction of the group.
+	missingBuffMax = 5,
 	totalCap = 25,
 }

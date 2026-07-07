@@ -19,6 +19,9 @@ function Coach.BiggestOpportunity(result)
 		if (pd.deaths or 0) >= 10 then
 			return { kind = "deaths", gain = pd.deaths }
 		end
+		if (pd.buffs or 0) >= 3 then
+			return { kind = "buffs", gain = pd.buffs }
+		end
 	end
 
 	local bestKey, bestGain, bestNorm
