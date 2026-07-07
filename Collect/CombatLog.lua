@@ -18,10 +18,10 @@ frame:SetScript("OnEvent", function()
 	-- srcFlags, srcRaidFlags, dstGUID, dstName, dstFlags, dstRaidFlags,
 	-- then up to ~10 subevent-specific args.
 	local _, subevent, _, srcGUID, _, srcFlags, _, dstGUID, _, dstFlags, _,
-		a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 = CombatLogGetCurrentEventInfo()
+		a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 = CombatLogGetCurrentEventInfo()
 	local handler = dispatch[subevent]
 	if handler then
-		handler(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
+		handler(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12)
 	end
 end)
 

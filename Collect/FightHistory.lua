@@ -270,7 +270,7 @@ function FightHistory:AddFromSegment(seg)
 		local m = {
 			damage = acc.damage and acc.damage.useful or 0,
 			healing = acc.healing and acc.healing.effective or 0,
-			absorbs = 0,
+			absorbs = acc.absorbs and acc.absorbs.granted or 0,
 			damageTaken = acc.taken and acc.taken.total or 0,
 			avoidableTaken = 0,
 			interrupts = acc.interrupts and acc.interrupts.kicks or 0,

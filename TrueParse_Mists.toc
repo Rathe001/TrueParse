@@ -20,6 +20,7 @@ Metrics\Damage.lua
 Metrics\Healing.lua
 Metrics\Taken.lua
 Metrics\Utility.lua
+Metrics\Absorbs.lua
 Collect\Segments.lua
 Collect\CombatLog.lua
 Collect\BlizzardMeter.lua

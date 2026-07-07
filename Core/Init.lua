@@ -14,6 +14,7 @@ local defaults = {
 			locked = false, shown = true, collapsed = false, autoCollapse = true,
 		},
 		coach = true,
+		announce = false, -- opt-in: one MVP line to group chat on run completion
 		bars = {
 			height = 18,
 			max = 10,
@@ -115,6 +116,10 @@ function Addon:HandleSlash(input)
 	elseif cmd == "coach" then
 		self.db.profile.coach = not self.db.profile.coach
 		self:Print("Post-fight coach line " .. (self.db.profile.coach and "on." or "off."))
+	elseif cmd == "announce" then
+		self.db.profile.announce = not self.db.profile.announce
+		self:Print("Run-MVP group chat announcement "
+			.. (self.db.profile.announce and "ON — one line to group chat when a run completes." or "off."))
 	elseif cmd == "ilvl" then
 		self.db.profile.scoring.normalizeIlvl = not self.db.profile.scoring.normalizeIlvl
 		self:Print("Item-level normalization "
@@ -146,7 +151,7 @@ function Addon:HandleSlash(input)
 			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 		end
 	else
-		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp fights, /tp score [n], /tp run, /tp career, /tp coach, /tp ilvl, /tp debug, /tp probe")
+		self:Print("Commands: /tp (toggle window), /tp lock, /tp reset, /tp fights, /tp score [n], /tp run, /tp career, /tp coach, /tp announce, /tp ilvl, /tp debug, /tp probe")
 	end
 end
 

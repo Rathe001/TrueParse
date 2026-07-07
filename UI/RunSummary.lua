@@ -32,7 +32,9 @@ local function collectRunFights()
 	return fights
 end
 
-function RunSummary:Report()
+-- announce=true (auto triggers only) additionally posts one MVP line to
+-- group chat when /tp announce is enabled. Manual /tp run never announces.
+function RunSummary:Report(announce)
 	local fights = collectRunFights()
 	if not fights or #fights == 0 then
 		TP.Addon:Print("No fights captured in this instance yet.")
@@ -67,6 +69,20 @@ function RunSummary:Report()
 		end
 		TP.Addon:Print(line)
 	end
+
+	if announce and TP.Addon.db.profile.announce and IsInGroup() then
+		local mvp = results[1]
+		local mvpGrade = TP.Scoring.Grades.ForScore(mvp.score)
+		local channel = "PARTY"
+		if LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+			channel = "INSTANCE_CHAT"
+		elseif IsInRaid() then
+			channel = "RAID"
+		end
+		-- plain text only: chat messages can't carry color codes
+		SendChatMessage(("TrueParse run MVP: %s — %s (%d). Group grade: %s"):format(
+			mvp.name, mvpGrade, math.floor(mvp.score + 0.5), groupGrade), channel)
+	end
 end
 
 function RunSummary:OnEnable()
@@ -75,10 +91,10 @@ function RunSummary:OnEnable()
 	self:RegisterEvent("ZONE_CHANGED_NEW_AREA", updateInstance)
 	-- Auto-report on completion where the client tells us
 	pcall(self.RegisterEvent, self, "LFG_COMPLETION_REWARD", function()
-		RunSummary:Report()
+		RunSummary:Report(true)
 	end)
 	pcall(self.RegisterEvent, self, "CHALLENGE_MODE_COMPLETED", function()
-		RunSummary:Report()
+		RunSummary:Report(true)
 	end)
 	updateInstance()
 end
