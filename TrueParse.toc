@@ -1,0 +1,22 @@
+## Interface: 120007
+## Title: TrueParse
+## Notes: A parse that shows you actually did your job. Group contribution meter.
+## Author: Josh
+## Version: 0.1.0
+## SavedVariables: TrueParseDB
+## X-Category: Combat
+## X-Website: https://github.com/rathe001/TrueParse
+
+embeds.xml
+
+Core\Init.lua
+Core\Constants.lua
+Core\Utils.lua
+Core\Compat.lua
+Collect\Roster.lua
+Metrics\Registry.lua
+Metrics\Damage.lua
+Collect\Segments.lua
+Collect\CombatLog.lua
+UI\Bars.lua
+UI\MeterWindow.lua
