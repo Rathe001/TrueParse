@@ -12,7 +12,9 @@ local _, TP = ...
 local Meter = {}
 TP.BlizzardMeter = Meter
 
-Meter.available = (C_DamageMeter ~= nil)
+-- Retail only: Classic clients may carry the C_DamageMeter namespace (shared
+-- modern engine) without live session data, so API presence alone is a trap.
+Meter.available = TP.Compat.IS_RETAIL and (C_DamageMeter ~= nil)
 
 local EMPTY = { combatSources = {}, totalAmount = 0, maxAmount = 0, durationSeconds = 0 }
 

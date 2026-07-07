@@ -8,9 +8,11 @@ TP.Compat = Compat
 Compat.IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 
 -- Midnight (12.0+) forbids addons from registering COMBAT_LOG_EVENT_UNFILTERED
--- and instead exposes Blizzard-computed meter data via C_DamageMeter. Presence
--- of that namespace is the signal for which collection path to use.
-Compat.HAS_CLEU = (C_DamageMeter == nil)
+-- and instead exposes Blizzard-computed meter data via C_DamageMeter. Keyed on
+-- the project, NOT on C_DamageMeter presence: MoP Classic ships the modern
+-- engine (C_DamageMeter exists there) but its sessions are non-functional and
+-- CLEU remains fully legal.
+Compat.HAS_CLEU = not Compat.IS_RETAIL
 
 -- Secret values (12.0+): mid-combat meter data may be readable only by secure
 -- widgets; issecretvalue() detects them. Older clients have no secrets.
