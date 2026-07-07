@@ -218,7 +218,7 @@ function MeterWindow:RenderScorecard(fight)
 		row.grade:SetTextColor(TP.Scoring.Grades.Color(grade))
 
 		local myAwards = awards[r.guid]
-		row.name:SetText(myAwards and (r.name .. " |cffffd700\226\152\133|r") or r.name)
+		row.name:SetText(myAwards and (r.name .. " " .. TP.STAR) or r.name)
 		row.name:SetTextColor(TP.ClassColor(r.class))
 		row.awards = myAwards
 		row.playerName = r.name

@@ -161,7 +161,8 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		end
 	end
 
-	TP.Readiness:StampFight(fight)
+	-- Enrichment must never block capture
+	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
 
 	-- Replace an earlier capture of the same session (resume case)
 	for i = #self.fights, 1, -1 do
@@ -296,6 +297,15 @@ function FightHistory:AddFromSegment(seg)
 	local players = {}
 	local playerGUID = UnitGUID("player")
 	for guid, acc in pairs(seg.players) do
+		-- Roster members who never participated (offline, cross-zone, out of
+		-- combat-log range the whole fight) don't belong on the card
+		local active = (acc.damage and acc.damage.total or 0) > 0
+			or (acc.healing and acc.healing.effective or 0) > 0
+			or (acc.taken and acc.taken.total or 0) > 0
+			or (acc.interrupts and acc.interrupts.kicks or 0) > 0
+			or (acc.dispels and acc.dispels.count or 0) > 0
+			or (acc.deaths and acc.deaths.total or 0) > 0
+		if active then
 		local m = {
 			damage = acc.damage and acc.damage.useful or 0,
 			healing = acc.healing and acc.healing.effective or 0,
@@ -321,6 +331,7 @@ function FightHistory:AddFromSegment(seg)
 			deathTime = acc.deaths and acc.deaths.lastTime or nil,
 			metrics = m,
 		}
+		end
 	end
 	if totals.damage <= 0 then
 		return -- trivial segment, don't pollute history
@@ -335,13 +346,16 @@ function FightHistory:AddFromSegment(seg)
 		players = players,
 		totals = totals,
 	}
-	TP.Readiness:StampFight(fight)
+	-- Enrichment must never block capture
+	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
 	table.insert(self.fights, 1, fight)
 	local cap = TP.Addon.db.profile.history.maxFights
 	for i = #self.fights, cap + 1, -1 do
 		table.remove(self.fights, i)
 	end
 	self:Persist()
+	TP.Addon:Debug(("Captured %s: %.0fs, dmg %s"):format(
+		fight.name, fight.duration, TP.FormatNumber(totals.damage)))
 	TP.Addon:SendMessage("TrueParse_FIGHT_CAPTURED", fight)
 end
 

@@ -164,11 +164,11 @@ local function normalizeMetric(p, role, key, ctx)
 
 	if absolute and relative then
 		local blend = W.absoluteBlend or 0
-		return blend * absolute + (1 - blend) * relative, true, absolute
+		return blend * absolute + (1 - blend) * relative, true, absolute, relative
 	elseif absolute then
-		return absolute, true, absolute
+		return absolute, true, absolute, nil
 	elseif relative then
-		return relative, applicable
+		return relative, applicable, nil, relative
 	end
 	return 0, false
 end
@@ -237,12 +237,13 @@ function Engine.ScoreFight(fight, opts)
 		local breakdown = {}
 		local activeWeight = 0
 		for key, weight in pairs(weights) do
-			local normalized, applicable, absolute = normalizeMetric(p, role, key, ctx)
+			local normalized, applicable, absolute, relative = normalizeMetric(p, role, key, ctx)
 			breakdown[key] = {
 				weight = weight,
 				normalized = normalized,
 				applicable = applicable,
 				absolute = absolute, -- vs WCL top-logs median, when available
+				relative = relative, -- vs the group, when available
 				value = metricValue(p, key),
 			}
 			if applicable then

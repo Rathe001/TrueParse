@@ -21,7 +21,7 @@ function Scorecard:Acquire(parent)
 				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 				GameTooltip:SetText(self.playerName or "")
 				for _, award in ipairs(self.awards) do
-					GameTooltip:AddLine("\226\152\133 " .. award, 1, 0.82, 0.2)
+					GameTooltip:AddLine(TP.STAR .. " " .. award, 1, 0.82, 0.2)
 				end
 				GameTooltip:Show()
 			end

@@ -33,7 +33,8 @@ local function scanUnit(unit, buffs)
 end
 
 local function scan()
-	if InCombatLockdown() or not C_UnitAuras or not C_UnitAuras.GetAuraDataByIndex then
+	if not TP.GROUP_BUFFS or InCombatLockdown()
+		or not C_UnitAuras or not C_UnitAuras.GetAuraDataByIndex then
 		return
 	end
 	wipe(Readiness.snapshot)
@@ -63,7 +64,8 @@ end
 -- applicable category and stamps each provider's worst coverage fraction.
 function Readiness:StampFight(fight)
 	local prePull = self.prePull
-	if not prePull or not self.prePullAt or (time() - self.prePullAt) > MAX_SNAPSHOT_AGE then
+	if not TP.GROUP_BUFFS or not prePull or not self.prePullAt
+		or (time() - self.prePullAt) > MAX_SNAPSHOT_AGE then
 		return
 	end
 	for _, category in ipairs(TP.GROUP_BUFFS) do

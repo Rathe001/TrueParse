@@ -65,7 +65,7 @@ function RunSummary:Report(announce)
 		local line = ("  %d. |cff%02x%02x%02x%-2s|r %s (%.0f)"):format(
 			i, gr * 255, gg * 255, gb * 255, grade, r.name, r.score)
 		if awards[r.guid] then
-			line = line .. " |cffffd700\226\152\133 " .. table.concat(awards[r.guid], ", ") .. "|r"
+			line = line .. " " .. TP.STAR .. " |cffffd700" .. table.concat(awards[r.guid], ", ") .. "|r"
 		end
 		TP.Addon:Print(line)
 	end

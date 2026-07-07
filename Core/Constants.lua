@@ -13,6 +13,10 @@ TP.SEGMENT = {
 	MPLUS = "mplus",
 }
 
+-- Gold star for awards. A texture escape, not a Unicode ★: Classic fonts
+-- lack the glyph and render a tofu box.
+TP.STAR = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_1:0|t"
+
 -- Display names for scored metrics (breakdown panel, coach line)
 TP.METRIC_LABELS = {
 	damage = "Damage",

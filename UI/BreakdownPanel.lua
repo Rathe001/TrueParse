@@ -7,7 +7,7 @@ local _, TP = ...
 local Panel = {}
 TP.BreakdownPanel = Panel
 
-local WIDTH = 360
+local WIDTH = 400
 local ROW_HEIGHT = 15
 local HEADER_Y = -40
 
@@ -15,11 +15,12 @@ local METRIC_ORDER = { "damage", "healing", "damageTaken", "interrupts", "dispel
 
 -- x offset, width, justify for each column
 local COLUMNS = {
-	label = { 10, 115, "LEFT" },
-	raw = { 125, 70, "RIGHT" },
-	norm = { 195, 40, "RIGHT" },
-	wt = { 235, 45, "RIGHT" },
-	pts = { 280, 66, "RIGHT" },
+	label = { 10, 105, "LEFT" },
+	raw = { 115, 62, "RIGHT" },
+	wcl = { 179, 44, "RIGHT" },
+	norm = { 225, 44, "RIGHT" },
+	wt = { 271, 44, "RIGHT" },
+	pts = { 317, 68, "RIGHT" },
 }
 
 local frame
@@ -64,7 +65,7 @@ local function createFrame()
 
 	-- column headers
 	frame.headers = {}
-	local headerLabels = { label = "Metric", raw = "Raw", norm = "Score", wt = "Weight", pts = "Points" }
+	local headerLabels = { label = "Metric", raw = "Raw", wcl = "WCL", norm = "Score", wt = "Weight", pts = "Points" }
 	for col, text in pairs(headerLabels) do
 		local h = makeCell(frame, col, HEADER_Y, "GameFontDisableSmall")
 		h:SetText(text)
@@ -81,6 +82,7 @@ local function getRow(i, y)
 		row = {
 			label = makeCell(frame, "label", 0),
 			raw = makeCell(frame, "raw", 0),
+			wcl = makeCell(frame, "wcl", 0),
 			norm = makeCell(frame, "norm", 0),
 			wt = makeCell(frame, "wt", 0),
 			pts = makeCell(frame, "pts", 0),
@@ -131,11 +133,13 @@ function Panel:ShowFor(fight, result)
 			row.label:SetText(TP.METRIC_LABELS[key] or key)
 			row.raw:SetText(TP.FormatNumber(b.value or 0))
 			if b.applicable then
+				row.wcl:SetText(b.absolute and ("%.0f"):format(b.absolute) or "—")
 				row.norm:SetText(("%.0f"):format(b.normalized or 0))
 				row.wt:SetText(("%.0f%%"):format((b.effectiveWeight or 0) * 100))
 				row.pts:SetText(("%.1f"):format(b.contribution or 0))
 				setRowColor(row, 0.92, 0.92, 0.92)
 			else
+				row.wcl:SetText("—")
 				row.norm:SetText("—")
 				row.wt:SetText("n/a")
 				row.pts:SetText("—")
@@ -152,6 +156,7 @@ function Panel:ShowFor(fight, result)
 			y = y - ROW_HEIGHT
 			row.label:SetText(label)
 			row.raw:SetText("")
+			row.wcl:SetText("")
 			row.norm:SetText("")
 			row.wt:SetText("")
 			row.pts:SetText(("-%.1f"):format(amount))

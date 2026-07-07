@@ -56,7 +56,7 @@ local function onFightCaptured(_, fight)
 
 	local mine = TP.Scoring.Awards.Compute(fight)[me.guid]
 	if mine then
-		msg = msg .. " · |cffffd700★ " .. table.concat(mine, ", ") .. "|r"
+		msg = msg .. " · " .. TP.STAR .. " |cffffd700" .. table.concat(mine, ", ") .. "|r"
 	end
 	TP.Addon:Print(msg)
 end
