@@ -93,9 +93,23 @@ function Roster:ProcessInspectQueue()
 	while #inspectQueue > 0 do
 		local guid = table.remove(inspectQueue, 1)
 		local info = self.players[guid]
-		if info and UnitExists(info.unit) and CanInspect(info.unit) then
+		-- Offline or cross-zone members make the server spam "Unknown unit."
+		-- red text: only inspect units that are connected AND actually
+		-- loaded/phased in (UnitIsVisible), not merely in the group.
+		if info and UnitExists(info.unit)
+			and UnitIsConnected(info.unit)
+			and UnitIsVisible(info.unit)
+			and CanInspect(info.unit) then
 			inspectingGUID = guid
 			NotifyInspect(info.unit)
+			-- INSPECT_READY may never arrive (range/phasing edge): time out
+			-- rather than stalling the queue forever
+			C_Timer.After(5, function()
+				if inspectingGUID == guid then
+					inspectingGUID = nil
+					Roster:ProcessInspectQueue()
+				end
+			end)
 			return
 		end
 	end
