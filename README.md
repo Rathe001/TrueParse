@@ -14,6 +14,28 @@ Walking skeleton (Phase 1 of the roadmap): combat log capture, fight
 segments, damage tracking, and a Details-style bar window sorted by damage.
 Scoring lands in Phase 5.
 
+## Maintenance: refreshing spec benchmarks
+
+Grading uses per-fight spec expectations generated from Warcraft Logs
+statistics (`Data/Benchmarks*.lua`). **These are point-in-time snapshots and
+must be regenerated periodically** — after every class-tuning patch, and at
+each new season or raid tier (new encounters won't have curves until you do).
+The addon prints a reminder in-game once the data is 60+ days old.
+
+```powershell
+# Retail (current raid + M+ season):
+powershell -File scripts\fetch-benchmarks.ps1
+
+# MoP Classic (SoO + ToT + Challenge Modes):
+powershell -File scripts\fetch-benchmarks.ps1 -GameBase https://classic.warcraftlogs.com `
+    -RaidZoneIds 1054,1046 -DungeonZone 1039 -OutFile Benchmarks_Mists.lua
+```
+
+Requires a free WCL V1 API key in `scripts\wcl-key.local.txt` (gitignored).
+Zone IDs change each season — list current ones via the `/v1/zones` endpoint.
+Long-term plan: a scheduled CI job regenerates these weekly and ships them
+with addon updates. Benchmark data derived from Warcraft Logs (thanks!).
+
 ## Development setup
 
 1. Clone this repo anywhere.

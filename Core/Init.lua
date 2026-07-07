@@ -36,10 +36,28 @@ function Addon:OnInitialize()
 	self:RegisterChatCommand("tp", "HandleSlash")
 end
 
+-- Benchmarks are point-in-time WCL statistics; class tuning drifts every
+-- balance patch. Nudge (once per session) when they're getting stale.
+local function checkBenchmarkAge()
+	local B = TP.Benchmarks
+	if not B or not B.generated then
+		return
+	end
+	local y, m, d = B.generated:match("^(%d+)-(%d+)-(%d+)$")
+	if not y then
+		return
+	end
+	local ageDays = (time() - time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 })) / 86400
+	if ageDays >= 60 then
+		Addon:Print(("Spec benchmarks are %d days old; grades may drift from current class tuning. Regenerate with scripts\\fetch-benchmarks.ps1 (see README)."):format(ageDays))
+	end
+end
+
 function Addon:OnEnable()
 	if not TP.Compat.IS_RETAIL then
 		TP.Scoring.Capabilities.SetMoPRules(true)
 	end
+	checkBenchmarkAge()
 	TP.Roster:OnEnable()
 	TP.Segments:OnEnable()
 	TP.EnableCombatLog()
