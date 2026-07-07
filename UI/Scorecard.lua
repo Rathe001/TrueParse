@@ -8,6 +8,19 @@ function Scorecard:Acquire(parent)
 	local row = table.remove(self.pool)
 	if not row then
 		row = CreateFrame("Frame", nil, parent)
+		row:EnableMouse(true)
+		-- payload (row.fight / row.result) is set by the scorecard renderer
+		row:SetScript("OnMouseUp", function(self, button)
+			if button == "LeftButton" and self.result then
+				TP.BreakdownPanel:Toggle(self.fight, self.result)
+			end
+		end)
+		row:SetScript("OnEnter", function(self)
+			self.bg:SetColorTexture(1, 1, 1, 0.12)
+		end)
+		row:SetScript("OnLeave", function(self)
+			self.bg:SetColorTexture(1, 1, 1, 0.04)
+		end)
 
 		row.bg = row:CreateTexture(nil, "BACKGROUND")
 		row.bg:SetAllPoints()

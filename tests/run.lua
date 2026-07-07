@@ -112,6 +112,8 @@ end
 -- 5. Penalties: DpsB ate all avoidable damage and died once
 check(byName.DpsB.penalty > 10, ("DpsB penalized (%.1f)"):format(byName.DpsB.penalty))
 check(byName.DpsA.penalty == 0, "DpsA not penalized")
+check(byName.DpsB.penaltyDetail.avoidable == 15, "avoidable penalty capped at 15")
+check(byName.DpsB.penaltyDetail.deaths == 10, "one death costs 10")
 
 -- 6. Cross-role fairness: tank and healer playing well can compete with DPS
 check(byName.Tank.score >= 80, ("well-played tank scores high (%.1f)"):format(byName.Tank.score))

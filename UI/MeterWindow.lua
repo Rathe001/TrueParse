@@ -166,9 +166,13 @@ function MeterWindow:RenderScorecard(fight)
 			scoreText = scoreText .. (" |cffff4444(-%.0f)|r"):format(r.penalty)
 		end
 		row.score:SetText(scoreText)
+
+		row.fight = fight
+		row.result = r
 	end
 
 	setWindowHeight(shown, rowHeight)
+	TP.BreakdownPanel:OnFightRendered(fight, results)
 end
 
 -- ============== Live damage fallback (no fights captured yet) ==============

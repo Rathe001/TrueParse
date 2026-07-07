@@ -161,16 +161,16 @@ function Engine.ScoreFight(fight)
 		end
 
 		local m = p.metrics
-		local penalty = 0
+		local penaltyAvoidable = 0
 		if ctx.totals.avoidable > 0 then
 			local share = (m.avoidableTaken or 0) / ctx.totals.avoidable
 			local excess = share - (1 / ctx.playerCount)
 			if excess > 0 then
-				penalty = penalty + math.min(W.penalties.avoidableCap, excess * W.penalties.avoidablePerExcessShare)
+				penaltyAvoidable = math.min(W.penalties.avoidableCap, excess * W.penalties.avoidablePerExcessShare)
 			end
 		end
-		penalty = penalty + math.min(W.penalties.deathsCap, (m.deaths or 0) * W.penalties.perDeath)
-		penalty = math.min(W.penalties.totalCap, penalty)
+		local penaltyDeaths = math.min(W.penalties.deathsCap, (m.deaths or 0) * W.penalties.perDeath)
+		local penalty = math.min(W.penalties.totalCap, penaltyAvoidable + penaltyDeaths)
 
 		results[#results + 1] = {
 			guid = p.guid,
@@ -180,6 +180,7 @@ function Engine.ScoreFight(fight)
 			score = math.max(0, math.min(100, base - penalty)),
 			base = base,
 			penalty = penalty,
+			penaltyDetail = { avoidable = penaltyAvoidable, deaths = penaltyDeaths },
 			breakdown = breakdown,
 		}
 	end

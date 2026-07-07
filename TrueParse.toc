@@ -27,4 +27,5 @@ Scoring\Engine.lua
 Scoring\Grades.lua
 UI\Bars.lua
 UI\Scorecard.lua
+UI\BreakdownPanel.lua
 UI\MeterWindow.lua
