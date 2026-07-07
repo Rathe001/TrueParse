@@ -26,9 +26,9 @@ function Scorecard:Acquire(parent)
 		row.bg:SetAllPoints()
 		row.bg:SetColorTexture(1, 1, 1, 0.04)
 
-		row.grade = row:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+		row.grade = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 		row.grade:SetPoint("LEFT", 4, 0)
-		row.grade:SetWidth(34)
+		row.grade:SetWidth(24)
 		row.grade:SetJustifyH("LEFT")
 
 		row.score = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")

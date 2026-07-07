@@ -11,7 +11,7 @@ local defaults = {
 		window = {
 			point = "CENTER", relPoint = "CENTER", x = 0, y = 0,
 			width = 240, height = 200,
-			locked = false, shown = true,
+			locked = false, shown = true, collapsed = false,
 		},
 		bars = {
 			height = 18,

@@ -9,6 +9,7 @@ TP.MeterWindow = MeterWindow
 
 local HEADER_HEIGHT = 22
 local PADDING = 6
+local SCORECARD_ROW_HEIGHT = 14
 
 local window
 local activeBars = {}
@@ -72,6 +73,25 @@ local function createWindow()
 
 	window.subtitle = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	window.subtitle:SetPoint("TOPRIGHT", -PADDING, -PADDING)
+
+	-- Title bar: click toggles collapse, drag moves (rows eat mouse below)
+	window.headerButton = CreateFrame("Button", nil, window)
+	window.headerButton:SetPoint("TOPLEFT", 0, 0)
+	window.headerButton:SetPoint("TOPRIGHT", 0, 0)
+	window.headerButton:SetHeight(HEADER_HEIGHT)
+	window.headerButton:RegisterForDrag("LeftButton")
+	window.headerButton:SetScript("OnDragStart", function()
+		if not db().window.locked then
+			window:StartMoving()
+		end
+	end)
+	window.headerButton:SetScript("OnDragStop", function()
+		window:StopMovingOrSizing()
+		savePosition()
+	end)
+	window.headerButton:SetScript("OnClick", function()
+		MeterWindow:ToggleCollapse()
+	end)
 end
 
 -- Force the next refresh to re-render (e.g. after a scoring option change)
@@ -118,8 +138,27 @@ function MeterWindow:OnEnable()
 	self:Refresh(true)
 end
 
+-- Resize while keeping the on-screen edge stable: a window in the top half
+-- of the screen stays pinned at its top and grows downward; in the bottom
+-- half it stays pinned at its bottom and grows upward.
+local function applyWindowHeight(newHeight)
+	local left, top, bottom = window:GetLeft(), window:GetTop(), window:GetBottom()
+	local _, centerY = window:GetCenter()
+	local screenH = UIParent:GetHeight()
+	window:SetHeight(newHeight)
+	if not (left and top and bottom and centerY and screenH) then
+		return
+	end
+	window:ClearAllPoints()
+	if centerY >= screenH / 2 then
+		window:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+	else
+		window:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
+	end
+end
+
 local function setWindowHeight(shown, rowHeight)
-	window:SetHeight(HEADER_HEIGHT + math.max(shown, 1) * (rowHeight + 1) + PADDING * 2)
+	applyWindowHeight(HEADER_HEIGHT + math.max(shown, 1) * (rowHeight + 1) + PADDING * 2)
 end
 
 -- ========================= Scorecard (primary) =========================
@@ -140,7 +179,7 @@ function MeterWindow:RenderScorecard(fight)
 
 	local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
 	local conf = db().bars
-	local rowHeight = conf.height + 2
+	local rowHeight = SCORECARD_ROW_HEIGHT
 	local shown = math.min(#results, conf.max)
 	local width = db().window.width - PADDING * 2
 
@@ -293,10 +332,31 @@ end
 
 -- ============================== Dispatch ==============================
 
+function MeterWindow:ToggleCollapse()
+	db().window.collapsed = not db().window.collapsed
+	self:Invalidate()
+end
+
 function MeterWindow:Refresh(force)
 	if not window or not window:IsShown() then
 		return
 	end
+	if db().window.collapsed then
+		releaseAllRows()
+		releaseAllBars()
+		lastRenderedFight = nil
+		window.title:SetText("TrueParse (+)")
+		local latest = TP.FightHistory.fights[1]
+		if latest then
+			window.subtitle:SetText(("%s · %d:%02d"):format(
+				latest.name or "Fight", math.floor((latest.duration or 0) / 60), (latest.duration or 0) % 60))
+		else
+			window.subtitle:SetText("")
+		end
+		applyWindowHeight(HEADER_HEIGHT + PADDING)
+		return
+	end
+	window.title:SetText("TrueParse")
 	local fight = TP.FightHistory.fights[1]
 	if TP.BlizzardMeter.available then
 		if fight then
