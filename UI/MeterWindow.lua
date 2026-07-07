@@ -1,5 +1,7 @@
--- The main meter window. P1: sorted by damage done (verification against
--- Details). P5 switches the sort to the contribution score.
+-- The main TrueParse window. Primary view: post-fight SCORECARD — one row
+-- per player with a colored letter grade, sorted by contribution score.
+-- Until the first fight is captured it falls back to a live damage view
+-- (Blizzard session data), and Classic clients use the CLEU segment view.
 local _, TP = ...
 
 local MeterWindow = {}
@@ -10,11 +12,27 @@ local PADDING = 6
 
 local window
 local activeBars = {}
+local activeRows = {}
 local sortScratch = {}
 local lastDrawnRevision = -1
+local lastRenderedFight
 
 local function db()
 	return TP.Addon.db.profile
+end
+
+local function releaseAllBars()
+	for i = #activeBars, 1, -1 do
+		TP.Bars:Release(activeBars[i])
+		activeBars[i] = nil
+	end
+end
+
+local function releaseAllRows()
+	for i = #activeRows, 1, -1 do
+		TP.Scorecard:Release(activeRows[i])
+		activeRows[i] = nil
+	end
 end
 
 local function savePosition()
@@ -85,11 +103,75 @@ function MeterWindow:OnEnable()
 	TP.Addon:RegisterMessage("TrueParse_SEGMENT_CHANGED", function()
 		MeterWindow:Refresh(true)
 	end)
+	TP.Addon:RegisterMessage("TrueParse_FIGHT_CAPTURED", function()
+		MeterWindow:Refresh(true)
+	end)
 	TP.Addon:ScheduleRepeatingTimer(function()
 		MeterWindow:Refresh(false)
 	end, 0.5)
 	self:Refresh(true)
 end
+
+local function setWindowHeight(shown, rowHeight)
+	window:SetHeight(HEADER_HEIGHT + math.max(shown, 1) * (rowHeight + 1) + PADDING * 2)
+end
+
+-- ========================= Scorecard (primary) =========================
+
+function MeterWindow:RenderScorecard(fight)
+	local duration = fight.duration or 0
+	local label = ("%s · %d:%02d"):format(fight.name or "Fight", math.floor(duration / 60), duration % 60)
+	if UnitAffectingCombat("player") then
+		label = label .. " |cffff8888· fighting…|r"
+	end
+	window.subtitle:SetText(label)
+
+	if lastRenderedFight == fight then
+		return -- scores are static once captured; only the subtitle changes
+	end
+	lastRenderedFight = fight
+	releaseAllBars()
+
+	local results = TP.Scoring.Engine.ScoreFight(fight)
+	local conf = db().bars
+	local rowHeight = conf.height + 2
+	local shown = math.min(#results, conf.max)
+	local width = db().window.width - PADDING * 2
+
+	for i = #activeRows, shown + 1, -1 do
+		TP.Scorecard:Release(activeRows[i])
+		activeRows[i] = nil
+	end
+
+	for i = 1, shown do
+		local r = results[i]
+		local row = activeRows[i]
+		if not row then
+			row = TP.Scorecard:Acquire(window)
+			activeRows[i] = row
+		end
+		row:SetSize(width, rowHeight)
+		row:ClearAllPoints()
+		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (i - 1) * (rowHeight + 1)))
+
+		local grade = TP.Scoring.Grades.ForScore(r.score)
+		row.grade:SetText(grade)
+		row.grade:SetTextColor(TP.Scoring.Grades.Color(grade))
+
+		row.name:SetText(r.name)
+		row.name:SetTextColor(TP.ClassColor(r.class))
+
+		local scoreText = ("%.0f"):format(r.score)
+		if r.penalty > 0 then
+			scoreText = scoreText .. (" |cffff4444(-%.0f)|r"):format(r.penalty)
+		end
+		row.score:SetText(scoreText)
+	end
+
+	setWindowHeight(shown, rowHeight)
+end
+
+-- ============== Live damage fallback (no fights captured yet) ==============
 
 local function drawBar(i, name, class, fraction, valueText, barWidth, barHeight)
 	local bar = activeBars[i]
@@ -107,41 +189,33 @@ local function drawBar(i, name, class, fraction, valueText, barWidth, barHeight)
 	bar.valueText:SetText(valueText)
 end
 
-local function finishDraw(shown, barHeight)
+local function finishBars(shown, barHeight)
 	for i = #activeBars, shown + 1, -1 do
 		TP.Bars:Release(activeBars[i])
 		activeBars[i] = nil
 	end
-	window:SetHeight(HEADER_HEIGHT + math.max(shown, 1) * (barHeight + 1) + PADDING * 2)
+	setWindowHeight(shown, barHeight)
 end
 
 local function sortByTotal(a, b)
 	return a.totalAmount > b.totalAmount
 end
 
-local SCOPE_LABEL = {
-	current = "Damage",
-	last = "Damage · last fight",
-	overall = "Damage · overall",
-	none = "Damage",
-}
-
--- Retail (12.0+): render straight from Blizzard's meter session.
 function MeterWindow:RefreshFromBlizzardMeter()
 	local Meter = TP.BlizzardMeter
-	local session, scope = Meter:GetSession(Enum.DamageMeterType.DamageDone)
+	local session = Meter:GetSession(Enum.DamageMeterType.DamageDone)
 	local conf = db().bars
+	releaseAllRows()
+	lastRenderedFight = nil
 
 	if Meter:IsLocked(session) then
-		-- Mid-combat secret values: can't sort or format them, and showing an
-		-- older session's bars here is misleading. Clear until values unlock.
 		window.subtitle:SetText("|cffff8888in combat · live data locked|r")
-		finishDraw(0, conf.height)
+		finishBars(0, conf.height)
 		return
 	end
 
 	local duration = math.max(session.durationSeconds or 0, 1)
-	window.subtitle:SetText(("%s · %d:%02d"):format(SCOPE_LABEL[scope], math.floor(duration / 60), duration % 60))
+	window.subtitle:SetText(("Damage · %d:%02d"):format(math.floor(duration / 60), duration % 60))
 
 	wipe(sortScratch)
 	local sources = session.combatSources
@@ -163,21 +237,22 @@ function MeterWindow:RefreshFromBlizzardMeter()
 			("%s (%s)"):format(TP.FormatNumber(src.totalAmount), TP.FormatNumber(src.totalAmount / duration)),
 			barWidth, conf.height)
 	end
-	finishDraw(shown, conf.height)
+	finishBars(shown, conf.height)
 end
+
+-- ================== Classic path: CLEU segment damage ==================
 
 local function sortByDamage(a, b)
 	return a.damage.total > b.damage.total
 end
 
--- Classic path: render from our own CLEU-fed segment accumulators.
 function MeterWindow:RefreshFromSegments(force)
 	local Segments = TP.Segments
-	-- Nothing changes out of combat; skip redraw unless a segment event fired
 	if not force and not Segments.current and Segments.revision == lastDrawnRevision then
 		return
 	end
 	lastDrawnRevision = Segments.revision
+	releaseAllRows()
 
 	local seg = Segments:GetDisplaySegment()
 	local duration = Segments:GetDuration(seg)
@@ -202,15 +277,22 @@ function MeterWindow:RefreshFromSegments(force)
 			("%s (%s)"):format(TP.FormatNumber(acc.damage.total), TP.FormatNumber(acc.damage.total / duration)),
 			barWidth, conf.height)
 	end
-	finishDraw(shown, conf.height)
+	finishBars(shown, conf.height)
 end
+
+-- ============================== Dispatch ==============================
 
 function MeterWindow:Refresh(force)
 	if not window or not window:IsShown() then
 		return
 	end
 	if TP.BlizzardMeter.available then
-		self:RefreshFromBlizzardMeter()
+		local fight = TP.FightHistory.fights[1]
+		if fight then
+			self:RenderScorecard(fight)
+		else
+			self:RefreshFromBlizzardMeter()
+		end
 	else
 		self:RefreshFromSegments(force)
 	end

@@ -12,6 +12,7 @@ local TP = {}
 loadModule("Scoring/Capabilities.lua", TP)
 loadModule("Scoring/Weights.lua", TP)
 loadModule("Scoring/Engine.lua", TP)
+loadModule("Scoring/Grades.lua", TP)
 
 local failures = 0
 local function check(cond, label)
@@ -30,6 +31,24 @@ for role, weights in pairs(TP.Scoring.Weights.roleWeights) do
 		sum = sum + w
 	end
 	check(math.abs(sum - 1.0) < 1e-9, ("weights sum to 1.0 for %s (got %.4f)"):format(role, sum))
+end
+
+-- 1b. Grade mapping: 16 tiers, correct boundaries
+local G = TP.Scoring.Grades
+check(#G.ORDER == 16, "16 grade tiers")
+check(G.ForScore(0) == "F", "0 -> F")
+check(G.ForScore(24.9) == "F", "24.9 -> F")
+check(G.ForScore(25) == "D-", "25 -> D-")
+check(G.ForScore(49) == "C", "49 -> C")
+check(G.ForScore(62) == "B", "62 -> B")
+check(G.ForScore(77) == "A", "77 -> A")
+check(G.ForScore(80) == "A+", "80 -> A+")
+check(G.ForScore(94.9) == "S", "94.9 -> S")
+check(G.ForScore(95) == "S+", "95 -> S+")
+check(G.ForScore(100) == "S+", "100 -> S+")
+do
+	local r, gr, b = G.Color("S+")
+	check(r and gr and b, "grade color returns rgb")
 end
 
 -- 2. Capability gating

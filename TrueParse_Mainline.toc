@@ -24,5 +24,7 @@ Collect\CastProbe.lua
 Scoring\Capabilities.lua
 Scoring\Weights.lua
 Scoring\Engine.lua
+Scoring\Grades.lua
 UI\Bars.lua
+UI\Scorecard.lua
 UI\MeterWindow.lua
