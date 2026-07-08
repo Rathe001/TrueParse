@@ -21,6 +21,10 @@ TP.FightHistory = FightHistory
 local IsSecret
 local metrics -- resolved METRIC_DEFS: { {key, enumValue}, ... }
 local specIconMap -- icon fileID -> { specID, role }
+-- Instance context recorded LIVE as each session first appears: real-group
+-- content holds sessions locked until a bulk unlock after you leave, so
+-- stamping context at capture time records the wrong zone.
+local sessionContext = {} -- [sessionID] = { zone, instanceType, difficulty }
 local retryTicker
 local sweepQueued = false
 local lastLiveSession
@@ -155,16 +159,23 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	}
 
 	-- Where the fight happened; separates boss/trash/dungeon/raid rows when
-	-- calibrating scoring weights from real runs.
+	-- calibrating scoring weights from real runs. Prefer the context recorded
+	-- live when the session appeared — at capture time we may have already
+	-- left the instance (bulk unlock).
+	local live = sessionContext[sessionID]
 	local zone, instanceType, difficultyID, difficultyName = GetInstanceInfo()
-	if zone and not IsSecret(zone) then
-		fight.zone = zone
-	end
-	if instanceType and not IsSecret(instanceType) then
-		fight.instanceType = instanceType
-	end
-	if difficultyName and not IsSecret(difficultyName) then
-		fight.difficulty = difficultyName
+	if live then
+		fight.zone, fight.instanceType, fight.difficulty = live.zone, live.instanceType, live.difficulty
+	else
+		if zone and not IsSecret(zone) then
+			fight.zone = zone
+		end
+		if instanceType and not IsSecret(instanceType) then
+			fight.instanceType = instanceType
+		end
+		if difficultyName and not IsSecret(difficultyName) then
+			fight.difficulty = difficultyName
+		end
 	end
 	if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
 		local ok, keystoneLevel = pcall(C_ChallengeMode.GetActiveKeystoneInfo)
@@ -265,6 +276,14 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
 		if damageMeterType ~= Enum.DamageMeterType.DamageDone or IsSecret(sessionId) then
 			return
 		end
+		if not sessionContext[sessionId] then
+			local zone, instanceType, _, difficultyName = GetInstanceInfo()
+			sessionContext[sessionId] = {
+				zone = (not IsSecret(zone)) and zone or nil,
+				instanceType = (not IsSecret(instanceType)) and instanceType or nil,
+				difficulty = (not IsSecret(difficultyName)) and difficultyName or nil,
+			}
+		end
 		if FightHistory.snapshotted[sessionId] then
 			-- Session resumed after we captured it; recapture when it settles
 			FightHistory.snapshotted[sessionId] = nil
@@ -276,6 +295,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
 		end
 	elseif event == "DAMAGE_METER_RESET" then
 		wipe(FightHistory.snapshotted)
+		wipe(sessionContext)
 		lastLiveSession = nil
 		queueSweep(1)
 	elseif event == "PLAYER_REGEN_ENABLED" or event == "ADDON_RESTRICTION_STATE_CHANGED" then
