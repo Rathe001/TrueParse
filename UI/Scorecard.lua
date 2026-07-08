@@ -57,6 +57,10 @@ function Scorecard:Acquire(parent)
 			if self.awards then
 				for _, award in ipairs(self.awards) do
 					GameTooltip:AddLine(TP.STAR .. " " .. award, 1, 0.82, 0.2)
+					local description = TP.Scoring.Awards.DESCRIPTIONS[award]
+					if description then
+						GameTooltip:AddLine("   " .. description, 0.7, 0.7, 0.7, true)
+					end
 				end
 			end
 			GameTooltip:AddLine("Click for the full breakdown", 0.5, 0.5, 0.5)

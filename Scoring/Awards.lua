@@ -15,6 +15,15 @@ Awards.LABELS = {
 	survivalist = "Survivalist",
 }
 
+-- Why each award is given, keyed by its display label (what the UI has)
+Awards.DESCRIPTIONS = {
+	[Awards.LABELS.kickKing] = "Most interrupts this fight (at least 2, no tie).",
+	[Awards.LABELS.cleanser] = "Most dispels this fight (at least 2, no tie).",
+	[Awards.LABELS.untouchable] = "Avoidable damage went out and you dodged every bit of it.",
+	[Awards.LABELS.lifesaver] = "A non-healer who covered 15%+ of the group's healing.",
+	[Awards.LABELS.survivalist] = "Most self-rescue healing (potion or Healthstone) - and lived to tell about it.",
+}
+
 -- Sole top performer for a metric, requiring a minimum and no tie.
 local function topUnique(fight, metric, minValue)
 	local bestGuid, best, tie

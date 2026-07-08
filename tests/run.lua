@@ -492,6 +492,12 @@ for _, b in ipairs(zeroBullets) do
 end
 check(kickText == "Did not interrupt", ("zero kicks phrased plainly (%s)"):format(tostring(kickText)))
 
+-- 14a. Every award has a description
+for _, label in pairs(TP.Scoring.Awards.LABELS) do
+	check(type(TP.Scoring.Awards.DESCRIPTIONS[label]) == "string",
+		("award '%s' has a description"):format(label))
+end
+
 -- 14b. Group bullets
 local groupBullets = TP.Scoring.Bullets.ForGroup({
 	{ breakdown = { damage = { applicable = true, normalized = 80, value = 100 }, interrupts = { applicable = true, normalized = 0, value = 0 } },

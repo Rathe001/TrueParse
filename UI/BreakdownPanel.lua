@@ -171,7 +171,9 @@ function Panel:ShowFor(fight, result)
 		elseif bullet.kind == "penalty" then
 			row.tooltipData = { title = bullet.text, lines = { { PENALTY_HELP[bullet.key] or "", 0.95, 0.5, 0.5 } } }
 		else
-			row.tooltipData = { title = bullet.text, lines = { { "Fight award — earned, not given.", 1, 0.82, 0.2 } } }
+			row.tooltipData = { title = bullet.text, lines = {
+				{ TP.Scoring.Awards.DESCRIPTIONS[bullet.text] or "Fight award.", 1, 1, 1 },
+			} }
 		end
 	end
 
