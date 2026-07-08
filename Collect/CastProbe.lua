@@ -160,6 +160,18 @@ local function sampleAuras()
 	end
 end
 
+-- Prints AND persists to SavedVariables, so probe verdicts survive the
+-- session and can be analyzed from disk.
+local function emit(line)
+	TP.Addon:Print(line)
+	local db = TP.Addon.db.global
+	db.probeLog = db.probeLog or {}
+	table.insert(db.probeLog, 1, ("%s %s"):format(date("%m-%d %H:%M"), line))
+	for i = #db.probeLog, 31, -1 do
+		table.remove(db.probeLog, i)
+	end
+end
+
 function Probe:Report(force)
 	local observed = counts.casts + counts.secret + counts.auraReads + counts.errors
 		+ counts.selfCasts + counts.groupCasts
@@ -169,10 +181,10 @@ function Probe:Report(force)
 		end
 		return
 	end
-	TP.Addon:Print(("Probe: enemy casts %d (interruptible %d, secret %d), interrupted %d · aura reads %d (%d secret) · errors %d"):format(
+	emit(("Probe: enemy casts %d (interruptible %d, secret %d), interrupted %d · aura reads %d (%d secret) · errors %d"):format(
 		counts.casts, counts.interruptible, counts.secret, counts.interrupted,
 		counts.auraReads, counts.auraSecrets, counts.errors))
-	TP.Addon:Print(("Probe friendly (in combat): you %d casts (%d secret) · group %d casts (%d secret)"):format(
+	emit(("Probe friendly (in combat): you %d casts (%d secret) · group %d casts (%d secret)"):format(
 		counts.selfCasts, counts.selfSecret, counts.groupCasts, counts.groupSecret))
 	if #sampleSpells > 0 then
 		local names = {}
@@ -181,7 +193,7 @@ function Probe:Report(force)
 				or (GetSpellInfo and GetSpellInfo(id))
 			names[#names + 1] = ("%s(%d)"):format(name or "?", id)
 		end
-		TP.Addon:Print("Probe readable group spells: " .. table.concat(names, ", "))
+		emit("Probe readable group spells: " .. table.concat(names, ", "))
 	end
 end
 

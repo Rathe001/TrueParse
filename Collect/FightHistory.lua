@@ -131,7 +131,14 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		name = ("Fight #%d"):format(sessionID)
 	end
 
-	if (duration or 0) < 10 then
+	if not duration then
+		-- No attribute had data yet (session still empty/locked in a way
+		-- IsLocked can't see). Do NOT blacklist: retry until data arrives —
+		-- real-group dungeons deliver everything in one bulk unlock at the
+		-- end of the run.
+		return false
+	end
+	if duration < 10 then
 		self.snapshotted[sessionID] = true -- pull-reset blip: skip for good
 		return true
 	end
