@@ -15,12 +15,17 @@ TP.Readiness = Readiness
 local SCAN_PERIOD = 10
 local MAX_SNAPSHOT_AGE = 600 -- ignore stale pulls (e.g. captured long after)
 
+-- Returns true if ANY aura was readable: a living player always has some
+-- buff, so zero readable auras means "couldn't scan" (range/phasing), not
+-- "unbuffed".
 local function scanUnit(unit, buffs)
+	local sawAny = false
 	for i = 1, 60 do
 		local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, unit, i, "HELPFUL")
 		if not ok or not aura then
 			break
 		end
+		sawAny = true
 		local spellId = aura.spellId
 		if spellId and not TP.Compat.IsSecret(spellId) then
 			for _, category in ipairs(TP.GROUP_BUFFS) do
@@ -30,6 +35,7 @@ local function scanUnit(unit, buffs)
 			end
 		end
 	end
+	return sawAny
 end
 
 local function scan()
@@ -39,10 +45,13 @@ local function scan()
 	end
 	wipe(Readiness.snapshot)
 	for guid, info in pairs(TP.Roster.players) do
-		if UnitExists(info.unit) then
+		-- Only members we can actually read count; out-of-range players were
+		-- being recorded as "no buffs" and providers falsely penalized.
+		if UnitExists(info.unit) and UnitIsVisible(info.unit) then
 			local buffs = {}
-			scanUnit(info.unit, buffs)
-			Readiness.snapshot[guid] = buffs
+			if scanUnit(info.unit, buffs) then
+				Readiness.snapshot[guid] = buffs
+			end
 		end
 	end
 end

@@ -120,6 +120,28 @@ function Roster:OnInspectReady(guid)
 	if info and UnitExists(info.unit) and UnitGUID(info.unit) == guid then
 		local ilvl = C_PaperDollInfo and C_PaperDollInfo.GetInspectItemLevel
 			and C_PaperDollInfo.GetInspectItemLevel(info.unit)
+		if not (ilvl and ilvl > 0) then
+			-- Classic clients return nothing here: average the inspected
+			-- unit's equipped item levels ourselves
+			local total, count = 0, 0
+			for slot = 1, 17 do
+				if slot ~= 4 then -- shirt
+					local link = GetInventoryItemLink(info.unit, slot)
+					if link then
+						local getLevel = (C_Item and C_Item.GetDetailedItemLevelInfo)
+							or GetDetailedItemLevelInfo
+						local itemLevel = getLevel and getLevel(link)
+						if itemLevel and itemLevel > 0 then
+							total = total + itemLevel
+							count = count + 1
+						end
+					end
+				end
+			end
+			if count >= 8 then
+				ilvl = total / count
+			end
+		end
 		if ilvl and ilvl > 0 and not TP.Compat.IsSecret(ilvl) then
 			info.ilvl = math.floor(ilvl + 0.5)
 		end

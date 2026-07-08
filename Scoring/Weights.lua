@@ -20,7 +20,10 @@ TP.Scoring.Weights = Weights
 Weights.roleWeights = {
 	TANK    = { damage = 0.25, healing = 0.10, damageTaken = 0.35, interrupts = 0.20, dispels = 0.10 },
 	HEALER  = { damage = 0.15, healing = 0.55, interrupts = 0.15, dispels = 0.15 },
-	DAMAGER = { damage = 0.50, healing = 0.15, interrupts = 0.25, dispels = 0.10 },
+	-- healing 0.15 -> 0.10 (2026-07-07 field data: 47% of DPS log zero
+	-- off-healing, dragging DPS ~18 pts below healers; the incentive stays,
+	-- the drag shrinks)
+	DAMAGER = { damage = 0.55, healing = 0.10, interrupts = 0.25, dispels = 0.10 },
 	-- Augmentation & friends: personal damage is a small, expected slice
 	-- (their real output lives in allies' numbers), so utility weighs more.
 	SUPPORT = { damage = 0.40, healing = 0.20, interrupts = 0.25, dispels = 0.15 },
