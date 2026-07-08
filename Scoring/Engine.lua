@@ -109,6 +109,9 @@ local function normalizeMetric(p, role, key, ctx)
 	end
 
 	if key == "dispels" then
+		if not TP.Scoring.Capabilities.CanDispel(p.class) then
+			return 0, false -- no cleanse on this class
+		end
 		if ctx.totals.dispels <= 0 then
 			return 0, false -- nothing dispellable happened
 		end

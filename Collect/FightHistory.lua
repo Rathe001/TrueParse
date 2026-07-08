@@ -131,6 +131,11 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		name = ("Fight #%d"):format(sessionID)
 	end
 
+	if (duration or 0) < 10 then
+		self.snapshotted[sessionID] = true -- pull-reset blip: skip for good
+		return true
+	end
+
 	local fight = {
 		sessionID = sessionID,
 		name = name,
@@ -333,8 +338,8 @@ function FightHistory:AddFromSegment(seg)
 		}
 		end
 	end
-	if totals.damage <= 0 then
-		return -- trivial segment, don't pollute history
+	if totals.damage <= 0 or (seg.duration or 0) < 10 then
+		return -- trivial segment or a pull-reset blip: don't pollute history
 	end
 
 	local fight = {

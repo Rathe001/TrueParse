@@ -43,6 +43,21 @@ function Capabilities.CanInterrupt(class, role)
 	return true
 end
 
+-- Friendly-dispel capability (coarse, class level): these classes have some
+-- friendly cleanse on at least most specs, in MoP and retail alike. Pure
+-- damage classes must not be scored on dispels they cannot perform.
+local CAN_DISPEL = {
+	PRIEST = true, PALADIN = true, DRUID = true, SHAMAN = true,
+	MONK = true, MAGE = true, EVOKER = true,
+}
+
+function Capabilities.CanDispel(class)
+	if not class then
+		return true
+	end
+	return CAN_DISPEL[class] or false
+end
+
 -- Support specs whose output is transferred into OTHER players' numbers
 -- (Augmentation Evoker). Their personal damage massively understates their
 -- contribution and no support-damage attribute exists in C_DamageMeter, so

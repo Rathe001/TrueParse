@@ -110,6 +110,8 @@ end
 -- 3. Capability redistribution: priest healer's interrupt metric inapplicable
 check(byName.Heal.breakdown.interrupts.applicable == false, "healer interrupt metric inapplicable (priest)")
 check(byName.Heal.breakdown.healing.applicable == true, "healer healing metric applicable")
+check(byName.DpsB.breakdown.dispels.applicable == false, "rogue not scored on dispels (no cleanse)")
+check(byName.Heal.breakdown.dispels.applicable == true, "priest scored on dispels")
 
 -- 4. Effective weights renormalize to 1.0 over applicable metrics
 for _, r in ipairs(results) do
