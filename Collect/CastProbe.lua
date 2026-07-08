@@ -6,11 +6,15 @@
 -- kick counts normalized among kick-capable specs, and buff checks must be
 -- pre-pull snapshots (out-of-combat reads are never secret).
 --
--- EXPERIMENT 2 (running): do FRIENDLY group members' cast events reach
--- addons readably in combat? UNIT_SPELLCAST_SUCCEEDED covers instants
--- (defensives, CC, kicks) — if payloads aren't secret, defensive-cooldown
--- and utility credit become possible on retail. Self vs group tracked
--- separately: self-data often survives restrictions that group data doesn't.
+-- EXPERIMENT 2 (concluded 2026-07-08, Magisters' Terrace Heroic, 10 pulls):
+-- do FRIENDLY group members' cast events reach addons readably in combat?
+-- VERDICT: split. YOUR OWN casts are fully readable (~830 events, 0 secret).
+-- OTHER group members' casts fire but every spellID is secret (126/126).
+-- Hostile cast events also fire in real dungeons with secret payloads
+-- (refining Experiment 1: events exist, data doesn't). Conclusion: group
+-- defensive/CC credit is impossible on retail; personal-only tracking (own
+-- defensives/utility feeding the coach line) remains possible. Classic can
+-- do both via CLEU.
 --
 -- Default off. Toggle: /tp probe. Live dump: /tp probe status.
 --
