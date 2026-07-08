@@ -217,9 +217,11 @@ function MeterWindow:RenderScorecard(fight)
 		row.grade:SetText(grade)
 		row.grade:SetTextColor(TP.Scoring.Grades.Color(grade))
 
-		-- Players not running TrueParse render dimmed: less data, not worse
+		-- Players not running TrueParse render dimmed: less data, not worse.
+		-- The local player always has the addon (fights captured before the
+		-- presence stamp existed rely on the isLocalPlayer fallback).
 		local player = fight.players[r.guid]
-		local hasAddon = player and player.hasAddon
+		local hasAddon = player and (player.hasAddon or player.isLocalPlayer)
 		local alpha = hasAddon and 1 or 0.55
 		row.grade:SetAlpha(alpha)
 		row.name:SetAlpha(alpha)
