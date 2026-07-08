@@ -6,28 +6,38 @@ local _, TP = ...
 local RunSummary = {}
 TP.RunSummary = RunSummary
 
-local currentInstance -- { name, enteredAt }
+local currentInstance -- { name }
 
 local function updateInstance()
 	local name, instanceType = GetInstanceInfo()
 	if instanceType == "party" or instanceType == "raid" or instanceType == "scenario" then
-		if not currentInstance or currentInstance.name ~= name then
-			currentInstance = { name = name, enteredAt = time() }
-		end
+		currentInstance = { name = name }
 	else
 		currentInstance = nil
 	end
 end
+
+-- The current run = the contiguous streak of fights in this instance ending
+-- at the newest capture (an hour-plus gap separates distinct visits).
+-- Deliberately NOT keyed to "time we zoned in": /reload would reset that and
+-- orphan everything already captured.
+local MAX_PULL_GAP = 3600
 
 local function collectRunFights()
 	if not currentInstance then
 		return nil
 	end
 	local fights = {}
-	for _, fight in ipairs(TP.FightHistory.fights) do
-		if fight.zone == currentInstance.name and (fight.capturedAt or 0) >= currentInstance.enteredAt then
-			fights[#fights + 1] = fight
+	local previousAt
+	for _, fight in ipairs(TP.FightHistory.fights) do -- newest first
+		if fight.zone ~= currentInstance.name then
+			break -- older fight elsewhere: previous visit boundary
 		end
+		if previousAt and (previousAt - (fight.capturedAt or 0)) > MAX_PULL_GAP then
+			break -- long idle gap: treat as a separate visit
+		end
+		fights[#fights + 1] = fight
+		previousAt = fight.capturedAt or 0
 	end
 	return fights
 end
