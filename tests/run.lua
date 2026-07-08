@@ -443,9 +443,12 @@ check(buffAdvice and buffAdvice.kind == "buffs", "coach flags buff coverage")
 
 -- 13. Group insights: strengths/weaknesses derived from results
 local insightResults = {
-	{ breakdown = { damage = { applicable = true, normalized = 90 }, interrupts = { applicable = true, normalized = 85 } },
+	{ breakdown = { damage = { applicable = true, normalized = 90 }, interrupts = { applicable = true, normalized = 85 },
+			healing = { applicable = true, normalized = 40 } },
 		penaltyDetail = { deaths = 10 } },
-	{ breakdown = { damage = { applicable = true, normalized = 80 }, interrupts = { applicable = true, normalized = 95 } },
+	{ breakdown = { damage = { applicable = true, normalized = 80 }, interrupts = { applicable = true, normalized = 95 },
+			-- damageTaken must never surface as a group strength (solo metric)
+			damageTaken = { applicable = true, normalized = 100 } },
 		penaltyDetail = { deaths = 10, avoidable = 5 } },
 	{ breakdown = { damage = { applicable = true, normalized = 70 }, healing = { applicable = true, normalized = 30 } },
 		penaltyDetail = { deaths = 10, avoidable = 3, buffs = 2 } },
