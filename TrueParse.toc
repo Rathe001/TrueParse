@@ -38,6 +38,7 @@ Scoring\Awards.lua
 Scoring\Coach.lua
 Scoring\Runs.lua
 Scoring\Insights.lua
+Scoring\Bullets.lua
 Core\Career.lua
 UI\Bars.lua
 UI\Scorecard.lua

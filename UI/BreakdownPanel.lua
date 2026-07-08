@@ -1,30 +1,17 @@
--- Click-to-breakdown panel: shows exactly how one player's grade was built.
--- One row per metric (raw value, WCL absolute component, blended score,
--- effective weight, points), greyed rows for inapplicable metrics, penalty
--- lines, final score + grade. Hovering any row explains the derivation in
--- plain English.
+-- Click-to-breakdown panel: plain-language bullets explaining the grade.
+-- Green + earned points, red - cost points (weak metrics and penalties),
+-- dim mid-marks for middling contributions, gold + for awards — biggest
+-- weight first. Hovering any bullet shows the full numeric derivation.
 local _, TP = ...
 
 local Panel = {}
 TP.BreakdownPanel = Panel
 
-local WIDTH = 400
+local WIDTH = 380
 local ROW_HEIGHT = 15
-local HEADER_Y = -40
+local FIRST_ROW_Y = -40
 
-local METRIC_ORDER = { "damage", "healing", "damageTaken", "interrupts", "dispels" }
 local COUNT_METRICS = { interrupts = true, dispels = true }
-
--- x offset, width, justify for each column
-local COLUMNS = {
-	label = { 10, 105, "LEFT" },
-	raw = { 115, 62, "RIGHT" },
-	wcl = { 179, 44, "RIGHT" },
-	norm = { 225, 44, "RIGHT" },
-	wt = { 271, 44, "RIGHT" },
-	pts = { 317, 68, "RIGHT" },
-}
-local CELL_KEYS = { "label", "raw", "wcl", "norm", "wt", "pts" }
 
 local frame
 local rows = {}
@@ -46,21 +33,23 @@ local function rowLeave()
 	GameTooltip:Hide()
 end
 
-local function newRow(parent, mouse)
+local function newRow(parent)
 	local row = CreateFrame("Frame", nil, parent)
-	row:SetSize(WIDTH, ROW_HEIGHT)
-	if mouse then
-		row:EnableMouse(true)
-		row:SetScript("OnEnter", rowEnter)
-		row:SetScript("OnLeave", rowLeave)
-	end
-	for _, col in ipairs(CELL_KEYS) do
-		local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		fs:SetPoint("LEFT", COLUMNS[col][1], 0)
-		fs:SetWidth(COLUMNS[col][2])
-		fs:SetJustifyH(COLUMNS[col][3])
-		row[col] = fs
-	end
+	row:SetSize(WIDTH - 12, ROW_HEIGHT)
+	row:EnableMouse(true)
+	row:SetScript("OnEnter", rowEnter)
+	row:SetScript("OnLeave", rowLeave)
+
+	row.symbol = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	row.symbol:SetPoint("LEFT", 10, 0)
+	row.symbol:SetWidth(14)
+	row.symbol:SetJustifyH("CENTER")
+
+	row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	row.text:SetPoint("LEFT", 28, 0)
+	row.text:SetPoint("RIGHT", -8, 0)
+	row.text:SetJustifyH("LEFT")
+	row.text:SetWordWrap(false)
 	return row
 end
 
@@ -92,14 +81,6 @@ local function createFrame()
 	frame.subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	frame.subtitle:SetPoint("TOPLEFT", 10, -24)
 
-	frame.header = newRow(frame, false)
-	frame.header:SetPoint("TOPLEFT", 0, HEADER_Y)
-	local headerLabels = { label = "Metric", raw = "Raw", wcl = "WCL", norm = "Score", wt = "Weight", pts = "Points" }
-	for col, text in pairs(headerLabels) do
-		frame.header[col]:SetText(text)
-		frame.header[col]:SetFontObject("GameFontDisableSmall")
-	end
-
 	frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	frame.total:SetPoint("BOTTOMLEFT", 10, 10)
 end
@@ -107,19 +88,13 @@ end
 local function getRow(i, y)
 	local row = rows[i]
 	if not row then
-		row = newRow(frame, true)
+		row = newRow(frame)
 		rows[i] = row
 	end
 	row:ClearAllPoints()
 	row:SetPoint("TOPLEFT", 0, y)
 	row:Show()
 	return row
-end
-
-local function setRowColor(row, r, g, b)
-	for _, col in ipairs(CELL_KEYS) do
-		row[col]:SetTextColor(r, g, b)
-	end
 end
 
 local function hideRowsFrom(i)
@@ -129,6 +104,7 @@ local function hideRowsFrom(i)
 	end
 end
 
+-- Full numeric derivation, shown on hover
 local function buildMetricTooltip(key, b, duration)
 	local label = TP.METRIC_LABELS[key] or key
 	local lines = {}
@@ -142,11 +118,6 @@ local function buildMetricTooltip(key, b, duration)
 			math.floor(duration / 60), duration % 60), 1, 1, 1 }
 	else
 		lines[#lines + 1] = { ("%s total."):format(TP.FormatNumber(value)), 1, 1, 1 }
-	end
-
-	if not b.applicable then
-		lines[#lines + 1] = { "Not scored this fight: no opportunity, or not available to your spec. Its weight was redistributed to your other metrics.", 0.6, 0.6, 0.6 }
-		return { title = label, lines = lines }
 	end
 
 	if b.absolute then
@@ -183,58 +154,28 @@ function Panel:ShowFor(fight, result)
 	frame.title:SetTextColor(cr, cg, cb)
 	frame.subtitle:SetText(("%s · %s"):format(fight.name or "Fight", result.role))
 
-	local y = HEADER_Y - ROW_HEIGHT
-	local used = 0
+	local myAwards = TP.Scoring.Awards.Compute(fight)[result.guid]
+	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards)
 
-	for _, key in ipairs(METRIC_ORDER) do
-		local b = result.breakdown[key]
-		if b then
-			used = used + 1
-			local row = getRow(used, y)
-			y = y - ROW_HEIGHT
-			row.label:SetText(TP.METRIC_LABELS[key] or key)
-			row.raw:SetText(TP.FormatNumber(b.value or 0))
-			if b.applicable then
-				row.wcl:SetText(b.absolute and ("%.0f"):format(b.absolute) or "—")
-				row.norm:SetText(("%.0f"):format(b.normalized or 0))
-				row.wt:SetText(("%.0f%%"):format((b.effectiveWeight or 0) * 100))
-				row.pts:SetText(("%.1f"):format(b.contribution or 0))
-				setRowColor(row, 0.92, 0.92, 0.92)
-			else
-				row.wcl:SetText("—")
-				row.norm:SetText("—")
-				row.wt:SetText("n/a")
-				row.pts:SetText("—")
-				setRowColor(row, 0.45, 0.45, 0.45)
-			end
-			row.tooltipData = buildMetricTooltip(key, b, fight.duration)
+	local y = FIRST_ROW_Y
+	for i, bullet in ipairs(bullets) do
+		local row = getRow(i, y)
+		y = y - ROW_HEIGHT
+		row.symbol:SetText(bullet.symbol)
+		row.symbol:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
+		row.text:SetText(bullet.text)
+		row.text:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
+
+		if bullet.kind == "metric" then
+			row.tooltipData = buildMetricTooltip(bullet.key, result.breakdown[bullet.key], fight.duration)
+		elseif bullet.kind == "penalty" then
+			row.tooltipData = { title = bullet.text, lines = { { PENALTY_HELP[bullet.key] or "", 0.95, 0.5, 0.5 } } }
+		else
+			row.tooltipData = { title = bullet.text, lines = { { "Fight award — earned, not given.", 1, 0.82, 0.2 } } }
 		end
 	end
 
-	local pd = result.penaltyDetail or {}
-	local function penaltyRow(label, amount, helpKey)
-		if amount and amount > 0 then
-			used = used + 1
-			local row = getRow(used, y)
-			y = y - ROW_HEIGHT
-			row.label:SetText(label)
-			row.raw:SetText("")
-			row.wcl:SetText("")
-			row.norm:SetText("")
-			row.wt:SetText("")
-			row.pts:SetText(("-%.1f"):format(amount))
-			setRowColor(row, 0.95, 0.35, 0.35)
-			row.tooltipData = {
-				title = label,
-				lines = { { PENALTY_HELP[helpKey] or "", 0.95, 0.5, 0.5 } },
-			}
-		end
-	end
-	penaltyRow("Avoidable damage", pd.avoidable, "avoidable")
-	penaltyRow("Deaths", pd.deaths, "deaths")
-	penaltyRow("Raid buff coverage", pd.buffs, "buffs")
-
-	hideRowsFrom(used + 1)
+	hideRowsFrom(#bullets + 1)
 
 	local grade = TP.Scoring.Grades.ForScore(result.score)
 	local gr, gg, gb = TP.Scoring.Grades.Color(grade)

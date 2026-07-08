@@ -9,6 +9,8 @@ local function loadModule(path, TP)
 end
 
 local TP = {}
+loadModule("Core/Constants.lua", TP)
+loadModule("Core/Utils.lua", TP)
 loadModule("Scoring/Capabilities.lua", TP)
 loadModule("Scoring/Weights.lua", TP)
 loadModule("Scoring/Engine.lua", TP)
@@ -18,6 +20,7 @@ loadModule("Scoring/Awards.lua", TP)
 loadModule("Scoring/Coach.lua", TP)
 loadModule("Scoring/Runs.lua", TP)
 loadModule("Scoring/Insights.lua", TP)
+loadModule("Scoring/Bullets.lua", TP)
 
 local failures = 0
 local function check(cond, label)
@@ -461,6 +464,25 @@ check(insights.weakness == "healing", ("group weakness is healing (%s)"):format(
 check(insights.deaths == 3, "counts players who died")
 check(insights.avoidableHitters == 2, "counts avoidable-damage eaters")
 check(insights.buffsMissing == true, "flags missing raid buffs")
+
+-- 14. Bullets: plain-language score explanation, sorted by weight
+local bulletResult = {
+	breakdown = {
+		damage = { applicable = true, normalized = 85, contribution = 46.8, effectiveWeight = 0.55, value = 5000000 },
+		healing = { applicable = true, normalized = 20, contribution = 2.0, effectiveWeight = 0.10, value = 50000 },
+		interrupts = { applicable = true, normalized = 60, contribution = 15.0, effectiveWeight = 0.25, value = 1 },
+		dispels = { applicable = false },
+	},
+	penaltyDetail = { deaths = 6.5 },
+}
+local bullets = TP.Scoring.Bullets.ForResult(bulletResult, { "Kick King" })
+check(#bullets == 5, ("5 bullets: 3 metrics + penalty + award (%d)"):format(#bullets))
+check(bullets[1].key == "damage" and bullets[1].symbol == "+", "biggest weight first, strong = green +")
+check(bullets[2].key == "interrupts" and bullets[2].symbol ~= "+" and bullets[2].symbol ~= "-", "middling = neutral mark")
+check(bullets[3].key == "healing" and bullets[3].symbol == "-", "weak metric = red -")
+check(bullets[4].kind == "penalty" and bullets[4].symbol == "-", "penalty bullet is red")
+check(bullets[5].kind == "award" and bullets[5].text == "Kick King", "award bullet last, gold")
+check(bullets[3].text:find("50.0k") ~= nil, "raw value formatted into text")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file
 local svPath = arg and arg[1]
