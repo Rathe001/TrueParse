@@ -550,6 +550,22 @@ for _, b in ipairs(noDefBullets) do
 	check(b.kind ~= "info", "no report -> no defensives bullet")
 end
 
+-- consumables and death-readiness info bullets
+local consBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { consumables = 2, deathReady = 2 })
+local consText, readyText
+for _, b in ipairs(consBullets) do
+	if b.key == "consumables" then consText = b.text end
+	if b.key == "deathReady" then readyText = b.text end
+end
+check(consText == "Came prepared (flask/food up)", ("prepared bullet (%s)"):format(tostring(consText)))
+check(readyText == "Died with 2 defensives ready", ("death-ready bullet (%s)"):format(tostring(readyText)))
+local exculpBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { deathReady = 0 })
+local exculpText
+for _, b in ipairs(exculpBullets) do
+	if b.key == "deathReady" then exculpText = b.text end
+end
+check(exculpText == "Died with everything on cooldown", "death with no CDs available is exculpatory")
+
 awardFight.players.d2.metrics.defensives = 3
 local wallAwards = TP.Scoring.Awards.Compute(awardFight)
 local hasWall = false

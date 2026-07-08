@@ -15,13 +15,19 @@ Sync.reports = {} -- [guid] = { {duration, defensives, at}, ... } pending fight 
 
 local REPORT_TTL = 7200
 
-function Sync:RecordFightReport(guid, duration, defensives)
+-- readyAtDeath: -1/nil = didn't die; 0+ = defensives off cooldown at death
+function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAtDeath)
 	local list = self.reports[guid]
 	if not list then
 		list = {}
 		self.reports[guid] = list
 	end
-	list[#list + 1] = { duration = duration, defensives = defensives, at = time() }
+	list[#list + 1] = {
+		duration = duration, defensives = defensives,
+		consumables = consumables,
+		readyAtDeath = (readyAtDeath and readyAtDeath >= 0) and readyAtDeath or nil,
+		at = time(),
+	}
 	-- prune stale
 	for i = #list, 1, -1 do
 		if (time() - (list[i].at or 0)) > REPORT_TTL then
@@ -30,12 +36,13 @@ function Sync:RecordFightReport(guid, duration, defensives)
 	end
 end
 
-function Sync:BroadcastFightReport(duration, defensives)
+function Sync:BroadcastFightReport(duration, defensives, consumables, readyAtDeath)
 	if not IsInGroup() then
 		return
 	end
-	self:SendCommMessage(PREFIX, ("F:%d:%s:%d:%d"):format(
-		WIRE_VERSION, UnitGUID("player"), math.floor(duration + 0.5), defensives),
+	self:SendCommMessage(PREFIX, ("F:%d:%s:%d:%d:%d:%d"):format(
+		WIRE_VERSION, UnitGUID("player"), math.floor(duration + 0.5),
+		defensives or 0, consumables or 0, readyAtDeath or -1),
 		IsInRaid() and "RAID" or "PARTY")
 end
 
@@ -58,7 +65,10 @@ function Sync:AttachReports(fight)
 				end
 			end
 			if bestIdx then
-				p.metrics.defensives = list[bestIdx].defensives
+				local report = list[bestIdx]
+				p.metrics.defensives = report.defensives
+				p.metrics.consumables = report.consumables
+				p.deathReadyDefensives = report.readyAtDeath
 				table.remove(list, bestIdx)
 			end
 		end
@@ -111,7 +121,12 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		return
 	end
 
-	local fVersion, fGuid, duration, defensives = message:match("^F:(%d+):([^:]+):(%d+):(%d+)$")
+	local fVersion, fGuid, duration, defensives, consumables, readyAtDeath =
+		message:match("^F:(%d+):([^:]+):(%d+):(%d+):(%d+):(%-?%d+)$")
+	if not fVersion then
+		-- legacy 4-field format from earlier builds
+		fVersion, fGuid, duration, defensives = message:match("^F:(%d+):([^:]+):(%d+):(%d+)$")
+	end
 	if fVersion then
 		if fGuid == UnitGUID("player") then
 			return -- our own broadcast looping back; recorded locally already
@@ -121,8 +136,11 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		end
 		self.users[fGuid] = { version = tonumber(fVersion), seen = time() }
 		-- sanity-bound self-reported numbers
-		local defensiveCount = math.min(tonumber(defensives) or 0, 50)
-		self:RecordFightReport(fGuid, tonumber(duration) or 0, defensiveCount)
+		self:RecordFightReport(fGuid,
+			tonumber(duration) or 0,
+			math.min(tonumber(defensives) or 0, 50),
+			math.min(tonumber(consumables) or 0, 5),
+			tonumber(readyAtDeath))
 	end
 end
 

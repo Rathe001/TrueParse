@@ -156,7 +156,14 @@ function Panel:ShowFor(fight, result)
 
 	local myAwards = TP.Scoring.Awards.Compute(fight)[result.guid]
 	local player = fight.players[result.guid]
-	local extra = player and { defensives = player.metrics and player.metrics.defensives } or nil
+	local extra
+	if player then
+		extra = {
+			defensives = player.metrics and player.metrics.defensives,
+			consumables = player.metrics and player.metrics.consumables,
+			deathReady = player.deathReadyDefensives,
+		}
+	end
 	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)
 
 	local y = FIRST_ROW_Y
@@ -173,8 +180,13 @@ function Panel:ShowFor(fight, result)
 		elseif bullet.kind == "penalty" then
 			row.tooltipData = { title = bullet.text, lines = { { PENALTY_HELP[bullet.key] or "", 0.95, 0.5, 0.5 } } }
 		elseif bullet.kind == "info" then
+			local INFO_HELP = {
+				defensives = "Major defensive cooldowns used this fight, reported by this player's own TrueParse (other players' cooldowns aren't visible to addons). Informational only - not scored.",
+				consumables = "Long-duration buffs (flask, food, rune) detected on this player at pull start, self-reported by their TrueParse. Informational only - not scored.",
+				deathReady = "At the moment they died, this many major defensive cooldowns were available and unused. Self-reported by their TrueParse. Informational only - not scored.",
+			}
 			row.tooltipData = { title = bullet.text, lines = {
-				{ "Reported by this player's own TrueParse (other players' cooldowns aren't visible to addons). Informational only - not scored.", 0.8, 0.8, 0.8, true },
+				{ INFO_HELP[bullet.key] or "Self-reported by this player's TrueParse. Informational only.", 0.8, 0.8, 0.8, true },
 			} }
 		else
 			row.tooltipData = { title = bullet.text, lines = {

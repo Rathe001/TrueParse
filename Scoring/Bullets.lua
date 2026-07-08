@@ -70,7 +70,7 @@ function Bullets.ForResult(result, awards, extra)
 		out[#out + 1] = { kind = "metric", key = key, symbol = symbol, color = color, text = text }
 	end
 
-	-- Peer-reported defensives: informational, never scored
+	-- Peer-reported facts: informational, never scored
 	if extra and extra.defensives ~= nil then
 		if extra.defensives > 0 then
 			out[#out + 1] = { kind = "info", key = "defensives", symbol = "+", color = GOOD,
@@ -78,6 +78,28 @@ function Bullets.ForResult(result, awards, extra)
 		else
 			out[#out + 1] = { kind = "info", key = "defensives", symbol = MIDDOT, color = MID,
 				text = "No defensive cooldowns used" }
+		end
+	end
+	if extra and extra.consumables ~= nil then
+		if extra.consumables >= 2 then
+			out[#out + 1] = { kind = "info", key = "consumables", symbol = "+", color = GOOD,
+				text = "Came prepared (flask/food up)" }
+		elseif extra.consumables == 1 then
+			out[#out + 1] = { kind = "info", key = "consumables", symbol = MIDDOT, color = MID,
+				text = "Partially prepared" }
+		else
+			out[#out + 1] = { kind = "info", key = "consumables", symbol = MIDDOT, color = MID,
+				text = "No consumables at the pull" }
+		end
+	end
+	if extra and extra.deathReady ~= nil then
+		if extra.deathReady > 0 then
+			out[#out + 1] = { kind = "info", key = "deathReady", symbol = "-", color = BAD,
+				text = extra.deathReady == 1 and "Died with a defensive ready"
+					or ("Died with %d defensives ready"):format(extra.deathReady) }
+		else
+			out[#out + 1] = { kind = "info", key = "deathReady", symbol = MIDDOT, color = MID,
+				text = "Died with everything on cooldown" }
 		end
 	end
 
