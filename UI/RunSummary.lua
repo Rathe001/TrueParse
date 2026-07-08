@@ -52,10 +52,13 @@ local function groupChannel()
 end
 
 -- One informative, non-spammy line: group grade plus the group's biggest
--- strength and up to two things to work on. Plain text (chat can't color).
-local function composeSummary(name, results, groupGrade, groupScore)
+-- strength and up to three things to work on. Plain text (chat can't color).
+-- Scope is stated explicitly ("run so far, N fights") because the scorecard
+-- window grades the latest single fight — a different number.
+local function composeSummary(run, fightCount, results, groupGrade, groupScore)
 	local insights = TP.Scoring.Insights.ForResults(results)
-	local msg = ("TrueParse: %s — group grade %s (%d)."):format(name or "run", groupGrade, groupScore)
+	local msg = ("TrueParse: %s run so far (%d fights) — group grade %s (%d)."):format(
+		run.name or "instance", fightCount, groupGrade, groupScore)
 	if insights.strength then
 		msg = msg .. (" Strong: %s."):format((TP.METRIC_LABELS[insights.strength] or insights.strength):lower())
 	end
@@ -66,8 +69,9 @@ local function composeSummary(name, results, groupGrade, groupScore)
 	if insights.avoidableHitters >= 2 then
 		work[#work + 1] = "avoidable damage"
 	end
-	if insights.deaths >= 3 then
-		work[#work + 1] = ("deaths (%d players)"):format(insights.deaths)
+	local totalDeaths = run.totals and run.totals.deaths or 0
+	if totalDeaths >= math.max(3, #results) then
+		work[#work + 1] = ("deaths (%d)"):format(totalDeaths)
 	end
 	if insights.buffsMissing then
 		work[#work + 1] = "raid buffs at pull"
@@ -125,7 +129,7 @@ function RunSummary:Report(announce)
 				mvp.name, mvpGrade, math.floor(mvp.score + 0.5), groupGrade), groupChannel())
 		end
 		if TP.Addon.db.profile.announceSummary then
-			SendChatMessage(composeSummary(currentInstance.name, results, groupGrade,
+			SendChatMessage(composeSummary(run, #fights, results, groupGrade,
 				math.floor(sum / #results + 0.5)), groupChannel())
 		end
 	end
@@ -148,7 +152,7 @@ function RunSummary:Share()
 		sum = sum + r.score
 	end
 	local groupGrade = TP.Scoring.Grades.ForScore(sum / #results)
-	local line = composeSummary(currentInstance.name, results, groupGrade, math.floor(sum / #results + 0.5))
+	local line = composeSummary(run, #fights, results, groupGrade, math.floor(sum / #results + 0.5))
 	if IsInGroup() then
 		SendChatMessage(line, groupChannel())
 	else

@@ -7,6 +7,12 @@ TP.Scoring = TP.Scoring or {}
 local Insights = {}
 TP.Scoring.Insights = Insights
 
+-- Metrics eligible as group strengths/weaknesses: shared by several
+-- players. damageTaken is excluded — it's effectively a solo tank metric
+-- and its average says nothing about the group.
+local GROUP_METRICS = { damage = true, healing = true, interrupts = true, dispels = true }
+local MIN_PLAYERS = 2
+
 -- Returns { strength = key|nil, weakness = key|nil, deaths = playerCount,
 -- avoidableHitters = playerCount, buffsMissing = bool }
 function Insights.ForResults(results)
@@ -16,7 +22,7 @@ function Insights.ForResults(results)
 
 	for _, r in ipairs(results) do
 		for key, b in pairs(r.breakdown) do
-			if b.applicable then
+			if b.applicable and GROUP_METRICS[key] then
 				sums[key] = (sums[key] or 0) + (b.normalized or 0)
 				counts[key] = (counts[key] or 0) + 1
 			end
@@ -35,12 +41,14 @@ function Insights.ForResults(results)
 
 	local best, bestAvg, worst, worstAvg
 	for key, sum in pairs(sums) do
-		local avg = sum / counts[key]
-		if not best or avg > bestAvg then
-			best, bestAvg = key, avg
-		end
-		if not worst or avg < worstAvg then
-			worst, worstAvg = key, avg
+		if counts[key] >= MIN_PLAYERS then
+			local avg = sum / counts[key]
+			if not best or avg > bestAvg then
+				best, bestAvg = key, avg
+			end
+			if not worst or avg < worstAvg then
+				worst, worstAvg = key, avg
+			end
 		end
 	end
 
