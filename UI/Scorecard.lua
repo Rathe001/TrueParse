@@ -63,6 +63,9 @@ function Scorecard:Acquire(parent)
 					end
 				end
 			end
+			if self.noAddon then
+				GameTooltip:AddLine("Not running TrueParse - no peer-reported data", 0.5, 0.5, 0.5)
+			end
 			GameTooltip:AddLine("Click for the full breakdown", 0.5, 0.5, 0.5)
 			GameTooltip:Show()
 		end)

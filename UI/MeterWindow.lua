@@ -217,6 +217,15 @@ function MeterWindow:RenderScorecard(fight)
 		row.grade:SetText(grade)
 		row.grade:SetTextColor(TP.Scoring.Grades.Color(grade))
 
+		-- Players not running TrueParse render dimmed: less data, not worse
+		local player = fight.players[r.guid]
+		local hasAddon = player and player.hasAddon
+		local alpha = hasAddon and 1 or 0.55
+		row.grade:SetAlpha(alpha)
+		row.name:SetAlpha(alpha)
+		row.score:SetAlpha(alpha)
+		row.noAddon = not hasAddon
+
 		local myAwards = awards[r.guid]
 		row.name:SetText(myAwards and (r.name .. " " .. TP.STAR) or r.name)
 		row.name:SetTextColor(TP.ClassColor(r.class))
@@ -256,6 +265,10 @@ function MeterWindow:RenderScorecard(fight)
 
 		row.grade:SetText(groupGrade)
 		row.grade:SetTextColor(TP.Scoring.Grades.Color(groupGrade))
+		row.grade:SetAlpha(1)
+		row.name:SetAlpha(1)
+		row.score:SetAlpha(1)
+		row.noAddon = nil
 		local label = (#results > 5) and "Raid" or "Group"
 		row.name:SetText(label)
 		row.name:SetTextColor(1, 0.82, 0.2)

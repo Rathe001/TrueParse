@@ -155,7 +155,9 @@ function Panel:ShowFor(fight, result)
 	frame.subtitle:SetText(("%s · %s"):format(fight.name or "Fight", result.role))
 
 	local myAwards = TP.Scoring.Awards.Compute(fight)[result.guid]
-	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards)
+	local player = fight.players[result.guid]
+	local extra = player and { defensives = player.metrics and player.metrics.defensives } or nil
+	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)
 
 	local y = FIRST_ROW_Y
 	for i, bullet in ipairs(bullets) do
@@ -170,6 +172,10 @@ function Panel:ShowFor(fight, result)
 			row.tooltipData = buildMetricTooltip(bullet.key, result.breakdown[bullet.key], fight.duration)
 		elseif bullet.kind == "penalty" then
 			row.tooltipData = { title = bullet.text, lines = { { PENALTY_HELP[bullet.key] or "", 0.95, 0.5, 0.5 } } }
+		elseif bullet.kind == "info" then
+			row.tooltipData = { title = bullet.text, lines = {
+				{ "Reported by this player's own TrueParse (other players' cooldowns aren't visible to addons). Informational only - not scored.", 0.8, 0.8, 0.8, true },
+			} }
 		else
 			row.tooltipData = { title = bullet.text, lines = {
 				{ TP.Scoring.Awards.DESCRIPTIONS[bullet.text] or "Fight award.", 1, 1, 1 },

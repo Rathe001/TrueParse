@@ -186,6 +186,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 
 	-- Enrichment must never block capture
 	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
+	pcall(TP.Sync.AttachReports, TP.Sync, fight)
 
 	-- Replace an earlier capture of the same session (resume case)
 	for i = #self.fights, 1, -1 do
@@ -380,6 +381,7 @@ function FightHistory:AddFromSegment(seg)
 	}
 	-- Enrichment must never block capture
 	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
+	pcall(TP.Sync.AttachReports, TP.Sync, fight)
 	table.insert(self.fights, 1, fight)
 	local cap = TP.Addon.db.profile.history.maxFights
 	for i = #self.fights, cap + 1, -1 do

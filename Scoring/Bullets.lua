@@ -38,10 +38,11 @@ local PENALTY_DEFS = {
 	{ key = "buffs", label = "Raid buff missing at the pull" },
 }
 
--- result: one engine score row; awards: array of award names (optional).
--- Returns array of { kind = "metric"|"penalty"|"award", key, symbol,
+-- result: one engine score row; awards: array of award names (optional);
+-- extra: optional { defensives = n } peer-reported data (unscored info).
+-- Returns array of { kind = "metric"|"penalty"|"award"|"info", key, symbol,
 -- color = {r,g,b}, text }
-function Bullets.ForResult(result, awards)
+function Bullets.ForResult(result, awards, extra)
 	local out = {}
 
 	local metrics = {}
@@ -67,6 +68,17 @@ function Bullets.ForResult(result, awards)
 			text = phrases.zero
 		end
 		out[#out + 1] = { kind = "metric", key = key, symbol = symbol, color = color, text = text }
+	end
+
+	-- Peer-reported defensives: informational, never scored
+	if extra and extra.defensives ~= nil then
+		if extra.defensives > 0 then
+			out[#out + 1] = { kind = "info", key = "defensives", symbol = "+", color = GOOD,
+				text = extra.defensives == 1 and "Used a defensive cooldown" or ("Used %d defensive cooldowns"):format(extra.defensives) }
+		else
+			out[#out + 1] = { kind = "info", key = "defensives", symbol = MIDDOT, color = MID,
+				text = "No defensive cooldowns used" }
+		end
 	end
 
 	local pd = result.penaltyDetail or {}

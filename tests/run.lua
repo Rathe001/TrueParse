@@ -530,6 +530,37 @@ for _, label in pairs(TP.Scoring.Awards.LABELS) do
 		("award '%s' has a description"):format(label))
 end
 
+-- 14a2. Peer-reported defensives: info bullets and the Iron Wall award
+local defBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { defensives = 3 })
+local defText
+for _, b in ipairs(defBullets) do
+	if b.kind == "info" then defText = b.text end
+end
+check(defText == "Used 3 defensive cooldowns", ("defensive info bullet (%s)"):format(tostring(defText)))
+local zeroDefBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { defensives = 0 })
+local zeroDefOk = false
+for _, b in ipairs(zeroDefBullets) do
+	if b.kind == "info" and b.text == "No defensive cooldowns used" and b.symbol ~= "-" then
+		zeroDefOk = true
+	end
+end
+check(zeroDefOk, "zero defensives is neutral, not red")
+local noDefBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, nil)
+for _, b in ipairs(noDefBullets) do
+	check(b.kind ~= "info", "no report -> no defensives bullet")
+end
+
+awardFight.players.d2.metrics.defensives = 3
+local wallAwards = TP.Scoring.Awards.Compute(awardFight)
+local hasWall = false
+if wallAwards.d2 then
+	for _, a in ipairs(wallAwards.d2) do
+		if a == "Iron Wall" then hasWall = true end
+	end
+end
+check(hasWall, "Iron Wall goes to the top reporter")
+awardFight.players.d2.metrics.defensives = nil
+
 -- 14b. Group bullets
 local groupBullets = TP.Scoring.Bullets.ForGroup({
 	{ breakdown = { damage = { applicable = true, normalized = 80, value = 100 }, interrupts = { applicable = true, normalized = 0, value = 0 } },

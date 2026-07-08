@@ -13,6 +13,7 @@ Awards.LABELS = {
 	untouchable = "Untouchable",
 	lifesaver = "Lifesaver",
 	survivalist = "Survivalist",
+	ironWall = "Iron Wall",
 }
 
 -- Why each award is given, keyed by its display label (what the UI has)
@@ -22,6 +23,7 @@ Awards.DESCRIPTIONS = {
 	[Awards.LABELS.untouchable] = "Avoidable damage went out and you dodged every bit of it.",
 	[Awards.LABELS.lifesaver] = "A non-healer who covered 15%+ of the group's healing.",
 	[Awards.LABELS.survivalist] = "Most self-rescue healing (potion or Healthstone) - and lived to tell about it.",
+	[Awards.LABELS.ironWall] = "Most defensive cooldowns used (reported by their own TrueParse).",
 }
 
 -- Sole top performer for a metric, requiring a minimum and no tie.
@@ -65,6 +67,12 @@ function Awards.Compute(fight)
 				grant(guid, "untouchable")
 			end
 		end
+	end
+
+	-- Most peer-reported defensive cooldowns (TrueParse users only)
+	local wall = topUnique(fight, "defensives", 2)
+	if wall then
+		grant(wall, "ironWall")
 	end
 
 	-- Saved themselves with a potion/Healthstone and didn't die
