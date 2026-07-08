@@ -1,14 +1,18 @@
--- EXPERIMENT (concluded 2026-07-07, Windrunner Spire follower dungeon):
+-- EXPERIMENT 1 (concluded 2026-07-07, Windrunner Spire follower dungeon):
 -- can TrueParse count interrupt OPPORTUNITIES itself on Midnight?
---
 -- VERDICT: no. UNIT_SPELLCAST_* events never fire for hostile NPCs (0 casts,
 -- 0 secrets, 0 interrupted across many caster pulls), and group aura reads
 -- are ~90% secret mid-combat. Interrupt scoring therefore uses C_DamageMeter
 -- kick counts normalized among kick-capable specs, and buff checks must be
 -- pre-pull snapshots (out-of-combat reads are never secret).
 --
--- Kept (default off) for re-testing on future patches and Classic clients.
--- Toggle: /tp probe. Live dump: /tp probe status.
+-- EXPERIMENT 2 (running): do FRIENDLY group members' cast events reach
+-- addons readably in combat? UNIT_SPELLCAST_SUCCEEDED covers instants
+-- (defensives, CC, kicks) — if payloads aren't secret, defensive-cooldown
+-- and utility credit become possible on retail. Self vs group tracked
+-- separately: self-data often survives restrictions that group data doesn't.
+--
+-- Default off. Toggle: /tp probe. Live dump: /tp probe status.
 --
 -- Deliberately keyed to the player's own PLAYER_REGEN_* state on a private
 -- frame, NOT to TP.Segments: follower-dungeon NPCs can hold segments open,
@@ -23,14 +27,17 @@ local IsSecret -- bound on enable
 local counts = {
 	casts = 0, interruptible = 0, secret = 0, interrupted = 0,
 	auraReads = 0, auraSecrets = 0, errors = 0,
+	selfCasts = 0, selfSecret = 0, groupCasts = 0, groupSecret = 0,
 }
 local seenCasts = {}
 local seenInterrupts = {}
 local auraTicker
+local sampleSpells = {} -- a few readable group spellIDs, as proof of quality
 
 local function reset()
 	wipe(seenCasts)
 	wipe(seenInterrupts)
+	wipe(sampleSpells)
 	for k in pairs(counts) do
 		counts[k] = 0
 	end
@@ -38,6 +45,36 @@ end
 
 local function enabled()
 	return IsSecret ~= nil and TP.Addon.db and TP.Addon.db.profile.probe
+end
+
+-- Friendly casts, only while in combat (out of combat nothing is secret and
+-- the answer is already known). Canonical unit tokens only — the same cast
+-- also fires on nameplate/target tokens and would double-count.
+local function onFriendlyCast(unit, spellID)
+	if not enabled() or not InCombatLockdown() then
+		return
+	end
+	if unit == "player" then
+		counts.selfCasts = counts.selfCasts + 1
+		if IsSecret(spellID) then
+			counts.selfSecret = counts.selfSecret + 1
+		end
+	elseif unit:match("^party%d$") or unit:match("^raid%d+$") then
+		counts.groupCasts = counts.groupCasts + 1
+		if IsSecret(spellID) then
+			counts.groupSecret = counts.groupSecret + 1
+		elseif spellID and #sampleSpells < 5 then
+			local known = false
+			for _, id in ipairs(sampleSpells) do
+				if id == spellID then
+					known = true
+				end
+			end
+			if not known then
+				sampleSpells[#sampleSpells + 1] = spellID
+			end
+		end
+	end
 end
 
 local function isHostileNPC(unit)
@@ -125,15 +162,27 @@ end
 
 function Probe:Report(force)
 	local observed = counts.casts + counts.secret + counts.auraReads + counts.errors
+		+ counts.selfCasts + counts.groupCasts
 	if observed == 0 then
 		if force then
-			TP.Addon:Print("Probe: nothing observed yet (no enemy cast events, no aura samples).")
+			TP.Addon:Print("Probe: nothing observed yet (no cast events, no aura samples).")
 		end
 		return
 	end
 	TP.Addon:Print(("Probe: enemy casts %d (interruptible %d, secret %d), interrupted %d · aura reads %d (%d secret) · errors %d"):format(
 		counts.casts, counts.interruptible, counts.secret, counts.interrupted,
 		counts.auraReads, counts.auraSecrets, counts.errors))
+	TP.Addon:Print(("Probe friendly (in combat): you %d casts (%d secret) · group %d casts (%d secret)"):format(
+		counts.selfCasts, counts.selfSecret, counts.groupCasts, counts.groupSecret))
+	if #sampleSpells > 0 then
+		local names = {}
+		for _, id in ipairs(sampleSpells) do
+			local name = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(id)
+				or (GetSpellInfo and GetSpellInfo(id))
+			names[#names + 1] = ("%s(%d)"):format(name or "?", id)
+		end
+		TP.Addon:Print("Probe readable group spells: " .. table.concat(names, ", "))
+	end
 end
 
 local function onCombatStart()
@@ -157,10 +206,13 @@ local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("UNIT_SPELLCAST_START")
 eventFrame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
 eventFrame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
+eventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:SetScript("OnEvent", function(_, event, unit, castGUID, spellID)
-	if event == "UNIT_SPELLCAST_START" then
+	if event == "UNIT_SPELLCAST_SUCCEEDED" then
+		onFriendlyCast(unit, spellID)
+	elseif event == "UNIT_SPELLCAST_START" then
 		onCastStart(unit, castGUID, spellID, false)
 	elseif event == "UNIT_SPELLCAST_CHANNEL_START" then
 		onCastStart(unit, castGUID, spellID, true)
