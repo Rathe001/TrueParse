@@ -132,8 +132,8 @@ local function buildMetricTooltip(key, b, duration)
 		local blend = (TP.Scoring.Weights.absoluteBlend or 0) * 100
 		lines[#lines + 1] = { ("Score %d = %d%% WCL + %d%% group."):format(b.normalized or 0, blend, 100 - blend), 1, 0.82, 0.2 }
 	end
-	lines[#lines + 1] = { ("Counts for %d%% of your grade after redistribution → %.1f points."):format(
-		(b.effectiveWeight or 0) * 100, b.contribution or 0), 0.7, 0.7, 0.7 }
+	lines[#lines + 1] = { ("Worth %d%% of your grade after redistribution: earned %.1f of %.0f possible points."):format(
+		(b.effectiveWeight or 0) * 100, b.contribution or 0, (b.effectiveWeight or 0) * 100), 0.7, 0.7, 0.7 }
 
 	return { title = label, lines = lines }
 end
@@ -205,10 +205,69 @@ function Panel:Toggle(fight, result)
 	end
 end
 
+-- Group breakdown: same bullet view, group-level takeaways
+function Panel:ShowForGroup(fight, results)
+	if not frame then
+		createFrame()
+	end
+
+	local label = (#results > 5) and "Raid" or "Group"
+	frame.title:SetText(label)
+	frame.title:SetTextColor(1, 0.82, 0.2)
+	frame.subtitle:SetText(("%s · %d players"):format(fight.name or "Fight", #results))
+
+	local bullets = TP.Scoring.Bullets.ForGroup(results)
+	local y = FIRST_ROW_Y
+	for i, bullet in ipairs(bullets) do
+		local row = getRow(i, y)
+		y = y - ROW_HEIGHT
+		row.symbol:SetText(bullet.symbol)
+		row.symbol:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
+		row.text:SetText(bullet.text)
+		row.text:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
+		row.tooltipData = bullet.tooltip
+	end
+	hideRowsFrom(#bullets + 1)
+
+	local sum = 0
+	for _, r in ipairs(results) do
+		sum = sum + r.score
+	end
+	local groupScore = sum / #results
+	local grade = TP.Scoring.Grades.ForScore(groupScore)
+	local gr, gg, gb = TP.Scoring.Grades.Color(grade)
+	frame.total:SetText(("Grade |cff%02x%02x%02x%s|r · Score %.1f (average of %d players)"):format(
+		gr * 255, gg * 255, gb * 255, grade, groupScore, #results))
+
+	frame:SetHeight(-y + ROW_HEIGHT + 34)
+	local anchor = _G.TrueParseWindow
+	frame:ClearAllPoints()
+	if anchor then
+		frame:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 6, 0)
+	else
+		frame:SetPoint("CENTER")
+	end
+	frame:Show()
+	self.currentGUID = "GROUP"
+end
+
+function Panel:ToggleGroup(fight, results)
+	if frame and frame:IsShown() and self.currentGUID == "GROUP" then
+		frame:Hide()
+		self.currentGUID = nil
+	else
+		self:ShowForGroup(fight, results)
+	end
+end
+
 -- Called when the scorecard re-renders for a newly captured fight: follow
 -- the same player into the new results, or close if they're absent.
 function Panel:OnFightRendered(fight, results)
 	if not frame or not frame:IsShown() or not self.currentGUID then
+		return
+	end
+	if self.currentGUID == "GROUP" then
+		self:ShowForGroup(fight, results)
 		return
 	end
 	for _, r in ipairs(results) do

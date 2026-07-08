@@ -233,6 +233,7 @@ function MeterWindow:RenderScorecard(fight)
 		row.bg:SetColorTexture(1, 1, 1, 0.04)
 		row.fight = fight
 		row.result = r
+		row.groupResults = nil
 	end
 
 	-- Footer: the collective grade, visually distinct from player rows
@@ -263,8 +264,9 @@ function MeterWindow:RenderScorecard(fight)
 		row.bg:SetColorTexture(1, 0.82, 0.2, 0.10)
 		row.awards = nil
 		row.playerName = label
-		row.fight = nil
-		row.result = nil -- not clickable: no individual breakdown behind it
+		row.fight = fight
+		row.result = nil
+		row.groupResults = results -- click opens the group breakdown
 	end
 
 	setWindowHeight(totalRows, rowHeight)

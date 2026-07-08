@@ -475,14 +475,38 @@ local bulletResult = {
 	},
 	penaltyDetail = { deaths = 6.5 },
 }
+bulletResult.role = "DAMAGER"
 local bullets = TP.Scoring.Bullets.ForResult(bulletResult, { "Kick King" })
 check(#bullets == 5, ("5 bullets: 3 metrics + penalty + award (%d)"):format(#bullets))
-check(bullets[1].key == "damage" and bullets[1].symbol == "+", "biggest weight first, strong = green +")
-check(bullets[2].key == "interrupts" and bullets[2].symbol ~= "+" and bullets[2].symbol ~= "-", "middling = neutral mark")
-check(bullets[3].key == "healing" and bullets[3].symbol == "-", "weak metric = red -")
-check(bullets[4].kind == "penalty" and bullets[4].symbol == "-", "penalty bullet is red")
+check(bullets[1].text == "Strong damage" and bullets[1].symbol == "+", "biggest weight first, human phrase, green +")
+check(bullets[2].text == "Some interrupts" and bullets[2].symbol ~= "+" and bullets[2].symbol ~= "-", "middling = neutral phrase")
+check(bullets[3].text == "Little off-healing" and bullets[3].symbol == "-", "weak DPS healing phrased as off-healing")
+check(bullets[4].kind == "penalty" and bullets[4].text == "Died", "penalty bullet human")
 check(bullets[5].kind == "award" and bullets[5].text == "Kick King", "award bullet last, gold")
-check(bullets[3].text:find("50.0k") ~= nil, "raw value formatted into text")
+bulletResult.breakdown.interrupts.normalized = 0
+bulletResult.breakdown.interrupts.value = 0
+local zeroBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil)
+local kickText
+for _, b in ipairs(zeroBullets) do
+	if b.key == "interrupts" then kickText = b.text end
+end
+check(kickText == "Did not interrupt", ("zero kicks phrased plainly (%s)"):format(tostring(kickText)))
+
+-- 14b. Group bullets
+local groupBullets = TP.Scoring.Bullets.ForGroup({
+	{ breakdown = { damage = { applicable = true, normalized = 80, value = 100 }, interrupts = { applicable = true, normalized = 0, value = 0 } },
+		penaltyDetail = { deaths = 10 } },
+	{ breakdown = { damage = { applicable = true, normalized = 76, value = 100 }, interrupts = { applicable = true, normalized = 0, value = 0 } },
+		penaltyDetail = { deaths = 10 } },
+})
+check(groupBullets[1].text == "Strong damage from the group", "group damage phrase")
+check(groupBullets[2].text == "Nobody interrupted", "group zero-kick phrase")
+local deathsBullet
+for _, b in ipairs(groupBullets) do
+	if b.kind == "penalty" and b.key == "deaths" then deathsBullet = b.text end
+end
+check(deathsBullet == "2 players died", ("group deaths phrase (%s)"):format(tostring(deathsBullet)))
+check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 players") ~= nil, "group tooltip carries the numbers")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file
 local svPath = arg and arg[1]

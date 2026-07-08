@@ -11,15 +11,26 @@ function Scorecard:Acquire(parent)
 		row:EnableMouse(true)
 		-- payload (row.fight / row.result) is set by the scorecard renderer
 		row:SetScript("OnMouseUp", function(self, button)
-			if button == "LeftButton" and self.result then
+			if button ~= "LeftButton" then
+				return
+			end
+			if self.result then
 				TP.BreakdownPanel:Toggle(self.fight, self.result)
+			elseif self.groupResults then
+				TP.BreakdownPanel:ToggleGroup(self.fight, self.groupResults)
 			end
 		end)
 		row:SetScript("OnEnter", function(self)
 			self.bg:SetColorTexture(1, 1, 1, 0.12)
 			local result = self.result
 			if not result then
-				return -- footer row
+				if self.groupResults then
+					GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+					GameTooltip:SetText(self.playerName or "Group")
+					GameTooltip:AddLine("Click for the group breakdown", 0.5, 0.5, 0.5)
+					GameTooltip:Show()
+				end
+				return
 			end
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			GameTooltip:SetText(self.playerName or result.name or "")

@@ -1,6 +1,6 @@
--- Plain-language bullets explaining one player's score: green + for what
--- earned points, red - for what cost them, a dim mid-mark for middling
--- contributions. Ordered by weight so the biggest lever reads first.
+-- Plain-language bullets explaining a score: green + for what earned it,
+-- red - for what cost it, a dim middle-dot for middling. Human phrases only;
+-- the numbers live in hover tooltips.
 -- PURE LUA: no WoW API calls; loaded headlessly by tests/run.lua.
 local _, TP = ...
 
@@ -8,16 +8,33 @@ TP.Scoring = TP.Scoring or {}
 local Bullets = {}
 TP.Scoring.Bullets = Bullets
 
-local COUNT_METRICS = { interrupts = true, dispels = true }
-
 local GOOD = { 0.30, 0.90, 0.40 }
 local BAD = { 0.95, 0.35, 0.35 }
 local MID = { 0.80, 0.80, 0.55 }
 local GOLD = { 1.00, 0.82, 0.20 }
+local MIDDOT = "\194\183"
+
+local function sentimentOf(normalized)
+	if normalized >= 70 then
+		return "good", "+", GOOD
+	elseif normalized <= 45 then
+		return "bad", "-", BAD
+	end
+	return "mid", MIDDOT, MID
+end
+
+local PHRASES = {
+	damage = { good = "Strong damage", mid = "Decent damage", bad = "Low damage", zero = "Did no damage" },
+	healing = { good = "Strong healing", mid = "Decent healing", bad = "Low healing", zero = "No healing" },
+	healingOff = { good = "Great off-healing", mid = "Some off-healing", bad = "Little off-healing", zero = "No off-healing" },
+	damageTaken = { good = "Soaked the group's hits", mid = "Took a fair share of hits", bad = "Didn't soak much", zero = "Took no hits" },
+	interrupts = { good = "Great interrupting", mid = "Some interrupts", bad = "Too few interrupts", zero = "Did not interrupt" },
+	dispels = { good = "Great dispelling", mid = "Some dispels", bad = "Too few dispels", zero = "Did not dispel" },
+}
 
 local PENALTY_DEFS = {
 	{ key = "deaths", label = "Died" },
-	{ key = "avoidable", label = "Avoidable damage taken" },
+	{ key = "avoidable", label = "Took avoidable damage" },
 	{ key = "buffs", label = "Raid buff missing at the pull" },
 }
 
@@ -39,42 +56,95 @@ function Bullets.ForResult(result, awards)
 
 	for _, m in ipairs(metrics) do
 		local b, key = m.b, m.key
-		local normalized = b.normalized or 0
-		local label = TP.METRIC_LABELS[key] or key
-		local raw
-		if COUNT_METRICS[key] then
-			raw = ("%d"):format(b.value or 0)
-		else
-			raw = TP.FormatNumber(b.value or 0)
+		local sentiment, symbol, color = sentimentOf(b.normalized or 0)
+		local phraseKey = key
+		if key == "healing" and result.role ~= "HEALER" then
+			phraseKey = "healingOff"
 		end
-		local symbol, color
-		if normalized >= 70 then
-			symbol, color = "+", GOOD
-		elseif normalized <= 45 then
-			symbol, color = "-", BAD
-		else
-			symbol, color = "\194\183", MID -- middle dot: present in all client fonts
+		local phrases = PHRASES[phraseKey] or PHRASES.damage
+		local text = phrases[sentiment]
+		if sentiment == "bad" and (b.value or 0) == 0 and phrases.zero then
+			text = phrases.zero
 		end
-		out[#out + 1] = {
-			kind = "metric", key = key, symbol = symbol, color = color,
-			text = ("%s (%s): %.0f/100 — %.1f of %.0f possible pts"):format(
-				label, raw, normalized, b.contribution or 0, (b.effectiveWeight or 0) * 100),
-		}
+		out[#out + 1] = { kind = "metric", key = key, symbol = symbol, color = color, text = text }
 	end
 
 	local pd = result.penaltyDetail or {}
 	for _, def in ipairs(PENALTY_DEFS) do
 		local amount = pd[def.key] or 0
 		if amount > 0 then
-			out[#out + 1] = {
-				kind = "penalty", key = def.key, symbol = "-", color = BAD,
-				text = ("%s: -%.1f pts"):format(def.label, amount),
-			}
+			out[#out + 1] = { kind = "penalty", key = def.key, symbol = "-", color = BAD, text = def.label }
 		end
 	end
 
 	for _, award in ipairs(awards or {}) do
 		out[#out + 1] = { kind = "award", symbol = "+", color = GOLD, text = award }
+	end
+
+	return out
+end
+
+local GROUP_PHRASES = {
+	damage = { good = "Strong damage from the group", mid = "Group damage was okay", bad = "Group damage was low" },
+	healing = { good = "Healing kept everyone up", mid = "Healing was okay", bad = "Healing struggled" },
+	interrupts = { good = "Kicks were covered", mid = "Interrupts were spotty", bad = "Not enough interrupting", zero = "Nobody interrupted" },
+	dispels = { good = "Dispels were handled", mid = "Dispels were spotty", bad = "Too few dispels", zero = "Nobody dispelled" },
+}
+local GROUP_ORDER = { "damage", "healing", "interrupts", "dispels" }
+
+-- Group-level bullets from a full results array. Each carries its own
+-- tooltip = { title, lines } since the caller has no per-player breakdown.
+function Bullets.ForGroup(results)
+	local out = {}
+	local sums, counts, totals = {}, {}, {}
+	local died, avoidable, buffsMissing = 0, 0, false
+
+	for _, r in ipairs(results) do
+		for key, b in pairs(r.breakdown) do
+			if b.applicable and GROUP_PHRASES[key] then
+				sums[key] = (sums[key] or 0) + (b.normalized or 0)
+				counts[key] = (counts[key] or 0) + 1
+				totals[key] = (totals[key] or 0) + (b.value or 0)
+			end
+		end
+		local pd = r.penaltyDetail or {}
+		if (pd.deaths or 0) > 0 then died = died + 1 end
+		if (pd.avoidable or 0) > 0 then avoidable = avoidable + 1 end
+		if (pd.buffs or 0) > 0 then buffsMissing = true end
+	end
+
+	for _, key in ipairs(GROUP_ORDER) do
+		if counts[key] and counts[key] > 0 then
+			local avg = sums[key] / counts[key]
+			local sentiment, symbol, color = sentimentOf(avg)
+			local phrases = GROUP_PHRASES[key]
+			local text = phrases[sentiment]
+			if sentiment == "bad" and (totals[key] or 0) == 0 and phrases.zero then
+				text = phrases.zero
+			end
+			out[#out + 1] = {
+				kind = "metric", key = key, symbol = symbol, color = color, text = text,
+				tooltip = {
+					title = TP.METRIC_LABELS[key] or key,
+					lines = {
+						{ ("Group average %.0f/100 across %d players."):format(avg, counts[key]), 1, 1, 1 },
+					},
+				},
+			}
+		end
+	end
+
+	if died > 0 then
+		out[#out + 1] = { kind = "penalty", key = "deaths", symbol = "-", color = BAD,
+			text = died == 1 and "1 player died" or ("%d players died"):format(died) }
+	end
+	if avoidable > 0 then
+		out[#out + 1] = { kind = "penalty", key = "avoidable", symbol = "-", color = BAD,
+			text = avoidable == 1 and "1 player took avoidable damage" or ("%d players took avoidable damage"):format(avoidable) }
+	end
+	if buffsMissing then
+		out[#out + 1] = { kind = "penalty", key = "buffs", symbol = "-", color = BAD,
+			text = "Raid buffs missing at the pull" }
 	end
 
 	return out
