@@ -273,6 +273,38 @@ check(mageNorm > mageAbs and mageNorm < 100,
 check(blendByName.OtherRogue.breakdown.damage.absolute == nil, "no benchmark -> no absolute component")
 TP.Benchmarks.encounters["Testy the Mover"] = nil
 
+-- 6f. Dungeon absolutes gate on difficulty: M+ logs shouldn't grade TW runs
+TP.Benchmarks.dungeons = TP.Benchmarks.dungeons or {}
+TP.Benchmarks.dungeons["Testy Halls"] = {
+	damageFactor = { [64] = 1.0 },
+	healingFactor = {},
+	damageMedian = { [64] = 10000 },
+	healingMedian = {},
+}
+local twFight = {
+	name = "Trash Pack", isBoss = false, zone = "Testy Halls", difficulty = "Timewalking", duration = 60,
+	players = {
+		a = mkPlayer("a", "TwMage", "MAGE", "DAMAGER", { damage = 300000 }),
+		b = mkPlayer("b", "TwRogue", "ROGUE", "DAMAGER", { damage = 200000 }),
+		c = mkPlayer("c", "Heal", "SHAMAN", "HEALER", { healing = 100000 }),
+	},
+}
+twFight.players.a.specID = 64
+local twResults = TP.Scoring.Engine.ScoreFight(twFight, { normalizeIlvl = false })
+local twByName = {}
+for _, r in ipairs(twResults) do
+	twByName[r.name] = r
+end
+check(twByName.TwMage.breakdown.damage.absolute == nil, "no absolute on Timewalking difficulty")
+twFight.difficulty = "Mythic Keystone"
+local keyResults = TP.Scoring.Engine.ScoreFight(twFight, { normalizeIlvl = false })
+local keyByName = {}
+for _, r in ipairs(keyResults) do
+	keyByName[r.name] = r
+end
+check(keyByName.TwMage.breakdown.damage.absolute ~= nil, "absolute applies on Mythic Keystone")
+TP.Benchmarks.dungeons["Testy Halls"] = nil
+
 -- 7. Nothing-dispelled fight: dispels inapplicable for everyone
 local noDispelFight = {
 	name = "No dispels", duration = 30,

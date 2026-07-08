@@ -34,6 +34,12 @@ local function normalizeRole(p)
 	return TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID)
 end
 
+-- Difficulties whose runs actually populate the WCL dungeon rankings
+local DUNGEON_ABSOLUTE_DIFFICULTY = {
+	["Mythic Keystone"] = true,
+	["Challenge Mode"] = true, -- MoP Classic
+}
+
 -- Fight-specific spec expectations: boss fights match a WCL encounter table
 -- by name (retail prefixes encounters with "(!) "), anything inside a
 -- dungeon matches the dungeon's table by zone name. This is the per-fight
@@ -52,7 +58,22 @@ local function resolveFightFactors(fight)
 		end
 	end
 	if fight.zone and B.dungeons then
-		return B.dungeons[fight.zone]
+		local set = B.dungeons[fight.zone]
+		if set then
+			-- Dungeon benchmarks are sampled from M+/Challenge Mode logs.
+			-- On other difficulties (Heroic, Timewalking scale-down) the
+			-- spec factors still apply RELATIVELY, but comparing absolute
+			-- output against top-key medians would grade the content, not
+			-- the player.
+			if DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] then
+				return set
+			end
+			return {
+				damageFactor = set.damageFactor,
+				healingFactor = set.healingFactor,
+				ilvlMedian = set.ilvlMedian,
+			}
+		end
 	end
 	return nil
 end
