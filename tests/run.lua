@@ -250,16 +250,16 @@ check(plainByName.MoveMage.breakdown.damage.normalized < 60,
 
 -- 6e. Absolute blend: with a WCL median for the fight+spec, the score blends
 -- "fraction of top-logs median produced" with the group-relative view.
-TP.Benchmarks.encounters["Testy the Mover"].damageMedian = { [64] = 10000 } -- mage median dps here
+TP.Benchmarks.encounters["Testy the Mover"].damageMedian = { [64] = 20000 } -- mage median dps here
 TP.Benchmarks.encounters["Testy the Mover"].healingMedian = {}
 local blendResults = TP.Scoring.Engine.ScoreFight(moveFight, { normalizeIlvl = false })
 local blendByName = {}
 for _, r in ipairs(blendResults) do
 	blendByName[r.name] = r
 end
--- mage: 500000 dmg / 60s = 8333 dps vs 10000 median -> absolute ~83
+-- mage: 500000 dmg / 60s = 8333 dps; anchor 0.75 x 20000 = 15000 -> ~55.6
 local mageAbs = blendByName.MoveMage.breakdown.damage.absolute
-check(mageAbs and math.abs(mageAbs - 83.3) < 1, ("absolute component vs WCL median (%.1f)"):format(mageAbs or -1))
+check(mageAbs and math.abs(mageAbs - 55.6) < 1, ("absolute anchored at 75%% of elite median (%.1f)"):format(mageAbs or -1))
 local mageNorm = blendByName.MoveMage.breakdown.damage.normalized
 check(mageNorm > mageAbs and mageNorm < 100,
 	("blended score sits between absolute and relative (%.1f)"):format(mageNorm))

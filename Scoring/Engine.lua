@@ -136,6 +136,7 @@ local function normalizeMetric(p, role, key, ctx)
 			if ctx.normalizeIlvl and B.ilvlSlopePct and p.ilvl and ctx.fightFactors.ilvlMedian then
 				bench = bench * (1 + B.ilvlSlopePct / 100) ^ (p.ilvl - ctx.fightFactors.ilvlMedian)
 			end
+			bench = bench * (W.absoluteAnchor or 1)
 			absolute = math.min(100, 100 * (metricValue(p, key) / ctx.duration) / bench)
 		end
 	end

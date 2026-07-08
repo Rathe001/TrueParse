@@ -150,7 +150,9 @@ local function buildMetricTooltip(key, b, duration)
 	end
 
 	if b.absolute then
-		lines[#lines + 1] = { ("WCL %d: you produced %d%% of the top-logs median for your spec on this fight, adjusted to your item level."):format(b.absolute, b.absolute), 0.4, 0.75, 1 }
+		local anchor = TP.Scoring.Weights.absoluteAnchor or 1
+		lines[#lines + 1] = { ("WCL %d: you produced %d%% of the elite-logs median for your spec on this fight (gear-adjusted; 100 points at %d%%)."):format(
+			b.absolute, b.absolute * anchor, anchor * 100), 0.4, 0.75, 1 }
 	end
 	if b.relative then
 		lines[#lines + 1] = { ("Group %d: compared against the best of your role in this group (spec and gear adjusted)."):format(b.relative), 0.8, 0.8, 0.8 }

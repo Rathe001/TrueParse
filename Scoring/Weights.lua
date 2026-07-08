@@ -44,6 +44,11 @@ Weights.expectedShare = {
 -- 1 = pure absolute.
 Weights.absoluteBlend = 0.6
 
+-- WCL rankings pages are ELITE parses; their median sits near the top of
+-- the population. Anchoring 100 points at this fraction of that median
+-- keeps S-tier meaning "near-elite" without grading a competent pug C.
+Weights.absoluteAnchor = 0.75
+
 Weights.penalties = {
 	-- Avoidable damage: penalize taking MORE than your equal share of the
 	-- group's avoidable damage. Eating ~40% above your share = full cap.
