@@ -15,6 +15,7 @@ local defaults = {
 		},
 		coach = true,
 		announce = false, -- opt-in: one MVP line to group chat on run completion
+		announceSummary = false, -- opt-in: one group strengths/weaknesses line
 		minimap = { hide = false },
 		bars = {
 			height = 18,
@@ -117,6 +118,8 @@ function Addon:HandleSlash(input)
 		TP.Options.Open()
 	elseif cmd == "run" then
 		TP.RunSummary:Report()
+	elseif cmd == "share" then
+		TP.RunSummary:Share()
 	elseif cmd == "career" then
 		TP.Career:PrintSummary()
 	elseif cmd == "coach" then
@@ -157,7 +160,7 @@ function Addon:HandleSlash(input)
 			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 		end
 	else
-		self:Print("Commands: /tp (toggle window), /tp config, /tp run, /tp career, /tp fights, /tp score [n], /tp lock, /tp reset, /tp coach, /tp announce, /tp ilvl, /tp debug, /tp probe")
+		self:Print("Commands: /tp (toggle window), /tp config, /tp run, /tp share, /tp career, /tp fights, /tp score [n], /tp lock, /tp reset, /tp coach, /tp announce, /tp ilvl, /tp debug, /tp probe")
 	end
 end
 

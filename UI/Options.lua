@@ -70,6 +70,12 @@ local optionsTable = {
 					get = function() return profile().announce end,
 					set = function(_, v) profile().announce = v end,
 				},
+				announceSummary = {
+					type = "toggle", order = 3, name = "Announce group summary",
+					desc = "When a run completes, post ONE line: group grade plus the group's biggest strength and what to work on. No individual scores.",
+					get = function() return profile().announceSummary end,
+					set = function(_, v) profile().announceSummary = v end,
+				},
 			},
 		},
 		reports = {
@@ -84,6 +90,11 @@ local optionsTable = {
 					type = "execute", order = 2, name = "Career stats",
 					desc = "Print your GPA, trend, best fight, and strengths.",
 					func = function() TP.Career:PrintSummary() end,
+				},
+				share = {
+					type = "execute", order = 3, name = "Share to group",
+					desc = "Post the one-line group summary (grade + strengths/weaknesses) to group chat right now.",
+					func = function() TP.RunSummary:Share() end,
 				},
 			},
 		},

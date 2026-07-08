@@ -42,8 +42,45 @@ local function collectRunFights()
 	return fights
 end
 
--- announce=true (auto triggers only) additionally posts one MVP line to
--- group chat when /tp announce is enabled. Manual /tp run never announces.
+local function groupChannel()
+	if LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+		return "INSTANCE_CHAT"
+	elseif IsInRaid() then
+		return "RAID"
+	end
+	return "PARTY"
+end
+
+-- One informative, non-spammy line: group grade plus the group's biggest
+-- strength and up to two things to work on. Plain text (chat can't color).
+local function composeSummary(name, results, groupGrade, groupScore)
+	local insights = TP.Scoring.Insights.ForResults(results)
+	local msg = ("TrueParse: %s — group grade %s (%d)."):format(name or "run", groupGrade, groupScore)
+	if insights.strength then
+		msg = msg .. (" Strong: %s."):format((TP.METRIC_LABELS[insights.strength] or insights.strength):lower())
+	end
+	local work = {}
+	if insights.weakness then
+		work[#work + 1] = (TP.METRIC_LABELS[insights.weakness] or insights.weakness):lower()
+	end
+	if insights.avoidableHitters >= 2 then
+		work[#work + 1] = "avoidable damage"
+	end
+	if insights.deaths >= 3 then
+		work[#work + 1] = ("deaths (%d players)"):format(insights.deaths)
+	end
+	if insights.buffsMissing then
+		work[#work + 1] = "raid buffs at pull"
+	end
+	if #work > 0 then
+		msg = msg .. " Work on: " .. table.concat(work, ", ", 1, math.min(#work, 3)) .. "."
+	end
+	return msg
+end
+
+-- announce=true (auto triggers only) additionally posts to group chat per
+-- the /tp announce (MVP line) and announce-summary settings. Manual /tp run
+-- never announces; /tp share posts the summary on demand.
 function RunSummary:Report(announce)
 	local fights = collectRunFights()
 	if not fights or #fights == 0 then
@@ -80,18 +117,42 @@ function RunSummary:Report(announce)
 		TP.Addon:Print(line)
 	end
 
-	if announce and TP.Addon.db.profile.announce and IsInGroup() then
-		local mvp = results[1]
-		local mvpGrade = TP.Scoring.Grades.ForScore(mvp.score)
-		local channel = "PARTY"
-		if LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
-			channel = "INSTANCE_CHAT"
-		elseif IsInRaid() then
-			channel = "RAID"
+	if announce and IsInGroup() then
+		if TP.Addon.db.profile.announce then
+			local mvp = results[1]
+			local mvpGrade = TP.Scoring.Grades.ForScore(mvp.score)
+			SendChatMessage(("TrueParse run MVP: %s — %s (%d). Group grade: %s"):format(
+				mvp.name, mvpGrade, math.floor(mvp.score + 0.5), groupGrade), groupChannel())
 		end
-		-- plain text only: chat messages can't carry color codes
-		SendChatMessage(("TrueParse run MVP: %s — %s (%d). Group grade: %s"):format(
-			mvp.name, mvpGrade, math.floor(mvp.score + 0.5), groupGrade), channel)
+		if TP.Addon.db.profile.announceSummary then
+			SendChatMessage(composeSummary(currentInstance.name, results, groupGrade,
+				math.floor(sum / #results + 0.5)), groupChannel())
+		end
+	end
+end
+
+-- Manual share: post ONLY the one-line group summary, on demand.
+function RunSummary:Share()
+	local fights = collectRunFights()
+	if not fights or #fights == 0 then
+		TP.Addon:Print("No fights captured in this instance yet.")
+		return
+	end
+	local run = TP.Scoring.Runs.Aggregate(fights, currentInstance.name)
+	local results = TP.Scoring.Engine.ScoreFight(run, TP.GetScoringOptions())
+	if #results == 0 then
+		return
+	end
+	local sum = 0
+	for _, r in ipairs(results) do
+		sum = sum + r.score
+	end
+	local groupGrade = TP.Scoring.Grades.ForScore(sum / #results)
+	local line = composeSummary(currentInstance.name, results, groupGrade, math.floor(sum / #results + 0.5))
+	if IsInGroup() then
+		SendChatMessage(line, groupChannel())
+	else
+		TP.Addon:Print(line)
 	end
 end
 

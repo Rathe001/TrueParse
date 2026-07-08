@@ -17,6 +17,7 @@ loadModule("Data/Benchmarks.lua", TP)
 loadModule("Scoring/Awards.lua", TP)
 loadModule("Scoring/Coach.lua", TP)
 loadModule("Scoring/Runs.lua", TP)
+loadModule("Scoring/Insights.lua", TP)
 
 local failures = 0
 local function check(cond, label)
@@ -439,6 +440,22 @@ local buffAdvice = TP.Scoring.Coach.BiggestOpportunity({
 	penaltyDetail = { buffs = 4 }, breakdown = {},
 })
 check(buffAdvice and buffAdvice.kind == "buffs", "coach flags buff coverage")
+
+-- 13. Group insights: strengths/weaknesses derived from results
+local insightResults = {
+	{ breakdown = { damage = { applicable = true, normalized = 90 }, interrupts = { applicable = true, normalized = 85 } },
+		penaltyDetail = { deaths = 10 } },
+	{ breakdown = { damage = { applicable = true, normalized = 80 }, interrupts = { applicable = true, normalized = 95 } },
+		penaltyDetail = { deaths = 10, avoidable = 5 } },
+	{ breakdown = { damage = { applicable = true, normalized = 70 }, healing = { applicable = true, normalized = 30 } },
+		penaltyDetail = { deaths = 10, avoidable = 3, buffs = 2 } },
+}
+local insights = TP.Scoring.Insights.ForResults(insightResults)
+check(insights.strength == "interrupts", ("group strength is interrupts (%s)"):format(tostring(insights.strength)))
+check(insights.weakness == "healing", ("group weakness is healing (%s)"):format(tostring(insights.weakness)))
+check(insights.deaths == 3, "counts players who died")
+check(insights.avoidableHitters == 2, "counts avoidable-damage eaters")
+check(insights.buffsMissing == true, "flags missing raid buffs")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file
 local svPath = arg and arg[1]
