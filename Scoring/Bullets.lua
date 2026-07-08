@@ -90,7 +90,7 @@ function Bullets.ForResult(result, awards, extra)
 	end
 
 	for _, award in ipairs(awards or {}) do
-		out[#out + 1] = { kind = "award", symbol = "+", color = GOLD, text = award }
+		out[#out + 1] = { kind = "award", symbol = TP.STAR, color = GOLD, text = award }
 	end
 
 	return out
