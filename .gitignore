@@ -1,4 +1,5 @@
 *.bak
 *.orig
 .DS_Store
-scripts/wcl-key.local.txt
+scripts/*.local.txt
+scripts/percentiles-fetch.log
