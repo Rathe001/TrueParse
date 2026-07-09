@@ -22,38 +22,45 @@ function Scorecard:Acquire(parent)
 		end)
 		-- the breakdown panel is the row tooltip: hover previews, click pins
 		row:SetScript("OnEnter", function(self)
-			self.bg:SetColorTexture(1, 1, 1, 0.12)
 			if self.result then
 				TP.BreakdownPanel:ShowHover(self.fight, self.result)
 			elseif self.groupResults then
 				TP.BreakdownPanel:ShowHoverGroup(self.fight, self.groupResults)
 			end
 		end)
-		row:SetScript("OnLeave", function(self)
-			local base = self.baseBg
-			if base then
-				self.bg:SetColorTexture(base[1], base[2], base[3], base[4])
-			else
-				self.bg:SetColorTexture(1, 1, 1, 0.04)
-			end
-		end)
 
+		-- Details-style bar: class-colored background, mouseover brightening
 		row.bg = row:CreateTexture(nil, "BACKGROUND")
 		row.bg:SetAllPoints()
 		row.bg:SetColorTexture(1, 1, 1, 0.04)
+		local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+		highlight:SetAllPoints()
+		highlight:SetColorTexture(1, 1, 1, 0.15)
 
-		-- [score] Name ............. penalty (score colored by parse bracket)
-		row.score = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-		row.score:SetPoint("LEFT", 4, 0)
+		-- Name ................. penalty score (white outlined name; the
+		-- score wears its parse-bracket color, on the right)
+		local function outlined(template)
+			local fs = row:CreateFontString(nil, "OVERLAY", template)
+			local path, size = fs:GetFont()
+			fs:SetFont(path, size, "OUTLINE")
+			return fs
+		end
+		row.score = outlined("GameFontNormalSmall")
+		row.score:SetPoint("RIGHT", -4, 0)
 		row.score:SetWidth(26)
 		row.score:SetJustifyH("RIGHT")
 
-		row.penalty = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-		row.penalty:SetPoint("RIGHT", -4, 0)
+		row.penalty = outlined("GameFontDisableSmall")
+		row.penalty:SetPoint("RIGHT", row.score, "LEFT", -3, 0)
 		row.penalty:SetJustifyH("RIGHT")
 
-		row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		row.name:SetPoint("LEFT", row.score, "RIGHT", 4, 0)
+		-- spec icon (class icon fallback), like Details
+		row.icon = row:CreateTexture(nil, "ARTWORK")
+		row.icon:SetSize(12, 12)
+		row.icon:SetPoint("LEFT", 2, 0)
+
+		row.name = outlined("GameFontHighlightSmall")
+		row.name:SetPoint("LEFT", row.icon, "RIGHT", 3, 0)
 		row.name:SetPoint("RIGHT", row.penalty, "LEFT", -4, 0)
 		row.name:SetJustifyH("LEFT")
 	end

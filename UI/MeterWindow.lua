@@ -237,6 +237,32 @@ end
 
 -- ========================= Scorecard (primary) =========================
 
+-- Spec icon for a row: the capture's own specIconID (retail sessions carry
+-- it), then the inspected/synced specID's icon, then the class crest.
+local ICON_CROP = 0.07
+local function setSpecIcon(icon, player, class)
+	local fileID = player and player.specIconID
+	if not fileID and player and player.specID and GetSpecializationInfoByID then
+		local ok, _, _, _, specIcon = pcall(GetSpecializationInfoByID, player.specID)
+		if ok then
+			fileID = specIcon
+		end
+	end
+	if fileID then
+		icon:SetTexture(fileID)
+		icon:SetTexCoord(ICON_CROP, 1 - ICON_CROP, ICON_CROP, 1 - ICON_CROP)
+		icon:Show()
+		return
+	end
+	if class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class] then
+		icon:SetTexture("Interface\\WorldStateFrame\\Icons-Classes")
+		icon:SetTexCoord(unpack(CLASS_ICON_TCOORDS[class]))
+		icon:Show()
+		return
+	end
+	icon:Hide()
+end
+
 function MeterWindow:RenderScorecard(fight)
 	local duration = fight.duration or 0
 	local label = ("%s · %d:%02d"):format(fight.name or "Fight", math.floor(duration / 60), duration % 60)
@@ -289,22 +315,26 @@ function MeterWindow:RenderScorecard(fight)
 		-- presence stamp existed rely on the isLocalPlayer fallback).
 		local player = fight.players[r.guid]
 		local hasAddon = player and (player.hasAddon or player.isLocalPlayer)
-		local alpha = hasAddon and 1 or 0.55
+		local alpha = hasAddon and 1 or 0.6
 		row.name:SetAlpha(alpha)
 		row.score:SetAlpha(alpha)
 		row.penalty:SetAlpha(alpha)
+		row.icon:SetAlpha(alpha)
+
+		-- Details-style: the row IS a class-colored bar, white outlined name
+		local cr, cg, cb = TP.ClassColor(r.class)
+		row.bg:SetColorTexture(cr, cg, cb, hasAddon and 0.78 or 0.30)
+		setSpecIcon(row.icon, player, r.class)
 
 		local myAwards = awards[r.guid]
 		row.name:SetText(myAwards and (r.name .. " " .. TP.STAR) or r.name)
-		row.name:SetTextColor(TP.ClassColor(r.class))
+		row.name:SetTextColor(1, 1, 1)
 		row.playerName = r.name
 
 		row.score:SetText(("%.0f"):format(r.score))
 		row.score:SetTextColor(gcr, gcg, gcb)
 		row.penalty:SetText(r.penalty > 0 and ("|cffff4444-%.0f|r"):format(r.penalty) or "")
 
-		row.baseBg = nil
-		row.bg:SetColorTexture(1, 1, 1, 0.04)
 		row.fight = fight
 		row.result = r
 		row.groupResults = nil
@@ -331,14 +361,15 @@ function MeterWindow:RenderScorecard(fight)
 		row.name:SetAlpha(1)
 		row.score:SetAlpha(1)
 		row.penalty:SetAlpha(1)
+		row.icon:SetAlpha(1)
 		local label = (#results > 5) and "Raid" or "Group"
 		row.name:SetText(label)
-		row.name:SetTextColor(1, 0.82, 0.2)
+		row.name:SetTextColor(1, 1, 1)
 		row.score:SetText(("%.0f"):format(groupScore))
 		row.score:SetTextColor(ggr, ggg, ggb)
 		row.penalty:SetText("")
-		row.baseBg = { 1, 0.82, 0.2, 0.10 }
-		row.bg:SetColorTexture(1, 0.82, 0.2, 0.10)
+		row.bg:SetColorTexture(0.72, 0.58, 0.12, 0.55)
+		row.icon:Hide()
 		row.playerName = label
 		row.fight = fight
 		row.result = nil
@@ -471,6 +502,42 @@ function MeterWindow:ToggleCollapse()
 	self:Invalidate()
 end
 
+-- Collapsed, the title bar still leads with the numbers that matter: your
+-- score and the group's. They go FIRST so truncation eats the fight name.
+-- Cached per fight+options: this runs on the 0.5s refresh timer.
+local collapsedCache = {}
+local function collapsedSummary(fight)
+	local opts = TP.GetDisplayScoringOptions()
+	local key = tostring(opts.mode) .. ":" .. tostring(opts.normalizeIlvl)
+	if collapsedCache.fight ~= fight or collapsedCache.key ~= key then
+		collapsedCache.fight, collapsedCache.key = fight, key
+		local results = TP.Scoring.Engine.ScoreFight(fight, opts)
+		local myGUID = UnitGUID("player")
+		local sum, mine = 0, nil
+		for _, r in ipairs(results) do
+			sum = sum + r.score
+			if r.guid == myGUID then
+				mine = r
+			end
+		end
+		local parts = {}
+		if mine then
+			parts[#parts + 1] = TP.Scoring.Grades.ColoredScore(mine.score) .. " you"
+		end
+		if #results > 1 then
+			parts[#parts + 1] = TP.Scoring.Grades.ColoredScore(sum / #results)
+				.. ((#results > 5) and " raid" or " group")
+		end
+		collapsedCache.prefix = table.concat(parts, " · ")
+	end
+	local tail = ("%s · %d:%02d"):format(fight.name or "Fight",
+		math.floor((fight.duration or 0) / 60), (fight.duration or 0) % 60)
+	if collapsedCache.prefix ~= "" then
+		return collapsedCache.prefix .. " · " .. tail
+	end
+	return tail
+end
+
 function MeterWindow:Refresh(force)
 	if not window or not window:IsShown() then
 		return
@@ -482,8 +549,7 @@ function MeterWindow:Refresh(force)
 		window.title:SetText("TrueParse (+)")
 		local latest = TP.FightHistory.fights[1]
 		if latest then
-			window.subtitle:SetText(("%s · %d:%02d"):format(
-				latest.name or "Fight", math.floor((latest.duration or 0) / 60), (latest.duration or 0) % 60))
+			window.subtitle:SetText(collapsedSummary(latest))
 		else
 			window.subtitle:SetText("")
 		end
