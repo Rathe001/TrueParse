@@ -138,6 +138,9 @@ local function buildMetricTooltip(key, b, duration)
 	end
 
 	lines[#lines + 1] = { ("Score %d of 100"):format(b.normalized or 0), 1, 0.82, 0.2 }
+	if b.lowDemand then
+		lines[#lines + 1] = { "Nobody died or even dipped below 70% - there was too little to heal to grade this, so it scores a neutral 75.", 0.7, 0.7, 0.7 }
+	end
 	-- Only itemize the sources when the score blends two of them
 	if b.absolute and b.relative then
 		lines[#lines + 1] = { ("%d vs top parses for your spec"):format(b.absolute), 0.4, 0.75, 1 }

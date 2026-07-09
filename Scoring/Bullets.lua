@@ -76,6 +76,10 @@ function Bullets.ForResult(result, awards, extra)
 		if sentiment == "bad" and (b.value or 0) == 0 and phrases.zero then
 			text = phrases.zero
 		end
+		if b.lowDemand then
+			-- floored: the fight barely needed healing, don't scold or gush
+			text, symbol, color = "Little healing needed - group stayed topped", MIDDOT, MID
+		end
 		out[#out + 1] = { kind = "metric", key = key, symbol = symbol, color = color, text = text }
 	end
 

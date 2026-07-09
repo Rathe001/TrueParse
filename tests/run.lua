@@ -770,6 +770,57 @@ local twoDps = TP.Scoring.Engine.ScoreFight(twoDpsFight, { mode = "parse", norma
 check(twoDps[1].score == 99, ("raw relative fallback caps at 99 (%.0f)"):format(twoDps[1].score))
 check(twoDps[1].breakdown.damage.absolute == nil, "fallback carries no absolute (UI marks it ~)")
 
+-- 19. Trivial healing demand: a healer isn't scolded for a fight with
+-- nothing to heal (nobody died, nobody dipped below 70%)
+local calmFight = {
+	name = "Calm Fight", duration = 60,
+	players = {
+		h = { guid = "h", name = "Heals", class = "PRIEST", role = "HEALER", minHealthPct = 0.85,
+			metrics = { damage = 50, healing = 100, damageTaken = 10, interrupts = 0, dispels = 0, deaths = 0 } },
+		d = { guid = "d", name = "SelfSust", class = "HUNTER", role = "DAMAGER", minHealthPct = 0.90,
+			metrics = { damage = 1000, healing = 400, damageTaken = 10, interrupts = 0, dispels = 0, deaths = 0 } },
+	},
+}
+local calm = TP.Scoring.Engine.ScoreFight(calmFight, { normalizeIlvl = false })
+local calmHealer
+for _, r in ipairs(calm) do
+	if r.name == "Heals" then calmHealer = r end
+end
+check(calmHealer.breakdown.healing.normalized == 75, ("trivial demand floors healer healing at 75 (%.0f)"):format(calmHealer.breakdown.healing.normalized))
+check(calmHealer.breakdown.healing.lowDemand == true, "lowDemand flag set for the UI")
+local calmBullets = TP.Scoring.Bullets.ForResult(calmHealer, nil)
+local healBulletText
+for _, b in ipairs(calmBullets) do
+	if b.key == "healing" then healBulletText = b.text end
+end
+check(healBulletText == "Little healing needed - group stayed topped",
+	("neutral phrase replaces 'Low healing' (%s)"):format(tostring(healBulletText)))
+-- a death re-arms real grading
+calmFight.players.d.metrics.deaths = 1
+calm = TP.Scoring.Engine.ScoreFight(calmFight, { normalizeIlvl = false })
+for _, r in ipairs(calm) do
+	if r.name == "Heals" then
+		check(not r.breakdown.healing.lowDemand, "a death disables the demand floor")
+	end
+end
+calmFight.players.d.metrics.deaths = 0
+-- a sub-70% dip also disables it
+calmFight.players.d.minHealthPct = 0.40
+calm = TP.Scoring.Engine.ScoreFight(calmFight, { normalizeIlvl = false })
+for _, r in ipairs(calm) do
+	if r.name == "Heals" then
+		check(not r.breakdown.healing.lowDemand, "a health dip disables the demand floor")
+	end
+end
+-- parse mode never floors: a raw parse on a calm fight SHOULD read low
+calmFight.players.d.minHealthPct = 0.90
+local calmRaw = TP.Scoring.Engine.ScoreFight(calmFight, { mode = "parse", normalizeIlvl = false })
+for _, r in ipairs(calmRaw) do
+	if r.name == "Heals" then
+		check(not r.breakdown.healing.lowDemand, "raw mode keeps honest low parses")
+	end
+end
+
 -- 18b. Raw mode percentile curves: true WCL-style percentiles when a curve
 -- covers the fight+spec
 TP.Percentiles = {

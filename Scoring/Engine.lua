@@ -358,6 +358,29 @@ function Engine.ScoreFight(fight, opts)
 		end
 	end
 
+	-- Healing demand: when nobody died and nobody even dipped (Classic
+	-- health sampler), share-based healing comparisons are noise — passive
+	-- DPS self-healing outweighs real healing when there's nothing to heal.
+	-- Healers get a neutral floor instead of a "low healing" slap.
+	do
+		local deaths = 0
+		for _, p in ipairs(players) do
+			deaths = deaths + (p.metrics.deaths or 0)
+		end
+		if deaths == 0 then
+			local sampled, worst = 0, 1
+			for _, p in ipairs(players) do
+				if p.minHealthPct then
+					sampled = sampled + 1
+					if p.minHealthPct < worst then
+						worst = p.minHealthPct
+					end
+				end
+			end
+			ctx.lowHealingDemand = (sampled > 0 and worst >= 0.70) or nil
+		end
+	end
+
 	local results = {}
 	for _, p in ipairs(players) do
 		local role = normalizeRole(p)
@@ -367,12 +390,24 @@ function Engine.ScoreFight(fight, opts)
 		local activeWeight = 0
 		for key, weight in pairs(weights) do
 			local normalized, applicable, absolute, relative = normalizeMetric(p, role, key, ctx)
+			-- Trivial-demand floor: only for share-based healer healing (a
+			-- WCL absolute already prices the fight's real demand), and only
+			-- outside parse mode (a raw parse SHOULD read low on a fight
+			-- with nothing to heal)
+			local lowDemand
+			if key == "healing" and role == "HEALER" and applicable
+				and not absolute and not ctx.parseMode
+				and ctx.lowHealingDemand and normalized < 75 then
+				normalized = 75
+				lowDemand = true
+			end
 			breakdown[key] = {
 				weight = weight,
 				normalized = normalized,
 				applicable = applicable,
 				absolute = absolute, -- vs WCL top-logs median, when available
 				relative = relative, -- vs the group, when available
+				lowDemand = lowDemand, -- floored: nothing to heal this fight
 				value = metricValue(p, key),
 			}
 			if applicable then
