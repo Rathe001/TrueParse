@@ -201,6 +201,13 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 			fight.difficulty = difficultyName
 		end
 	end
+	-- Raid trash is noise — only boss encounters make the card in raids.
+	-- Dungeon and M+ trash pulls stay: they ARE the run there.
+	if fight.instanceType == "raid" and not fight.isBoss then
+		self.snapshotted[sessionID] = true
+		return true
+	end
+
 	if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
 		local ok, keystoneLevel = pcall(C_ChallengeMode.GetActiveKeystoneInfo)
 		if ok and keystoneLevel and not IsSecret(keystoneLevel) and keystoneLevel > 0 then
@@ -349,6 +356,10 @@ end)
 -- engine, scorecard, and history behave identically on both clients.
 function FightHistory:AddFromSegment(seg)
 	if TP.BlizzardMeter.available then
+		return
+	end
+	-- Raid trash is noise — bosses only there (dungeon pulls still count)
+	if not seg.encounterID and select(2, GetInstanceInfo()) == "raid" then
 		return
 	end
 	local totals = {

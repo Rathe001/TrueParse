@@ -59,10 +59,12 @@ function Scorecard:Acquire(parent)
 		row.penalty:SetPoint("RIGHT", row.score, "LEFT", -3, 0)
 		row.penalty:SetJustifyH("RIGHT")
 
-		-- spec icon (class icon fallback), like Details
+		-- spec icon (class icon fallback), like Details: flush with the row
+		-- edges, full row height (renderer sets the width to match)
 		row.icon = row:CreateTexture(nil, "ARTWORK")
-		row.icon:SetSize(12, 12)
-		row.icon:SetPoint("LEFT", 2, 0)
+		row.icon:SetPoint("TOPLEFT")
+		row.icon:SetPoint("BOTTOMLEFT")
+		row.icon:SetWidth(14)
 
 		row.name = outlined("GameFontHighlightSmall")
 		row.name:SetPoint("LEFT", row.icon, "RIGHT", 3, 0)

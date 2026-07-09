@@ -19,6 +19,7 @@ local sortScratch = {}
 local lastDrawnRevision = -1
 local lastRenderedFight
 local autoCollapsed = false -- runtime combat collapse, separate from the saved toggle
+local viewOffset = 0 -- fight-history browsing: 0 = latest capture
 
 local function db()
 	return TP.Addon.db.profile
@@ -44,6 +45,24 @@ local function savePosition()
 	w.point, w.relPoint, w.x, w.y = point, relPoint, x, y
 end
 
+-- Shared drag handlers: every draggable region uses these so the dragging
+-- flag stays accurate (applyWindowHeight must never re-anchor mid-drag —
+-- it would snap the frame away from the cursor)
+local isDragging = false
+local function startDrag()
+	if not db().window.locked then
+		isDragging = true
+		window:StartMoving()
+	end
+end
+local function stopDrag()
+	if isDragging then
+		isDragging = false
+		window:StopMovingOrSizing()
+		savePosition()
+	end
+end
+
 local function createWindow()
 	window = CreateFrame("Frame", "TrueParseWindow", UIParent, "BackdropTemplate")
 	window:SetBackdrop({
@@ -59,15 +78,8 @@ local function createWindow()
 	window:SetMovable(true)
 	window:EnableMouse(true)
 	window:RegisterForDrag("LeftButton")
-	window:SetScript("OnDragStart", function(self)
-		if not db().window.locked then
-			self:StartMoving()
-		end
-	end)
-	window:SetScript("OnDragStop", function(self)
-		self:StopMovingOrSizing()
-		savePosition()
-	end)
+	window:SetScript("OnDragStart", startDrag)
+	window:SetScript("OnDragStop", stopDrag)
 
 	window.title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	window.title:SetPoint("TOPLEFT", PADDING, -PADDING)
@@ -86,17 +98,35 @@ local function createWindow()
 	window.headerButton:SetPoint("TOPRIGHT", 0, 0)
 	window.headerButton:SetHeight(HEADER_HEIGHT)
 	window.headerButton:RegisterForDrag("LeftButton")
-	window.headerButton:SetScript("OnDragStart", function()
-		if not db().window.locked then
-			window:StartMoving()
-		end
-	end)
-	window.headerButton:SetScript("OnDragStop", function()
-		window:StopMovingOrSizing()
-		savePosition()
-	end)
+	window.headerButton:SetScript("OnDragStart", startDrag)
+	window.headerButton:SetScript("OnDragStop", stopDrag)
 	window.headerButton:SetScript("OnClick", function()
 		MeterWindow:ToggleCollapse()
+	end)
+
+	-- Fight browser: the subtitle is a button — click steps to the previous
+	-- (older) fight, right-click back toward the latest. Hidden while
+	-- collapsed (the header click is collapse/expand there).
+	window.subtitleButton = CreateFrame("Button", nil, window)
+	window.subtitleButton:SetAllPoints(window.subtitle)
+	window.subtitleButton:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
+	window.subtitleButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	window.subtitleButton:RegisterForDrag("LeftButton")
+	window.subtitleButton:SetScript("OnDragStart", startDrag)
+	window.subtitleButton:SetScript("OnDragStop", stopDrag)
+	window.subtitleButton:SetScript("OnClick", function(_, button)
+		MeterWindow:StepFight(button == "RightButton" and -1 or 1)
+	end)
+	window.subtitleButton:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:SetText("Fight history")
+		GameTooltip:AddLine("Click: older fight", 0.8, 0.8, 0.8)
+		GameTooltip:AddLine("Right-click: back toward the latest", 0.8, 0.8, 0.8)
+		GameTooltip:AddLine("New captures snap back to the latest.", 0.5, 0.5, 0.5)
+		GameTooltip:Show()
+	end)
+	window.subtitleButton:SetScript("OnLeave", function()
+		GameTooltip:Hide()
 	end)
 
 	-- Mode strip along the bottom edge: Real = the full contribution score,
@@ -167,6 +197,16 @@ function MeterWindow:Invalidate()
 	self:Refresh(true)
 end
 
+-- Step through captured fights: positive = older, negative = toward latest
+function MeterWindow:StepFight(delta)
+	local count = #TP.FightHistory.fights
+	if count == 0 then
+		return
+	end
+	viewOffset = math.max(0, math.min(count - 1, viewOffset + delta))
+	self:Invalidate()
+end
+
 function MeterWindow:ApplyPosition()
 	local w = db().window
 	window:ClearAllPoints()
@@ -203,6 +243,7 @@ function MeterWindow:OnEnable()
 	end)
 	TP.Addon:RegisterMessage("TrueParse_FIGHT_CAPTURED", function()
 		autoCollapsed = false
+		viewOffset = 0 -- a fresh capture always snaps the view to the latest
 		MeterWindow:Refresh(true)
 	end)
 	TP.Addon:ScheduleRepeatingTimer(function()
@@ -219,6 +260,13 @@ end
 -- drop the bar to the window's old bottom edge — straight under hotbars,
 -- where their frames eat the clicks and the window becomes unreachable.
 local function applyWindowHeight(newHeight, pinTop)
+	-- No-op when nothing changes (the 0.5s refresh calls this constantly),
+	-- and never re-anchor mid-drag — SetPoint during StartMoving snaps the
+	-- frame away from the cursor.
+	if isDragging or math.abs(window:GetHeight() - newHeight) < 0.5 then
+		window:SetHeight(newHeight)
+		return
+	end
 	local left, top, bottom = window:GetLeft(), window:GetTop(), window:GetBottom()
 	local _, centerY = window:GetCenter()
 	local screenH = UIParent:GetHeight()
@@ -270,6 +318,9 @@ end
 function MeterWindow:RenderScorecard(fight)
 	local duration = fight.duration or 0
 	local label = ("%s · %d:%02d"):format(fight.name or "Fight", math.floor(duration / 60), duration % 60)
+	if viewOffset > 0 then
+		label = ("|cffaaaaaa%d/%d|r · "):format(viewOffset + 1, #TP.FightHistory.fights) .. label
+	end
 	if TP.Addon.db.profile.scoring.mode == "parse" then
 		label = "|cff66ccffraw|r · " .. label
 	end
@@ -336,6 +387,7 @@ function MeterWindow:RenderScorecard(fight)
 		end
 		row.bg:SetColorTexture(cr, cg, cb, 0.95)
 		row.bg:SetWidth(math.max(8, width * math.min(math.max(r.score, 0), 100) / 100))
+		row.icon:SetWidth(rowHeight)
 		setSpecIcon(row.icon, player, r.class)
 
 		local myAwards = awards[r.guid]
@@ -566,12 +618,15 @@ function MeterWindow:Refresh(force)
 		else
 			window.subtitle:SetText("")
 		end
+		window.subtitleButton:Hide()
 		setModeStripShown(false)
 		applyWindowHeight(HEADER_HEIGHT + PADDING, true)
 		return
 	end
 	window.title:SetText("TrueParse")
-	local fight = TP.FightHistory.fights[1]
+	window.subtitleButton:Show()
+	local fights = TP.FightHistory.fights
+	local fight = fights[1 + viewOffset] or fights[1]
 	if TP.BlizzardMeter.available then
 		if fight then
 			self:RenderScorecard(fight)
