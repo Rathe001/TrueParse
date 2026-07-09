@@ -214,8 +214,9 @@ function MeterWindow:RenderScorecard(fight)
 		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (i - 1) * (rowHeight + 1)))
 
 		local grade = TP.Scoring.Grades.ForScore(r.score)
+		local gcr, gcg, gcb = TP.Scoring.Grades.Color(grade, r.score)
 		row.grade:SetText(grade)
-		row.grade:SetTextColor(TP.Scoring.Grades.Color(grade, r.score))
+		row.grade:SetTextColor(gcr, gcg, gcb)
 
 		-- Players not running TrueParse render dimmed: less data, not worse.
 		-- The local player always has the addon (fights captured before the
@@ -226,17 +227,16 @@ function MeterWindow:RenderScorecard(fight)
 		row.grade:SetAlpha(alpha)
 		row.name:SetAlpha(alpha)
 		row.score:SetAlpha(alpha)
+		row.penalty:SetAlpha(alpha)
 
 		local myAwards = awards[r.guid]
 		row.name:SetText(myAwards and (r.name .. " " .. TP.STAR) or r.name)
 		row.name:SetTextColor(TP.ClassColor(r.class))
 		row.playerName = r.name
 
-		local scoreText = ("%.0f"):format(r.score)
-		if r.penalty > 0 then
-			scoreText = scoreText .. (" |cffff4444(-%.0f)|r"):format(r.penalty)
-		end
-		row.score:SetText(scoreText)
+		row.score:SetText(("%.0f"):format(r.score))
+		row.score:SetTextColor(gcr, gcg, gcb)
+		row.penalty:SetText(r.penalty > 0 and ("|cffff4444-%.0f|r"):format(r.penalty) or "")
 
 		row.baseBg = nil
 		row.bg:SetColorTexture(1, 1, 1, 0.04)
@@ -263,15 +263,19 @@ function MeterWindow:RenderScorecard(fight)
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (totalRows - 1) * (rowHeight + 1)))
 
+		local ggr, ggg, ggb = TP.Scoring.Grades.Color(groupGrade, groupScore)
 		row.grade:SetText(groupGrade)
-		row.grade:SetTextColor(TP.Scoring.Grades.Color(groupGrade, groupScore))
+		row.grade:SetTextColor(ggr, ggg, ggb)
 		row.grade:SetAlpha(1)
 		row.name:SetAlpha(1)
 		row.score:SetAlpha(1)
+		row.penalty:SetAlpha(1)
 		local label = (#results > 5) and "Raid" or "Group"
 		row.name:SetText(label)
 		row.name:SetTextColor(1, 0.82, 0.2)
 		row.score:SetText(("%.0f"):format(groupScore))
+		row.score:SetTextColor(ggr, ggg, ggb)
+		row.penalty:SetText("")
 		row.baseBg = { 1, 0.82, 0.2, 0.10 }
 		row.bg:SetColorTexture(1, 0.82, 0.2, 0.10)
 		row.playerName = label

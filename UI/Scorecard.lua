@@ -42,18 +42,24 @@ function Scorecard:Acquire(parent)
 		row.bg:SetAllPoints()
 		row.bg:SetColorTexture(1, 1, 1, 0.04)
 
+		-- [grade number] Name ............. penalty
 		row.grade = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 		row.grade:SetPoint("LEFT", 4, 0)
 		row.grade:SetWidth(24)
 		row.grade:SetJustifyH("LEFT")
 
-		row.score = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-		row.score:SetPoint("RIGHT", -4, 0)
-		row.score:SetJustifyH("RIGHT")
+		row.score = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		row.score:SetPoint("LEFT", row.grade, "RIGHT", 2, 0)
+		row.score:SetWidth(26)
+		row.score:SetJustifyH("LEFT")
+
+		row.penalty = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+		row.penalty:SetPoint("RIGHT", -4, 0)
+		row.penalty:SetJustifyH("RIGHT")
 
 		row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		row.name:SetPoint("LEFT", row.grade, "RIGHT", 4, 0)
-		row.name:SetPoint("RIGHT", row.score, "LEFT", -4, 0)
+		row.name:SetPoint("LEFT", row.score, "RIGHT", 4, 0)
+		row.name:SetPoint("RIGHT", row.penalty, "LEFT", -4, 0)
 		row.name:SetJustifyH("LEFT")
 	end
 	row:SetParent(parent)
