@@ -679,7 +679,7 @@ local function collapsedSummary(fight)
 	return tail
 end
 
-function MeterWindow:Refresh(force)
+local function refreshImpl(self, force)
 	if not window or not window:IsShown() then
 		return
 	end
@@ -719,5 +719,16 @@ function MeterWindow:Refresh(force)
 		else
 			self:RenderScorecard(fight)
 		end
+	end
+end
+
+-- Errors on the 0.5s refresh path die silently without an error addon and
+-- leave a blank window; surface the first one in chat instead.
+local refreshErrorShown = false
+function MeterWindow:Refresh(force)
+	local ok, err = pcall(refreshImpl, self, force)
+	if not ok and not refreshErrorShown then
+		refreshErrorShown = true
+		print("|cffff4444TrueParse render error (please report):|r " .. tostring(err))
 	end
 end
