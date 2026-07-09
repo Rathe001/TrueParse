@@ -49,9 +49,23 @@ end
 -- flag stays accurate (applyWindowHeight must never re-anchor mid-drag —
 -- it would snap the frame away from the cursor)
 local isDragging = false
+
+-- Re-anchor to a plain TOPLEFT point at the frame's exact current screen
+-- rect. The window's anchor shape varies with history (saved CENTER from
+-- the DB, TOPLEFT after a collapse, whatever StopMovingOrSizing chose) and
+-- StartMoving on a mismatched anchor is the classic grab-point teleport.
+local function normalizeAnchor()
+	local left, top = window:GetLeft(), window:GetTop()
+	if left and top then
+		window:ClearAllPoints()
+		window:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+	end
+end
+
 local function startDrag()
 	if not db().window.locked then
 		isDragging = true
+		normalizeAnchor()
 		window:StartMoving()
 	end
 end
@@ -59,6 +73,7 @@ local function stopDrag()
 	if isDragging then
 		isDragging = false
 		window:StopMovingOrSizing()
+		normalizeAnchor()
 		savePosition()
 	end
 end
