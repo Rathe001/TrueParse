@@ -755,6 +755,51 @@ for _, r in ipairs(contribResults) do
 		check(r.breakdown.interrupts ~= nil, "contribution mode keeps utility metrics")
 	end
 end
+
+-- 18b. Raw mode percentile curves: true WCL-style percentiles when a curve
+-- covers the fight+spec
+TP.Percentiles = {
+	encounters = {
+		["Percentile Boss"] = {
+			dps = { [63] = { n = 5000, curve = { { 99, 1000 }, { 95, 900 }, { 90, 800 }, { 75, 650 }, { 50, 500 }, { 25, 380 }, { 10, 300 } } } },
+			hps = { [257] = { n = 2000, curve = { { 99, 500 }, { 95, 450 }, { 90, 400 }, { 75, 320 }, { 50, 250 }, { 25, 190 }, { 10, 150 } } } },
+		},
+	},
+}
+local pctFight = {
+	name = "(!) Percentile Boss", isBoss = true, duration = 100,
+	players = {
+		d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 50000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } }, -- 500/s = p50
+		d2 = { guid = "d2", name = "Wall", class = "ROGUE", role = "DAMAGER", specID = 259,
+			metrics = { damage = 40000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } }, -- no curve for spec
+		h = { guid = "h", name = "Heals", class = "PRIEST", role = "HEALER", specID = 257,
+			metrics = { damage = 0, healing = 47500, interrupts = 0, dispels = 0, deaths = 0 } }, -- 475/s
+	},
+}
+local pctResults = TP.Scoring.Engine.ScoreFight(pctFight, { mode = "parse", normalizeIlvl = false })
+local pctByName = {}
+for _, r in ipairs(pctResults) do pctByName[r.name] = r end
+check(math.abs(pctByName.Deeps.breakdown.damage.normalized - 50) < 0.001,
+	("output at the p50 sample scores exactly 50 (%.1f)"):format(pctByName.Deeps.breakdown.damage.normalized))
+check(math.abs(pctByName.Heals.breakdown.healing.normalized - 97) < 0.01,
+	("healer percentile interpolates between samples (%.2f)"):format(pctByName.Heals.breakdown.healing.normalized))
+pctFight.players.d.metrics.damage = 200000 -- 2000/s, above p99
+pctResults = TP.Scoring.Engine.ScoreFight(pctFight, { mode = "parse", normalizeIlvl = false })
+for _, r in ipairs(pctResults) do
+	if r.name == "Deeps" then
+		check(r.breakdown.damage.normalized == 99, "above the p99 sample pins at 99")
+	end
+end
+pctFight.players.d.metrics.damage = 15000 -- 150/s, below p10 (300/s): fades toward 0
+pctResults = TP.Scoring.Engine.ScoreFight(pctFight, { mode = "parse", normalizeIlvl = false })
+for _, r in ipairs(pctResults) do
+	if r.name == "Deeps" then
+		check(math.abs(r.breakdown.damage.normalized - 5) < 0.001,
+			("below the lowest sample fades linearly (%.1f)"):format(r.breakdown.damage.normalized))
+	end
+end
+TP.Percentiles = nil
 check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 players") ~= nil, "group tooltip carries the numbers")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file

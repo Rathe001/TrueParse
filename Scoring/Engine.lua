@@ -113,6 +113,48 @@ local function adjustedValue(p, role, key, ctx)
 	return metricValue(p, key) / outputFactor(p, role, key, ctx)
 end
 
+-- Percentile curves (Data/Percentiles*.lua): the metric value at fixed
+-- population percentiles per encounter+spec. When present, Raw scores are
+-- TRUE percentiles — matching WCL's parse numbers — instead of the linear
+-- %-of-elite-median fallback (which reads far too generous mid-pack:
+-- logged populations bunch high, so 60% of elite output can be p12).
+local function resolvePercentiles(fight)
+	local P = TP.Percentiles
+	if not P or not P.encounters or not fight.isBoss or not fight.name then
+		return nil
+	end
+	return P.encounters[fight.name:gsub("^%(!%)%s*", "")]
+end
+
+-- curve: { {99, value}, {95, value}, ... } descending. Linear interpolation
+-- between sampled points; above p99 pins at 99, below the lowest sample
+-- fades linearly to 0 at zero output.
+local function percentileFor(curve, rate)
+	if not rate or rate <= 0 then
+		return 0
+	end
+	if rate >= curve[1][2] then
+		return 99
+	end
+	local prev = curve[1]
+	for i = 2, #curve do
+		local point = curve[i]
+		if rate >= point[2] then
+			local span = prev[2] - point[2]
+			if span <= 0 then
+				return point[1]
+			end
+			return point[1] + (prev[1] - point[1]) * (rate - point[2]) / span
+		end
+		prev = point
+	end
+	local last = curve[#curve]
+	if last[2] <= 0 then
+		return last[1]
+	end
+	return last[1] * rate / last[2]
+end
+
 -- Returns normalizedScore (0-100), applicable (boolean)
 local function normalizeMetric(p, role, key, ctx)
 	local W = TP.Scoring.Weights
@@ -200,9 +242,19 @@ local function normalizeMetric(p, role, key, ctx)
 	end
 
 	if ctx.parseMode then
-		-- Parse mode wants the direct WCL comparison, unblended; the group
-		-- comparison is only a fallback when no benchmark covers this
-		-- fight+spec.
+		-- Best evidence first: a true population percentile when a curve
+		-- covers this fight+spec (raw per-second output, no ilvl adjustment
+		-- — WCL's headline parse doesn't bracket by gear either), then the
+		-- %-of-elite-median, then the group comparison.
+		if ctx.percentiles and ctx.duration and ctx.duration > 0 then
+			local kindTbl = (key == "healing") and ctx.percentiles.hps
+				or (key == "damage") and ctx.percentiles.dps
+			local entry = kindTbl and p.specID and kindTbl[p.specID]
+			if entry and entry.curve and #entry.curve > 1 then
+				local pct = percentileFor(entry.curve, metricValue(p, key) / ctx.duration)
+				return pct, true, pct, nil
+			end
+		end
 		if absolute then
 			return absolute, true, absolute, nil
 		elseif relative then
@@ -222,10 +274,9 @@ local function normalizeMetric(p, role, key, ctx)
 	return 0, false
 end
 
--- Parse mode: the WCL-style lens. One throughput metric per role, measured
--- against the elite-logs median for the spec on this fight, no utility
--- weights and no penalties. The contribution score remains the default and
--- feeds career/coach/run reports; this is a display lens.
+-- Parse mode: the WCL-style lens. One throughput metric per role, no
+-- utility weights and no penalties. The contribution score remains the
+-- default and feeds career/coach/run reports; this is a display lens.
 local PARSE_WEIGHTS = {
 	TANK = { damage = 1 },
 	HEALER = { healing = 1 },
@@ -257,6 +308,7 @@ function Engine.ScoreFight(fight, opts)
 		kickCapable = 0,
 		normalizeIlvl = opts.normalizeIlvl ~= false,
 		parseMode = (opts.mode == "parse"),
+		percentiles = (opts.mode == "parse") and resolvePercentiles(fight) or nil,
 		fightFactors = resolveFightFactors(fight),
 		duration = fight.duration,
 		totals = { damage = 0, healing = 0, damageTaken = 0, interrupts = 0, dispels = 0, avoidable = 0 },
