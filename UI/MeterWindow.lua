@@ -169,6 +169,9 @@ local function createWindow()
 			GameTooltip:SetOwner(self, "ANCHOR_TOP")
 			GameTooltip:SetText(labelText)
 			GameTooltip:AddLine(tooltip, 0.8, 0.8, 0.8, true)
+			if not self:IsEnabled() then
+				GameTooltip:AddLine("Unavailable: no Warcraft Logs data covers this fight.", 0.95, 0.5, 0.5, true)
+			end
 			GameTooltip:Show()
 		end)
 		btn:SetScript("OnLeave", function()
@@ -312,31 +315,37 @@ end
 -- Score a fight for display. Raw mode requires WCL evidence (a percentile
 -- curve or benchmark median) somewhere on the card — a "parse" against
 -- nothing but your own group is noise, so those fights render True scores
--- and the raw tag reads n/a. Returns results, rawAvailable.
+-- and the Raw radio disables. Returns results, rawAvailable.
 -- MUST be defined above every caller: a later definition compiles callers'
 -- references as globals (nil) — exactly the blank-window bug this fixes.
-local function scoreForDisplay(fight)
-	local opts = TP.GetDisplayScoringOptions()
-	local results = TP.Scoring.Engine.ScoreFight(fight, opts)
-	local rawAvailable = true
-	if opts.mode == "parse" then
-		rawAvailable = false
-		for _, r in ipairs(results) do
-			for _, b in pairs(r.breakdown) do
-				if b.absolute then
-					rawAvailable = true
-					break
-				end
+local function anyWclEvidence(parseResults)
+	for _, r in ipairs(parseResults) do
+		for _, b in pairs(r.breakdown) do
+			if b.absolute then
+				return true
 			end
-			if rawAvailable then
-				break
-			end
-		end
-		if not rawAvailable then
-			results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
 		end
 	end
-	return results, rawAvailable
+	return false
+end
+
+local function scoreForDisplay(fight)
+	local opts = TP.GetDisplayScoringOptions()
+	local rawAvailable
+	if opts.mode == "parse" then
+		local results = TP.Scoring.Engine.ScoreFight(fight, opts)
+		rawAvailable = anyWclEvidence(results)
+		if rawAvailable then
+			return results, true
+		end
+		return TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions()), false
+	end
+	-- True mode still probes availability (cheap pure-Lua pass) so the Raw
+	-- radio can disable itself on fights it would have nothing to say about
+	local parseOpts = TP.GetScoringOptions()
+	parseOpts.mode = "parse"
+	rawAvailable = anyWclEvidence(TP.Scoring.Engine.ScoreFight(fight, parseOpts))
+	return TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions()), rawAvailable
 end
 
 -- Spec icon for a row: the capture's own specIconID (retail sessions carry
@@ -403,9 +412,14 @@ function MeterWindow:RenderScorecard(fight)
 	-- effective mode for THIS card: raw only when WCL evidence backs it
 	local isRaw = isRawSetting and rawAvailable
 	if window.modeRaw then
-		local a = (not isRawSetting or rawAvailable) and 1 or 0.45
+		local a = rawAvailable and 1 or 0.45
 		window.modeRaw:SetAlpha(a)
 		window.modeRaw.label:SetAlpha(a)
+		if rawAvailable then
+			window.modeRaw:Enable()
+		else
+			window.modeRaw:Disable()
+		end
 	end
 	local conf = db().bars
 	local rowHeight = SCORECARD_ROW_HEIGHT
