@@ -79,11 +79,11 @@ local function createFrame()
 		Panel.currentGUID = nil
 	end)
 
-	-- big grade-colored score, top right (clear of the pin close button)
+	-- big score, top right; steps left only when the pin close button exists
 	frame.bigScore = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
 	local fontPath, _, fontFlags = frame.bigScore:GetFont()
 	frame.bigScore:SetFont(fontPath, 26, fontFlags)
-	frame.bigScore:SetPoint("TOPRIGHT", -28, -8)
+	frame.bigScore:SetPoint("TOPRIGHT", -10, -8)
 	frame.bigScore:SetJustifyH("RIGHT")
 
 	frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -253,6 +253,8 @@ function Panel:ShowFor(fight, result)
 		frame:SetPoint("CENTER")
 	end
 	frame.close:SetShown(self.pinned)
+	frame.bigScore:ClearAllPoints()
+	frame.bigScore:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -8)
 	frame:Show()
 	self.currentGUID = result.guid
 end
@@ -365,6 +367,8 @@ function Panel:ShowForGroup(fight, results)
 		frame:SetPoint("CENTER")
 	end
 	frame.close:SetShown(self.pinned)
+	frame.bigScore:ClearAllPoints()
+	frame.bigScore:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -8)
 	frame:Show()
 	self.currentGUID = "GROUP"
 end
