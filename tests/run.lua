@@ -719,6 +719,27 @@ roleFight.totals.deaths = 1
 roleAwards = TP.Scoring.Awards.Compute(roleFight)
 check(not hasAward("h1", "Not on My Watch"), "a death kills Not on My Watch")
 check(not hasAward("h1", "Healed Through Stupid"), "a death kills Healed Through Stupid")
+roleFight.wipe = true
+roleAwards = TP.Scoring.Awards.Compute(roleFight)
+check(not hasAward("d1", "Giant Slayer"), "no damage trophy on a wipe")
+roleFight.wipe = nil
+
+-- 17. Wipe-aware death penalties
+local wipeFight = {
+	name = "(!) Big Boss", isBoss = true, wipe = true, duration = 100,
+	players = {
+		d1 = { guid = "d1", name = "Dead", class = "MAGE", role = "DAMAGER",
+			metrics = { damage = 100, healing = 0, interrupts = 0, dispels = 0, deaths = 1 } },
+		d2 = { guid = "d2", name = "AlsoDead", class = "ROGUE", role = "DAMAGER",
+			metrics = { damage = 100, healing = 0, interrupts = 0, dispels = 0, deaths = 1 } },
+	},
+}
+local wipeResults = TP.Scoring.Engine.ScoreFight(wipeFight)
+check(math.abs(wipeResults[1].penaltyDetail.deaths - 4) < 1e-9,
+	("wipe scales a full death penalty 10 -> 4 (%.1f)"):format(wipeResults[1].penaltyDetail.deaths))
+wipeFight.wipe = nil
+local killResults = TP.Scoring.Engine.ScoreFight(wipeFight)
+check(math.abs(killResults[1].penaltyDetail.deaths - 10) < 1e-9, "kill keeps the full death penalty")
 check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 players") ~= nil, "group tooltip carries the numbers")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file

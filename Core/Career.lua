@@ -31,6 +31,9 @@ local function onFightCaptured(_, fight)
 	if countPlayers(fight.players) < 3 then
 		return
 	end
+	if fight.wipe then
+		return -- wipes are graded on the card but don't drag the career GPA
+	end
 	local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
 	local me
 	for _, r in ipairs(results) do

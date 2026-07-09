@@ -25,6 +25,10 @@ local specIconMap -- icon fileID -> { specID, role }
 -- content holds sessions locked until a bulk unlock after you leave, so
 -- stamping context at capture time records the wrong zone.
 local sessionContext = {} -- [sessionID] = { zone, instanceType, difficulty }
+-- Kill/wipe outcomes by encounter name, recorded at ENCOUNTER_END: boss
+-- sessions may not unlock until long after the pull, so the result has to
+-- be remembered until the snapshot happens.
+local encounterResults = {} -- [plainName] = { wipe, at }
 local retryTicker
 local sweepQueued = false
 local lastLiveSession
@@ -162,6 +166,26 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- calibrating scoring weights from real runs. Prefer the context recorded
 	-- live when the session appeared — at capture time we may have already
 	-- left the instance (bulk unlock).
+	-- Kill or wipe? Prefer the recorded ENCOUNTER_END outcome; fall back to
+	-- "every player died" when the encounter event never matched.
+	if fight.isBoss then
+		local plainName = name:gsub("^%(!%)%s*", "")
+		local outcome = encounterResults[plainName]
+		if outcome then
+			fight.wipe = outcome.wipe
+		else
+			local allDied, anyone = true, false
+			for _, p in pairs(players) do
+				anyone = true
+				if (p.metrics.deaths or 0) == 0 then
+					allDied = false
+					break
+				end
+			end
+			fight.wipe = (anyone and allDied) or nil
+		end
+	end
+
 	local live = sessionContext[sessionID]
 	local zone, instanceType, difficultyID, difficultyName = GetInstanceInfo()
 	if live then
@@ -271,8 +295,13 @@ function FightHistory:Persist()
 end
 
 local eventFrame = CreateFrame("Frame")
-eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
-	if event == "DAMAGE_METER_COMBAT_SESSION_UPDATED" then
+eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
+	if event == "ENCOUNTER_END" then
+		local encounterName, success = arg2, arg5
+		if encounterName and not IsSecret(encounterName) and not IsSecret(success) then
+			encounterResults[encounterName] = { wipe = (success == 0) or nil, at = GetTime() }
+		end
+	elseif event == "DAMAGE_METER_COMBAT_SESSION_UPDATED" then
 		local damageMeterType, sessionId = arg1, arg2
 		if damageMeterType ~= Enum.DamageMeterType.DamageDone or IsSecret(sessionId) then
 			return
@@ -381,6 +410,7 @@ function FightHistory:AddFromSegment(seg)
 	local fight = {
 		name = seg.name or "Fight",
 		isBoss = seg.encounterID and true or false,
+		wipe = seg.encounterWipe,
 		duration = seg.duration or 0,
 		capturedAt = time(),
 		zone = GetZoneText(),
@@ -426,6 +456,7 @@ function FightHistory:OnEnable()
 		"PLAYER_REGEN_ENABLED",
 		"ADDON_RESTRICTION_STATE_CHANGED",
 		"PLAYER_ENTERING_WORLD",
+		"ENCOUNTER_END",
 	}) do
 		pcall(eventFrame.RegisterEvent, eventFrame, ev)
 	end

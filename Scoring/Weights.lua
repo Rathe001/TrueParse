@@ -79,6 +79,10 @@ Weights.penalties = {
 	-- the fight keeps (1 - relief) of the penalty. Applies to the most
 	-- recent death when its timing is known; earlier deaths cost full price.
 	deathTimingRelief = 0.7,
+	-- On a wipe everyone dies by definition; grading the attempt shouldn't
+	-- mean the deaths cap flattens the whole card. Death penalties scale by
+	-- this on fights marked as wipes.
+	wipeDeathScale = 0.4,
 	-- Providers whose raid buff wasn't fully up at the pull lose up to this
 	-- many points, scaled by the uncovered fraction of the group.
 	missingBuffMax = 5,

@@ -46,8 +46,9 @@ minimap note icon for the scorecard, right-click for options (`/tp config`).
 
 `/tp` toggle window · `/tp config` options · `/tp run` run report ·
 `/tp share` post group summary · `/tp career` your stats ·
-`/tp fights` history · `/tp score [n]` rescore a fight · `/tp ilvl`
-toggle gear normalization · `/tp coach` · `/tp announce`
+`/tp trends` where your play is heading · `/tp fights` history ·
+`/tp score [n]` rescore a fight · `/tp ilvl` toggle gear normalization ·
+`/tp coach` · `/tp announce`
 
 ## How scoring works (short version)
 

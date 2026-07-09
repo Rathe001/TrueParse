@@ -10,6 +10,36 @@ TP.Sync = Sync
 local PREFIX = "TrueParse"
 local WIRE_VERSION = 1
 
+local function addonVersion()
+	if C_AddOns and C_AddOns.GetAddOnMetadata then
+		return C_AddOns.GetAddOnMetadata("TrueParse", "Version") or "0"
+	elseif GetAddOnMetadata then
+		return GetAddOnMetadata("TrueParse", "Version") or "0"
+	end
+	return "0"
+end
+
+-- "1.2.10" -> 10210, for ordering; unparseable -> 0
+local function versionNumber(v)
+	local a, b, c = tostring(v or ""):match("^(%d+)%.(%d+)%.(%d+)")
+	if not a then
+		return 0
+	end
+	return tonumber(a) * 10000 + tonumber(b) * 100 + tonumber(c)
+end
+
+local versionNagged = false
+local function checkNewerVersion(remoteVersion)
+	if versionNagged or not remoteVersion then
+		return
+	end
+	if versionNumber(remoteVersion) > versionNumber(addonVersion()) then
+		versionNagged = true
+		TP.Addon:Print(("A groupmate is running TrueParse %s (you have %s) — update when you get a chance."):format(
+			remoteVersion, addonVersion()))
+	end
+end
+
 Sync.users = {}   -- [guid] = { version, seen } — anyone who ever spoke on the channel
 Sync.reports = {} -- [guid] = { {duration, defensives, at}, ... } pending fight reports
 
@@ -89,10 +119,11 @@ function Sync:SendHello()
 	end
 	local myGUID = UnitGUID("player")
 	local me = TP.Roster.players[myGUID]
-	local msg = ("H:%d:%s:%d:%d"):format(
+	local msg = ("H:%d:%s:%d:%d:%s"):format(
 		WIRE_VERSION, myGUID,
 		(me and me.specID) or 0,
-		(me and me.ilvl) or 0)
+		(me and me.ilvl) or 0,
+		addonVersion())
 	self:SendCommMessage(PREFIX, msg, IsInRaid() and "RAID" or "PARTY")
 end
 
@@ -109,11 +140,19 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		return
 	end
 
-	local version, guid, specID, ilvl = message:match("^H:(%d+):([^:]+):(%d+):(%d+)$")
+	local version, guid, specID, ilvl, remoteAddonVersion =
+		message:match("^H:(%d+):([^:]+):(%d+):(%d+):([%d%.]+)$")
+	if not version then
+		-- hello from builds that predate the addon-version field
+		version, guid, specID, ilvl = message:match("^H:(%d+):([^:]+):(%d+):(%d+)$")
+	end
 	if version then
 		local info = TP.Roster.players[guid]
 		if not info then
 			return -- claimed GUID isn't in our group: ignore
+		end
+		if guid ~= UnitGUID("player") then
+			checkNewerVersion(remoteAddonVersion)
 		end
 		self.users[guid] = { version = tonumber(version), seen = time() }
 		specID = tonumber(specID)

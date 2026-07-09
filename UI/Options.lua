@@ -29,6 +29,12 @@ local optionsTable = {
 					get = function() return profile().window.autoCollapse end,
 					set = function(_, v) profile().window.autoCollapse = v end,
 				},
+				toasts = {
+					type = "toggle", order = 4, name = "Award toasts",
+					desc = "Flash a gold star and a fanfare on your screen when you earn an award.",
+					get = function() return profile().toasts end,
+					set = function(_, v) profile().toasts = v end,
+				},
 				maxRows = {
 					type = "range", order = 3, name = "Max rows",
 					desc = "How many players the scorecard shows.",

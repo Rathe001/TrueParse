@@ -177,6 +177,9 @@ end
 function MeterWindow:RenderScorecard(fight)
 	local duration = fight.duration or 0
 	local label = ("%s · %d:%02d"):format(fight.name or "Fight", math.floor(duration / 60), duration % 60)
+	if fight.wipe then
+		label = "|cffe64d4dwipe|r · " .. label
+	end
 	if UnitAffectingCombat("player") then
 		label = label .. " |cffff8888· fighting…|r"
 	end

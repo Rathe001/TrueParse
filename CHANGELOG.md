@@ -1,5 +1,26 @@
 # TrueParse Changelog
 
+## 1.1.0
+
+- Hover a scorecard row to open the breakdown panel directly (click pins it);
+  big grade-colored score in the panel header; rewritten plain-language
+  hover tooltips.
+- Score colors now match Warcraft Logs parse brackets, including pink at 99+
+  and gold at a perfect 100.
+- Threat discipline (Classic): body pulls, aggro rips, and tank aggro losses
+  are tracked and penalized (lightly, with fairness gates). Retail ships a
+  threat readability probe.
+- Wipe-aware scoring: boss wipes are labeled, death penalties soften on
+  them, top-damage trophies don't grant, and they don't drag career GPA.
+- New awards: Not on My Watch, Topped Off, Healed Through Stupid (healers),
+  Giant Slayer (boss top damage), Lawnmower (trash top damage) — plus an
+  on-screen award toast with fanfare (toggleable).
+- Augmentation: SUPPORT is now scored primarily on self-reported Ebon Might
+  uptime when the Aug runs TrueParse (35% weight, 100 points at 60% uptime).
+- /tp trends: score and per-metric direction over your recent fights, plus
+  per-zone averages. Numeric score now sits beside the letter grade,
+  grade-colored. Version-update nag when a groupmate runs a newer TrueParse.
+
 ## 1.0.0
 
 First public release.

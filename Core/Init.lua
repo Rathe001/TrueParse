@@ -14,6 +14,7 @@ local defaults = {
 			locked = false, shown = true, collapsed = false, autoCollapse = true,
 		},
 		coach = true,
+		toasts = true, -- on-screen flash when you earn an award
 		announce = false, -- opt-in: one MVP line to group chat on run completion
 		announceSummary = false, -- opt-in: one group strengths/weaknesses line
 		minimap = { hide = false },
@@ -68,6 +69,7 @@ function Addon:OnEnable()
 	TP.CastProbe:OnEnable()
 	TP.CoachLine:OnEnable()
 	TP.Career:OnEnable()
+	TP.AwardToast:OnEnable()
 	TP.Sync:OnEnable()
 	TP.Readiness:OnEnable()
 	TP.RunSummary:OnEnable()
@@ -122,6 +124,8 @@ function Addon:HandleSlash(input)
 		TP.RunSummary:Share()
 	elseif cmd == "career" then
 		TP.Career:PrintSummary()
+	elseif cmd == "trends" then
+		TP.Trends:Report()
 	elseif cmd == "coach" then
 		self.db.profile.coach = not self.db.profile.coach
 		self:Print("Post-fight coach line " .. (self.db.profile.coach and "on." or "off."))
@@ -160,7 +164,7 @@ function Addon:HandleSlash(input)
 			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 		end
 	else
-		self:Print("Commands: /tp (toggle window), /tp config, /tp run, /tp share, /tp career, /tp fights, /tp score [n], /tp lock, /tp reset, /tp coach, /tp announce, /tp ilvl, /tp debug, /tp probe")
+		self:Print("Commands: /tp (toggle window), /tp config, /tp run, /tp share, /tp career, /tp trends, /tp fights, /tp score [n], /tp lock, /tp reset, /tp coach, /tp announce, /tp ilvl, /tp debug, /tp probe")
 	end
 end
 

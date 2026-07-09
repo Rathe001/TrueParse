@@ -38,8 +38,8 @@ function Segments:OnEnable()
 	Addon:RegisterEvent("ENCOUNTER_START", function(_, encounterID, encounterName)
 		Segments:OnEncounterStart(encounterID, encounterName)
 	end)
-	Addon:RegisterEvent("ENCOUNTER_END", function(_, encounterID)
-		Segments:OnEncounterEnd(encounterID)
+	Addon:RegisterEvent("ENCOUNTER_END", function(_, encounterID, _, _, _, success)
+		Segments:OnEncounterEnd(encounterID, success)
 	end)
 	-- Players who join mid-fight still need accumulators
 	Addon:RegisterMessage("TrueParse_ROSTER_CHANGED", function()
@@ -160,8 +160,9 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 	end
 end
 
-function Segments:OnEncounterEnd(encounterID)
+function Segments:OnEncounterEnd(encounterID, success)
 	if self.current and self.current.encounterID == encounterID then
+		self.current.encounterWipe = (success == 0) or nil
 		self:EndFight()
 		-- Boss can chain straight into trash without leaving combat (M+);
 		-- PLAYER_REGEN_DISABLED won't re-fire, so open a new segment now.

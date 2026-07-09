@@ -319,6 +319,9 @@ function Engine.ScoreFight(fight, opts)
 			end
 			penaltyDeaths = math.min(W.penalties.deathsCap,
 				(deathCount - 1) * W.penalties.perDeath + lastDeathCost)
+			if fight.wipe then
+				penaltyDeaths = penaltyDeaths * (W.penalties.wipeDeathScale or 1)
+			end
 		end
 		local penaltyBuffs = 0
 		if p.buffCoverage and p.buffCoverage < 1 then

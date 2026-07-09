@@ -106,8 +106,8 @@ function Awards.Compute(fight)
 		end
 	end
 
-	-- Top damage, flavored by what died to it
-	local damageKing = topUnique(fight, "damage", 1)
+	-- Top damage, flavored by what died to it (no trophy for a wipe)
+	local damageKing = (not fight.wipe) and topUnique(fight, "damage", 1) or nil
 	if damageKing then
 		grant(damageKing, fight.isBoss and "giantSlayer" or "lawnmower")
 	end

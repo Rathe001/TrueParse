@@ -170,7 +170,8 @@ function Panel:ShowFor(fight, result)
 	local cr, cg, cb = TP.ClassColor(result.class)
 	frame.title:SetText(result.name or "?")
 	frame.title:SetTextColor(cr, cg, cb)
-	frame.subtitle:SetText(("%s · %s"):format(fight.name or "Fight", result.role))
+	frame.subtitle:SetText(("%s%s · %s"):format(
+		fight.wipe and "|cffe64d4dwipe|r · " or "", fight.name or "Fight", result.role))
 
 	local myAwards = TP.Scoring.Awards.Compute(fight)[result.guid]
 	local player = fight.players[result.guid]
@@ -326,7 +327,8 @@ function Panel:ShowForGroup(fight, results)
 	local label = (#results > 5) and "Raid" or "Group"
 	frame.title:SetText(label)
 	frame.title:SetTextColor(1, 0.82, 0.2)
-	frame.subtitle:SetText(("%s · %d players"):format(fight.name or "Fight", #results))
+	frame.subtitle:SetText(("%s%s · %d players"):format(
+		fight.wipe and "|cffe64d4dwipe|r · " or "", fight.name or "Fight", #results))
 
 	local bullets = TP.Scoring.Bullets.ForGroup(results)
 	local y = FIRST_ROW_Y
