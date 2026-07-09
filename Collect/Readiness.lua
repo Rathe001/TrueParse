@@ -108,6 +108,50 @@ function Readiness:StampFight(fight)
 	end
 end
 
+-- /tp buffs: live view of what the scanner sees, for hunting wrong or
+-- missing aura IDs (several MoP buffs apply different IDs than their cast).
+-- The own-auras line prints real spell IDs so an unrecognized raid buff
+-- identifies itself in one paste.
+function Readiness:Report()
+	if not TP.GROUP_BUFFS then
+		TP.Addon:Print("No buff categories for this game version.")
+		return
+	end
+	scan()
+	TP.Addon:Print("Live buff scan:")
+	for _, category in ipairs(TP.GROUP_BUFFS) do
+		local total, covered, missing = 0, 0, {}
+		for guid, info in pairs(TP.Roster.players) do
+			local known = Readiness.snapshot[guid]
+			if known then
+				total = total + 1
+				if known[category.key] then
+					covered = covered + 1
+				else
+					missing[#missing + 1] = info.name or "?"
+				end
+			end
+		end
+		local line = ("  %s: %d/%d covered"):format(category.label, covered, total)
+		if #missing > 0 and #missing <= 5 then
+			line = line .. " - missing: " .. table.concat(missing, ", ")
+		end
+		TP.Addon:Print(line)
+	end
+	local own = {}
+	for i = 1, 60 do
+		local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
+		if not ok or not aura then
+			break
+		end
+		if aura.spellId and not TP.Compat.IsSecret(aura.spellId)
+			and ((aura.duration or 0) == 0 or (aura.duration or 0) >= 1500) then
+			own[#own + 1] = ("%s(%d)"):format(aura.name or "?", aura.spellId)
+		end
+	end
+	TP.Addon:Print("Your long/permanent auras: " .. table.concat(own, ", "))
+end
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 frame:SetScript("OnEvent", freeze)

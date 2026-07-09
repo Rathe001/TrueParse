@@ -140,6 +140,8 @@ function Addon:HandleSlash(input)
 		TP.Career:PrintSummary()
 	elseif cmd == "trends" then
 		TP.Trends:Report()
+	elseif cmd == "buffs" then
+		TP.Readiness:Report()
 	elseif cmd == "coach" then
 		self.db.profile.coach = not self.db.profile.coach
 		self:Print("Post-fight coach line " .. (self.db.profile.coach and "on." or "off."))
