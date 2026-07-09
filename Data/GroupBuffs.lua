@@ -29,9 +29,12 @@ else
 				[117666] = true, -- Legacy of the Emperor, raid-wide applied aura
 				[90363] = true }, -- Embrace of the Shale Spider (hunter pet)
 		},
-		{ key = "stamina", label = "Stamina (Fort/Commanding)",
+		{ key = "stamina", label = "Stamina (Fort/Commanding/Intent)",
 			providers = { PRIEST = true, WARRIOR = true, WARLOCK = true },
-			auras = { [21562] = true, [469] = true, [6307] = true,
+			-- Dark Intent (109773) grants BOTH spell power and stamina in
+			-- MoP (wowhead-verified); Blood Pact (6307) does NOT exist in
+			-- MoP Classic (404s on wowhead) and was a dead entry here.
+			auras = { [21562] = true, [469] = true, [109773] = true,
 				[90364] = true }, -- Qiraji Fortitude (hunter pet)
 		},
 		{ key = "attackpower", label = "Attack Power (Horn/Trueshot/Shout)",
