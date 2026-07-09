@@ -38,8 +38,12 @@ local function scanUnit(unit, buffs)
 	return sawAny
 end
 
-local function scan()
-	if not TP.GROUP_BUFFS or InCombatLockdown()
+local function scan(force)
+	-- force: Classic freeze-time rescan — auras aren't secret there, so we
+	-- can read them AT combat start and catch buffs cast seconds before the
+	-- pull (the 10s cadence otherwise freezes a pre-buff snapshot)
+	if not TP.GROUP_BUFFS
+		or (InCombatLockdown() and not (force and not TP.Compat.IS_RETAIL))
 		or not C_UnitAuras or not C_UnitAuras.GetAuraDataByIndex then
 		return
 	end
@@ -57,6 +61,7 @@ local function scan()
 end
 
 local function freeze()
+	scan(true) -- last-second buffs count (no-op on retail; auras lock there)
 	local copy = {}
 	for guid, buffs in pairs(Readiness.snapshot) do
 		local set = {}
