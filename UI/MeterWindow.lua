@@ -52,7 +52,7 @@ local function createWindow()
 		edgeSize = 12,
 		insets = { left = 3, right = 3, top = 3, bottom = 3 },
 	})
-	window:SetBackdropColor(0, 0, 0, 0.6)
+	window:SetBackdropColor(0, 0, 0, 0.85)
 	window:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
 	window:SetSize(db().window.width, 100)
 	window:SetClampedToScreen(true)
@@ -319,15 +319,22 @@ function MeterWindow:RenderScorecard(fight)
 		-- presence stamp existed rely on the isLocalPlayer fallback).
 		local player = fight.players[r.guid]
 		local hasAddon = player and (player.hasAddon or player.isLocalPlayer)
-		local alpha = hasAddon and 1 or 0.6
-		row.name:SetAlpha(alpha)
-		row.score:SetAlpha(alpha)
-		row.penalty:SetAlpha(alpha)
-		row.icon:SetAlpha(alpha)
+		row.name:SetAlpha(1)
+		row.score:SetAlpha(1)
+		row.penalty:SetAlpha(1)
+		row.icon:SetAlpha(hasAddon and 1 or 0.7)
 
-		-- Details-style: the row IS a class-colored bar, white outlined name
+		-- Details-style: the row IS a solid class-colored bar with a white
+		-- outlined name. Non-addon players get the color MUTED (washed
+		-- toward grey), never transparency - transparency stacked with the
+		-- window backdrop made whole pug scorecards unreadable.
 		local cr, cg, cb = TP.ClassColor(r.class)
-		row.bg:SetColorTexture(cr, cg, cb, hasAddon and 0.78 or 0.30)
+		if not hasAddon then
+			cr = cr * 0.4 + 0.22
+			cg = cg * 0.4 + 0.22
+			cb = cb * 0.4 + 0.22
+		end
+		row.bg:SetColorTexture(cr, cg, cb, 0.95)
 		setSpecIcon(row.icon, player, r.class)
 
 		local myAwards = awards[r.guid]
@@ -372,7 +379,7 @@ function MeterWindow:RenderScorecard(fight)
 		row.score:SetText(("%.0f"):format(groupScore))
 		row.score:SetTextColor(ggr, ggg, ggb)
 		row.penalty:SetText("")
-		row.bg:SetColorTexture(0.72, 0.58, 0.12, 0.55)
+		row.bg:SetColorTexture(0.60, 0.48, 0.10, 0.95)
 		row.icon:Hide()
 		row.playerName = label
 		row.fight = fight
