@@ -309,6 +309,36 @@ end
 
 -- ========================= Scorecard (primary) =========================
 
+-- Score a fight for display. Raw mode requires WCL evidence (a percentile
+-- curve or benchmark median) somewhere on the card — a "parse" against
+-- nothing but your own group is noise, so those fights render True scores
+-- and the raw tag reads n/a. Returns results, rawAvailable.
+-- MUST be defined above every caller: a later definition compiles callers'
+-- references as globals (nil) — exactly the blank-window bug this fixes.
+local function scoreForDisplay(fight)
+	local opts = TP.GetDisplayScoringOptions()
+	local results = TP.Scoring.Engine.ScoreFight(fight, opts)
+	local rawAvailable = true
+	if opts.mode == "parse" then
+		rawAvailable = false
+		for _, r in ipairs(results) do
+			for _, b in pairs(r.breakdown) do
+				if b.absolute then
+					rawAvailable = true
+					break
+				end
+			end
+			if rawAvailable then
+				break
+			end
+		end
+		if not rawAvailable then
+			results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
+		end
+	end
+	return results, rawAvailable
+end
+
 -- Spec icon for a row: the capture's own specIconID (retail sessions carry
 -- it), then the inspected/synced specID's icon, then the class crest.
 local ICON_CROP = 0.07
@@ -613,34 +643,6 @@ function MeterWindow:ToggleCollapse()
 		db().window.collapsed = true
 	end
 	self:Invalidate()
-end
-
--- Score a fight for display. Raw mode requires WCL evidence (a percentile
--- curve or benchmark median) somewhere on the card — a "parse" against
--- nothing but your own group is noise, so those fights render True scores
--- and the raw tag reads n/a. Returns results, rawAvailable.
-local function scoreForDisplay(fight)
-	local opts = TP.GetDisplayScoringOptions()
-	local results = TP.Scoring.Engine.ScoreFight(fight, opts)
-	local rawAvailable = true
-	if opts.mode == "parse" then
-		rawAvailable = false
-		for _, r in ipairs(results) do
-			for _, b in pairs(r.breakdown) do
-				if b.absolute then
-					rawAvailable = true
-					break
-				end
-			end
-			if rawAvailable then
-				break
-			end
-		end
-		if not rawAvailable then
-			results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
-		end
-	end
-	return results, rawAvailable
 end
 
 -- Collapsed, the title bar still leads with the numbers that matter: your
