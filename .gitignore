@@ -2,4 +2,4 @@
 *.orig
 .DS_Store
 scripts/*.local.txt
-scripts/percentiles-fetch.log
+scripts/*.log
