@@ -132,7 +132,7 @@ local function createWindow()
 	window.modeLabel = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	window.modeLabel:SetPoint("BOTTOMLEFT", PADDING + 2, 6)
 	window.modeLabel:SetText("Mode:")
-	window.modeReal = makeRadio("Real", "contribution",
+	window.modeReal = makeRadio("True", "contribution",
 		"The full TrueParse score: damage, healing, kicks, dispels, soaking, minus penalties. What careers and run reports use.")
 	window.modeReal:SetPoint("LEFT", window.modeLabel, "RIGHT", 5, 0)
 	window.modeRaw = makeRadio("Raw", "parse",
@@ -335,6 +335,7 @@ function MeterWindow:RenderScorecard(fight)
 			cb = cb * 0.4 + 0.22
 		end
 		row.bg:SetColorTexture(cr, cg, cb, 0.95)
+		row.bg:SetWidth(math.max(8, width * math.min(math.max(r.score, 0), 100) / 100))
 		setSpecIcon(row.icon, player, r.class)
 
 		local myAwards = awards[r.guid]
@@ -380,6 +381,7 @@ function MeterWindow:RenderScorecard(fight)
 		row.score:SetTextColor(ggr, ggg, ggb)
 		row.penalty:SetText("")
 		row.bg:SetColorTexture(0.60, 0.48, 0.10, 0.95)
+		row.bg:SetWidth(math.max(8, width * math.min(math.max(groupScore, 0), 100) / 100))
 		row.icon:Hide()
 		row.playerName = label
 		row.fight = fight

@@ -52,9 +52,9 @@ local optionsTable = {
 			args = {
 				mode = {
 					type = "select", order = 0, name = "Score mode", width = "double",
-					desc = "Real: the full TrueParse score - damage, healing, kicks, dispels, soaking, minus penalties. Raw: pure damage (healing for healers) measured against top Warcraft Logs parses for your spec on this fight, nothing else. Career, coach, and run reports always use Real. Also switchable on the window itself.",
+					desc = "True: the full TrueParse score - damage, healing, kicks, dispels, soaking, minus penalties. Raw: pure damage (healing for healers) measured against top Warcraft Logs parses for your spec on this fight, nothing else. Career, coach, and run reports always use True. Also switchable on the window itself.",
 					values = {
-						contribution = "Real (everything counts)",
+						contribution = "True (everything counts)",
 						parse = "Raw (throughput vs top logs only)",
 					},
 					get = function() return profile().scoring.mode end,

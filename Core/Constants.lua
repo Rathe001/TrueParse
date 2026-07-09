@@ -35,6 +35,10 @@ TP.METRIC_DEFS = {
 	{ key = "damage",         enum = "DamageDone" },
 	{ key = "dps",            enum = "Dps" },
 	{ key = "healing",        enum = "HealingDone" },
+	-- Speculative: only captured if the client's enum actually has it.
+	-- If real data shows up we can subtract it from healer scoring the way
+	-- Classic's CLEU path already does (its healing is effective-only).
+	{ key = "overhealing",    enum = "Overhealing" },
 	{ key = "hps",            enum = "Hps" },
 	{ key = "absorbs",        enum = "Absorbs" },
 	{ key = "damageTaken",    enum = "DamageTaken" },

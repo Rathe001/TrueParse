@@ -6,9 +6,10 @@
   parse colors, everywhere (scorecard, breakdown panel, chat reports,
   career, coach).
 - Score modes, switchable via radio buttons on the window (or /tp mode):
-  Real - the default TrueParse contribution score - or Raw, a WCL-style
+  True - the default TrueParse contribution score - or Raw, a WCL-style
   lens that grades pure damage (healing for healers) against top logs for
-  your spec on this fight. No utility, no penalties in Raw.
+  your spec on this fight. No utility, no penalties in Raw. Rows render as
+  Details-style class-colored bars sized by the score.
 - CI: the test suite now runs on every push; the benchmark refresh skips
   green when its API key isn't configured.
 
