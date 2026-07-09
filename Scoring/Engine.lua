@@ -199,6 +199,18 @@ local function normalizeMetric(p, role, key, ctx)
 		end
 	end
 
+	if ctx.parseMode then
+		-- Parse mode wants the direct WCL comparison, unblended; the group
+		-- comparison is only a fallback when no benchmark covers this
+		-- fight+spec.
+		if absolute then
+			return absolute, true, absolute, nil
+		elseif relative then
+			return relative, applicable, nil, relative
+		end
+		return 0, false
+	end
+
 	if absolute and relative then
 		local blend = W.absoluteBlend or 0
 		return blend * absolute + (1 - blend) * relative, true, absolute, relative
@@ -209,6 +221,17 @@ local function normalizeMetric(p, role, key, ctx)
 	end
 	return 0, false
 end
+
+-- Parse mode: the WCL-style lens. One throughput metric per role, measured
+-- against the elite-logs median for the spec on this fight, no utility
+-- weights and no penalties. The contribution score remains the default and
+-- feeds career/coach/run reports; this is a display lens.
+local PARSE_WEIGHTS = {
+	TANK = { damage = 1 },
+	HEALER = { healing = 1 },
+	DAMAGER = { damage = 1 },
+	SUPPORT = { damage = 1 },
+}
 
 -- fight: a FightHistory record. opts.normalizeIlvl (default true) grades
 -- throughput relative to gear. Returns an array sorted by score desc:
@@ -233,6 +256,7 @@ function Engine.ScoreFight(fight, opts)
 		cohorts = {},
 		kickCapable = 0,
 		normalizeIlvl = opts.normalizeIlvl ~= false,
+		parseMode = (opts.mode == "parse"),
 		fightFactors = resolveFightFactors(fight),
 		duration = fight.duration,
 		totals = { damage = 0, healing = 0, damageTaken = 0, interrupts = 0, dispels = 0, avoidable = 0 },
@@ -269,7 +293,7 @@ function Engine.ScoreFight(fight, opts)
 	local results = {}
 	for _, p in ipairs(players) do
 		local role = normalizeRole(p)
-		local weights = W.roleWeights[role]
+		local weights = ctx.parseMode and PARSE_WEIGHTS[role] or W.roleWeights[role]
 
 		local breakdown = {}
 		local activeWeight = 0
@@ -302,7 +326,7 @@ function Engine.ScoreFight(fight, opts)
 
 		local m = p.metrics
 		local penaltyAvoidable = 0
-		if ctx.totals.avoidable > 0 then
+		if not ctx.parseMode and ctx.totals.avoidable > 0 then
 			local share = (m.avoidableTaken or 0) / ctx.totals.avoidable
 			local excess = share - (1 / ctx.playerCount)
 			if excess > 0 then
@@ -311,7 +335,7 @@ function Engine.ScoreFight(fight, opts)
 		end
 		local penaltyDeaths = 0
 		local deathCount = m.deaths or 0
-		if deathCount > 0 then
+		if not ctx.parseMode and deathCount > 0 then
 			local lastDeathCost = W.penalties.perDeath
 			if p.deathTime and ctx.duration and ctx.duration > 0 then
 				local fraction = math.max(0, math.min(1, p.deathTime / ctx.duration))
@@ -324,7 +348,7 @@ function Engine.ScoreFight(fight, opts)
 			end
 		end
 		local penaltyBuffs = 0
-		if p.buffCoverage and p.buffCoverage < 1 then
+		if not ctx.parseMode and p.buffCoverage and p.buffCoverage < 1 then
 			penaltyBuffs = (1 - p.buffCoverage) * (W.penalties.missingBuffMax or 0)
 		end
 
@@ -332,7 +356,8 @@ function Engine.ScoreFight(fight, opts)
 		-- Tanks pulling is their job; everyone else pays for it. Tanks pay
 		-- for the time mobs spent on someone who isn't a tank.
 		local penaltyPull, penaltyAggro, penaltyAggroLoss = 0, 0, 0
-		if role == "TANK" then
+		if ctx.parseMode then -- parse mode is throughput only, no penalties
+		elseif role == "TANK" then
 			if (p.aggroLostTime or 0) > 0 then
 				penaltyAggroLoss = math.min(W.penalties.aggroLossCap or 0,
 					p.aggroLostTime * (W.penalties.aggroLossPerSecond or 0))

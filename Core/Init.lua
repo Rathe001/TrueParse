@@ -28,6 +28,11 @@ local defaults = {
 		},
 		scoring = {
 			normalizeIlvl = true,
+			-- "contribution" = the TrueParse score (everything counts);
+			-- "parse" = WCL-style throughput vs top logs, nothing else.
+			-- Display lens only: career/coach/run reports always use
+			-- contribution.
+			mode = "contribution",
 		},
 		debug = false,
 		probe = false,
@@ -78,9 +83,18 @@ function Addon:OnEnable()
 	TP.MeterWindow:OnEnable()
 end
 
--- Options passed to every Engine.ScoreFight call from the UI
+-- Base options: what career/coach/run reports score with (always the full
+-- contribution model)
 function TP.GetScoringOptions()
 	return { normalizeIlvl = Addon.db.profile.scoring.normalizeIlvl }
+end
+
+-- Display options: the scorecard and /tp score additionally respect the
+-- selected score mode (contribution vs WCL-style parse)
+function TP.GetDisplayScoringOptions()
+	local opts = TP.GetScoringOptions()
+	opts.mode = Addon.db.profile.scoring.mode
+	return opts
 end
 
 function Addon:HandleSlash(input)
@@ -133,6 +147,15 @@ function Addon:HandleSlash(input)
 		self.db.profile.announce = not self.db.profile.announce
 		self:Print("Run-MVP group chat announcement "
 			.. (self.db.profile.announce and "ON — one line to group chat when a run completes." or "off."))
+	elseif cmd == "mode" then
+		local s = self.db.profile.scoring
+		s.mode = (s.mode == "parse") and "contribution" or "parse"
+		if s.mode == "parse" then
+			self:Print("Score mode: PARSE — pure damage/healing vs top logs for your spec on this fight. No utility, no penalties.")
+		else
+			self:Print("Score mode: CONTRIBUTION — the full TrueParse score (damage, healing, kicks, dispels, soaking, penalties).")
+		end
+		TP.MeterWindow:Invalidate()
 	elseif cmd == "ilvl" then
 		self.db.profile.scoring.normalizeIlvl = not self.db.profile.scoring.normalizeIlvl
 		self:Print("Item-level normalization "
@@ -145,8 +168,9 @@ function Addon:HandleSlash(input)
 		if not fight then
 			self:Print("No captured fight #" .. idx .. " (see /tp fights).")
 		else
-			local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
-			self:Print(("Contribution scores — %s (%d:%02d):"):format(
+			local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetDisplayScoringOptions())
+			self:Print(("%s scores — %s (%d:%02d):"):format(
+				self.db.profile.scoring.mode == "parse" and "Parse" or "Contribution",
 				fight.name, math.floor(fight.duration / 60), fight.duration % 60))
 			for i, r in ipairs(results) do
 				local grade = TP.Scoring.Grades.ForScore(r.score)
@@ -164,7 +188,7 @@ function Addon:HandleSlash(input)
 			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 		end
 	else
-		self:Print("Commands: /tp (toggle window), /tp config, /tp run, /tp share, /tp career, /tp trends, /tp fights, /tp score [n], /tp lock, /tp reset, /tp coach, /tp announce, /tp ilvl, /tp debug, /tp probe")
+		self:Print("Commands: /tp (toggle window), /tp config, /tp mode, /tp run, /tp share, /tp career, /tp trends, /tp fights, /tp score [n], /tp lock, /tp reset, /tp coach, /tp announce, /tp ilvl, /tp debug, /tp probe")
 	end
 end
 

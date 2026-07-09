@@ -740,6 +740,32 @@ check(math.abs(wipeResults[1].penaltyDetail.deaths - 4) < 1e-9,
 wipeFight.wipe = nil
 local killResults = TP.Scoring.Engine.ScoreFight(wipeFight)
 check(math.abs(killResults[1].penaltyDetail.deaths - 10) < 1e-9, "kill keeps the full death penalty")
+
+-- 18. Parse mode: WCL-style throughput-only lens
+local parseFight = {
+	name = "Parse Test", duration = 60,
+	players = {
+		h = { guid = "h", name = "Heals", class = "PRIEST", role = "HEALER",
+			metrics = { damage = 100, healing = 900, damageTaken = 0, interrupts = 0, dispels = 2, deaths = 1 } },
+		d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER",
+			metrics = { damage = 1000, healing = 50, damageTaken = 0, interrupts = 2, dispels = 0, deaths = 2 } },
+	},
+}
+local parseResults = TP.Scoring.Engine.ScoreFight(parseFight, { mode = "parse", normalizeIlvl = false })
+local pByName = {}
+for _, r in ipairs(parseResults) do pByName[r.name] = r end
+check(pByName.Deeps.penalty == 0, "parse mode ignores deaths")
+check(pByName.Deeps.breakdown.interrupts == nil, "parse mode carries no utility metrics")
+check(pByName.Deeps.breakdown.damage.applicable, "DPS parse scores damage")
+check(pByName.Heals.breakdown.healing.applicable and pByName.Heals.breakdown.damage == nil,
+	"healer parse scores healing only")
+local contribResults = TP.Scoring.Engine.ScoreFight(parseFight, { normalizeIlvl = false })
+for _, r in ipairs(contribResults) do
+	if r.name == "Deeps" then
+		check(r.penalty > 0, "contribution mode still penalizes deaths")
+		check(r.breakdown.interrupts ~= nil, "contribution mode keeps utility metrics")
+	end
+end
 check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 players") ~= nil, "group tooltip carries the numbers")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file

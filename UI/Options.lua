@@ -50,6 +50,19 @@ local optionsTable = {
 		scoring = {
 			type = "group", inline = true, name = "Scoring", order = 2,
 			args = {
+				mode = {
+					type = "select", order = 0, name = "Score mode", width = "double",
+					desc = "Contribution: the full TrueParse score - damage, healing, kicks, dispels, soaking, minus penalties. Parse: pure damage (healing for healers) measured against top Warcraft Logs parses for your spec on this fight, nothing else. Career, coach, and run reports always use contribution.",
+					values = {
+						contribution = "TrueParse contribution (everything counts)",
+						parse = "Parse (throughput vs top logs only)",
+					},
+					get = function() return profile().scoring.mode end,
+					set = function(_, v)
+						profile().scoring.mode = v
+						TP.MeterWindow:Invalidate()
+					end,
+				},
 				ilvl = {
 					type = "toggle", order = 1, name = "Normalize by item level", width = "full",
 					desc = "Grade throughput relative to gear: a low-ilvl player doing the same output as a high-ilvl one grades higher. Off compares absolute output.",

@@ -177,6 +177,9 @@ end
 function MeterWindow:RenderScorecard(fight)
 	local duration = fight.duration or 0
 	local label = ("%s · %d:%02d"):format(fight.name or "Fight", math.floor(duration / 60), duration % 60)
+	if TP.Addon.db.profile.scoring.mode == "parse" then
+		label = "|cff66ccffparse|r · " .. label
+	end
 	if fight.wipe then
 		label = "|cffe64d4dwipe|r · " .. label
 	end
@@ -191,7 +194,7 @@ function MeterWindow:RenderScorecard(fight)
 	lastRenderedFight = fight
 	releaseAllBars()
 
-	local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
+	local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetDisplayScoringOptions())
 	local awards = TP.Scoring.Awards.Compute(fight)
 	local conf = db().bars
 	local rowHeight = SCORECARD_ROW_HEIGHT
