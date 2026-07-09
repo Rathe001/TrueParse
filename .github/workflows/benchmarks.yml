@@ -18,17 +18,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Skip gracefully (green, with a note) until the secret exists
+      - name: Check for API key
+        id: key
+        env:
+          WCL_API_KEY: ${{ secrets.WCL_API_KEY }}
+        run: |
+          if [ -z "$WCL_API_KEY" ]; then
+            echo "haskey=false" >> "$GITHUB_OUTPUT"
+            echo "WCL_API_KEY secret is not configured; skipping the refresh." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "haskey=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Write API key
+        if: steps.key.outputs.haskey == 'true'
         shell: pwsh
         run: Set-Content -Path scripts/wcl-key.local.txt -Value $env:WCL_API_KEY
         env:
           WCL_API_KEY: ${{ secrets.WCL_API_KEY }}
 
       - name: Fetch retail benchmarks
+        if: steps.key.outputs.haskey == 'true'
         shell: pwsh
         run: ./scripts/fetch-benchmarks.ps1
 
       - name: Fetch MoP Classic benchmarks
+        if: steps.key.outputs.haskey == 'true'
         shell: pwsh
         run: |
           ./scripts/fetch-benchmarks.ps1 -GameBase "https://classic.warcraftlogs.com" `
@@ -36,6 +52,7 @@ jobs:
             -OutFile "Benchmarks_Mists.lua"
 
       - name: Commit if changed
+        if: steps.key.outputs.haskey == 'true'
         run: |
           rm -f scripts/wcl-key.local.txt
           git config user.name "trueparse-bot"
