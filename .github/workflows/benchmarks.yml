@@ -9,6 +9,9 @@ on:
     - cron: "20 9 * * 2" # Tuesdays 09:20 UTC, after reset-ish
   workflow_dispatch:
 
+permissions:
+  contents: write # push the refreshed data files
+
 jobs:
   refresh:
     runs-on: ubuntu-latest

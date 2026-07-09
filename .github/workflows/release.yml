@@ -8,6 +8,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write # create the GitHub Release
+
 jobs:
   release:
     runs-on: ubuntu-latest
