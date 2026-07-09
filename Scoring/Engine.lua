@@ -118,12 +118,25 @@ end
 -- TRUE percentiles — matching WCL's parse numbers — instead of the linear
 -- %-of-elite-median fallback (which reads far too generous mid-pack:
 -- logged populations bunch high, so 60% of elite output can be p12).
+-- WoW difficultyID -> WCL ranking bracket. Classic raid sizes rank
+-- separately (a 10N raider measured against 25H parses reads absurdly
+-- low); retail raids are flex-sized so difficulty alone brackets them.
+local WCL_BRACKET = {
+	[3] = "3x10", [4] = "3x25", [5] = "4x10", [6] = "4x25", -- classic 10/25 N/H
+	[14] = "3", [15] = "4", [16] = "5", -- retail Normal/Heroic/Mythic
+}
+
 local function resolvePercentiles(fight)
 	local P = TP.Percentiles
 	if not P or not P.encounters or not fight.isBoss or not fight.name then
 		return nil
 	end
-	return P.encounters[fight.name:gsub("^%(!%)%s*", "")]
+	local enc = P.encounters[fight.name:gsub("^%(!%)%s*", "")]
+	if not enc then
+		return nil
+	end
+	local key = fight.difficultyID and WCL_BRACKET[fight.difficultyID]
+	return (key and enc[key]) or enc.all
 end
 
 -- curve: { {99, value}, {95, value}, ... } descending. Linear interpolation
@@ -255,10 +268,13 @@ local function normalizeMetric(p, role, key, ctx)
 				return pct, true, pct, nil
 			end
 		end
+		-- WCL semantics: 100 doesn't exist. And a relative-only fallback
+		-- (no benchmark for this fight) makes the group's best a 99 "parse"
+		-- by definition — the UI marks those scores as approximations.
 		if absolute then
-			return absolute, true, absolute, nil
+			return math.min(absolute, 99), true, math.min(absolute, 99), nil
 		elseif relative then
-			return relative, applicable, nil, relative
+			return math.min(relative, 99), applicable, nil, math.min(relative, 99)
 		end
 		return 0, false
 	end

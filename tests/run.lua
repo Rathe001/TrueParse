@@ -756,18 +756,39 @@ for _, r in ipairs(contribResults) do
 	end
 end
 
+-- relative fallback in Raw caps at 99: best-in-group is not a 100 parse
+local twoDpsFight = {
+	name = "No Benchmark Fight", duration = 60,
+	players = {
+		a = { guid = "a", name = "Best", class = "MAGE", role = "DAMAGER",
+			metrics = { damage = 1000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+		b = { guid = "b", name = "Rest", class = "ROGUE", role = "DAMAGER",
+			metrics = { damage = 500, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+	},
+}
+local twoDps = TP.Scoring.Engine.ScoreFight(twoDpsFight, { mode = "parse", normalizeIlvl = false })
+check(twoDps[1].score == 99, ("raw relative fallback caps at 99 (%.0f)"):format(twoDps[1].score))
+check(twoDps[1].breakdown.damage.absolute == nil, "fallback carries no absolute (UI marks it ~)")
+
 -- 18b. Raw mode percentile curves: true WCL-style percentiles when a curve
 -- covers the fight+spec
 TP.Percentiles = {
 	encounters = {
 		["Percentile Boss"] = {
-			dps = { [63] = { n = 5000, curve = { { 99, 1000 }, { 95, 900 }, { 90, 800 }, { 75, 650 }, { 50, 500 }, { 25, 380 }, { 10, 300 } } } },
-			hps = { [257] = { n = 2000, curve = { { 99, 500 }, { 95, 450 }, { 90, 400 }, { 75, 320 }, { 50, 250 }, { 25, 190 }, { 10, 150 } } } },
+			["3x10"] = {
+				dps = { [63] = { n = 5000, curve = { { 99, 1000 }, { 95, 900 }, { 90, 800 }, { 75, 650 }, { 50, 500 }, { 25, 380 }, { 10, 300 } } } },
+				hps = { [257] = { n = 2000, curve = { { 99, 500 }, { 95, 450 }, { 90, 400 }, { 75, 320 }, { 50, 250 }, { 25, 190 }, { 10, 150 } } } },
+			},
+			["3x25"] = {
+				-- deliberately different: proves bracket selection matters
+				dps = { [63] = { n = 5000, curve = { { 99, 2000 }, { 95, 1800 }, { 90, 1600 }, { 75, 1300 }, { 50, 1000 }, { 25, 760 }, { 10, 600 } } } },
+				hps = {},
+			},
 		},
 	},
 }
 local pctFight = {
-	name = "(!) Percentile Boss", isBoss = true, duration = 100,
+	name = "(!) Percentile Boss", isBoss = true, duration = 100, difficultyID = 3, -- classic 10N
 	players = {
 		d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER", specID = 63,
 			metrics = { damage = 50000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } }, -- 500/s = p50
@@ -797,6 +818,23 @@ for _, r in ipairs(pctResults) do
 	if r.name == "Deeps" then
 		check(math.abs(r.breakdown.damage.normalized - 5) < 0.001,
 			("below the lowest sample fades linearly (%.1f)"):format(r.breakdown.damage.normalized))
+	end
+end
+-- bracket selection: the same output in the 25-player bracket scores lower
+pctFight.difficultyID = 4 -- classic 25N -> the tougher "3x25" curve
+pctFight.players.d.metrics.damage = 50000 -- 500/s: p50 in 10N, p10 in 25N... below
+pctResults = TP.Scoring.Engine.ScoreFight(pctFight, { mode = "parse", normalizeIlvl = false })
+for _, r in ipairs(pctResults) do
+	if r.name == "Deeps" then
+		check(r.breakdown.damage.normalized < 10,
+			("same output in the 25-player bracket scores far lower (%.1f)"):format(r.breakdown.damage.normalized))
+	end
+end
+pctFight.difficultyID = 5 -- 10H: no curve fetched for this bracket -> fallback path
+pctResults = TP.Scoring.Engine.ScoreFight(pctFight, { mode = "parse", normalizeIlvl = false })
+for _, r in ipairs(pctResults) do
+	if r.name == "Deeps" then
+		check(r.breakdown.damage.applicable, "missing bracket falls back to non-percentile scoring")
 	end
 end
 TP.Percentiles = nil

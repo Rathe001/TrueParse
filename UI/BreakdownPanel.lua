@@ -230,7 +230,15 @@ function Panel:ShowFor(fight, result)
 	hideRowsFrom(total + 1)
 
 	local gr, gg, gb = TP.Scoring.Grades.ColorForScore(result.score)
-	frame.bigScore:SetText(("%.0f"):format(result.score))
+	local approx = false
+	if TP.Addon.db.profile.scoring.mode == "parse" then
+		for _, b in pairs(result.breakdown) do
+			if b.applicable and not b.absolute then
+				approx = true
+			end
+		end
+	end
+	frame.bigScore:SetText((approx and "~" or "") .. ("%.0f"):format(result.score))
 	frame.bigScore:SetTextColor(gr, gg, gb)
 	if result.penalty > 0 then
 		frame.total:SetText(("Base %.1f · penalties -%.1f"):format(result.base, result.penalty))

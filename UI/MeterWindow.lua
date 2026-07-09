@@ -360,6 +360,7 @@ function MeterWindow:RenderScorecard(fight)
 
 	local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetDisplayScoringOptions())
 	local awards = TP.Scoring.Awards.Compute(fight)
+	local isRaw = TP.Addon.db.profile.scoring.mode == "parse"
 	local conf = db().bars
 	local rowHeight = SCORECARD_ROW_HEIGHT
 	local shown = math.min(#results, conf.max)
@@ -415,7 +416,18 @@ function MeterWindow:RenderScorecard(fight)
 		row.name:SetTextColor(1, 1, 1)
 		row.playerName = r.name
 
-		row.score:SetText(("%.0f"):format(r.score))
+		-- A "parse" with no WCL evidence behind it (group-relative fallback:
+		-- unlisted fight, wrong difficulty) is an estimate — mark it so a
+		-- best-in-group 99 can't masquerade as a real percentile
+		local approx = false
+		if isRaw then
+			for _, b in pairs(r.breakdown) do
+				if b.applicable and not b.absolute then
+					approx = true
+				end
+			end
+		end
+		row.score:SetText((approx and "~" or "") .. ("%.0f"):format(r.score))
 		row.score:SetTextColor(gcr, gcg, gcb)
 		row.penalty:SetText(r.penalty > 0 and ("|cffff4444-%.0f|r"):format(r.penalty) or "")
 
