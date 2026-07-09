@@ -31,14 +31,23 @@ Weights.roleWeights = {
 
 -- Solo-role-cohort fallback: when you're the only one of your role, your
 -- share of the group total is scored against these expectations.
+-- CALIBRATION RULE: expected = observed-average share / 0.75, so an average
+-- performance scores ~75 and 100 requires excellence. (Field scan 2026-07-08
+-- showed the old average-set bars saturating at 100 on 40-56% of tank
+-- fights, sweeping tanks to S on any decent pull.)
 Weights.expectedShare = {
-	TANK    = { damage = 0.105, healing = 0.15, damageTaken = 0.40 },
-	HEALER  = { damage = 0.04,  healing = 0.50 },
+	-- Tank damage runs ~38% of group in scaled TW parties but ~15-20% in
+	-- modern 5-mans; 0.20 with the solo-cohort cap splits the difference.
+	TANK    = { damage = 0.20,  healing = 0.20, damageTaken = 0.50 },
+	HEALER  = { damage = 0.055, healing = 0.65 },
 	DAMAGER = { damage = 0.29,  healing = 0.15 },
-	-- Calibrated from a real aug run (King Dazar TW, 2026-07-07): aug did
-	-- ~13-16% of group damage while fully buffing.
-	SUPPORT = { damage = 0.14,  healing = 0.15 },
+	SUPPORT = { damage = 0.18,  healing = 0.15 },
 }
+
+-- The expected-share fallback is the weakest evidence path (no cohort, no
+-- benchmark to beat), so it can never award a perfect score by itself —
+-- 100s must be earned against actual competition.
+Weights.soloCohortCap = 92
 
 -- When a WCL absolute benchmark exists for the fight+spec, throughput
 -- scores blend "fraction of the top-logs median you produced" (consistent

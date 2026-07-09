@@ -183,7 +183,8 @@ local function normalizeMetric(p, role, key, ctx)
 		local expected = W.expectedShare[role] and W.expectedShare[role][key]
 		local groupTotal = ctx.totals[key]
 		if expected and groupTotal and groupTotal > 0 then
-			relative, applicable = math.min(100, 100 * (adjusted / groupTotal) / expected), true
+			relative = math.min(W.soloCohortCap or 100, 100 * (adjusted / groupTotal) / expected)
+			applicable = true
 		end
 	end
 

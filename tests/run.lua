@@ -132,8 +132,9 @@ check(byName.DpsB.penaltyDetail.avoidable == 15, "avoidable penalty capped at 15
 check(byName.DpsB.penaltyDetail.deaths == 10, "one death costs 10")
 
 -- 6. Cross-role fairness: tank and healer playing well can compete with DPS
-check(byName.Tank.score >= 80, ("well-played tank scores high (%.1f)"):format(byName.Tank.score))
-check(byName.Heal.score >= 80, ("well-played healer scores high (%.1f)"):format(byName.Heal.score))
+-- (expected-share bars now sit at excellence: average play ~75, not 100)
+check(byName.Tank.score >= 75, ("well-played tank scores high (%.1f)"):format(byName.Tank.score))
+check(byName.Heal.score >= 68, ("well-played healer scores high (%.1f)"):format(byName.Heal.score))
 
 -- 6b. Augmentation: detected by spec icon, scored as SUPPORT with its own
 -- expectations instead of being crushed by the DPS cohort comparison.
@@ -160,9 +161,9 @@ for _, r in ipairs(augResults) do
 	augByName[r.name] = r
 end
 check(augByName.Auggy.role == "SUPPORT", "aug detected as SUPPORT via spec icon")
-check(augByName.Auggy.breakdown.damage.normalized >= 90,
-	("aug damage share ~13%% scores high (%.0f)"):format(augByName.Auggy.breakdown.damage.normalized))
-check(augByName.Auggy.score >= 70, ("well-played aug scores high (%.1f)"):format(augByName.Auggy.score))
+check(augByName.Auggy.breakdown.damage.normalized >= 75,
+	("aug damage share ~15%% scores well (%.0f)"):format(augByName.Auggy.breakdown.damage.normalized))
+check(augByName.Auggy.score >= 62, ("well-played aug scores well (%.1f)"):format(augByName.Auggy.score))
 check(augByName.DpsB.breakdown.damage.normalized == 50, "DPS cohort unaffected by aug (B vs A = 50)")
 
 -- 6c. Benchmarks: spec factors and ilvl normalization
