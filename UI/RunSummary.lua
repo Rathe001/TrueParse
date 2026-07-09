@@ -57,7 +57,7 @@ end
 -- window grades the latest single fight — a different number.
 local function composeSummary(run, fightCount, results, groupScore)
 	local insights = TP.Scoring.Insights.ForResults(results)
-	local msg = ("TrueParse: %s run so far (%d fights) — group score %d/100."):format(
+	local msg = ("TrueParse: %s run so far (%d fights) — group score %d/100 (True)."):format(
 		run.name or "instance", fightCount, groupScore)
 	if insights.strength then
 		msg = msg .. (" Strong: %s."):format((TP.METRIC_LABELS[insights.strength] or insights.strength):lower())
@@ -103,7 +103,7 @@ function RunSummary:Report(announce)
 	end
 	local groupScore = sum / #results
 
-	TP.Addon:Print(("Run report — %s (%d fights, %d:%02d) · group score %s"):format(
+	TP.Addon:Print(("Run report — %s (%d fights, %d:%02d) · group score %s · True scores, whole run"):format(
 		currentInstance.name, #fights,
 		math.floor(run.duration / 60), run.duration % 60,
 		TP.Scoring.Grades.ColoredScore(groupScore)))
@@ -121,7 +121,7 @@ function RunSummary:Report(announce)
 	if announce and IsInGroup() then
 		if TP.Addon.db.profile.announce then
 			local mvp = results[1]
-			SendChatMessage(("TrueParse run MVP: %s (%d/100). Group score: %d/100"):format(
+			SendChatMessage(("TrueParse run MVP: %s (True %d/100). Group score: %d/100"):format(
 				mvp.name, math.floor(mvp.score + 0.5), math.floor(groupScore + 0.5)), groupChannel())
 		end
 		if TP.Addon.db.profile.announceSummary then
