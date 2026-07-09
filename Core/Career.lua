@@ -20,7 +20,7 @@ local function getStore()
 	local db = TP.Addon.db.char
 	if not db.career then
 		db.career = {
-			fights = 0, sumScore = 0, gradeCounts = {},
+			fights = 0, sumScore = 0,
 			best = nil, recent = {}, metricSum = {}, metricN = {},
 		}
 	end
@@ -50,8 +50,6 @@ local function onFightCaptured(_, fight)
 	local c = getStore()
 	c.fights = c.fights + 1
 	c.sumScore = c.sumScore + me.score
-	local grade = TP.Scoring.Grades.ForScore(me.score)
-	c.gradeCounts[grade] = (c.gradeCounts[grade] or 0) + 1
 	if not c.best or me.score > c.best.score then
 		c.best = { score = me.score, name = fight.name, when = fight.capturedAt }
 	end
@@ -86,10 +84,8 @@ function Career:PrintSummary()
 		return
 	end
 	local gpa = c.sumScore / c.fights
-	local grade = TP.Scoring.Grades.ForScore(gpa)
-	local gr, gg, gb = TP.Scoring.Grades.Color(grade, gpa)
-	TP.Addon:Print(("Career: |cff%02x%02x%02x%s|r average (%.1f) over %d fights"):format(
-		gr * 255, gg * 255, gb * 255, grade, gpa, c.fights))
+	TP.Addon:Print(("Career: %s average over %d fights"):format(
+		TP.Scoring.Grades.ColoredScore(gpa), c.fights))
 	if c.best then
 		TP.Addon:Print(("  Best: %.0f — %s"):format(c.best.score, c.best.name or "?"))
 	end

@@ -51,14 +51,14 @@ local function groupChannel()
 	return "PARTY"
 end
 
--- One informative, non-spammy line: group grade plus the group's biggest
+-- One informative, non-spammy line: group score plus the group's biggest
 -- strength and up to three things to work on. Plain text (chat can't color).
 -- Scope is stated explicitly ("run so far, N fights") because the scorecard
 -- window grades the latest single fight — a different number.
-local function composeSummary(run, fightCount, results, groupGrade, groupScore)
+local function composeSummary(run, fightCount, results, groupScore)
 	local insights = TP.Scoring.Insights.ForResults(results)
-	local msg = ("TrueParse: %s run so far (%d fights) — group grade %s (%d)."):format(
-		run.name or "instance", fightCount, groupGrade, groupScore)
+	local msg = ("TrueParse: %s run so far (%d fights) — group score %d/100."):format(
+		run.name or "instance", fightCount, groupScore)
 	if insights.strength then
 		msg = msg .. (" Strong: %s."):format((TP.METRIC_LABELS[insights.strength] or insights.strength):lower())
 	end
@@ -101,20 +101,17 @@ function RunSummary:Report(announce)
 	for _, r in ipairs(results) do
 		sum = sum + r.score
 	end
-	local groupGrade = TP.Scoring.Grades.ForScore(sum / #results)
-	local ggr, ggg, ggb = TP.Scoring.Grades.Color(groupGrade, sum / #results)
+	local groupScore = sum / #results
 
-	TP.Addon:Print(("Run report — %s (%d fights, %d:%02d) · group grade |cff%02x%02x%02x%s|r"):format(
+	TP.Addon:Print(("Run report — %s (%d fights, %d:%02d) · group score %s"):format(
 		currentInstance.name, #fights,
 		math.floor(run.duration / 60), run.duration % 60,
-		ggr * 255, ggg * 255, ggb * 255, groupGrade))
+		TP.Scoring.Grades.ColoredScore(groupScore)))
 
 	local awards = TP.Scoring.Awards.Compute(run)
 	for i, r in ipairs(results) do
-		local grade = TP.Scoring.Grades.ForScore(r.score)
-		local gr, gg, gb = TP.Scoring.Grades.Color(grade, r.score)
-		local line = ("  %d. |cff%02x%02x%02x%-2s|r %s (%.0f)"):format(
-			i, gr * 255, gg * 255, gb * 255, grade, r.name, r.score)
+		local line = ("  %d. %s %s"):format(
+			i, TP.Scoring.Grades.ColoredScore(r.score), r.name)
 		if awards[r.guid] then
 			line = line .. " " .. TP.STAR .. " |cffffd700" .. table.concat(awards[r.guid], ", ") .. "|r"
 		end
@@ -124,13 +121,12 @@ function RunSummary:Report(announce)
 	if announce and IsInGroup() then
 		if TP.Addon.db.profile.announce then
 			local mvp = results[1]
-			local mvpGrade = TP.Scoring.Grades.ForScore(mvp.score)
-			SendChatMessage(("TrueParse run MVP: %s — %s (%d). Group grade: %s"):format(
-				mvp.name, mvpGrade, math.floor(mvp.score + 0.5), groupGrade), groupChannel())
+			SendChatMessage(("TrueParse run MVP: %s (%d/100). Group score: %d/100"):format(
+				mvp.name, math.floor(mvp.score + 0.5), math.floor(groupScore + 0.5)), groupChannel())
 		end
 		if TP.Addon.db.profile.announceSummary then
-			SendChatMessage(composeSummary(run, #fights, results, groupGrade,
-				math.floor(sum / #results + 0.5)), groupChannel())
+			SendChatMessage(composeSummary(run, #fights, results,
+				math.floor(groupScore + 0.5)), groupChannel())
 		end
 	end
 end
@@ -151,8 +147,7 @@ function RunSummary:Share()
 	for _, r in ipairs(results) do
 		sum = sum + r.score
 	end
-	local groupGrade = TP.Scoring.Grades.ForScore(sum / #results)
-	local line = composeSummary(run, #fights, results, groupGrade, math.floor(sum / #results + 0.5))
+	local line = composeSummary(run, #fights, results, math.floor(sum / #results + 0.5))
 	if IsInGroup() then
 		SendChatMessage(line, groupChannel())
 	else

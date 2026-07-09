@@ -3,20 +3,23 @@
 *A parse that shows you actually did your job.*
 
 TrueParse is a World of Warcraft group meter that grades players on a
-**Group Contribution Score** (S+ through F) instead of raw damage or
-healing. Damage, effective healing, damage soaked, interrupts, dispels,
-avoidable damage, deaths, raid buffs, and pull preparation all feed a
-role-weighted grade — so a tank or healer can top the card just as easily
-as a DPS, and standing in fire actually costs you.
+**Group Contribution Score** — a 0–100 number in the parse colors you
+already know from Warcraft Logs — instead of raw damage or healing.
+Damage, effective healing, damage soaked, interrupts, dispels, avoidable
+damage, deaths, raid buffs, and pull preparation all feed a role-weighted
+score — so a tank or healer can top the card just as easily as a DPS, and
+standing in fire actually costs you.
 
 Supports retail (Midnight) and Mists of Pandaria Classic.
 
 ## What it does
 
-- **Post-fight scorecard**: letter grades per player, sorted by
-  contribution, with a group grade footer. Click any row for a
+- **Post-fight scorecard**: color-coded scores per player, sorted by
+  contribution, with a group score footer. Hover any row for a
   plain-language breakdown ("Strong damage", "Did not interrupt",
-  "Died with 2 defensives ready") — hover any bullet for the full math.
+  "Died with 2 defensives ready") — click to pin it, hover a bullet for
+  the math. Two lenses: the full contribution score, or a WCL-style
+  **parse mode** (pure throughput vs top logs, `/tp mode`).
 - **Fair by construction**: scores are normalized per spec, per fight
   (Warcraft Logs medians for every raid boss and M+ dungeon), and per item
   level. A spec having a bad fight isn't a bad player; a low-ilvl alt doing

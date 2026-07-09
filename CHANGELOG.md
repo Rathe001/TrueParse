@@ -1,5 +1,16 @@
 # TrueParse Changelog
 
+## 1.2.0 (unreleased)
+
+- Letter grades are gone: scores are a color-coded 0-100 in Warcraft Logs
+  parse colors, everywhere (scorecard, breakdown panel, chat reports,
+  career, coach).
+- Score modes: the default TrueParse contribution score, or a WCL-style
+  parse mode (/tp mode) that grades pure damage/healing against top logs
+  for your spec on this fight - no utility, no penalties.
+- CI: the test suite now runs on every push; the benchmark refresh skips
+  green when its API key isn't configured.
+
 ## 1.1.0
 
 - Hover a scorecard row to open the breakdown panel directly (click pins it);

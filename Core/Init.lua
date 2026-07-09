@@ -173,11 +173,9 @@ function Addon:HandleSlash(input)
 				self.db.profile.scoring.mode == "parse" and "Parse" or "Contribution",
 				fight.name, math.floor(fight.duration / 60), fight.duration % 60))
 			for i, r in ipairs(results) do
-				local grade = TP.Scoring.Grades.ForScore(r.score)
-				local gr, gg, gb = TP.Scoring.Grades.Color(grade, r.score)
 				local penaltyText = r.penalty > 0 and (" |cffff4444(-%.0f)|r"):format(r.penalty) or ""
-				self:Print(("  %d. |cff%02x%02x%02x%s|r %s [%s] — %.0f%s"):format(
-					i, gr * 255, gg * 255, gb * 255, grade, r.name, r.role, r.score, penaltyText))
+				self:Print(("  %d. %s %s [%s]%s"):format(
+					i, TP.Scoring.Grades.ColoredScore(r.score), r.name, r.role, penaltyText))
 			end
 		end
 	elseif cmd == "probe" then

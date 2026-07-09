@@ -42,35 +42,24 @@ for role, weights in pairs(TP.Scoring.Weights.roleWeights) do
 end
 
 -- 1b. Grade mapping: 16 tiers, correct boundaries
+-- Score colors are WCL parse brackets; no letter tiers anymore
 local G = TP.Scoring.Grades
-check(#G.ORDER == 16, "16 grade tiers")
-check(G.ForScore(0) == "F", "0 -> F")
-check(G.ForScore(24.9) == "F", "24.9 -> F")
-check(G.ForScore(25) == "D-", "25 -> D-")
-check(G.ForScore(49) == "C", "49 -> C")
-check(G.ForScore(62) == "B", "62 -> B")
-check(G.ForScore(77) == "A", "77 -> A")
-check(G.ForScore(80) == "A+", "80 -> A+")
-check(G.ForScore(94.9) == "S", "94.9 -> S")
-check(G.ForScore(95) == "S+", "95 -> S+")
-check(G.ForScore(100) == "S+", "100 -> S+")
 do
-	local r, gr, b = G.Color("S+")
-	check(r and gr and b, "grade color returns rgb")
-	-- WCL parse-bracket colors: grey/green/blue/purple/orange by tier,
-	-- pink at 99+, gold at 100
-	check(select(1, G.Color("F")) == 0.40, "F is WCL grey")
-	local cr, cg = G.Color("C")
-	local pr, pg = G.Color("C+")
-	check(cg == 1.00 and cr == 0.12, "C is WCL green")
-	check(pr == 0.00 and pg == 0.44, "C+ crosses into WCL blue")
-	check(select(1, G.Color("A-")) == 0.00, "A- is WCL blue")
-	check(select(1, G.Color("A")) == 0.64, "A is WCL purple")
-	check(select(1, G.Color("S")) == 0.64, "S is WCL purple")
-	check(select(1, G.Color("S+")) == 1.00, "S+ is WCL orange")
-	check(select(1, G.Color("S+", 99.2)) == 0.89, "99+ is WCL pink")
-	check(select(1, G.Color("S+", 100)) == 0.90, "100 is WCL gold")
-	check(select(1, G.Color("S+", 97)) == 1.00, "97 stays orange")
+	local r, gr, b = G.ColorForScore(80)
+	check(r and gr and b, "score color returns rgb")
+	check(select(1, G.ColorForScore(0)) == 0.40, "under 25 is WCL grey")
+	check(select(1, G.ColorForScore(24.9)) == 0.40, "24.9 still grey")
+	local cr, cg = G.ColorForScore(25)
+	check(cg == 1.00 and cr == 0.12, "25 crosses into WCL green")
+	local br, bg = G.ColorForScore(50)
+	check(br == 0.00 and bg == 0.44, "50 crosses into WCL blue")
+	check(select(1, G.ColorForScore(74.9)) == 0.00, "74.9 still blue")
+	check(select(1, G.ColorForScore(75)) == 0.64, "75 crosses into WCL purple")
+	check(select(1, G.ColorForScore(95)) == 1.00, "95 crosses into WCL orange")
+	check(select(1, G.ColorForScore(99.2)) == 0.89, "99+ is WCL pink")
+	check(select(1, G.ColorForScore(100)) == 0.90, "100 is WCL gold")
+	check(select(1, G.ColorForScore(97)) == 1.00, "97 stays orange")
+	check(G.ColoredScore(87.4):find("87", 1, true) ~= nil, "ColoredScore embeds the rounded number")
 end
 
 -- 2. Capability gating

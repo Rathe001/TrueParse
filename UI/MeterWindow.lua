@@ -219,10 +219,7 @@ function MeterWindow:RenderScorecard(fight)
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (i - 1) * (rowHeight + 1)))
 
-		local grade = TP.Scoring.Grades.ForScore(r.score)
-		local gcr, gcg, gcb = TP.Scoring.Grades.Color(grade, r.score)
-		row.grade:SetText(grade)
-		row.grade:SetTextColor(gcr, gcg, gcb)
+		local gcr, gcg, gcb = TP.Scoring.Grades.ColorForScore(r.score)
 
 		-- Players not running TrueParse render dimmed: less data, not worse.
 		-- The local player always has the addon (fights captured before the
@@ -230,7 +227,6 @@ function MeterWindow:RenderScorecard(fight)
 		local player = fight.players[r.guid]
 		local hasAddon = player and (player.hasAddon or player.isLocalPlayer)
 		local alpha = hasAddon and 1 or 0.55
-		row.grade:SetAlpha(alpha)
 		row.name:SetAlpha(alpha)
 		row.score:SetAlpha(alpha)
 		row.penalty:SetAlpha(alpha)
@@ -251,14 +247,13 @@ function MeterWindow:RenderScorecard(fight)
 		row.groupResults = nil
 	end
 
-	-- Footer: the collective grade, visually distinct from player rows
+	-- Footer: the collective score, visually distinct from player rows
 	if hasFooter then
 		local sum = 0
 		for _, r in ipairs(results) do
 			sum = sum + r.score
 		end
 		local groupScore = sum / #results
-		local groupGrade = TP.Scoring.Grades.ForScore(groupScore)
 
 		local row = activeRows[totalRows]
 		if not row then
@@ -269,10 +264,7 @@ function MeterWindow:RenderScorecard(fight)
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (totalRows - 1) * (rowHeight + 1)))
 
-		local ggr, ggg, ggb = TP.Scoring.Grades.Color(groupGrade, groupScore)
-		row.grade:SetText(groupGrade)
-		row.grade:SetTextColor(ggr, ggg, ggb)
-		row.grade:SetAlpha(1)
+		local ggr, ggg, ggb = TP.Scoring.Grades.ColorForScore(groupScore)
 		row.name:SetAlpha(1)
 		row.score:SetAlpha(1)
 		row.penalty:SetAlpha(1)

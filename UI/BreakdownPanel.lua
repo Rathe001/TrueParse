@@ -229,9 +229,8 @@ function Panel:ShowFor(fight, result)
 	end
 	hideRowsFrom(total + 1)
 
-	local grade = TP.Scoring.Grades.ForScore(result.score)
-	local gr, gg, gb = TP.Scoring.Grades.Color(grade, result.score)
-	frame.bigScore:SetText(("%s  %.0f"):format(grade, result.score))
+	local gr, gg, gb = TP.Scoring.Grades.ColorForScore(result.score)
+	frame.bigScore:SetText(("%.0f"):format(result.score))
 	frame.bigScore:SetTextColor(gr, gg, gb)
 	if result.penalty > 0 then
 		frame.total:SetText(("Base %.1f · penalties -%.1f"):format(result.base, result.penalty))
@@ -351,9 +350,8 @@ function Panel:ShowForGroup(fight, results)
 		sum = sum + r.score
 	end
 	local groupScore = sum / #results
-	local grade = TP.Scoring.Grades.ForScore(groupScore)
-	local gr, gg, gb = TP.Scoring.Grades.Color(grade, groupScore)
-	frame.bigScore:SetText(("%s  %.0f"):format(grade, groupScore))
+	local gr, gg, gb = TP.Scoring.Grades.ColorForScore(groupScore)
+	frame.bigScore:SetText(("%.0f"):format(groupScore))
 	frame.bigScore:SetTextColor(gr, gg, gb)
 	frame.total:SetText(("Average of %d players"):format(#results))
 	frame.total:SetTextColor(0.6, 0.6, 0.6)

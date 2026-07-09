@@ -66,11 +66,9 @@ function Trends:Report()
 	local recentAvg = avg(score, 1, half)
 	local olderAvg = avg(score, half + 1, #rows)
 	local delta = recentAvg - olderAvg
-	local grade = TP.Scoring.Grades.ForScore(recentAvg)
-	local gr, gg, gb = TP.Scoring.Grades.Color(grade, recentAvg)
 	TP.Addon:Print(("Trends over your last %d fights:"):format(#rows))
-	TP.Addon:Print(("  Score: |cff%02x%02x%02x%.0f|r %s (recent %d avg %.0f, before that %.0f)"):format(
-		gr * 255, gg * 255, gb * 255, recentAvg, directionWord(delta, 3), half, recentAvg, olderAvg))
+	TP.Addon:Print(("  Score: %s %s (recent %d avg %.0f, before that %.0f)"):format(
+		TP.Scoring.Grades.ColoredScore(recentAvg), directionWord(delta, 3), half, recentAvg, olderAvg))
 
 	for _, key in ipairs(METRIC_ORDER) do
 		local function metric(row)
