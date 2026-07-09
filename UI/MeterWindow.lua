@@ -335,32 +335,48 @@ local function setSpecIcon(icon, player, class)
 	icon:Hide()
 end
 
+local lastRawAvailable = true
+
 function MeterWindow:RenderScorecard(fight)
-	local duration = fight.duration or 0
-	local label = ("%s · %d:%02d"):format(fight.name or "Fight", math.floor(duration / 60), duration % 60)
-	if viewOffset > 0 then
-		label = ("|cffaaaaaa%d/%d|r · "):format(viewOffset + 1, #TP.FightHistory.fights) .. label
-	end
-	if TP.Addon.db.profile.scoring.mode == "parse" then
-		label = "|cff66ccffraw|r · " .. label
-	end
-	if fight.wipe then
-		label = "|cffe64d4dwipe|r · " .. label
-	end
-	if UnitAffectingCombat("player") then
-		label = label .. " |cffff8888· fighting…|r"
+	local isRawSetting = TP.Addon.db.profile.scoring.mode == "parse"
+	local function subtitleText(rawAvail)
+		local duration = fight.duration or 0
+		local label = ("%s · %d:%02d"):format(fight.name or "Fight", math.floor(duration / 60), duration % 60)
+		if viewOffset > 0 then
+			label = ("|cffaaaaaa%d/%d|r · "):format(viewOffset + 1, #TP.FightHistory.fights) .. label
+		end
+		if isRawSetting then
+			-- no WCL data for this fight: the card falls back to True scores
+			label = (rawAvail and "|cff66ccffraw|r · " or "|cff888888raw n/a|r · ") .. label
+		end
+		if fight.wipe then
+			label = "|cffe64d4dwipe|r · " .. label
+		end
+		if UnitAffectingCombat("player") then
+			label = label .. " |cffff8888· fighting…|r"
+		end
+		return label
 	end
 
-	window.subtitle:SetText(label)
 	if lastRenderedFight == fight then
-		return -- scores are static once captured; only the subtitle changes
+		-- scores are static once captured; only the subtitle changes
+		window.subtitle:SetText(subtitleText(lastRawAvailable))
+		return
 	end
 	lastRenderedFight = fight
 	releaseAllBars()
 
-	local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetDisplayScoringOptions())
+	local results, rawAvailable = scoreForDisplay(fight)
+	lastRawAvailable = rawAvailable
+	window.subtitle:SetText(subtitleText(rawAvailable))
 	local awards = TP.Scoring.Awards.Compute(fight)
-	local isRaw = TP.Addon.db.profile.scoring.mode == "parse"
+	-- effective mode for THIS card: raw only when WCL evidence backs it
+	local isRaw = isRawSetting and rawAvailable
+	if window.modeRaw then
+		local a = (not isRawSetting or rawAvailable) and 1 or 0.45
+		window.modeRaw:SetAlpha(a)
+		window.modeRaw.label:SetAlpha(a)
+	end
 	local conf = db().bars
 	local rowHeight = SCORECARD_ROW_HEIGHT
 	local shown = math.min(#results, conf.max)
@@ -599,6 +615,34 @@ function MeterWindow:ToggleCollapse()
 	self:Invalidate()
 end
 
+-- Score a fight for display. Raw mode requires WCL evidence (a percentile
+-- curve or benchmark median) somewhere on the card — a "parse" against
+-- nothing but your own group is noise, so those fights render True scores
+-- and the raw tag reads n/a. Returns results, rawAvailable.
+local function scoreForDisplay(fight)
+	local opts = TP.GetDisplayScoringOptions()
+	local results = TP.Scoring.Engine.ScoreFight(fight, opts)
+	local rawAvailable = true
+	if opts.mode == "parse" then
+		rawAvailable = false
+		for _, r in ipairs(results) do
+			for _, b in pairs(r.breakdown) do
+				if b.absolute then
+					rawAvailable = true
+					break
+				end
+			end
+			if rawAvailable then
+				break
+			end
+		end
+		if not rawAvailable then
+			results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
+		end
+	end
+	return results, rawAvailable
+end
+
 -- Collapsed, the title bar still leads with the numbers that matter: your
 -- score and the group's. They go FIRST so truncation eats the fight name.
 -- Cached per fight+options: this runs on the 0.5s refresh timer.
@@ -608,7 +652,7 @@ local function collapsedSummary(fight)
 	local key = tostring(opts.mode) .. ":" .. tostring(opts.normalizeIlvl)
 	if collapsedCache.fight ~= fight or collapsedCache.key ~= key then
 		collapsedCache.fight, collapsedCache.key = fight, key
-		local results = TP.Scoring.Engine.ScoreFight(fight, opts)
+		local results = scoreForDisplay(fight)
 		local myGUID = UnitGUID("player")
 		local sum, mine = 0, nil
 		for _, r in ipairs(results) do

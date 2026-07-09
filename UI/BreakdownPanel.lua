@@ -233,8 +233,12 @@ function Panel:ShowFor(fight, result)
 	hideRowsFrom(total + 1)
 
 	local gr, gg, gb = TP.Scoring.Grades.ColorForScore(result.score)
+	-- parse-shaped results carry no utility metrics; a raw-SETTING fight
+	-- that fell back to True (no WCL data) must not get raw decorations
+	local rawShaped = TP.Addon.db.profile.scoring.mode == "parse"
+		and result.breakdown.interrupts == nil
 	local approx = false
-	if TP.Addon.db.profile.scoring.mode == "parse" then
+	if rawShaped then
 		for _, b in pairs(result.breakdown) do
 			if b.applicable and not b.absolute then
 				approx = true
@@ -246,7 +250,7 @@ function Panel:ShowFor(fight, result)
 	if result.penalty > 0 then
 		frame.total:SetText(("Base %.1f · penalties -%.1f"):format(result.base, result.penalty))
 		frame.total:SetTextColor(0.95, 0.5, 0.5)
-	elseif TP.Addon.db.profile.scoring.mode == "parse" then
+	elseif rawShaped then
 		frame.total:SetText("Raw mode - throughput vs top logs only")
 		frame.total:SetTextColor(0.4, 0.75, 1)
 	else
