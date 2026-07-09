@@ -158,6 +158,8 @@ local function createWindow()
 		btn.label = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 		btn.label:SetPoint("LEFT", btn, "RIGHT", 1, 0)
 		btn.label:SetText(labelText)
+		-- the label is part of the click target, not just the 14px circle
+		btn:SetHitRectInsets(0, -(btn.label:GetStringWidth() + 4), 0, 0)
 		btn:SetScript("OnClick", function()
 			db().scoring.mode = mode
 			MeterWindow:UpdateModeButtons()
@@ -175,14 +177,17 @@ local function createWindow()
 		return btn
 	end
 	window.modeLabel = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	window.modeLabel:SetPoint("BOTTOMLEFT", PADDING + 2, 6)
 	window.modeLabel:SetText("Mode:")
 	window.modeReal = makeRadio("True", "contribution",
 		"The full TrueParse score: damage, healing, kicks, dispels, soaking, minus penalties. What careers and run reports use.")
-	window.modeReal:SetPoint("LEFT", window.modeLabel, "RIGHT", 5, 0)
 	window.modeRaw = makeRadio("Raw", "parse",
 		"Straight comparison to top Warcraft Logs parses for your spec on this fight: damage for DPS and tanks, healing for healers. Nothing else counts.")
-	window.modeRaw:SetPoint("LEFT", window.modeReal.label, "RIGHT", 12, 0)
+	-- right-aligned in the footer: ... Mode:  (*)True  ( )Raw]
+	window.modeRaw:SetPoint("BOTTOMRIGHT",
+		-(PADDING + 2 + window.modeRaw.label:GetStringWidth() + 2), 5)
+	window.modeReal:SetPoint("RIGHT", window.modeRaw, "LEFT",
+		-(window.modeReal.label:GetStringWidth() + 12), 0)
+	window.modeLabel:SetPoint("RIGHT", window.modeReal, "LEFT", -6, 0)
 	MeterWindow:UpdateModeButtons()
 end
 
