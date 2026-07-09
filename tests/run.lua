@@ -135,9 +135,10 @@ check(byName.DpsB.penaltyDetail.avoidable == 15, "avoidable penalty capped at 15
 check(byName.DpsB.penaltyDetail.deaths == 10, "one death costs 10")
 
 -- 6. Cross-role fairness: tank and healer playing well can compete with DPS
--- (expected-share bars now sit at excellence: average play ~75, not 100)
-check(byName.Tank.score >= 75, ("well-played tank scores high (%.1f)"):format(byName.Tank.score))
-check(byName.Heal.score >= 68, ("well-played healer scores high (%.1f)"):format(byName.Heal.score))
+-- (expected-share bars target mean ~65, matching what cohort competition
+-- produces for DPS - 2026-07-09 recalibration)
+check(byName.Tank.score >= 68, ("well-played tank scores high (%.1f)"):format(byName.Tank.score))
+check(byName.Heal.score >= 62, ("well-played healer scores high (%.1f)"):format(byName.Heal.score))
 
 -- 6b. Augmentation: detected by spec icon, scored as SUPPORT with its own
 -- expectations instead of being crushed by the DPS cohort comparison.
@@ -164,7 +165,7 @@ for _, r in ipairs(augResults) do
 	augByName[r.name] = r
 end
 check(augByName.Auggy.role == "SUPPORT", "aug detected as SUPPORT via spec icon")
-check(augByName.Auggy.breakdown.damage.normalized >= 75,
+check(augByName.Auggy.breakdown.damage.normalized >= 70,
 	("aug damage share ~15%% scores well (%.0f)"):format(augByName.Auggy.breakdown.damage.normalized))
 check(augByName.Auggy.score >= 62, ("well-played aug scores well (%.1f)"):format(augByName.Auggy.score))
 check(augByName.DpsB.breakdown.damage.normalized == 50, "DPS cohort unaffected by aug (B vs A = 50)")
@@ -498,8 +499,9 @@ local buffByName = {}
 for _, r in ipairs(buffResults) do
 	buffByName[r.name] = r
 end
-check(math.abs(buffByName.SlackPriest.penaltyDetail.buffs - 2.5) < 0.01,
-	("half-covered provider loses 2.5 (%.2f)"):format(buffByName.SlackPriest.penaltyDetail.buffs))
+-- coverage 0.5 against the 0.75 floor: (0.75-0.5)/0.75 * 3 = 1.0
+check(math.abs(buffByName.SlackPriest.penaltyDetail.buffs - 1.0) < 0.01,
+	("half-covered provider loses 1.0 (%.2f)"):format(buffByName.SlackPriest.penaltyDetail.buffs))
 check(buffByName.DpsA.penaltyDetail.buffs == 0, "non-providers aren't penalized")
 local buffAdvice = TP.Scoring.Coach.BiggestOpportunity({
 	penaltyDetail = { buffs = 4 }, breakdown = {},

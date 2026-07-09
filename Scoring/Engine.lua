@@ -173,6 +173,12 @@ local function normalizeMetric(p, role, key, ctx)
 	local W = TP.Scoring.Weights
 	local value = metricValue(p, key)
 
+	-- Count metrics use Laplace smoothing (+0.5): when a whole fight has
+	-- one or two kicks, raw fair-share scoring is winner-take-all — the
+	-- kicker gets 100, everyone else 0, pure noise (2026-07-09 audit: DPS
+	-- averaged 30/100 on interrupts, dispel-capable DPS 1/100 on dispels).
+	-- Smoothed, a non-kicker on a 1-kick fight scores ~43; on a 10-kick
+	-- fight still ~12. Signal survives, coin-flips don't.
 	if key == "interrupts" then
 		if not TP.Scoring.Capabilities.CanInterrupt(p.class, role) then
 			return 0, false
@@ -181,7 +187,7 @@ local function normalizeMetric(p, role, key, ctx)
 			return 0, false -- nothing was kicked this fight: not scoreable
 		end
 		local fairShare = ctx.totals.interrupts / ctx.kickCapable
-		return math.min(100, 100 * value / fairShare), true
+		return math.min(100, 100 * (value + 0.5) / (fairShare + 0.5)), true
 	end
 
 	if key == "dispels" then
@@ -192,7 +198,7 @@ local function normalizeMetric(p, role, key, ctx)
 			return 0, false -- nothing dispellable happened
 		end
 		local fairShare = ctx.totals.dispels / ctx.playerCount
-		return math.min(100, 100 * value / fairShare), true
+		return math.min(100, 100 * (value + 0.5) / (fairShare + 0.5)), true
 	end
 
 	if key == "buffUptime" then
@@ -451,8 +457,9 @@ function Engine.ScoreFight(fight, opts)
 			end
 		end
 		local penaltyBuffs = 0
-		if not ctx.parseMode and p.buffCoverage and p.buffCoverage < 1 then
-			penaltyBuffs = (1 - p.buffCoverage) * (W.penalties.missingBuffMax or 0)
+		local buffFloor = W.penalties.buffCoverageFloor or 1
+		if not ctx.parseMode and p.buffCoverage and p.buffCoverage < buffFloor then
+			penaltyBuffs = ((buffFloor - p.buffCoverage) / buffFloor) * (W.penalties.missingBuffMax or 0)
 		end
 
 		-- Threat discipline (fields only present on Classic captures).
@@ -470,8 +477,13 @@ function Engine.ScoreFight(fight, opts)
 				penaltyPull = W.penalties.pulledPack or 0
 			end
 			if (p.aggroRips or 0) > 0 then
-				penaltyAggro = math.min(W.penalties.aggroRipsCap or 0,
-					p.aggroRips * (W.penalties.perAggroRip or 0))
+				local perRip = W.penalties.perAggroRip or 0
+				if role == "HEALER" then
+					-- healing aggro chasing a slacking tank isn't the
+					-- healer's crime; charge it at half price
+					perRip = perRip * (W.penalties.healerRipScale or 1)
+				end
+				penaltyAggro = math.min(W.penalties.aggroRipsCap or 0, p.aggroRips * perRip)
 			end
 		end
 

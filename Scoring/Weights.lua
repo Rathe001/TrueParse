@@ -22,8 +22,10 @@ Weights.roleWeights = {
 	HEALER  = { damage = 0.15, healing = 0.55, interrupts = 0.15, dispels = 0.15 },
 	-- healing 0.15 -> 0.10 (2026-07-07 field data: 47% of DPS log zero
 	-- off-healing, dragging DPS ~18 pts below healers; the incentive stays,
-	-- the drag shrinks)
-	DAMAGER = { damage = 0.55, healing = 0.10, interrupts = 0.25, dispels = 0.10 },
+	-- the drag shrinks). interrupts 0.25 -> 0.18 (2026-07-09 audit: DPS
+	-- averaged 30/100 on kicks - a noisy winner-take-all metric was a
+	-- quarter of their grade and the main reason DPS trailed other roles).
+	DAMAGER = { damage = 0.60, healing = 0.10, interrupts = 0.18, dispels = 0.12 },
 	-- Augmentation & friends: personal damage is a small, expected slice
 	-- (their real output lives in allies' numbers). Their defining metric is
 	-- buff uptime, self-reported over Sync when the Aug runs TrueParse; when
@@ -38,17 +40,16 @@ Weights.supportUptimeAnchor = 0.60
 
 -- Solo-role-cohort fallback: when you're the only one of your role, your
 -- share of the group total is scored against these expectations.
--- CALIBRATION RULE: expected = observed-average share / 0.75, so an average
--- performance scores ~75 and 100 requires excellence. (Field scan 2026-07-08
--- showed the old average-set bars saturating at 100 on 40-56% of tank
--- fights, sweeping tanks to S on any decent pull.)
+-- CALIBRATION RULE: expected = observed-average share / 0.65, so an average
+-- performance scores ~65 — matching what the competitive cohort path
+-- produces for DPS (2026-07-09 audit: the old /0.75 rule floated tanks and
+-- healers ~10 points above DPS purely because their bars had a softer
+-- target mean, not because they played better).
 Weights.expectedShare = {
-	-- Tank damage runs ~38% of group in scaled TW parties but ~15-20% in
-	-- modern 5-mans; 0.20 with the solo-cohort cap splits the difference.
-	TANK    = { damage = 0.20,  healing = 0.20, damageTaken = 0.50 },
-	HEALER  = { damage = 0.055, healing = 0.65 },
-	DAMAGER = { damage = 0.29,  healing = 0.15 },
-	SUPPORT = { damage = 0.18,  healing = 0.15 },
+	TANK    = { damage = 0.23,  healing = 0.23, damageTaken = 0.58 },
+	HEALER  = { damage = 0.063, healing = 0.75 },
+	DAMAGER = { damage = 0.33,  healing = 0.17 },
+	SUPPORT = { damage = 0.21,  healing = 0.17 },
 }
 
 -- The expected-share fallback is the weakest evidence path (no cohort, no
@@ -84,13 +85,18 @@ Weights.penalties = {
 	-- this on fights marked as wipes.
 	wipeDeathScale = 0.4,
 	-- Providers whose raid buff wasn't fully up at the pull lose up to this
-	-- many points, scaled by the uncovered fraction of the group.
-	missingBuffMax = 5,
+	-- many points, scaled linearly BELOW the coverage threshold. The
+	-- threshold absorbs scan noise (2026-07-09 audit: 52% of provider-fights
+	-- showed partial coverage, average 0.58 - range/visibility noise at that
+	-- rate, not half the raid forgetting buffs).
+	missingBuffMax = 3,
+	buffCoverageFloor = 0.75, -- coverage above this is treated as full
 	-- Threat discipline (Classic clients only; Midnight hides group threat —
 	-- see Collect/Threat.lua). Kept light until field data calibrates them:
 	-- fixate mechanics and healing aggro can look like rips.
 	pulledPack = 5,           -- non-tank started the pull and held the aggro
 	perAggroRip = 2.5,        -- each time a non-tank took a mob off the tank
+	healerRipScale = 0.5,     -- healing aggro is mostly the tank's slack
 	aggroRipsCap = 8,
 	aggroLossPerSecond = 0.4, -- tank: per second a mob chewed on a non-tank
 	aggroLossCap = 8,
