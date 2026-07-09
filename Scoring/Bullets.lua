@@ -97,14 +97,21 @@ function Bullets.ForResult(result, awards, extra)
 	end
 	if extra and extra.consumables ~= nil then
 		if extra.consumables >= 2 then
+			-- being prepared is praiseworthy for anyone, anywhere
 			out[#out + 1] = { kind = "info", key = "consumables", symbol = "+", color = GOOD,
 				text = "Came prepared (flask/food up)" }
-		elseif extra.consumables == 1 then
-			out[#out + 1] = { kind = "info", key = "consumables", symbol = MIDDOT, color = MID,
-				text = "Partially prepared" }
-		else
-			out[#out + 1] = { kind = "info", key = "consumables", symbol = MIDDOT, color = MID,
-				text = "No consumables at the pull" }
+		elseif not extra.isRetail
+			and (result.role == "DAMAGER" or result.role == "SUPPORT") then
+			-- ...but the EXPECTATION is Classic DPS culture only: tanks and
+			-- healers were never expected to burn gold at the pull, and
+			-- retail killed the pre-pot entirely
+			if extra.consumables == 1 then
+				out[#out + 1] = { kind = "info", key = "consumables", symbol = MIDDOT, color = MID,
+					text = "Partially prepared" }
+			else
+				out[#out + 1] = { kind = "info", key = "consumables", symbol = MIDDOT, color = MID,
+					text = "No consumables at the pull" }
+			end
 		end
 	end
 	if extra and extra.deathReady ~= nil then

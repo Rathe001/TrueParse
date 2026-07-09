@@ -184,6 +184,7 @@ function Panel:ShowFor(fight, result)
 			defensives = player.metrics and player.metrics.defensives,
 			consumables = player.metrics and player.metrics.consumables,
 			deathReady = player.deathReadyDefensives,
+			isRetail = TP.Compat.IS_RETAIL, -- consumable expectations differ
 		}
 	end
 	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)

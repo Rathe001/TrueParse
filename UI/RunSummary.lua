@@ -82,6 +82,22 @@ local function composeSummary(run, fightCount, results, groupScore)
 	return msg
 end
 
+-- Current run as an aggregate fight record, for the scorecard's Run row.
+-- Cached until the fight streak changes (this runs on render).
+local runCache = {}
+function RunSummary:CurrentRun()
+	local fights = collectRunFights()
+	if not fights or #fights == 0 then
+		return nil
+	end
+	if runCache.newest ~= fights[1] or runCache.count ~= #fights then
+		runCache.newest, runCache.count = fights[1], #fights
+		runCache.run = TP.Scoring.Runs.Aggregate(fights,
+			(currentInstance and currentInstance.name) or fights[1].zone or "Run")
+	end
+	return runCache.run, #fights
+end
+
 -- announce=true (auto triggers only) additionally posts to group chat per
 -- the /tp announce (MVP line) and announce-summary settings. Manual /tp run
 -- never announces; /tp share posts the summary on demand.

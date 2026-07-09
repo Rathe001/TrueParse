@@ -589,6 +589,20 @@ for _, b in ipairs(consBullets) do
 end
 check(consText == "Came prepared (flask/food up)", ("prepared bullet (%s)"):format(tostring(consText)))
 check(readyText == "Died with 2 defensives ready", ("death-ready bullet (%s)"):format(tostring(readyText)))
+
+-- consumable EXPECTATIONS: Classic DPS only; praise is universal
+local function consBulletFor(role, count, isRetail)
+	local res = { role = role, breakdown = { damage = { applicable = true, normalized = 60, effectiveWeight = 1, value = 100 } }, penaltyDetail = {} }
+	for _, b in ipairs(TP.Scoring.Bullets.ForResult(res, nil, { consumables = count, isRetail = isRetail })) do
+		if b.key == "consumables" then return b.text end
+	end
+	return nil
+end
+check(consBulletFor("DAMAGER", 0, false) == "No consumables at the pull", "Classic DPS still nagged")
+check(consBulletFor("HEALER", 0, false) == nil, "Classic healer never nagged about consumables")
+check(consBulletFor("TANK", 1, false) == nil, "Classic tank never nagged about consumables")
+check(consBulletFor("DAMAGER", 0, true) == nil, "retail killed the pre-pot: nobody nagged")
+check(consBulletFor("HEALER", 2, true) == "Came prepared (flask/food up)", "praise is universal")
 local exculpBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { deathReady = 0 })
 local exculpText
 for _, b in ipairs(exculpBullets) do
