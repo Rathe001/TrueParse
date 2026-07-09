@@ -33,6 +33,7 @@ Collect\SelfCasts.lua
 Collect\Readiness.lua
 Collect\CastProbe.lua
 Collect\Threat.lua
+Collect\Vitals.lua
 Scoring\Capabilities.lua
 Scoring\Weights.lua
 Scoring\Engine.lua

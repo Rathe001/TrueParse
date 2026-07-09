@@ -368,6 +368,8 @@ function FightHistory:AddFromSegment(seg)
 			aggroRips = (ag and ag.rips or 0) > 0 and ag.rips or nil,
 			aggroTime = (ag and ag.time or 0) > 0 and ag.time or nil,
 			aggroLostTime = (ag and ag.lost or 0) > 0 and ag.lost or nil,
+			-- Lowest health seen (Collect/Vitals.lua sampler; Classic only)
+			minHealthPct = acc.minHealthPct,
 			metrics = m,
 		}
 		end

@@ -650,6 +650,51 @@ for _, b in ipairs(groupThreatBullets) do
 end
 check(sawGroupAggro, "group aggro phrase counts offenders")
 check(sawGroupLoss, "group tank-loss phrase present")
+
+-- 16. Role- and fight-type-specific awards
+local roleFight = {
+	name = "(!) Boss", isBoss = true, duration = 120,
+	totals = { deaths = 0, damageTaken = 100000, avoidableTaken = 20000, healing = 100, absorbs = 0, damage = 2000 },
+	players = {
+		h1 = { guid = "h1", role = "HEALER", minHealthPct = 0.90,
+			metrics = { damage = 100, healing = 100, deaths = 0 } },
+		t1 = { guid = "t1", role = "TANK", minHealthPct = 0.55,
+			metrics = { damage = 800, healing = 0, deaths = 0 } },
+		d1 = { guid = "d1", role = "DAMAGER", minHealthPct = 0.75,
+			metrics = { damage = 1100, healing = 0, deaths = 0 } },
+	},
+}
+local roleAwards = TP.Scoring.Awards.Compute(roleFight)
+local function hasAward(guid, label)
+	for _, x in ipairs(roleAwards[guid] or {}) do
+		if x == label then return true end
+	end
+	return false
+end
+check(hasAward("h1", "Not on My Watch"), "deathless boss grants the healer Not on My Watch")
+check(hasAward("h1", "Topped Off"), "nobody under 50% grants Topped Off")
+check(hasAward("h1", "Healed Through Stupid"), "heavy avoidable + no deaths grants Healed Through Stupid")
+check(not hasAward("d1", "Not on My Watch"), "DPS never get healer awards")
+check(hasAward("d1", "Giant Slayer"), "top damage on a boss is Giant Slayer")
+check(not hasAward("d1", "Lawnmower"), "boss top damage is not Lawnmower")
+
+-- trash variant, a health dip, and a death each kill their award
+roleFight.isBoss = false
+roleFight.players.t1.minHealthPct = 0.30
+roleAwards = TP.Scoring.Awards.Compute(roleFight)
+check(hasAward("d1", "Lawnmower"), "top damage on trash is Lawnmower")
+check(not hasAward("h1", "Not on My Watch"), "trash pulls never grant Not on My Watch")
+roleFight.isBoss = true
+roleAwards = TP.Scoring.Awards.Compute(roleFight)
+check(not hasAward("h1", "Topped Off"), "a sub-50% dip kills Topped Off")
+check(hasAward("h1", "Not on My Watch"), "the dip still leaves Not on My Watch")
+roleFight.players.t1.minHealthPct = nil -- retail: no health data at all
+roleAwards = TP.Scoring.Awards.Compute(roleFight)
+check(not hasAward("h1", "Topped Off"), "missing health data never grants Topped Off")
+roleFight.totals.deaths = 1
+roleAwards = TP.Scoring.Awards.Compute(roleFight)
+check(not hasAward("h1", "Not on My Watch"), "a death kills Not on My Watch")
+check(not hasAward("h1", "Healed Through Stupid"), "a death kills Healed Through Stupid")
 check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 players") ~= nil, "group tooltip carries the numbers")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file

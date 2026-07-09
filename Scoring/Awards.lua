@@ -14,6 +14,13 @@ Awards.LABELS = {
 	lifesaver = "Lifesaver",
 	survivalist = "Survivalist",
 	ironWall = "Iron Wall",
+	-- healer-only
+	notOnMyWatch = "Not on My Watch",
+	toppedOff = "Topped Off",
+	healedStupid = "Healed Through Stupid",
+	-- boss/trash flavored
+	giantSlayer = "Giant Slayer",
+	lawnmower = "Lawnmower",
 }
 
 -- Why each award is given, keyed by its display label (what the UI has)
@@ -24,6 +31,11 @@ Awards.DESCRIPTIONS = {
 	[Awards.LABELS.lifesaver] = "A non-healer who covered 15%+ of the group's healing.",
 	[Awards.LABELS.survivalist] = "Most self-rescue healing (potion or Healthstone) - and lived to tell about it.",
 	[Awards.LABELS.ironWall] = "Most defensive cooldowns used (reported by their own TrueParse).",
+	[Awards.LABELS.notOnMyWatch] = "Healer award: the boss went down and nobody died.",
+	[Awards.LABELS.toppedOff] = "Healer award: nobody dropped below half health for the entire boss fight.",
+	[Awards.LABELS.healedStupid] = "Healer award: the group ate a pile of avoidable damage and nobody died. You know what you did.",
+	[Awards.LABELS.giantSlayer] = "Top damage on a boss fight (no tie).",
+	[Awards.LABELS.lawnmower] = "Top damage on a trash pull (no tie).",
 }
 
 -- Sole top performer for a metric, requiring a minimum and no tie.
@@ -92,6 +104,51 @@ function Awards.Compute(fight)
 				end
 			end
 		end
+	end
+
+	-- Top damage, flavored by what died to it
+	local damageKing = topUnique(fight, "damage", 1)
+	if damageKing then
+		grant(damageKing, fight.isBoss and "giantSlayer" or "lawnmower")
+	end
+
+	-- Healer awards: shared by every healer on the card (usually one)
+	local function grantHealers(key)
+		for guid, p in pairs(fight.players) do
+			if p.role == "HEALER" then
+				grant(guid, key)
+			end
+		end
+	end
+	local noDeaths = (fight.totals.deaths or 0) == 0
+
+	if fight.isBoss and noDeaths then
+		grantHealers("notOnMyWatch")
+
+		-- Nobody under 50% the whole boss: needs the Classic health sampler's
+		-- data on EVERY player (Midnight secrets friendly health, so retail
+		-- fights simply never carry minHealthPct)
+		local worst
+		for _, p in pairs(fight.players) do
+			local pct = p.minHealthPct
+			if not pct then
+				worst = nil
+				break
+			end
+			if not worst or pct < worst then
+				worst = pct
+			end
+		end
+		if worst and worst >= 0.5 then
+			grantHealers("toppedOff")
+		end
+	end
+
+	-- Deathless despite the group standing in everything
+	local avoidable = fight.totals.avoidableTaken or 0
+	local taken = fight.totals.damageTaken or 0
+	if noDeaths and avoidable > 0 and taken > 0 and avoidable / taken >= 0.15 then
+		grantHealers("healedStupid")
 	end
 
 	return byGuid
