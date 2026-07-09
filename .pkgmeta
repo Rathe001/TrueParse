@@ -1,0 +1,14 @@
+package-as: TrueParse
+
+enable-toc-creation: no
+
+ignore:
+  - tests
+  - scripts
+  - README.md
+  - .pkgmeta
+  - .github
+
+manual-changelog: CHANGELOG.md
+
+license-output: LICENSE

@@ -2,25 +2,74 @@
 
 *A parse that shows you actually did your job.*
 
-TrueParse is a World of Warcraft group meter that ranks players by a **Group
-Contribution Score** (0–100) instead of raw damage or healing. Damage,
-effective healing, interrupts, dispels, buff uptime, mitigation, and avoiding
-avoidable damage all feed a role-weighted score — so a tank or healer can top
-the meter just as easily as a DPS, and standing in fire actually costs you.
+TrueParse is a World of Warcraft group meter that grades players on a
+**Group Contribution Score** (S+ through F) instead of raw damage or
+healing. Damage, effective healing, damage soaked, interrupts, dispels,
+avoidable damage, deaths, raid buffs, and pull preparation all feed a
+role-weighted grade — so a tank or healer can top the card just as easily
+as a DPS, and standing in fire actually costs you.
 
-## Status
+Supports retail (Midnight) and Mists of Pandaria Classic.
 
-Walking skeleton (Phase 1 of the roadmap): combat log capture, fight
-segments, damage tracking, and a Details-style bar window sorted by damage.
-Scoring lands in Phase 5.
+## What it does
+
+- **Post-fight scorecard**: letter grades per player, sorted by
+  contribution, with a group grade footer. Click any row for a
+  plain-language breakdown ("Strong damage", "Did not interrupt",
+  "Died with 2 defensives ready") — hover any bullet for the full math.
+- **Fair by construction**: scores are normalized per spec, per fight
+  (Warcraft Logs medians for every raid boss and M+ dungeon), and per item
+  level. A spec having a bad fight isn't a bad player; a low-ilvl alt doing
+  its share outgrades a carried main. Metrics your spec can't perform
+  (no interrupt, no cleanse) redistribute — you're never graded on a
+  button you don't have.
+- **Anchored to the world, not just your group**: throughput blends
+  "fraction of the elite-logs median for your spec on this fight" with the
+  in-group comparison, so your 80 means the same thing every night.
+- **Coach line**: after bosses, one chat line with your grade and the single
+  change that would have raised it most.
+- **Awards**: Kick King, Cleanser, Untouchable, Lifesaver, Survivalist,
+  Iron Wall — gold stars for exactly the play that wins fights.
+- **Career tracking** (`/tp career`), **run report cards** (`/tp run`), and
+  opt-in one-line **group chat summaries** (`/tp share`).
+- **Better together**: TrueParse users share their own combat facts
+  (defensive cooldowns used, consumables at the pull, defensives sitting
+  ready at death) over a hidden addon channel — data Blizzard hides from
+  everyone except the player themselves. Informational only, never scored.
+
+## Install
+
+CurseForge, or drop the folder into `Interface/AddOns/`. Left-click the
+minimap note icon for the scorecard, right-click for options (`/tp config`).
+
+## Commands
+
+`/tp` toggle window · `/tp config` options · `/tp run` run report ·
+`/tp share` post group summary · `/tp career` your stats ·
+`/tp fights` history · `/tp score [n]` rescore a fight · `/tp ilvl`
+toggle gear normalization · `/tp coach` · `/tp announce`
+
+## How scoring works (short version)
+
+Every metric normalizes to 0–100 before role weights apply. Throughput
+scores blend 60% "percent of the Warcraft Logs elite median for your spec
+on this fight, gear-adjusted, with 100 points at 75% of that median" and
+40% comparison against the best of your role in the group. Interrupts and
+dispels score against an equal share among players whose class can perform
+them. Penalties subtract for avoidable damage, deaths (dying at the end of
+a fight costs far less than dying early), and providers whose raid buff
+wasn't up at the pull. Inapplicable metrics redistribute their weight, so
+100 is reachable for every role on every fight — but solo-role fallback
+scoring caps at 92: perfect scores must be earned against actual
+competition. The scoring engine is pure Lua with a headless test suite.
 
 ## Maintenance: refreshing spec benchmarks
 
 Grading uses per-fight spec expectations generated from Warcraft Logs
-statistics (`Data/Benchmarks*.lua`). **These are point-in-time snapshots and
-must be regenerated periodically** — after every class-tuning patch, and at
-each new season or raid tier (new encounters won't have curves until you do).
-The addon prints a reminder in-game once the data is 60+ days old.
+statistics (`Data/Benchmarks*.lua`). **These are point-in-time snapshots**
+— a scheduled GitHub Action refreshes them weekly (secret: `WCL_API_KEY`),
+and the addon nags in-game once the shipped data is 60+ days old. Manual
+refresh:
 
 ```powershell
 # Retail (current raid + M+ season):
@@ -28,52 +77,25 @@ powershell -File scripts\fetch-benchmarks.ps1
 
 # MoP Classic (SoO + ToT + Challenge Modes):
 powershell -File scripts\fetch-benchmarks.ps1 -GameBase https://classic.warcraftlogs.com `
-    -RaidZoneIds 1054,1046 -DungeonZone 1039 -OutFile Benchmarks_Mists.lua
+    -RaidZoneIds 1054,1046 -DungeonZone 1039 -MinSamples 6 -OutFile Benchmarks_Mists.lua
 ```
 
 Requires a free WCL V1 API key in `scripts\wcl-key.local.txt` (gitignored).
-Zone IDs change each season — list current ones via the `/v1/zones` endpoint.
-Long-term plan: a scheduled CI job regenerates these weekly and ships them
-with addon updates. Benchmark data derived from Warcraft Logs (thanks!).
+Zone IDs change each season — list current ones via the `/v1/zones`
+endpoint and update `.github/workflows/benchmarks.yml` to match.
 
-## Development setup
+## Development
 
-1. Clone this repo anywhere.
-2. Run `scripts\link-addon.ps1` (pass `-WowPath` if WoW isn't in the default
-   location). This junctions the repo into `_retail_\Interface\AddOns\TrueParse`.
-3. In-game: `/reload` after each change. Install **BugSack + BugGrabber** to
-   catch Lua errors.
+1. Clone anywhere; run `scripts\link-addon.ps1` to junction the repo into
+   `_retail_\Interface\AddOns` (repeat with your Classic path if wanted).
+2. `/reload` after changes; BugSack + BugGrabber recommended.
+3. Headless tests: `lua tests/run.lua [path-to-SavedVariables]`.
 
-### Slash commands
+Releases: push a `v*` tag; the packager workflow builds and uploads to
+CurseForge (secret: `CF_API_KEY`).
 
-| Command | Effect |
-|---|---|
-| `/tp` | Toggle the meter window |
-| `/tp lock` | Lock/unlock window dragging |
-| `/tp reset` | Reset window position |
-| `/tp debug` | Toggle debug prints (fight start/end) |
+## Credits
 
-## Phase 1 verification checklist
-
-- [ ] Addon loads with zero Lua errors (check BugSack)
-- [ ] `/tp` toggles the window; position survives `/reload`
-- [ ] Attack a training dummy: a fight segment starts, your bar appears and
-      updates every ~0.5s, fight ends a few seconds after you stop
-- [ ] Run a follower dungeon with Details open side-by-side: damage totals
-      match within ~1–2% for every party member
-- [ ] On a hunter/warlock (or with one in the group): pet damage is credited
-      to the owner
-
-## Architecture (short version)
-
-- `Collect/CombatLog.lua` — raw-frame CLEU dispatcher (hot path, zero alloc)
-- `Collect/Segments.lua` — fight lifecycle; owns per-player accumulators
-- `Collect/Roster.lua` — GUID→player map, roles, pet ownership
-- `Metrics/` — one tracker per metric, registered into a dispatch table
-- `Scoring/` — (Phase 5) pure-Lua normalizers + role weights, headless-testable
-- `UI/` — bar meter window; breakdown panel comes in Phase 6
-- `Core/Compat.lua` — all retail/Classic API divergence lives here
-
-Design goal: every metric normalizes to 0–100 *before* role weights apply,
-with weights that make 100 reachable for every role on every fight
-(inapplicable metrics get their weight redistributed).
+Benchmark data derived from [Warcraft Logs](https://www.warcraftlogs.com)
+public statistics. Built on Ace3, LibSharedMedia, LibDataBroker, LibDBIcon.
+MIT licensed.
