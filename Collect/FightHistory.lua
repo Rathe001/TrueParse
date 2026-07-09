@@ -190,7 +190,11 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	local zone, instanceType, difficultyID, difficultyName = GetInstanceInfo()
 	if live then
 		fight.zone, fight.instanceType, fight.difficulty = live.zone, live.instanceType, live.difficulty
+		fight.difficultyID = live.difficultyID
 	else
+		if difficultyID and not IsSecret(difficultyID) then
+			fight.difficultyID = difficultyID
+		end
 		if zone and not IsSecret(zone) then
 			fight.zone = zone
 		end
@@ -201,9 +205,11 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 			fight.difficulty = difficultyName
 		end
 	end
-	-- Raid trash is noise — only boss encounters make the card in raids.
-	-- Dungeon and M+ trash pulls stay: they ARE the run there.
-	if fight.instanceType == "raid" and not fight.isBoss then
+	-- Boss encounters only inside instanced content (raids, dungeons,
+	-- scenarios) — trash pulls are noise in history. Open-world fights
+	-- still capture (world bosses, target-dummy testing).
+	local itype = fight.instanceType
+	if not fight.isBoss and (itype == "raid" or itype == "party" or itype == "scenario") then
 		self.snapshotted[sessionID] = true
 		return true
 	end
@@ -314,11 +320,12 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 			return
 		end
 		if not sessionContext[sessionId] then
-			local zone, instanceType, _, difficultyName = GetInstanceInfo()
+			local zone, instanceType, difficultyID, difficultyName = GetInstanceInfo()
 			sessionContext[sessionId] = {
 				zone = (not IsSecret(zone)) and zone or nil,
 				instanceType = (not IsSecret(instanceType)) and instanceType or nil,
 				difficulty = (not IsSecret(difficultyName)) and difficultyName or nil,
+				difficultyID = (not IsSecret(difficultyID)) and difficultyID or nil,
 			}
 		end
 		if FightHistory.snapshotted[sessionId] then
@@ -358,9 +365,12 @@ function FightHistory:AddFromSegment(seg)
 	if TP.BlizzardMeter.available then
 		return
 	end
-	-- Raid trash is noise — bosses only there (dungeon pulls still count)
-	if not seg.encounterID and select(2, GetInstanceInfo()) == "raid" then
-		return
+	-- Boss encounters only inside instanced content; open world still counts
+	if not seg.encounterID then
+		local _, itype = GetInstanceInfo()
+		if itype == "raid" or itype == "party" or itype == "scenario" then
+			return
+		end
 	end
 	local totals = {
 		damage = 0, healing = 0, absorbs = 0, damageTaken = 0,
@@ -425,6 +435,7 @@ function FightHistory:AddFromSegment(seg)
 		duration = seg.duration or 0,
 		capturedAt = time(),
 		zone = GetZoneText(),
+		difficultyID = select(3, GetInstanceInfo()),
 		players = players,
 		totals = totals,
 	}

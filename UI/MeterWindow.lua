@@ -710,8 +710,11 @@ function MeterWindow:Refresh(force)
 			self:RefreshFromBlizzardMeter()
 		end
 	else
-		-- Classic: live damage bars while fighting, scorecard after
-		if TP.Segments.current or not fight then
+		-- Classic: live damage bars while fighting, scorecard after.
+		-- Gate on the PLAYER's combat state, not segment existence: scenario
+		-- NPCs and groupmates fighting elsewhere can hold a segment open
+		-- forever and would pin the window on an empty live view.
+		if (TP.Segments.current and UnitAffectingCombat("player")) or not fight then
 			self:RefreshFromSegments(force)
 		else
 			self:RenderScorecard(fight)
