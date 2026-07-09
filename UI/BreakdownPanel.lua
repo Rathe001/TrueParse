@@ -1,10 +1,12 @@
--- Click-to-breakdown panel: plain-language bullets explaining the grade.
+-- Breakdown panel: plain-language bullets explaining the grade.
 -- Green + earned points, red - cost points (weak metrics and penalties),
 -- dim mid-marks for middling contributions, gold + for awards — biggest
 -- weight first. Hovering any bullet shows the full numeric derivation.
+-- The panel IS the scorecard's tooltip: hovering a row shows it, clicking
+-- a row pins it open (so bullets can be explored), close/click unpins.
 local _, TP = ...
 
-local Panel = {}
+local Panel = { pinned = false }
 TP.BreakdownPanel = Panel
 
 local WIDTH = 380
@@ -71,6 +73,7 @@ local function createFrame()
 	frame.close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
 	frame.close:SetPoint("TOPRIGHT", 2, 2)
 	frame.close:SetScript("OnClick", function()
+		Panel.pinned = false
 		frame:Hide()
 		Panel.currentGUID = nil
 	end)
@@ -195,7 +198,20 @@ function Panel:ShowFor(fight, result)
 		end
 	end
 
-	hideRowsFrom(#bullets + 1)
+	local total = #bullets
+	if player and not (player.hasAddon or player.isLocalPlayer) then
+		total = total + 1
+		local row = getRow(total, y)
+		y = y - ROW_HEIGHT
+		row.symbol:SetText("\194\183")
+		row.symbol:SetTextColor(0.5, 0.5, 0.5)
+		row.text:SetText("Not running TrueParse - no peer-reported data")
+		row.text:SetTextColor(0.5, 0.5, 0.5)
+		row.tooltipData = { title = "Not running TrueParse", lines = {
+			{ "Defensives used, consumables at the pull, and death readiness are reported by each player's own TrueParse over a hidden addon channel. This player isn't running it, so those lines are missing. The grade itself is unaffected.", 0.8, 0.8, 0.8, true },
+		} }
+	end
+	hideRowsFrom(total + 1)
 
 	local grade = TP.Scoring.Grades.ForScore(result.score)
 	local gr, gg, gb = TP.Scoring.Grades.Color(grade)
@@ -212,15 +228,70 @@ function Panel:ShowFor(fight, result)
 	else
 		frame:SetPoint("CENTER")
 	end
+	frame.close:SetShown(self.pinned)
 	frame:Show()
 	self.currentGUID = result.guid
 end
 
+-- Hover lifecycle: the panel IS the scorecard's row tooltip. A ticker keeps
+-- it alive while the mouse is over the scorecard or the panel itself (so
+-- bullet tooltips stay reachable), and hides it once the mouse leaves both.
+local hoverTicker
+
+local function stopHoverWatch()
+	if hoverTicker then
+		hoverTicker:Cancel()
+		hoverTicker = nil
+	end
+end
+
+local function startHoverWatch()
+	if hoverTicker then
+		return
+	end
+	hoverTicker = C_Timer.NewTicker(0.25, function()
+		if Panel.pinned then
+			stopHoverWatch()
+			return
+		end
+		local card = _G.TrueParseWindow
+		-- right offset bridges the 6px gap between the scorecard and the panel
+		if (frame and frame:IsShown() and frame:IsMouseOver())
+			or (card and card:IsShown() and card:IsMouseOver(0, 0, 0, 8)) then
+			return
+		end
+		stopHoverWatch()
+		if frame then
+			frame:Hide()
+		end
+		Panel.currentGUID = nil
+	end)
+end
+
+function Panel:ShowHover(fight, result)
+	if self.pinned then
+		return
+	end
+	self:ShowFor(fight, result)
+	startHoverWatch()
+end
+
+function Panel:ShowHoverGroup(fight, results)
+	if self.pinned then
+		return
+	end
+	self:ShowForGroup(fight, results)
+	startHoverWatch()
+end
+
 function Panel:Toggle(fight, result)
-	if frame and frame:IsShown() and self.currentGUID == result.guid then
+	if self.pinned and frame and frame:IsShown() and self.currentGUID == result.guid then
+		self.pinned = false
 		frame:Hide()
 		self.currentGUID = nil
 	else
+		self.pinned = true
+		stopHoverWatch()
 		self:ShowFor(fight, result)
 	end
 end
@@ -267,15 +338,19 @@ function Panel:ShowForGroup(fight, results)
 	else
 		frame:SetPoint("CENTER")
 	end
+	frame.close:SetShown(self.pinned)
 	frame:Show()
 	self.currentGUID = "GROUP"
 end
 
 function Panel:ToggleGroup(fight, results)
-	if frame and frame:IsShown() and self.currentGUID == "GROUP" then
+	if self.pinned and frame and frame:IsShown() and self.currentGUID == "GROUP" then
+		self.pinned = false
 		frame:Hide()
 		self.currentGUID = nil
 	else
+		self.pinned = true
+		stopHoverWatch()
 		self:ShowForGroup(fight, results)
 	end
 end
@@ -296,6 +371,7 @@ function Panel:OnFightRendered(fight, results)
 			return
 		end
 	end
+	self.pinned = false
 	frame:Hide()
 	self.currentGUID = nil
 end

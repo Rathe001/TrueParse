@@ -20,54 +20,14 @@ function Scorecard:Acquire(parent)
 				TP.BreakdownPanel:ToggleGroup(self.fight, self.groupResults)
 			end
 		end)
+		-- the breakdown panel is the row tooltip: hover previews, click pins
 		row:SetScript("OnEnter", function(self)
 			self.bg:SetColorTexture(1, 1, 1, 0.12)
-			local result = self.result
-			if not result then
-				if self.groupResults then
-					GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-					GameTooltip:SetText(self.playerName or "Group")
-					GameTooltip:AddLine("Click for the group breakdown", 0.5, 0.5, 0.5)
-					GameTooltip:Show()
-				end
-				return
+			if self.result then
+				TP.BreakdownPanel:ShowHover(self.fight, self.result)
+			elseif self.groupResults then
+				TP.BreakdownPanel:ShowHoverGroup(self.fight, self.groupResults)
 			end
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetText(self.playerName or result.name or "")
-			local grade = TP.Scoring.Grades.ForScore(result.score)
-			local gr, gg, gb = TP.Scoring.Grades.Color(grade)
-			GameTooltip:AddLine(("Grade %s · score %.1f"):format(grade, result.score), gr, gg, gb)
-
-			local parts = {}
-			for key, b in pairs(result.breakdown) do
-				if b.applicable then
-					parts[#parts + 1] = { key = key, pts = b.contribution or 0 }
-				end
-			end
-			table.sort(parts, function(a, b)
-				return a.pts > b.pts
-			end)
-			for _, part in ipairs(parts) do
-				GameTooltip:AddLine(("%s: %.1f pts"):format(
-					TP.METRIC_LABELS[part.key] or part.key, part.pts), 0.85, 0.85, 0.85)
-			end
-			if (result.penalty or 0) > 0 then
-				GameTooltip:AddLine(("Penalties: -%.1f"):format(result.penalty), 0.95, 0.4, 0.4)
-			end
-			if self.awards then
-				for _, award in ipairs(self.awards) do
-					GameTooltip:AddLine(TP.STAR .. " " .. award, 1, 0.82, 0.2)
-					local description = TP.Scoring.Awards.DESCRIPTIONS[award]
-					if description then
-						GameTooltip:AddLine("   " .. description, 0.7, 0.7, 0.7, true)
-					end
-				end
-			end
-			if self.noAddon then
-				GameTooltip:AddLine("Not running TrueParse - no peer-reported data", 0.5, 0.5, 0.5)
-			end
-			GameTooltip:AddLine("Click for the full breakdown", 0.5, 0.5, 0.5)
-			GameTooltip:Show()
 		end)
 		row:SetScript("OnLeave", function(self)
 			local base = self.baseBg
@@ -76,7 +36,6 @@ function Scorecard:Acquire(parent)
 			else
 				self.bg:SetColorTexture(1, 1, 1, 0.04)
 			end
-			GameTooltip:Hide()
 		end)
 
 		row.bg = row:CreateTexture(nil, "BACKGROUND")

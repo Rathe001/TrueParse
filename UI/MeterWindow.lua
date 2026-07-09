@@ -226,12 +226,10 @@ function MeterWindow:RenderScorecard(fight)
 		row.grade:SetAlpha(alpha)
 		row.name:SetAlpha(alpha)
 		row.score:SetAlpha(alpha)
-		row.noAddon = not hasAddon
 
 		local myAwards = awards[r.guid]
 		row.name:SetText(myAwards and (r.name .. " " .. TP.STAR) or r.name)
 		row.name:SetTextColor(TP.ClassColor(r.class))
-		row.awards = myAwards
 		row.playerName = r.name
 
 		local scoreText = ("%.0f"):format(r.score)
@@ -270,14 +268,12 @@ function MeterWindow:RenderScorecard(fight)
 		row.grade:SetAlpha(1)
 		row.name:SetAlpha(1)
 		row.score:SetAlpha(1)
-		row.noAddon = nil
 		local label = (#results > 5) and "Raid" or "Group"
 		row.name:SetText(label)
 		row.name:SetTextColor(1, 0.82, 0.2)
 		row.score:SetText(("%.0f"):format(groupScore))
 		row.baseBg = { 1, 0.82, 0.2, 0.10 }
 		row.bg:SetColorTexture(1, 0.82, 0.2, 0.10)
-		row.awards = nil
 		row.playerName = label
 		row.fight = fight
 		row.result = nil
