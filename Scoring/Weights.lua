@@ -25,9 +25,16 @@ Weights.roleWeights = {
 	-- the drag shrinks)
 	DAMAGER = { damage = 0.55, healing = 0.10, interrupts = 0.25, dispels = 0.10 },
 	-- Augmentation & friends: personal damage is a small, expected slice
-	-- (their real output lives in allies' numbers), so utility weighs more.
-	SUPPORT = { damage = 0.40, healing = 0.20, interrupts = 0.25, dispels = 0.15 },
+	-- (their real output lives in allies' numbers). Their defining metric is
+	-- buff uptime, self-reported over Sync when the Aug runs TrueParse; when
+	-- absent it redistributes to roughly the old utility-heavy split.
+	SUPPORT = { damage = 0.25, healing = 0.10, buffUptime = 0.35, interrupts = 0.20, dispels = 0.10 },
 }
+
+-- Buff uptime that earns a SUPPORT player 100 points: elite Augs hold Ebon
+-- Might around 55-70% of a fight, so 100 at 60% keeps S-tier honest without
+-- demanding perfection. Calibrate as real Aug reports land.
+Weights.supportUptimeAnchor = 0.60
 
 -- Solo-role-cohort fallback: when you're the only one of your role, your
 -- share of the group total is scored against these expectations.

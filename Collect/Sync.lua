@@ -16,7 +16,8 @@ Sync.reports = {} -- [guid] = { {duration, defensives, at}, ... } pending fight 
 local REPORT_TTL = 7200
 
 -- readyAtDeath: -1/nil = didn't die; 0+ = defensives off cooldown at death
-function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAtDeath)
+-- buffUptime: -1/nil = not a support spec; 0-100 = Ebon Might uptime %
+function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAtDeath, buffUptime)
 	local list = self.reports[guid]
 	if not list then
 		list = {}
@@ -26,6 +27,7 @@ function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAt
 		duration = duration, defensives = defensives,
 		consumables = consumables,
 		readyAtDeath = (readyAtDeath and readyAtDeath >= 0) and readyAtDeath or nil,
+		buffUptime = (buffUptime and buffUptime >= 0) and math.min(buffUptime, 100) or nil,
 		at = time(),
 	}
 	-- prune stale
@@ -36,13 +38,13 @@ function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAt
 	end
 end
 
-function Sync:BroadcastFightReport(duration, defensives, consumables, readyAtDeath)
+function Sync:BroadcastFightReport(duration, defensives, consumables, readyAtDeath, buffUptime)
 	if not IsInGroup() then
 		return
 	end
-	self:SendCommMessage(PREFIX, ("F:%d:%s:%d:%d:%d:%d"):format(
+	self:SendCommMessage(PREFIX, ("F:%d:%s:%d:%d:%d:%d:%d"):format(
 		WIRE_VERSION, UnitGUID("player"), math.floor(duration + 0.5),
-		defensives or 0, consumables or 0, readyAtDeath or -1),
+		defensives or 0, consumables or 0, readyAtDeath or -1, buffUptime or -1),
 		IsInRaid() and "RAID" or "PARTY")
 end
 
@@ -69,6 +71,11 @@ function Sync:AttachReports(fight)
 				p.metrics.defensives = report.defensives
 				p.metrics.consumables = report.consumables
 				p.deathReadyDefensives = report.readyAtDeath
+				-- The one self-report that IS scored: Ebon Might uptime as a
+				-- fraction, feeding the SUPPORT role's buffUptime metric
+				if report.buffUptime then
+					p.metrics.buffUptime = report.buffUptime / 100
+				end
 				table.remove(list, bestIdx)
 			end
 		end
@@ -121,10 +128,15 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		return
 	end
 
-	local fVersion, fGuid, duration, defensives, consumables, readyAtDeath =
-		message:match("^F:(%d+):([^:]+):(%d+):(%d+):(%d+):(%-?%d+)$")
+	local fVersion, fGuid, duration, defensives, consumables, readyAtDeath, buffUptime =
+		message:match("^F:(%d+):([^:]+):(%d+):(%d+):(%d+):(%-?%d+):(%-?%d+)$")
 	if not fVersion then
-		-- legacy 4-field format from earlier builds
+		-- 6-field format from earlier builds (no buff uptime)
+		fVersion, fGuid, duration, defensives, consumables, readyAtDeath =
+			message:match("^F:(%d+):([^:]+):(%d+):(%d+):(%d+):(%-?%d+)$")
+	end
+	if not fVersion then
+		-- legacy 4-field format from the first builds
 		fVersion, fGuid, duration, defensives = message:match("^F:(%d+):([^:]+):(%d+):(%d+)$")
 	end
 	if fVersion then
@@ -140,7 +152,8 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 			tonumber(duration) or 0,
 			math.min(tonumber(defensives) or 0, 50),
 			math.min(tonumber(consumables) or 0, 5),
-			tonumber(readyAtDeath))
+			tonumber(readyAtDeath),
+			tonumber(buffUptime))
 	end
 end
 

@@ -24,6 +24,7 @@ TP.METRIC_LABELS = {
 	damageTaken = "Damage Soaked",
 	interrupts = "Interrupts",
 	dispels = "Dispels",
+	buffUptime = "Buff Uptime",
 }
 
 -- The C_DamageMeter attributes captured per fight (Midnight+ clients).

@@ -30,6 +30,7 @@ local PHRASES = {
 	damageTaken = { good = "Soaked the group's hits", mid = "Took a fair share of hits", bad = "Didn't soak much", zero = "Took no hits" },
 	interrupts = { good = "Great interrupting", mid = "Some interrupts", bad = "Too few interrupts", zero = "Did not interrupt" },
 	dispels = { good = "Great dispelling", mid = "Some dispels", bad = "Too few dispels", zero = "Did not dispel" },
+	buffUptime = { good = "Kept the buffs rolling", mid = "Decent buff uptime", bad = "Low buff uptime", zero = "Buffs never up" },
 }
 
 local PENALTY_DEFS = {

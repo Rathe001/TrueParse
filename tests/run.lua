@@ -179,6 +179,30 @@ check(augByName.Auggy.breakdown.damage.normalized >= 75,
 	("aug damage share ~15%% scores well (%.0f)"):format(augByName.Auggy.breakdown.damage.normalized))
 check(augByName.Auggy.score >= 62, ("well-played aug scores well (%.1f)"):format(augByName.Auggy.score))
 check(augByName.DpsB.breakdown.damage.normalized == 50, "DPS cohort unaffected by aug (B vs A = 50)")
+check(augByName.Auggy.breakdown.buffUptime and not augByName.Auggy.breakdown.buffUptime.applicable,
+	"no self-reported uptime -> buffUptime inapplicable, weight redistributes")
+
+-- 6b2. Self-reported Ebon Might uptime becomes the SUPPORT-defining metric
+augFight.players.aug.metrics.buffUptime = 0.60 -- exactly the anchor
+local upResults = TP.Scoring.Engine.ScoreFight(augFight)
+local upAug
+for _, r in ipairs(upResults) do
+	if r.name == "Auggy" then upAug = r end
+end
+check(upAug.breakdown.buffUptime.applicable, "reported uptime is scored")
+check(upAug.breakdown.buffUptime.normalized == 100, "60% uptime hits the anchor: 100")
+check(math.abs(upAug.breakdown.buffUptime.effectiveWeight - 0.35) < 1e-9,
+	"uptime is the biggest SUPPORT weight (35%)")
+check(upAug.score > augByName.Auggy.score, "a high-uptime aug outscores the no-data version")
+augFight.players.aug.metrics.buffUptime = 0.30
+local halfResults = TP.Scoring.Engine.ScoreFight(augFight)
+for _, r in ipairs(halfResults) do
+	if r.name == "Auggy" then
+		check(r.breakdown.buffUptime.normalized == 50, "30% uptime scores 50")
+	end
+end
+check(TP.Scoring.Weights.roleWeights.DAMAGER.buffUptime == nil, "non-support roles never score uptime")
+augFight.players.aug.metrics.buffUptime = nil
 
 -- 6c. Benchmarks: spec factors and ilvl normalization
 check(TP.Benchmarks and TP.Benchmarks.ilvlSlopePct > 0, "benchmarks loaded with ilvl slope")

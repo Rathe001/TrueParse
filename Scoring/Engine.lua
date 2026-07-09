@@ -140,6 +140,17 @@ local function normalizeMetric(p, role, key, ctx)
 		return math.min(100, 100 * value / fairShare), true
 	end
 
+	if key == "buffUptime" then
+		-- Self-reported Ebon Might uptime (fraction of the fight), only
+		-- present when the support player runs TrueParse. Absent -> weight
+		-- redistributes, exactly like a missing capability.
+		local uptime = p.metrics and p.metrics.buffUptime
+		if not uptime then
+			return 0, false
+		end
+		return math.min(100, 100 * uptime / (W.supportUptimeAnchor or 1)), true
+	end
+
 	if key == "damageTaken" and role ~= "TANK" then
 		return 0, false
 	end

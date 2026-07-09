@@ -12,6 +12,36 @@ local defensivesUsed = 0
 local consumablesAtPull = 0
 local readyAtDeath = -1 -- -1 = didn't die this fight
 
+-- Augmentation buff uptime: group auras are secret on Midnight, but Ebon
+-- Might keeps a personal aura on the Evoker for exactly as long as it runs
+-- on the allies, so the Aug's own client can measure its uptime and donate
+-- it. Unlike the other self-reports this one IS scored (it's the metric
+-- that defines the spec); the receiver clamps it to sane bounds.
+local AUG_SPEC_ID = 1473
+local EBON_MIGHT_SELF = 395296
+local uptimeSeconds = 0
+local trackingUptime = false
+local uptimeTicker
+
+local function isAugEvoker()
+	if not TP.Compat.IS_RETAIL then
+		return false
+	end
+	local _, class = UnitClass("player")
+	if class ~= "EVOKER" or not (GetSpecialization and GetSpecializationInfo) then
+		return false
+	end
+	local spec = GetSpecialization()
+	return (spec and GetSpecializationInfo(spec)) == AUG_SPEC_ID
+end
+
+local function stopUptimeTicker()
+	if uptimeTicker then
+		uptimeTicker:Cancel()
+		uptimeTicker = nil
+	end
+end
+
 -- Long-duration helpful auras at pull start, excluding raid buffs: flasks,
 -- food, runes. Heuristic (25min+), locale-free, own auras only.
 local CONSUMABLE_MIN_DURATION = 1500
@@ -93,18 +123,33 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 		readyAtDeath = -1
 		local ok, count = pcall(countConsumables)
 		consumablesAtPull = ok and count or 0
+		uptimeSeconds = 0
+		trackingUptime = isAugEvoker()
+		if trackingUptime and not uptimeTicker then
+			uptimeTicker = C_Timer.NewTicker(1, function()
+				local okA, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, EBON_MIGHT_SELF)
+				if okA and aura then
+					uptimeSeconds = uptimeSeconds + 1
+				end
+			end)
+		end
 	elseif event == "PLAYER_DEAD" then
 		if combatStart then
 			local ok, count = pcall(countReadyDefensives)
 			readyAtDeath = ok and count or -1
 		end
 	elseif event == "PLAYER_REGEN_ENABLED" then
+		stopUptimeTicker()
 		if combatStart then
 			local duration = GetTime() - combatStart
 			combatStart = nil
+			local uptimePct = -1 -- -1 = not an Aug, no uptime to report
+			if trackingUptime and duration > 0 then
+				uptimePct = math.min(100, math.floor(uptimeSeconds / duration * 100 + 0.5))
+			end
 			if duration >= 10 and TP.Sync.RecordFightReport then
-				TP.Sync:RecordFightReport(UnitGUID("player"), duration, defensivesUsed, consumablesAtPull, readyAtDeath)
-				TP.Sync:BroadcastFightReport(duration, defensivesUsed, consumablesAtPull, readyAtDeath)
+				TP.Sync:RecordFightReport(UnitGUID("player"), duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct)
+				TP.Sync:BroadcastFightReport(duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct)
 			end
 		end
 	end

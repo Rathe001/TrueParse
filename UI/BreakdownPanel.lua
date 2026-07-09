@@ -14,6 +14,7 @@ local ROW_HEIGHT = 15
 local FIRST_ROW_Y = -40
 
 local COUNT_METRICS = { interrupts = true, dispels = true }
+local PERCENT_METRICS = { buffUptime = true }
 
 local frame
 local rows = {}
@@ -118,36 +119,36 @@ local function hideRowsFrom(i)
 	end
 end
 
--- Full numeric derivation, shown on hover
+-- Hover derivation: one short line per fact. What you did, the 0-100 score
+-- (with its sources when there are two), and what it added to the grade.
 local function buildMetricTooltip(key, b, duration)
 	local label = TP.METRIC_LABELS[key] or key
 	local lines = {}
 	local value = b.value or 0
 
 	if COUNT_METRICS[key] then
-		lines[#lines + 1] = { ("%d this fight."):format(value), 1, 1, 1 }
+		lines[#lines + 1] = { ("%d this fight"):format(value), 1, 1, 1 }
+	elseif PERCENT_METRICS[key] then
+		lines[#lines + 1] = { ("Up %d%% of the fight"):format(value * 100 + 0.5), 1, 1, 1 }
 	elseif duration and duration > 0 then
-		lines[#lines + 1] = { ("%s total · %s per second over %d:%02d."):format(
-			TP.FormatNumber(value), TP.FormatNumber(value / duration),
-			math.floor(duration / 60), duration % 60), 1, 1, 1 }
+		lines[#lines + 1] = { ("%s · %s per second"):format(
+			TP.FormatNumber(value), TP.FormatNumber(value / duration)), 1, 1, 1 }
 	else
-		lines[#lines + 1] = { ("%s total."):format(TP.FormatNumber(value)), 1, 1, 1 }
+		lines[#lines + 1] = { TP.FormatNumber(value), 1, 1, 1 }
 	end
 
-	if b.absolute then
-		local anchor = TP.Scoring.Weights.absoluteAnchor or 1
-		lines[#lines + 1] = { ("WCL %d: you produced %d%% of the elite-logs median for your spec on this fight (gear-adjusted; 100 points at %d%%)."):format(
-			b.absolute, b.absolute * anchor, anchor * 100), 0.4, 0.75, 1 }
-	end
-	if b.relative then
-		lines[#lines + 1] = { ("Group %d: compared against the best of your role in this group (spec and gear adjusted)."):format(b.relative), 0.8, 0.8, 0.8 }
-	end
+	lines[#lines + 1] = { ("Score %d of 100"):format(b.normalized or 0), 1, 0.82, 0.2 }
+	-- Only itemize the sources when the score blends two of them
 	if b.absolute and b.relative then
-		local blend = (TP.Scoring.Weights.absoluteBlend or 0) * 100
-		lines[#lines + 1] = { ("Score %d = %d%% WCL + %d%% group."):format(b.normalized or 0, blend, 100 - blend), 1, 0.82, 0.2 }
+		lines[#lines + 1] = { ("%d vs top parses for your spec"):format(b.absolute), 0.4, 0.75, 1 }
+		lines[#lines + 1] = { ("%d vs this group"):format(b.relative), 0.8, 0.8, 0.8 }
+	elseif b.absolute then
+		lines[#lines + 1] = { "Measured against top parses for your spec", 0.4, 0.75, 1 }
+	elseif b.relative then
+		lines[#lines + 1] = { "Measured against this group", 0.8, 0.8, 0.8 }
 	end
-	lines[#lines + 1] = { ("Worth %d%% of your grade after redistribution: earned %.1f of %.0f possible points."):format(
-		(b.effectiveWeight or 0) * 100, b.contribution or 0, (b.effectiveWeight or 0) * 100), 0.7, 0.7, 0.7 }
+	lines[#lines + 1] = { ("Added %.0f of a possible %.0f points"):format(
+		b.contribution or 0, (b.effectiveWeight or 0) * 100), 0.7, 0.7, 0.7 }
 
 	return { title = label, lines = lines }
 end
