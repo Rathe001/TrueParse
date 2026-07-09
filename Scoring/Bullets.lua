@@ -45,6 +45,11 @@ local PENALTY_DEFS = {
 function Bullets.ForResult(result, awards, extra)
 	local out = {}
 
+	-- Trophies first
+	for _, award in ipairs(awards or {}) do
+		out[#out + 1] = { kind = "award", symbol = TP.STAR, color = GOLD, text = award }
+	end
+
 	local metrics = {}
 	for key, b in pairs(result.breakdown) do
 		if b.applicable then
@@ -109,10 +114,6 @@ function Bullets.ForResult(result, awards, extra)
 		if amount > 0 then
 			out[#out + 1] = { kind = "penalty", key = def.key, symbol = "-", color = BAD, text = def.label }
 		end
-	end
-
-	for _, award in ipairs(awards or {}) do
-		out[#out + 1] = { kind = "award", symbol = TP.STAR, color = GOLD, text = award }
 	end
 
 	return out

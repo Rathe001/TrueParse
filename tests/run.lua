@@ -510,12 +510,12 @@ local bulletResult = {
 }
 bulletResult.role = "DAMAGER"
 local bullets = TP.Scoring.Bullets.ForResult(bulletResult, { "Kick King" })
-check(#bullets == 5, ("5 bullets: 3 metrics + penalty + award (%d)"):format(#bullets))
-check(bullets[1].text == "Strong damage" and bullets[1].symbol == "+", "biggest weight first, human phrase, green +")
-check(bullets[2].text == "Some interrupts" and bullets[2].symbol ~= "+" and bullets[2].symbol ~= "-", "middling = neutral phrase")
-check(bullets[3].text == "Little off-healing" and bullets[3].symbol == "-", "weak DPS healing phrased as off-healing")
-check(bullets[4].kind == "penalty" and bullets[4].text == "Died", "penalty bullet human")
-check(bullets[5].kind == "award" and bullets[5].text == "Kick King", "award bullet last, gold")
+check(#bullets == 5, ("5 bullets: award + 3 metrics + penalty (%d)"):format(#bullets))
+check(bullets[1].kind == "award" and bullets[1].text == "Kick King", "award bullet first, gold")
+check(bullets[2].text == "Strong damage" and bullets[2].symbol == "+", "biggest weight first, human phrase, green +")
+check(bullets[3].text == "Some interrupts" and bullets[3].symbol ~= "+" and bullets[3].symbol ~= "-", "middling = neutral phrase")
+check(bullets[4].text == "Little off-healing" and bullets[4].symbol == "-", "weak DPS healing phrased as off-healing")
+check(bullets[5].kind == "penalty" and bullets[5].text == "Died", "penalty bullet human")
 bulletResult.breakdown.interrupts.normalized = 0
 bulletResult.breakdown.interrupts.value = 0
 local zeroBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil)
