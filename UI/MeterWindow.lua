@@ -214,7 +214,11 @@ end
 -- Resize while keeping the on-screen edge stable: a window in the top half
 -- of the screen stays pinned at its top and grows downward; in the bottom
 -- half it stays pinned at its bottom and grows upward.
-local function applyWindowHeight(newHeight)
+-- pinTop forces top-edge pinning: used when COLLAPSING, so the title bar
+-- stays exactly where it was clicked. Bottom-pinning a collapse used to
+-- drop the bar to the window's old bottom edge — straight under hotbars,
+-- where their frames eat the clicks and the window becomes unreachable.
+local function applyWindowHeight(newHeight, pinTop)
 	local left, top, bottom = window:GetLeft(), window:GetTop(), window:GetBottom()
 	local _, centerY = window:GetCenter()
 	local screenH = UIParent:GetHeight()
@@ -223,7 +227,7 @@ local function applyWindowHeight(newHeight)
 		return
 	end
 	window:ClearAllPoints()
-	if centerY >= screenH / 2 then
+	if pinTop or centerY >= screenH / 2 then
 		window:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
 	else
 		window:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
@@ -554,7 +558,7 @@ function MeterWindow:Refresh(force)
 			window.subtitle:SetText("")
 		end
 		setModeStripShown(false)
-		applyWindowHeight(HEADER_HEIGHT + PADDING)
+		applyWindowHeight(HEADER_HEIGHT + PADDING, true)
 		return
 	end
 	window.title:SetText("TrueParse")
