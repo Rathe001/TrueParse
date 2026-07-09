@@ -99,9 +99,23 @@ function Invoke-GQL($query, $quick) {
                 -ContentType "application/json" -Body $body
             break
         } catch {
+            # read the error RESPONSE body: the server usually says why
+            $serverSays = ""
+            try {
+                $respStream = $_.Exception.Response.GetResponseStream()
+                if ($respStream) {
+                    $reader = New-Object System.IO.StreamReader($respStream)
+                    $serverSays = $reader.ReadToEnd()
+                    if ($serverSays.Length -gt 300) { $serverSays = $serverSays.Substring(0, 300) }
+                }
+            } catch {}
+            if ($attempt -eq 1) {
+                [System.IO.File]::WriteAllText("$PSScriptRoot\last-failed-query.local.txt", $query)
+                [System.IO.File]::WriteAllText("$PSScriptRoot\last-failed-body.local.txt", $body)
+            }
             if ($attempt -gt $waits.Count) { throw }
             $wait = $waits[$attempt - 1]
-            Write-Warning "retry $attempt in ${wait}s: $_"
+            Write-Warning "retry $attempt in ${wait}s: $_ [server: $serverSays]"
             Start-Sleep -Seconds $wait
             if ($attempt -ge 2) {
                 # a revoked token (someone else minted one) 500s forever;
