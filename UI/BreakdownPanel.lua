@@ -78,11 +78,22 @@ local function createFrame()
 		Panel.currentGUID = nil
 	end)
 
+	-- big grade-colored score, top right (clear of the pin close button)
+	frame.bigScore = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+	local fontPath, _, fontFlags = frame.bigScore:GetFont()
+	frame.bigScore:SetFont(fontPath, 26, fontFlags)
+	frame.bigScore:SetPoint("TOPRIGHT", -28, -8)
+	frame.bigScore:SetJustifyH("RIGHT")
+
 	frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	frame.title:SetPoint("TOPLEFT", 10, -8)
+	frame.title:SetPoint("RIGHT", frame.bigScore, "LEFT", -8, 0)
+	frame.title:SetJustifyH("LEFT")
 
 	frame.subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	frame.subtitle:SetPoint("TOPLEFT", 10, -24)
+	frame.subtitle:SetPoint("RIGHT", frame.bigScore, "LEFT", -8, 0)
+	frame.subtitle:SetJustifyH("LEFT")
 
 	frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	frame.total:SetPoint("BOTTOMLEFT", 10, 10)
@@ -215,9 +226,15 @@ function Panel:ShowFor(fight, result)
 
 	local grade = TP.Scoring.Grades.ForScore(result.score)
 	local gr, gg, gb = TP.Scoring.Grades.Color(grade)
-	frame.total:SetText(("Grade |cff%02x%02x%02x%s|r · Score %.1f (base %.1f%s)"):format(
-		gr * 255, gg * 255, gb * 255, grade, result.score, result.base,
-		result.penalty > 0 and (", penalties -%.1f"):format(result.penalty) or ""))
+	frame.bigScore:SetText(("%s  %.0f"):format(grade, result.score))
+	frame.bigScore:SetTextColor(gr, gg, gb)
+	if result.penalty > 0 then
+		frame.total:SetText(("Base %.1f · penalties -%.1f"):format(result.base, result.penalty))
+		frame.total:SetTextColor(0.95, 0.5, 0.5)
+	else
+		frame.total:SetText("No penalties")
+		frame.total:SetTextColor(0.6, 0.6, 0.6)
+	end
 
 	frame:SetHeight(-y + ROW_HEIGHT + 34)
 
@@ -327,8 +344,10 @@ function Panel:ShowForGroup(fight, results)
 	local groupScore = sum / #results
 	local grade = TP.Scoring.Grades.ForScore(groupScore)
 	local gr, gg, gb = TP.Scoring.Grades.Color(grade)
-	frame.total:SetText(("Grade |cff%02x%02x%02x%s|r · Score %.1f (average of %d players)"):format(
-		gr * 255, gg * 255, gb * 255, grade, groupScore, #results))
+	frame.bigScore:SetText(("%s  %.0f"):format(grade, groupScore))
+	frame.bigScore:SetTextColor(gr, gg, gb)
+	frame.total:SetText(("Average of %d players"):format(#results))
+	frame.total:SetTextColor(0.6, 0.6, 0.6)
 
 	frame:SetHeight(-y + ROW_HEIGHT + 34)
 	local anchor = _G.TrueParseWindow
