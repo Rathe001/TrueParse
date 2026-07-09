@@ -73,7 +73,9 @@ function Bullets.ForResult(result, awards, extra)
 		end
 		local phrases = PHRASES[phraseKey] or PHRASES.damage
 		local text = phrases[sentiment]
-		if sentiment == "bad" and (b.value or 0) == 0 and phrases.zero then
+		-- a zero count always says so plainly, whatever the smoothed score
+		-- ("Great interrupting" on 0 kicks was a real bug)
+		if (b.value or 0) == 0 and phrases.zero then
 			text = phrases.zero
 		end
 		if b.lowDemand then

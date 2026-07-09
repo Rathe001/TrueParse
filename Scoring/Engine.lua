@@ -179,6 +179,8 @@ local function normalizeMetric(p, role, key, ctx)
 	-- averaged 30/100 on interrupts, dispel-capable DPS 1/100 on dispels).
 	-- Smoothed, a non-kicker on a 1-kick fight scores ~43; on a 10-kick
 	-- fight still ~12. Signal survives, coin-flips don't.
+	-- Zero participation can never grade "good" no matter how forgiving the
+	-- smoothing gets on a 1-kick fight: cap it in neutral territory.
 	if key == "interrupts" then
 		if not TP.Scoring.Capabilities.CanInterrupt(p.class, role) then
 			return 0, false
@@ -187,7 +189,11 @@ local function normalizeMetric(p, role, key, ctx)
 			return 0, false -- nothing was kicked this fight: not scoreable
 		end
 		local fairShare = ctx.totals.interrupts / ctx.kickCapable
-		return math.min(100, 100 * (value + 0.5) / (fairShare + 0.5)), true
+		local smoothed = math.min(100, 100 * (value + 0.5) / (fairShare + 0.5))
+		if value <= 0 then
+			smoothed = math.min(smoothed, 55)
+		end
+		return smoothed, true
 	end
 
 	if key == "dispels" then
@@ -198,7 +204,11 @@ local function normalizeMetric(p, role, key, ctx)
 			return 0, false -- nothing dispellable happened
 		end
 		local fairShare = ctx.totals.dispels / ctx.playerCount
-		return math.min(100, 100 * (value + 0.5) / (fairShare + 0.5)), true
+		local smoothed = math.min(100, 100 * (value + 0.5) / (fairShare + 0.5))
+		if value <= 0 then
+			smoothed = math.min(smoothed, 55)
+		end
+		return smoothed, true
 	end
 
 	if key == "buffUptime" then

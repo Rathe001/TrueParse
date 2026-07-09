@@ -772,6 +772,30 @@ local twoDps = TP.Scoring.Engine.ScoreFight(twoDpsFight, { mode = "parse", norma
 check(twoDps[1].score == 99, ("raw relative fallback caps at 99 (%.0f)"):format(twoDps[1].score))
 check(twoDps[1].breakdown.damage.absolute == nil, "fallback carries no absolute (UI marks it ~)")
 
+-- zero kicks on a 1-kick fight: smoothing is forgiving but never "good"
+local oneKickFight = {
+	name = "One Kick", duration = 60,
+	players = {
+		a = { guid = "a", name = "Kicker", class = "MAGE", role = "DAMAGER",
+			metrics = { damage = 500, healing = 0, interrupts = 1, dispels = 0, deaths = 0 } },
+		b = { guid = "b", name = "Watcher", class = "ROGUE", role = "DAMAGER",
+			metrics = { damage = 500, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+	},
+}
+local oneKick = TP.Scoring.Engine.ScoreFight(oneKickFight, { normalizeIlvl = false })
+local watcher
+for _, r in ipairs(oneKick) do
+	if r.name == "Watcher" then watcher = r end
+end
+check(watcher.breakdown.interrupts.normalized <= 55,
+	("zero kicks caps in neutral territory (%.0f)"):format(watcher.breakdown.interrupts.normalized))
+local watcherBullets = TP.Scoring.Bullets.ForResult(watcher, nil)
+for _, b in ipairs(watcherBullets) do
+	if b.key == "interrupts" then
+		check(b.text == "Did not interrupt", ("zero kicks phrased honestly at any score (%s)"):format(b.text))
+	end
+end
+
 -- 19. Trivial healing demand: a healer isn't scolded for a fight with
 -- nothing to heal (nobody died, nobody dipped below 70%)
 local calmFight = {
