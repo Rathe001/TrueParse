@@ -151,10 +151,11 @@ function Addon:HandleSlash(input)
 		local s = self.db.profile.scoring
 		s.mode = (s.mode == "parse") and "contribution" or "parse"
 		if s.mode == "parse" then
-			self:Print("Score mode: PARSE — pure damage/healing vs top logs for your spec on this fight. No utility, no penalties.")
+			self:Print("Score mode: RAW — pure damage/healing vs top logs for your spec on this fight. No utility, no penalties.")
 		else
-			self:Print("Score mode: CONTRIBUTION — the full TrueParse score (damage, healing, kicks, dispels, soaking, penalties).")
+			self:Print("Score mode: REAL — the full TrueParse score (damage, healing, kicks, dispels, soaking, penalties).")
 		end
+		TP.MeterWindow:UpdateModeButtons()
 		TP.MeterWindow:Invalidate()
 	elseif cmd == "ilvl" then
 		self.db.profile.scoring.normalizeIlvl = not self.db.profile.scoring.normalizeIlvl
@@ -170,7 +171,7 @@ function Addon:HandleSlash(input)
 		else
 			local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetDisplayScoringOptions())
 			self:Print(("%s scores — %s (%d:%02d):"):format(
-				self.db.profile.scoring.mode == "parse" and "Parse" or "Contribution",
+				self.db.profile.scoring.mode == "parse" and "Raw" or "Real",
 				fight.name, math.floor(fight.duration / 60), fight.duration % 60))
 			for i, r in ipairs(results) do
 				local penaltyText = r.penalty > 0 and (" |cffff4444(-%.0f)|r"):format(r.penalty) or ""

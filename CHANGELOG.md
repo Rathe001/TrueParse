@@ -5,9 +5,10 @@
 - Letter grades are gone: scores are a color-coded 0-100 in Warcraft Logs
   parse colors, everywhere (scorecard, breakdown panel, chat reports,
   career, coach).
-- Score modes: the default TrueParse contribution score, or a WCL-style
-  parse mode (/tp mode) that grades pure damage/healing against top logs
-  for your spec on this fight - no utility, no penalties.
+- Score modes, switchable via radio buttons on the window (or /tp mode):
+  Real - the default TrueParse contribution score - or Raw, a WCL-style
+  lens that grades pure damage (healing for healers) against top logs for
+  your spec on this fight. No utility, no penalties in Raw.
 - CI: the test suite now runs on every push; the benchmark refresh skips
   green when its API key isn't configured.
 

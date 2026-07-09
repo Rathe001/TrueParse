@@ -8,6 +8,7 @@ local MeterWindow = {}
 TP.MeterWindow = MeterWindow
 
 local HEADER_HEIGHT = 22
+local MODE_HEIGHT = 16 -- bottom strip: Mode: (*)Real ( )Raw
 local PADDING = 6
 local SCORECARD_ROW_HEIGHT = 14
 
@@ -97,6 +98,67 @@ local function createWindow()
 	window.headerButton:SetScript("OnClick", function()
 		MeterWindow:ToggleCollapse()
 	end)
+
+	-- Mode strip along the bottom edge: Real = the full contribution score,
+	-- Raw = pure throughput vs WCL top logs (damage, healing for healers)
+	local function makeRadio(labelText, mode, tooltip)
+		local btn = CreateFrame("CheckButton", nil, window)
+		btn:SetSize(14, 14)
+		btn:SetNormalTexture("Interface\\Buttons\\UI-RadioButton")
+		btn:GetNormalTexture():SetTexCoord(0, 0.25, 0, 1)
+		btn:SetCheckedTexture("Interface\\Buttons\\UI-RadioButton")
+		btn:GetCheckedTexture():SetTexCoord(0.25, 0.5, 0, 1)
+		btn:SetHighlightTexture("Interface\\Buttons\\UI-RadioButton")
+		btn:GetHighlightTexture():SetTexCoord(0.5, 0.75, 0, 1)
+		btn.label = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		btn.label:SetPoint("LEFT", btn, "RIGHT", 1, 0)
+		btn.label:SetText(labelText)
+		btn:SetScript("OnClick", function()
+			db().scoring.mode = mode
+			MeterWindow:UpdateModeButtons()
+			MeterWindow:Invalidate()
+		end)
+		btn:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_TOP")
+			GameTooltip:SetText(labelText)
+			GameTooltip:AddLine(tooltip, 0.8, 0.8, 0.8, true)
+			GameTooltip:Show()
+		end)
+		btn:SetScript("OnLeave", function()
+			GameTooltip:Hide()
+		end)
+		return btn
+	end
+	window.modeLabel = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	window.modeLabel:SetPoint("BOTTOMLEFT", PADDING + 2, 6)
+	window.modeLabel:SetText("Mode:")
+	window.modeReal = makeRadio("Real", "contribution",
+		"The full TrueParse score: damage, healing, kicks, dispels, soaking, minus penalties. What careers and run reports use.")
+	window.modeReal:SetPoint("LEFT", window.modeLabel, "RIGHT", 5, 0)
+	window.modeRaw = makeRadio("Raw", "parse",
+		"Straight comparison to top Warcraft Logs parses for your spec on this fight: damage for DPS and tanks, healing for healers. Nothing else counts.")
+	window.modeRaw:SetPoint("LEFT", window.modeReal.label, "RIGHT", 12, 0)
+	MeterWindow:UpdateModeButtons()
+end
+
+function MeterWindow:UpdateModeButtons()
+	if not (window and window.modeReal) then
+		return
+	end
+	local raw = db().scoring.mode == "parse"
+	window.modeReal:SetChecked(not raw)
+	window.modeRaw:SetChecked(raw)
+end
+
+local function setModeStripShown(shown)
+	if not (window and window.modeReal) then
+		return
+	end
+	window.modeLabel:SetShown(shown)
+	window.modeReal:SetShown(shown)
+	window.modeReal.label:SetShown(shown)
+	window.modeRaw:SetShown(shown)
+	window.modeRaw.label:SetShown(shown)
 end
 
 -- Force the next refresh to re-render (e.g. after a scoring option change)
@@ -169,7 +231,8 @@ local function applyWindowHeight(newHeight)
 end
 
 local function setWindowHeight(shown, rowHeight)
-	applyWindowHeight(HEADER_HEIGHT + math.max(shown, 1) * (rowHeight + 1) + PADDING * 2)
+	setModeStripShown(true)
+	applyWindowHeight(HEADER_HEIGHT + math.max(shown, 1) * (rowHeight + 1) + MODE_HEIGHT + PADDING * 2)
 end
 
 -- ========================= Scorecard (primary) =========================
@@ -178,7 +241,7 @@ function MeterWindow:RenderScorecard(fight)
 	local duration = fight.duration or 0
 	local label = ("%s · %d:%02d"):format(fight.name or "Fight", math.floor(duration / 60), duration % 60)
 	if TP.Addon.db.profile.scoring.mode == "parse" then
-		label = "|cff66ccffparse|r · " .. label
+		label = "|cff66ccffraw|r · " .. label
 	end
 	if fight.wipe then
 		label = "|cffe64d4dwipe|r · " .. label
@@ -424,6 +487,7 @@ function MeterWindow:Refresh(force)
 		else
 			window.subtitle:SetText("")
 		end
+		setModeStripShown(false)
 		applyWindowHeight(HEADER_HEIGHT + PADDING)
 		return
 	end

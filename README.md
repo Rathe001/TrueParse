@@ -18,8 +18,8 @@ Supports retail (Midnight) and Mists of Pandaria Classic.
   contribution, with a group score footer. Hover any row for a
   plain-language breakdown ("Strong damage", "Did not interrupt",
   "Died with 2 defensives ready") — click to pin it, hover a bullet for
-  the math. Two lenses: the full contribution score, or a WCL-style
-  **parse mode** (pure throughput vs top logs, `/tp mode`).
+  the math. Two lenses, switchable on the window: **Real** (the full
+  contribution score) or **Raw** (pure throughput vs top WCL logs).
 - **Fair by construction**: scores are normalized per spec, per fight
   (Warcraft Logs medians for every raid boss and M+ dungeon), and per item
   level. A spec having a bad fight isn't a bad player; a low-ilvl alt doing

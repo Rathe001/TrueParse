@@ -236,7 +236,7 @@ function Panel:ShowFor(fight, result)
 		frame.total:SetText(("Base %.1f · penalties -%.1f"):format(result.base, result.penalty))
 		frame.total:SetTextColor(0.95, 0.5, 0.5)
 	elseif TP.Addon.db.profile.scoring.mode == "parse" then
-		frame.total:SetText("Parse mode - throughput vs top logs only")
+		frame.total:SetText("Raw mode - throughput vs top logs only")
 		frame.total:SetTextColor(0.4, 0.75, 1)
 	else
 		frame.total:SetText("No penalties")
