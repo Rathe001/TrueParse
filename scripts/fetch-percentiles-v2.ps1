@@ -12,6 +12,11 @@
 param(
     [string]$GameBase = "https://www.warcraftlogs.com",
     [int]$ZoneId = 46,
+    # Comma-separated WCL brackets: "3" (difficulty only, retail flex) or
+    # "3x10" (difficulty x raid size, classic). Empty = one unfiltered "all"
+    # bracket. Pooling brackets skews percentiles badly (25H parses bury a
+    # 10N raider), so real deployments should always pass brackets.
+    [string]$Brackets = "",
     [int]$MinParses = 300,
     [int]$MaxAliases = 30,     # aliased queries per HTTP request
     [int]$MaxProbePages = 512,
@@ -52,30 +57,60 @@ $healerSpecs = @("Druid:Restoration", "Evoker:Preservation", "Monk:Mistweaver",
 $skipDamage = @("Evoker:Augmentation")
 
 # ---- OAuth ----
+# NOTE: minting a token appears to revoke the previous one (single-active),
+# and revoked tokens surface as 500s. Never request tokens elsewhere while
+# a crawl is running; Get-Token below also lets the crawl self-heal.
 $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${clientId}:${clientSecret}"))
-$tokenResp = $null
-foreach ($tokenHost in @($GameBase, "https://www.warcraftlogs.com")) {
-    try {
-        $tokenResp = Invoke-RestMethod -Method Post -Uri "$tokenHost/oauth/token" `
-            -Headers @{ Authorization = "Basic $basic" } `
-            -Body @{ grant_type = "client_credentials" } -TimeoutSec 30
-        break
-    } catch {
-        Write-Warning "token from $tokenHost failed: $_"
+function Get-Token {
+    foreach ($tokenHost in @($script:GameBase, "https://www.warcraftlogs.com")) {
+        try {
+            $resp = Invoke-RestMethod -Method Post -Uri "$tokenHost/oauth/token" `
+                -Headers @{ Authorization = "Basic $script:basic" } `
+                -Body @{ grant_type = "client_credentials" } -TimeoutSec 30
+            return $resp.access_token
+        } catch {
+            Write-Warning "token from $tokenHost failed: $_"
+        }
     }
+    return $null
 }
-if (-not $tokenResp) { Write-Error "OAuth token request failed"; exit 1 }
-$token = $tokenResp.access_token
+$token = Get-Token
+if (-not $token) { Write-Error "OAuth token request failed"; exit 1 }
 $gqlUri = "$GameBase/api/v2/client"
 Write-Host "OAuth OK; endpoint $gqlUri"
 
 $script:requestCount = 0
-function Invoke-GQL($query) {
+function Invoke-GQL($query, $quick) {
     $script:requestCount++
     $body = @{ query = $query } | ConvertTo-Json -Compress
-    $resp = Invoke-RestMethod -Method Post -Uri $script:gqlUri -TimeoutSec 60 `
-        -Headers @{ Authorization = "Bearer $script:token" } `
-        -ContentType "application/json" -Body $body
+    $resp = $null
+    $attempt = 0
+    # quick mode fails fast so the caller can split the batch; slow mode
+    # outwaits transient trouble and the hourly points window
+    $waits = @(10, 60, 300, 600)
+    if ($quick) { $waits = @(5) }
+    while ($true) {
+        $attempt++
+        try {
+            # 180s: cold ranking slices can take WCL minutes to compute;
+            # a short client timeout abandons and restarts that work forever
+            $resp = Invoke-RestMethod -Method Post -Uri $script:gqlUri -TimeoutSec 180 `
+                -Headers @{ Authorization = "Bearer $script:token" } `
+                -ContentType "application/json" -Body $body
+            break
+        } catch {
+            if ($attempt -gt $waits.Count) { throw }
+            $wait = $waits[$attempt - 1]
+            Write-Warning "retry $attempt in ${wait}s: $_"
+            Start-Sleep -Seconds $wait
+            if ($attempt -ge 2) {
+                # a revoked token (someone else minted one) 500s forever;
+                # re-auth reclaims it and the crawl self-heals
+                $fresh = Get-Token
+                if ($fresh) { $script:token = $fresh }
+            }
+        }
+    }
     if ($resp.errors) {
         Write-Warning ("GraphQL errors: " + (($resp.errors | ForEach-Object { $_.message }) -join "; "))
     }
@@ -115,26 +150,67 @@ foreach ($specKey in $specIDs.Keys) {
     })
 }
 
-# One batched round: fetch (comboIdx -> page) pairs, return alias -> blob
+# Parsed bracket list: @{ key; args } where args is the GraphQL argument
+# suffix appended to every characterRankings call
+$bracketList = New-Object System.Collections.ArrayList
+if ($Brackets -ne "") {
+    foreach ($token in ($Brackets -split ",")) {
+        $t = $token.Trim()
+        if ($t -match "^(\d+)x(\d+)$") {
+            [void]$bracketList.Add(@{ key = $t; args = (", difficulty: {0}, size: {1}" -f $Matches[1], $Matches[2]) })
+        } elseif ($t -match "^(\d+)$") {
+            [void]$bracketList.Add(@{ key = $t; args = (", difficulty: {0}" -f $t) })
+        } else {
+            Write-Error "Bad bracket token '$t' (want '3' or '3x10')"
+            exit 1
+        }
+    }
+} else {
+    [void]$bracketList.Add(@{ key = "all"; args = "" })
+}
+
+# One batched round: fetch (comboIdx -> page) pairs, return alias -> blob.
+# $script:bracketArgs carries the current bracket's difficulty/size filter.
+# WCL computes filtered ranking slices lazily; a batch of COLD slices can
+# 500 while each query succeeds alone (and warms the cache). So failed
+# chunks split in half and retry, degenerating to singles only where cold.
+function Invoke-Chunk($encId, $chunkKeys, $results) {
+    $fields = New-Object System.Collections.ArrayList
+    foreach ($k in $chunkKeys) {
+        $c = $script:combos[[int]($k -split "@")[0]]
+        $page = [int]($k -split "@")[1]
+        [void]$fields.Add(("x{0}: characterRankings(className: `"{1}`", specName: `"{2}`", metric: {3}, page: {4}{5})" -f `
+            ($k -replace "@", "_"), $c.classV2, $c.specV2, $c.metric, $page, $script:bracketArgs))
+    }
+    $q = "query { rateLimitData { limitPerHour pointsSpentThisHour pointsResetIn } worldData { encounter(id: $encId) { " + ($fields -join " ") + " } } }"
+    try {
+        $data = Invoke-GQL $q ($chunkKeys.Count -gt 1)
+    } catch {
+        if ($chunkKeys.Count -le 1) {
+            # one persistently-broken slice must never kill the crawl
+            Write-Warning ("giving up on {0}: {1}" -f $chunkKeys[0], $_)
+            $results[$chunkKeys[0]] = $null
+            return
+        }
+        $mid = [int][math]::Floor($chunkKeys.Count / 2)
+        Write-Warning ("chunk of {0} failed; splitting" -f $chunkKeys.Count)
+        Invoke-Chunk $encId @($chunkKeys[0..($mid - 1)]) $results
+        Invoke-Chunk $encId @($chunkKeys[$mid..($chunkKeys.Count - 1)]) $results
+        return
+    }
+    $encNode = $data.worldData.encounter
+    foreach ($k in $chunkKeys) {
+        $alias = "x" + ($k -replace "@", "_")
+        $results[$k] = $encNode.$alias
+    }
+}
+
 function Invoke-Round($encId, $wanted) {
     $results = @{}
     $keys = @($wanted.Keys)
     for ($chunk = 0; $chunk -lt $keys.Count; $chunk += $script:MaxAliases) {
         $upper = [math]::Min($chunk + $script:MaxAliases - 1, $keys.Count - 1)
-        $fields = New-Object System.Collections.ArrayList
-        foreach ($k in $keys[$chunk..$upper]) {
-            $c = $script:combos[[int]($k -split "@")[0]]
-            $page = [int]($k -split "@")[1]
-            [void]$fields.Add(("x{0}: characterRankings(className: `"{1}`", specName: `"{2}`", metric: {3}, page: {4})" -f `
-                ($k -replace "@", "_"), $c.classV2, $c.specV2, $c.metric, $page))
-        }
-        $q = "query { rateLimitData { limitPerHour pointsSpentThisHour pointsResetIn } worldData { encounter(id: $encId) { " + ($fields -join " ") + " } } }"
-        $data = Invoke-GQL $q
-        $encNode = $data.worldData.encounter
-        foreach ($k in $keys[$chunk..$upper]) {
-            $alias = "x" + ($k -replace "@", "_")
-            $results[$k] = $encNode.$alias
-        }
+        Invoke-Chunk $encId @($keys[$chunk..$upper]) $results
     }
     return $results
 }
@@ -196,6 +272,9 @@ function Get-NextProbe($s) {
 $encounters = @{}
 foreach ($enc in $encList) {
     Write-Host ("=== {0} ({1})" -f $enc.name, $enc.id)
+    $bracketSets = @{}
+    foreach ($bracket in $bracketList) {
+    $script:bracketArgs = $bracket.args
     # state per combo
     $state = @{}
     for ($i = 0; $i -lt $combos.Count; $i++) {
@@ -279,10 +358,14 @@ foreach ($enc in $encList) {
         if ($curve.Count -ge 4) {
             $entry = @{ n = $s.n; curve = $curve }
             if ($c.metric -eq "dps") { $dps[$c.specID] = $entry } else { $hps[$c.specID] = $entry }
-            Write-Host ("    {0}: n={1}" -f $c.key, $s.n)
+            Write-Host ("    [{0}] {1}: n={2}" -f $bracket.key, $c.key, $s.n)
         }
     }
-    $encounters[$enc.name] = @{ dps = $dps; hps = $hps }
+    if ($dps.Count -gt 0 -or $hps.Count -gt 0) {
+        $bracketSets[$bracket.key] = @{ dps = $dps; hps = $hps }
+    }
+    } # foreach bracket
+    $encounters[$enc.name] = $bracketSets
 }
 
 Write-Host ("Total HTTP requests: {0}" -f $script:requestCount)
@@ -300,9 +383,10 @@ function Emit-CurveTable($indent, $name, $tbl) {
     Emit ("$indent},")
 }
 Emit "-- GENERATED by scripts\fetch-percentiles-v2.ps1 - do not edit by hand."
-Emit "-- Per-encounter, per-spec percentile curves sampled from the full WCL"
-Emit "-- ranked population (metric value at p99..p10). Raw mode interpolates a"
-Emit "-- player's per-second output into these to produce a true WCL-style"
+Emit "-- Per-encounter, per-BRACKET (difficulty/size), per-spec percentile"
+Emit "-- curves sampled from the full WCL ranked population (metric value at"
+Emit "-- p99..p10). Raw mode interpolates a player's per-second output into"
+Emit "-- the curve matching their fight's bracket, producing a true WCL-style"
 Emit "-- percentile. Same staleness rules as Benchmarks: regenerate per patch."
 Emit "local _, TP = ..."
 Emit ""
@@ -311,11 +395,16 @@ Emit ("`tgenerated = `"{0}`"," -f (Get-Date -Format "yyyy-MM-dd"))
 Emit ("`tzone = `"{0}`"," -f $zone.name)
 Emit "`tencounters = {"
 foreach ($name in ($encounters.Keys | Sort-Object)) {
-    $set = $encounters[$name]
-    if ($set.dps.Count -eq 0 -and $set.hps.Count -eq 0) { continue }
+    $bracketSets = $encounters[$name]
+    if ($bracketSets.Count -eq 0) { continue }
     Emit ("`t`t[`"{0}`"] = {{" -f ($name -replace '"', '\"'))
-    Emit-CurveTable "`t`t`t" "dps" $set.dps
-    Emit-CurveTable "`t`t`t" "hps" $set.hps
+    foreach ($bk in ($bracketSets.Keys | Sort-Object)) {
+        $set = $bracketSets[$bk]
+        Emit ("`t`t`t[`"{0}`"] = {{" -f $bk)
+        Emit-CurveTable "`t`t`t`t" "dps" $set.dps
+        Emit-CurveTable "`t`t`t`t" "hps" $set.hps
+        Emit "`t`t`t},"
+    }
     Emit "`t`t},"
 }
 Emit "`t},"
