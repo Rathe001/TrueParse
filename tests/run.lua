@@ -57,6 +57,20 @@ check(G.ForScore(100) == "S+", "100 -> S+")
 do
 	local r, gr, b = G.Color("S+")
 	check(r and gr and b, "grade color returns rgb")
+	-- WCL parse-bracket colors: grey/green/blue/purple/orange by tier,
+	-- pink at 99+, gold at 100
+	check(select(1, G.Color("F")) == 0.40, "F is WCL grey")
+	local cr, cg = G.Color("C")
+	local pr, pg = G.Color("C+")
+	check(cg == 1.00 and cr == 0.12, "C is WCL green")
+	check(pr == 0.00 and pg == 0.44, "C+ crosses into WCL blue")
+	check(select(1, G.Color("A-")) == 0.00, "A- is WCL blue")
+	check(select(1, G.Color("A")) == 0.64, "A is WCL purple")
+	check(select(1, G.Color("S")) == 0.64, "S is WCL purple")
+	check(select(1, G.Color("S+")) == 1.00, "S+ is WCL orange")
+	check(select(1, G.Color("S+", 99.2)) == 0.89, "99+ is WCL pink")
+	check(select(1, G.Color("S+", 100)) == 0.90, "100 is WCL gold")
+	check(select(1, G.Color("S+", 97)) == 1.00, "97 stays orange")
 end
 
 -- 2. Capability gating
@@ -592,6 +606,50 @@ for _, b in ipairs(groupBullets) do
 	if b.kind == "penalty" and b.key == "deaths" then deathsBullet = b.text end
 end
 check(deathsBullet == "2 players died", ("group deaths phrase (%s)"):format(tostring(deathsBullet)))
+
+-- 15. Threat discipline penalties (Classic-only fields on the fight record)
+local threatFight = {
+	name = "Threat Test", duration = 60,
+	players = {
+		t1 = { guid = "t1", name = "Tank", class = "WARRIOR", role = "TANK",
+			aggroLostTime = 10, aggroPulled = true, -- tanks pulling is FINE
+			metrics = { damage = 100, healing = 0, damageTaken = 500, interrupts = 0, dispels = 0 } },
+		d1 = { guid = "d1", name = "Ripper", class = "MAGE", role = "DAMAGER",
+			aggroRips = 2, aggroPulled = true,
+			metrics = { damage = 400, healing = 0, damageTaken = 50, interrupts = 0, dispels = 0 } },
+		d2 = { guid = "d2", name = "Chronic", class = "ROGUE", role = "DAMAGER",
+			aggroRips = 10, -- caps at 8, not 25
+			metrics = { damage = 300, healing = 0, damageTaken = 40, interrupts = 0, dispels = 0 } },
+	},
+}
+local threatResults = TP.Scoring.Engine.ScoreFight(threatFight)
+local byName = {}
+for _, r in ipairs(threatResults) do byName[r.name] = r end
+check(math.abs(byName.Ripper.penaltyDetail.aggro - 5) < 1e-9, "2 rips cost 5")
+check(math.abs(byName.Ripper.penaltyDetail.pull - 5) < 1e-9, "body pull costs 5")
+check(math.abs(byName.Chronic.penaltyDetail.aggro - 8) < 1e-9, "rip penalty caps at 8")
+check(math.abs(byName.Tank.penaltyDetail.aggroLoss - 4) < 1e-9, "10s of lost aggro costs the tank 4")
+check(byName.Tank.penaltyDetail.pull == 0, "tanks never pay for pulling")
+check(byName.Tank.penaltyDetail.aggro == 0, "tanks never pay for rips")
+check(byName.Ripper.penaltyDetail.aggroLoss == 0, "DPS never pay the tank-loss penalty")
+
+-- threat penalty bullets are human phrases
+local threatBullets = TP.Scoring.Bullets.ForResult(byName.Ripper, nil)
+local sawPull, sawRip = false, false
+for _, b in ipairs(threatBullets) do
+	if b.kind == "penalty" and b.key == "pull" then sawPull = (b.text == "Pulled before the tank") end
+	if b.kind == "penalty" and b.key == "aggro" then sawRip = (b.text == "Ripped aggro off the tank") end
+end
+check(sawPull, "pull penalty bullet phrased")
+check(sawRip, "rip penalty bullet phrased")
+local groupThreatBullets = TP.Scoring.Bullets.ForGroup(threatResults)
+local sawGroupAggro, sawGroupLoss = false, false
+for _, b in ipairs(groupThreatBullets) do
+	if b.key == "aggro" then sawGroupAggro = (b.text == "2 players pulled aggro") end
+	if b.key == "aggroLoss" then sawGroupLoss = (b.text == "Aggro slipped off the tank") end
+end
+check(sawGroupAggro, "group aggro phrase counts offenders")
+check(sawGroupLoss, "group tank-loss phrase present")
 check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 players") ~= nil, "group tooltip carries the numbers")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file

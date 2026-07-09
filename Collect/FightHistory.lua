@@ -353,6 +353,7 @@ function FightHistory:AddFromSegment(seg)
 		for k, v in pairs(m) do
 			totals[k] = totals[k] + v
 		end
+		local ag = acc.aggro
 		players[guid] = {
 			guid = guid,
 			name = acc.name,
@@ -362,6 +363,11 @@ function FightHistory:AddFromSegment(seg)
 			ilvl = acc.ilvl,
 			isLocalPlayer = (guid == playerGUID),
 			deathTime = acc.deaths and acc.deaths.lastTime or nil,
+			-- Threat discipline (Collect/Threat.lua sampler; Classic only)
+			aggroPulled = ag and ag.pulled or nil,
+			aggroRips = (ag and ag.rips or 0) > 0 and ag.rips or nil,
+			aggroTime = (ag and ag.time or 0) > 0 and ag.time or nil,
+			aggroLostTime = (ag and ag.lost or 0) > 0 and ag.lost or nil,
 			metrics = m,
 		}
 		end

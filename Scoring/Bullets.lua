@@ -35,6 +35,9 @@ local PHRASES = {
 local PENALTY_DEFS = {
 	{ key = "deaths", label = "Died" },
 	{ key = "avoidable", label = "Took avoidable damage" },
+	{ key = "pull", label = "Pulled before the tank" },
+	{ key = "aggro", label = "Ripped aggro off the tank" },
+	{ key = "aggroLoss", label = "Lost aggro" },
 	{ key = "buffs", label = "Raid buff missing at the pull" },
 }
 
@@ -133,6 +136,7 @@ function Bullets.ForGroup(results)
 	local out = {}
 	local sums, counts, totals = {}, {}, {}
 	local died, avoidable, buffsMissing = 0, 0, false
+	local aggroed, tankLostAggro = 0, false
 
 	for _, r in ipairs(results) do
 		for key, b in pairs(r.breakdown) do
@@ -146,6 +150,8 @@ function Bullets.ForGroup(results)
 		if (pd.deaths or 0) > 0 then died = died + 1 end
 		if (pd.avoidable or 0) > 0 then avoidable = avoidable + 1 end
 		if (pd.buffs or 0) > 0 then buffsMissing = true end
+		if (pd.aggro or 0) > 0 or (pd.pull or 0) > 0 then aggroed = aggroed + 1 end
+		if (pd.aggroLoss or 0) > 0 then tankLostAggro = true end
 	end
 
 	for _, key in ipairs(GROUP_ORDER) do
@@ -176,6 +182,14 @@ function Bullets.ForGroup(results)
 	if avoidable > 0 then
 		out[#out + 1] = { kind = "penalty", key = "avoidable", symbol = "-", color = BAD,
 			text = avoidable == 1 and "1 player took avoidable damage" or ("%d players took avoidable damage"):format(avoidable) }
+	end
+	if aggroed > 0 then
+		out[#out + 1] = { kind = "penalty", key = "aggro", symbol = "-", color = BAD,
+			text = aggroed == 1 and "1 player pulled aggro" or ("%d players pulled aggro"):format(aggroed) }
+	end
+	if tankLostAggro then
+		out[#out + 1] = { kind = "penalty", key = "aggroLoss", symbol = "-", color = BAD,
+			text = "Aggro slipped off the tank" }
 	end
 	if buffsMissing then
 		out[#out + 1] = { kind = "penalty", key = "buffs", symbol = "-", color = BAD,

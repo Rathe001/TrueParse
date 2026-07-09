@@ -156,6 +156,9 @@ local PENALTY_HELP = {
 	avoidable = "You took more than an equal share of the group's avoidable damage. Capped at -15.",
 	deaths = "Deaths subtract up to -20. Dying late in a fight costs much less than dying early.",
 	buffs = "Your class's raid buff wasn't on the whole group when the pull started. Capped at -5.",
+	pull = "Started combat before the tank and held the aggro. -5. Tracked on Classic clients; an immediate taunt save forgives it.",
+	aggro = "Took a mob off the tank mid-fight. -2.5 each, capped at -8. Tracked on Classic clients.",
+	aggroLoss = "Time mobs spent beating on a non-tank while a tank was alive: -0.4 per second, capped at -8. Tracked on Classic clients; taunt swaps to another tank never count.",
 }
 
 function Panel:ShowFor(fight, result)
@@ -225,7 +228,7 @@ function Panel:ShowFor(fight, result)
 	hideRowsFrom(total + 1)
 
 	local grade = TP.Scoring.Grades.ForScore(result.score)
-	local gr, gg, gb = TP.Scoring.Grades.Color(grade)
+	local gr, gg, gb = TP.Scoring.Grades.Color(grade, result.score)
 	frame.bigScore:SetText(("%s  %.0f"):format(grade, result.score))
 	frame.bigScore:SetTextColor(gr, gg, gb)
 	if result.penalty > 0 then
@@ -343,7 +346,7 @@ function Panel:ShowForGroup(fight, results)
 	end
 	local groupScore = sum / #results
 	local grade = TP.Scoring.Grades.ForScore(groupScore)
-	local gr, gg, gb = TP.Scoring.Grades.Color(grade)
+	local gr, gg, gb = TP.Scoring.Grades.Color(grade, groupScore)
 	frame.bigScore:SetText(("%s  %.0f"):format(grade, groupScore))
 	frame.bigScore:SetTextColor(gr, gg, gb)
 	frame.total:SetText(("Average of %d players"):format(#results))

@@ -102,7 +102,7 @@ function RunSummary:Report(announce)
 		sum = sum + r.score
 	end
 	local groupGrade = TP.Scoring.Grades.ForScore(sum / #results)
-	local ggr, ggg, ggb = TP.Scoring.Grades.Color(groupGrade)
+	local ggr, ggg, ggb = TP.Scoring.Grades.Color(groupGrade, sum / #results)
 
 	TP.Addon:Print(("Run report — %s (%d fights, %d:%02d) · group grade |cff%02x%02x%02x%s|r"):format(
 		currentInstance.name, #fights,
@@ -112,7 +112,7 @@ function RunSummary:Report(announce)
 	local awards = TP.Scoring.Awards.Compute(run)
 	for i, r in ipairs(results) do
 		local grade = TP.Scoring.Grades.ForScore(r.score)
-		local gr, gg, gb = TP.Scoring.Grades.Color(grade)
+		local gr, gg, gb = TP.Scoring.Grades.Color(grade, r.score)
 		local line = ("  %d. |cff%02x%02x%02x%-2s|r %s (%.0f)"):format(
 			i, gr * 255, gg * 255, gb * 255, grade, r.name, r.score)
 		if awards[r.guid] then

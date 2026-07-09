@@ -84,7 +84,7 @@ function Career:PrintSummary()
 	end
 	local gpa = c.sumScore / c.fights
 	local grade = TP.Scoring.Grades.ForScore(gpa)
-	local gr, gg, gb = TP.Scoring.Grades.Color(grade)
+	local gr, gg, gb = TP.Scoring.Grades.Color(grade, gpa)
 	TP.Addon:Print(("Career: |cff%02x%02x%02x%s|r average (%.1f) over %d fights"):format(
 		gr * 255, gg * 255, gb * 255, grade, gpa, c.fights))
 	if c.best then

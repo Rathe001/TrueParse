@@ -314,7 +314,27 @@ function Engine.ScoreFight(fight, opts)
 			penaltyBuffs = (1 - p.buffCoverage) * (W.penalties.missingBuffMax or 0)
 		end
 
-		local penalty = math.min(W.penalties.totalCap, penaltyAvoidable + penaltyDeaths + penaltyBuffs)
+		-- Threat discipline (fields only present on Classic captures).
+		-- Tanks pulling is their job; everyone else pays for it. Tanks pay
+		-- for the time mobs spent on someone who isn't a tank.
+		local penaltyPull, penaltyAggro, penaltyAggroLoss = 0, 0, 0
+		if role == "TANK" then
+			if (p.aggroLostTime or 0) > 0 then
+				penaltyAggroLoss = math.min(W.penalties.aggroLossCap or 0,
+					p.aggroLostTime * (W.penalties.aggroLossPerSecond or 0))
+			end
+		else
+			if p.aggroPulled then
+				penaltyPull = W.penalties.pulledPack or 0
+			end
+			if (p.aggroRips or 0) > 0 then
+				penaltyAggro = math.min(W.penalties.aggroRipsCap or 0,
+					p.aggroRips * (W.penalties.perAggroRip or 0))
+			end
+		end
+
+		local penalty = math.min(W.penalties.totalCap, penaltyAvoidable + penaltyDeaths + penaltyBuffs
+			+ penaltyPull + penaltyAggro + penaltyAggroLoss)
 
 		results[#results + 1] = {
 			guid = p.guid,
@@ -324,7 +344,8 @@ function Engine.ScoreFight(fight, opts)
 			score = math.max(0, math.min(100, base - penalty)),
 			base = base,
 			penalty = penalty,
-			penaltyDetail = { avoidable = penaltyAvoidable, deaths = penaltyDeaths, buffs = penaltyBuffs },
+			penaltyDetail = { avoidable = penaltyAvoidable, deaths = penaltyDeaths, buffs = penaltyBuffs,
+				pull = penaltyPull, aggro = penaltyAggro, aggroLoss = penaltyAggroLoss },
 			breakdown = breakdown,
 		}
 	end

@@ -75,5 +75,13 @@ Weights.penalties = {
 	-- Providers whose raid buff wasn't fully up at the pull lose up to this
 	-- many points, scaled by the uncovered fraction of the group.
 	missingBuffMax = 5,
+	-- Threat discipline (Classic clients only; Midnight hides group threat —
+	-- see Collect/Threat.lua). Kept light until field data calibrates them:
+	-- fixate mechanics and healing aggro can look like rips.
+	pulledPack = 5,           -- non-tank started the pull and held the aggro
+	perAggroRip = 2.5,        -- each time a non-tank took a mob off the tank
+	aggroRipsCap = 8,
+	aggroLossPerSecond = 0.4, -- tank: per second a mob chewed on a non-tank
+	aggroLossCap = 8,
 	totalCap = 25,
 }

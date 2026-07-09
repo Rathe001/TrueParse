@@ -36,7 +36,7 @@ local function onFightCaptured(_, fight)
 	end
 
 	local grade = TP.Scoring.Grades.ForScore(me.score)
-	local gr, gg, gb = TP.Scoring.Grades.Color(grade)
+	local gr, gg, gb = TP.Scoring.Grades.Color(grade, me.score)
 	local msg = ("|cff%02x%02x%02x%s|r (%.0f) — %s"):format(
 		gr * 255, gg * 255, gb * 255, grade, me.score, fight.name or "fight")
 

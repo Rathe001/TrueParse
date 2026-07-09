@@ -215,7 +215,7 @@ function MeterWindow:RenderScorecard(fight)
 
 		local grade = TP.Scoring.Grades.ForScore(r.score)
 		row.grade:SetText(grade)
-		row.grade:SetTextColor(TP.Scoring.Grades.Color(grade))
+		row.grade:SetTextColor(TP.Scoring.Grades.Color(grade, r.score))
 
 		-- Players not running TrueParse render dimmed: less data, not worse.
 		-- The local player always has the addon (fights captured before the
@@ -264,7 +264,7 @@ function MeterWindow:RenderScorecard(fight)
 		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (totalRows - 1) * (rowHeight + 1)))
 
 		row.grade:SetText(groupGrade)
-		row.grade:SetTextColor(TP.Scoring.Grades.Color(groupGrade))
+		row.grade:SetTextColor(TP.Scoring.Grades.Color(groupGrade, groupScore))
 		row.grade:SetAlpha(1)
 		row.name:SetAlpha(1)
 		row.score:SetAlpha(1)

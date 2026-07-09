@@ -23,17 +23,32 @@ function Grades.ForScore(score)
 	return Grades.ORDER[index]
 end
 
--- One color per letter family (the +/- variants share it)
+-- Warcraft Logs parse-bracket colors, mapped onto our score thresholds so
+-- the tiers read instantly to anyone who knows WCL: grey <25, green 25-49,
+-- blue 50-74, purple 75-94, orange 95+, with pink at 99+ and gold at 100
+-- (pass the score for those two).
+local GREY = { 0.40, 0.40, 0.40 }
+local GREEN = { 0.12, 1.00, 0.00 }
+local BLUE = { 0.00, 0.44, 1.00 }
+local PURPLE = { 0.64, 0.21, 0.93 }
+local ORANGE = { 1.00, 0.50, 0.00 }
+local PINK = { 0.89, 0.41, 0.66 }
+local GOLD = { 0.90, 0.80, 0.50 }
+
 local COLORS = {
-	S = { 1.00, 0.82, 0.20 }, -- gold
-	A = { 0.30, 0.90, 0.40 }, -- green
-	B = { 0.35, 0.65, 1.00 }, -- blue
-	C = { 0.90, 0.88, 0.55 }, -- pale yellow
-	D = { 0.62, 0.62, 0.62 }, -- grey
-	F = { 0.95, 0.25, 0.25 }, -- red
+	["F"] = GREY,
+	["D-"] = GREEN, ["D"] = GREEN, ["D+"] = GREEN, ["C-"] = GREEN, ["C"] = GREEN,
+	["C+"] = BLUE, ["B-"] = BLUE, ["B"] = BLUE, ["B+"] = BLUE, ["A-"] = BLUE,
+	["A"] = PURPLE, ["A+"] = PURPLE, ["S-"] = PURPLE, ["S"] = PURPLE,
+	["S+"] = ORANGE,
 }
 
-function Grades.Color(grade)
-	local c = COLORS[grade:sub(1, 1)] or COLORS.C
+function Grades.Color(grade, score)
+	if score and score >= 100 then
+		return GOLD[1], GOLD[2], GOLD[3]
+	elseif score and score >= 99 then
+		return PINK[1], PINK[2], PINK[3]
+	end
+	local c = COLORS[grade] or BLUE
 	return c[1], c[2], c[3]
 end
