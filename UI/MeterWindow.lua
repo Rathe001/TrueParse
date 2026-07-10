@@ -150,7 +150,7 @@ local function createWindow()
 	-- Raw = pure throughput vs WCL top logs (damage, healing for healers)
 	local function makeRadio(labelText, mode, tooltip)
 		local btn = CreateFrame("CheckButton", nil, window)
-		btn:SetSize(14, 14)
+		btn:SetSize(11, 11)
 		btn:SetNormalTexture("Interface\\Buttons\\UI-RadioButton")
 		btn:GetNormalTexture():SetTexCoord(0, 0.25, 0, 1)
 		btn:SetCheckedTexture("Interface\\Buttons\\UI-RadioButton")
@@ -158,6 +158,8 @@ local function createWindow()
 		btn:SetHighlightTexture("Interface\\Buttons\\UI-RadioButton")
 		btn:GetHighlightTexture():SetTexCoord(0.5, 0.75, 0, 1)
 		btn.label = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		local labelPath = btn.label:GetFont()
+		btn.label:SetFont(labelPath, 9, "")
 		btn.label:SetPoint("LEFT", btn, "RIGHT", 1, 0)
 		btn.label:SetText(labelText)
 		-- the label is part of the click target, not just the 14px circle
@@ -194,25 +196,23 @@ local function createWindow()
 	window.colRun = colLabel("run", -(PADDING + 3), 20)
 	window.colFight = colLabel("fight", -(PADDING + 3 + 20 + 4), 30)
 
-	window.modeLabel = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	window.modeLabel:SetText("Mode:")
 	window.modeReal = makeRadio("TrueParse", "contribution",
 		"The full TrueParse score: damage, healing, kicks, dispels, soaking, minus penalties. What careers and run reports use.")
 	window.modeRaw = makeRadio("Raw", "parse",
 		"Straight comparison to top Warcraft Logs parses for your spec on this fight: damage for DPS and tanks, healing for healers. Nothing else counts.")
 	-- right-aligned in the footer: ... Mode:  (*)True  ( )Raw]
 	window.modeRaw:SetPoint("BOTTOMRIGHT",
-		-(PADDING + 2 + window.modeRaw.label:GetStringWidth() + 2), 5)
+		-(PADDING + 2 + window.modeRaw.label:GetStringWidth() + 2), 6)
 	window.modeReal:SetPoint("RIGHT", window.modeRaw, "LEFT",
-		-(window.modeReal.label:GetStringWidth() + 12), 0)
-	window.modeLabel:SetPoint("RIGHT", window.modeReal, "LEFT", -6, 0)
+		-(window.modeReal.label:GetStringWidth() + 10), 0)
 
-	-- legend for the presence marks, above the mode strip
+	-- presence-mark legend, sharing the bottom line with the radios
 	window.footnote = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	window.footnote:SetPoint("BOTTOMLEFT", PADDING + 2, MODE_HEIGHT + 4)
-	window.footnote:SetPoint("BOTTOMRIGHT", -(PADDING + 2), MODE_HEIGHT + 4)
+	local footPath = window.footnote:GetFont()
+	window.footnote:SetFont(footPath, 9, "")
+	window.footnote:SetPoint("BOTTOMLEFT", PADDING + 2, 8)
 	window.footnote:SetJustifyH("LEFT")
-	window.footnote:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:8:8|t = TrueParse installed")
+	window.footnote:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:8:8|t = Addon installed")
 	MeterWindow:UpdateModeButtons()
 end
 
@@ -229,7 +229,6 @@ local function setModeStripShown(shown)
 	if not (window and window.modeReal) then
 		return
 	end
-	window.modeLabel:SetShown(shown)
 	window.modeReal:SetShown(shown)
 	window.modeReal.label:SetShown(shown)
 	window.modeRaw:SetShown(shown)
@@ -335,16 +334,13 @@ local function setWindowHeight(shown, rowHeight, withColHead)
 		window.colFight:SetShown(withColHead and true or false)
 		window.colRun:SetShown(withColHead and true or false)
 	end
-	-- presence-mark legend only makes sense on the scorecard
-	local footnote = 0
+	-- presence-mark legend only makes sense on the scorecard; it shares
+	-- the bottom line with the radios, so no extra height
 	if window.footnote then
 		window.footnote:SetShown(withColHead and true or false)
-		if withColHead then
-			footnote = window.footnote:GetStringHeight() + 4
-		end
 	end
 	applyWindowHeight(HEADER_HEIGHT + (withColHead and COLHEAD_HEIGHT or 0)
-		+ math.max(shown, 1) * (rowHeight + 1) + footnote + MODE_HEIGHT + PADDING * 2)
+		+ math.max(shown, 1) * (rowHeight + 1) + MODE_HEIGHT + PADDING * 2)
 end
 
 -- ========================= Scorecard (primary) =========================
