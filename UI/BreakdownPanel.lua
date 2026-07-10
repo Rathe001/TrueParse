@@ -380,7 +380,8 @@ function Panel:ShowFor(fight, result)
 	hideRowsFrom(#bullets + 1)
 
 	frame.total:SetText("") -- footer text is group-view only
-	frame:SetHeight(-y + ROW_HEIGHT + 12)
+	-- y already sits at the last row's bottom edge; +8 mirrors the top pad
+	frame:SetHeight(-y + 8)
 
 	anchorPanel()
 	frame.close:SetShown(self.pinned)
