@@ -10,15 +10,22 @@ local dispatch
 local frame = CreateFrame("Frame")
 
 frame:SetScript("OnEvent", function()
-	local seg = Segments.current
-	if not seg then
-		return
-	end
 	-- Base payload: timestamp, subevent, hideCaster, srcGUID, srcName,
 	-- srcFlags, srcRaidFlags, dstGUID, dstName, dstFlags, dstRaidFlags,
 	-- then up to ~10 subevent-specific args.
 	local _, subevent, _, srcGUID, _, srcFlags, _, dstGUID, _, dstFlags, _,
 		a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 = CombatLogGetCurrentEventInfo()
+	-- Summon ownership is learned segment-independently: gargoyles and army
+	-- ghouls get summoned BEFORE the pull, and their damage is unattributable
+	-- without the mapping (guardian pets were a ~3-10% DPS undercount).
+	if subevent == "SPELL_SUMMON" then
+		TP.Roster:NoteSummon(srcGUID, dstGUID)
+		return
+	end
+	local seg = Segments.current
+	if not seg then
+		return
+	end
 	local handler = dispatch[subevent]
 	if handler then
 		handler(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12)

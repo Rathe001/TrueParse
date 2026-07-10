@@ -3,9 +3,13 @@
 local _, TP = ...
 
 local Roster = {
-	players = {},  -- [guid] = { guid, name, class, role, unit, specID?, ilvl? }
-	petOwner = {}, -- [petGUID] = ownerGUID
-	cache = {},    -- [guid] = { specID?, ilvl? } survives roster rebuilds
+	players = {},     -- [guid] = { guid, name, class, role, unit, specID?, ilvl? }
+	petOwner = {},    -- [petGUID] = ownerGUID (permanent pets; rebuilt on UNIT_PET)
+	summonOwner = {}, -- [guardianGUID] = ownerGUID (wolves/gargoyles/army/treants,
+	                  -- learned from SPELL_SUMMON; guardians never appear as
+	                  -- "pet" units and their damage was falling on the floor)
+	summonCount = 0,
+	cache = {},       -- [guid] = { specID?, ilvl? } survives roster rebuilds
 }
 TP.Roster = Roster
 
@@ -175,11 +179,30 @@ function Roster:UpdatePets()
 	end
 end
 
--- Maps a combat log source GUID to a roster player GUID (directly, or via
--- pet ownership). Returns nil for anything outside the group.
+-- Maps a combat log source GUID to a roster player GUID (directly, via
+-- permanent pet, or via tracked summon). Returns nil outside the group.
 function Roster:ResolveGUID(guid)
 	if self.players[guid] then
 		return guid
 	end
-	return self.petOwner[guid]
+	return self.petOwner[guid] or self.summonOwner[guid]
+end
+
+-- SPELL_SUMMON: a group member (or their pet) summoned a guardian; credit
+-- its future damage/healing to the player. Chained resolve handles pets
+-- summoning pets. Table pruned by size so a long raid night can't grow it
+-- unboundedly (stale entries are harmless; missing ones drop attribution).
+function Roster:NoteSummon(srcGUID, summonedGUID)
+	local owner = self:ResolveGUID(srcGUID)
+	if not owner or not summonedGUID then
+		return
+	end
+	if self.summonCount > 600 then
+		wipe(self.summonOwner)
+		self.summonCount = 0
+	end
+	if not self.summonOwner[summonedGUID] then
+		self.summonCount = self.summonCount + 1
+	end
+	self.summonOwner[summonedGUID] = owner
 end
