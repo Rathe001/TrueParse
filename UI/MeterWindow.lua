@@ -445,7 +445,7 @@ function MeterWindow:RenderScorecard(fight)
 			end
 		end
 	end
-	local totalRows = shown + (hasFooter and 1 or 0) + (runScore and 1 or 0)
+	local totalRows = shown + (hasFooter and 1 or 0)
 
 	for i = #activeRows, totalRows + 1, -1 do
 		TP.Scorecard:Release(activeRows[i])
@@ -525,10 +525,15 @@ function MeterWindow:RenderScorecard(fight)
 		row.fight = fight
 		row.result = r
 		row.groupResults = nil
+		row.runGroup = nil
 	end
 
-	-- Shared shape for the summary rows (Group and Run)
-	local function summaryRow(index, label, score, bg, rowFight, groupResults)
+	-- Footer: one combined summary row — this fight's group score in the
+	-- score column, the cumulative True run average in the run column (the
+	-- same two-number shape as player rows). Left-click = fight breakdown,
+	-- right-click = run breakdown.
+	if hasFooter then
+		local index = shown + 1
 		local row = activeRows[index]
 		if not row then
 			row = TP.Scorecard:Acquire(window)
@@ -537,41 +542,40 @@ function MeterWindow:RenderScorecard(fight)
 		row:SetSize(width, rowHeight)
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (index - 1) * (rowHeight + 1)))
-		local sr, sg, sb = TP.Scoring.Grades.ColorForScore(score)
+		local sum = 0
+		for _, r in ipairs(results) do
+			sum = sum + r.score
+		end
+		local groupScore = sum / #results
+		local sr, sg, sb = TP.Scoring.Grades.ColorForScore(groupScore)
+		local label = (#results > 5) and "Raid" or "Group"
+		if runScore then
+			label = ("%s · %d fights"):format(label, runFightCount)
+		end
 		row.name:SetAlpha(1)
 		row.score:SetAlpha(1)
 		row.penalty:SetAlpha(1)
 		row.name:SetText(label)
 		row.name:SetTextColor(1, 1, 1)
-		row.score:SetText(("%.0f"):format(score))
+		row.score:SetText(("%.0f"):format(groupScore))
 		row.score:SetTextColor(sr, sg, sb)
 		row.penalty:SetText("")
-		row.runAvg:SetText("")
-		row.runAvg:SetWidth(1)
-		row.bg:SetColorTexture(bg[1], bg[2], bg[3], 0.95)
-		row.bg:SetWidth(math.max(8, width * math.min(math.max(score, 0), 100) / 100))
+		if runScore then
+			row.runAvg:SetText(("%.0f"):format(runScore))
+			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runScore))
+			row.runAvg:SetWidth(20)
+		else
+			row.runAvg:SetText("")
+			row.runAvg:SetWidth(1)
+		end
+		row.bg:SetColorTexture(0.60, 0.48, 0.10, 0.95)
+		row.bg:SetWidth(math.max(8, width * math.min(math.max(groupScore, 0), 100) / 100))
 		row.icon:Hide()
 		row.playerName = label
-		row.fight = rowFight
+		row.fight = fight
 		row.result = nil
-		row.groupResults = groupResults -- click/hover opens the group breakdown
-	end
-
-	-- Footer: this fight's collective score, then the cumulative run average
-	local nextIndex = shown + 1
-	if hasFooter then
-		local sum = 0
-		for _, r in ipairs(results) do
-			sum = sum + r.score
-		end
-		summaryRow(nextIndex, (#results > 5) and "Raid" or "Group", sum / #results,
-			{ 0.60, 0.48, 0.10 }, fight, results)
-		nextIndex = nextIndex + 1
-	end
-	if runScore then
-		-- always True-mode, whole run: the same currency the chat reports use
-		summaryRow(nextIndex, ("Run · %d fights"):format(runFightCount), runScore,
-			{ 0.38, 0.30, 0.08 }, runFight, runResults)
+		row.groupResults = results -- left-click/hover: this fight's breakdown
+		row.runGroup = runResults and { fight = runFight, results = runResults } or nil
 	end
 
 	setWindowHeight(totalRows, rowHeight)

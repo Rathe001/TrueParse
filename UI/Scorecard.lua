@@ -11,6 +11,13 @@ function Scorecard:Acquire(parent)
 		row:EnableMouse(true)
 		-- payload (row.fight / row.result) is set by the scorecard renderer
 		row:SetScript("OnMouseUp", function(self, button)
+			if button == "RightButton" then
+				-- the summary row carries the whole run behind right-click
+				if self.runGroup then
+					TP.BreakdownPanel:ToggleGroup(self.runGroup.fight, self.runGroup.results)
+				end
+				return
+			end
 			if button ~= "LeftButton" then
 				return
 			end
