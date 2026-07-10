@@ -90,8 +90,10 @@ local function showMetricTip(anchor, data)
 	metricTip.value:SetText(valueText)
 
 	if b.specMedian and duration and duration > 0 then
-		metricTip.median:SetText(("%s median here: %s per second"):format(
-			b.rolePooled and "role" or "spec", TP.FormatNumber(b.specMedian)))
+		-- curveFrom names the comparison population when the evidence
+		-- ladder had to zoom out (other bracket, all bosses, everyone)
+		metricTip.median:SetText(("%s median: %s per second"):format(
+			b.curveFrom or (b.rolePooled and "role" or "spec"), TP.FormatNumber(b.specMedian)))
 	elseif b.lowDemand then
 		metricTip.median:SetText("barely anything to heal - scored neutral")
 	elseif b.relative and not b.absolute then

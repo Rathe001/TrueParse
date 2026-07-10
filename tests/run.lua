@@ -925,13 +925,47 @@ for _, r in ipairs(pctResults) do
 			("same output in the 25-player bracket scores far lower (%.1f)"):format(r.breakdown.damage.normalized))
 	end
 end
-pctFight.difficultyID = 5 -- 10H: no curve fetched for this bracket -> fallback path
+-- 18c. Widening evidence ladder: a missing bracket zooms out through the
+-- WCL data we DO have instead of dropping to a group comparison
+pctFight.difficultyID = 5 -- 10H: no curve for this bracket
 pctResults = TP.Scoring.Engine.ScoreFight(pctFight, { mode = "parse", normalizeIlvl = false })
 for _, r in ipairs(pctResults) do
 	if r.name == "Deeps" then
-		check(r.breakdown.damage.applicable, "missing bracket falls back to non-percentile scoring")
+		check(r.breakdown.damage.absolute ~= nil, "missing bracket still curve-scored")
+		check(math.abs(r.breakdown.damage.normalized - 50) < 0.001,
+			("neighboring 10N bracket supplies the curve (%.1f)"):format(r.breakdown.damage.normalized))
+		check(r.breakdown.damage.curveFrom == "spec \194\183 10N",
+			("zoomed bracket is named (%s)"):format(tostring(r.breakdown.damage.curveFrom)))
 	end
 end
+-- unknown encounter: the spec's all-boss pool takes over
+local mysteryFight = {
+	name = "(!) Mystery Boss", isBoss = true, duration = 100, difficultyID = 3,
+	players = {
+		d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 50000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+		h = { guid = "h", name = "OffMeta", class = "MONK", role = "HEALER", specID = 270,
+			metrics = { damage = 0, healing = 25000, interrupts = 0, dispels = 0, deaths = 0 } },
+		t = { guid = "t", name = "Wall", class = "WARRIOR", role = "TANK", specID = 73,
+			metrics = { damage = 30000, healing = 0, damageTaken = 900000, interrupts = 0, dispels = 0, deaths = 0 } },
+	},
+}
+local mystByName = {}
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(mysteryFight, { mode = "parse", normalizeIlvl = false })) do
+	mystByName[r.name] = r
+end
+check(mystByName.Deeps.breakdown.damage.curveFrom == "spec \194\183 all bosses"
+	and math.abs(mystByName.Deeps.breakdown.damage.normalized - 50) < 0.001,
+	("unknown boss uses the spec's all-boss pool (%s, %.1f)"):format(
+		tostring(mystByName.Deeps.breakdown.damage.curveFrom), mystByName.Deeps.breakdown.damage.normalized))
+check(mystByName.OffMeta.breakdown.healing.curveFrom == "role \194\183 all bosses"
+	and mystByName.OffMeta.breakdown.healing.rolePooled,
+	("spec with no hps curve anywhere pools the role (%s)"):format(tostring(mystByName.OffMeta.breakdown.healing.curveFrom)))
+check(mystByName.Wall.breakdown.damage.curveFrom == "all players",
+	("role with no curves at all compares vs everyone (%s)"):format(tostring(mystByName.Wall.breakdown.damage.curveFrom)))
+check(mystByName.Deeps.breakdown.damage.absolute and mystByName.OffMeta.breakdown.healing.absolute
+	and mystByName.Wall.breakdown.damage.absolute,
+	"the ladder never falls back to a group comparison while data is loaded")
 
 -- True mode uses the curve through the contribution transform: p50 -> 65,
 -- standing ALONE (no cohort blend: that re-imports spec bias)

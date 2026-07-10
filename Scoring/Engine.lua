@@ -139,6 +139,44 @@ local function resolvePercentiles(fight)
 	return (key and enc[key]) or enc.all
 end
 
+-- The evidence ladder never jumps from "no curve for this exact
+-- spec+bracket" straight to a group comparison. It zooms out through
+-- progressively rougher WCL populations first: neighboring brackets, the
+-- role's pooled curve, then the whole data file. A rough population
+-- comparison still beats swapping the comparison model entirely
+-- (best-in-group "99 parses" were pure noise).
+local BRACKET_NEIGHBORS = {
+	-- same difficulty first: a 10N raider reads closer to 25N than to 10H
+	["3x10"] = { "3x25", "4x10", "4x25" },
+	["3x25"] = { "3x10", "4x25", "4x10" },
+	["4x10"] = { "4x25", "3x10", "3x25" },
+	["4x25"] = { "4x10", "3x25", "3x10" },
+	["3"] = { "4", "5" },
+	["4"] = { "3", "5" },
+	["5"] = { "4", "3" },
+}
+local BRACKET_LABELS = {
+	["3x10"] = "10N", ["3x25"] = "25N", ["4x10"] = "10H", ["4x25"] = "25H",
+	["3"] = "Normal", ["4"] = "Heroic", ["5"] = "Mythic",
+}
+local ALL_BRACKETS = { "3x10", "3x25", "4x10", "4x25", "3", "4", "5" }
+
+local function bracketSearchOrder(bracketKey)
+	local order = {}
+	if bracketKey then
+		order[#order + 1] = bracketKey
+		for _, nb in ipairs(BRACKET_NEIGHBORS[bracketKey] or {}) do
+			order[#order + 1] = nb
+		end
+	else
+		for _, key in ipairs(ALL_BRACKETS) do
+			order[#order + 1] = key
+		end
+	end
+	order[#order + 1] = "all" -- legacy unbracketed data files
+	return order
+end
+
 -- Role-pooled fallback curves: when a spec has no curve for a metric,
 -- score against the aggregated population of its ROLE in the same bracket
 -- (sample-size-weighted average of the spec curves). Still real bracket
@@ -189,6 +227,62 @@ local function rolePooledEntry(bracket, kind, role)
 	return pooled
 end
 
+-- Whole-data-file pools: every encounter's curves for one bracket (or all
+-- of them), filtered by spec or role, sample-weighted like rolePooledEntry.
+-- Cached per data file; ~1k curves collapse into a handful of entries.
+local globalPoolCache = setmetatable({}, { __mode = "k" })
+
+local function globalPool(P, bracketKey, kind, accept, cacheKey)
+	local cache = globalPoolCache[P]
+	if not cache then
+		cache = {}
+		globalPoolCache[P] = cache
+	end
+	local hit = cache[cacheKey]
+	if hit ~= nil then
+		return hit or nil
+	end
+	local sums, total = {}, 0
+	for _, enc in pairs(P.encounters) do
+		local brackets
+		if bracketKey then
+			brackets = { enc[bracketKey] }
+		else
+			brackets = {}
+			for _, b in pairs(enc) do
+				brackets[#brackets + 1] = b
+			end
+		end
+		for _, bracket in ipairs(brackets) do
+			local tbl = bracket[kind]
+			if tbl then
+				for specID, entry in pairs(tbl) do
+					if entry.curve and (not accept or accept(specID)) then
+						local n = entry.n or 0
+						total = total + n
+						for _, pt in ipairs(entry.curve) do
+							sums[pt[1]] = (sums[pt[1]] or 0) + pt[2] * n
+						end
+					end
+				end
+			end
+		end
+	end
+	if total < 100 then
+		cache[cacheKey] = false
+		return nil
+	end
+	local curve = {}
+	for _, pct in ipairs(QUANTS) do
+		if sums[pct] then
+			curve[#curve + 1] = { pct, sums[pct] / total }
+		end
+	end
+	local pooled = { n = total, curve = curve }
+	cache[cacheKey] = pooled
+	return pooled
+end
+
 local function curveP50(curve)
 	if not curve then
 		return nil
@@ -230,10 +324,78 @@ local function percentileFor(curve, rate)
 	return last[1] * rate / last[2]
 end
 
+-- Walk the ladder for one spec+metric. specOnly stops after the spec
+-- steps (the throughput-mix profile must not inherit a role's generic
+-- mix). Returns entry, sourceLabel (nil = exact spec+bracket),
+-- rolePooledFlag. Never returns a curve with fewer than 2 points.
+local function usable(entry)
+	return entry and entry.curve and #entry.curve > 1
+end
+
+local function findCurve(ctx, kind, specID, role, specOnly)
+	local L = ctx.curves
+	if not L then
+		return nil
+	end
+	local enc, order = L.enc, L.order
+	-- 1. this encounter: spec curve, exact bracket then zooming out
+	if enc and specID then
+		for i, bk in ipairs(order) do
+			local tbl = enc[bk] and enc[bk][kind]
+			local entry = tbl and tbl[specID]
+			if usable(entry) then
+				return entry, (i > 1) and ("spec · " .. (BRACKET_LABELS[bk] or bk)) or nil, nil
+			end
+		end
+	end
+	-- 2. this spec pooled across every boss in the data file
+	if specID then
+		for _, bk in ipairs(order) do
+			if bk ~= "all" then
+				local e = globalPool(L.P, bk, kind, function(id) return id == specID end,
+					"spec:" .. specID .. ":" .. kind .. ":" .. bk)
+				if usable(e) then
+					return e, "spec · all bosses", nil
+				end
+			end
+		end
+	end
+	if specOnly then
+		return nil
+	end
+	-- 3. this encounter: the role's pooled curve, zooming brackets
+	if enc then
+		for i, bk in ipairs(order) do
+			local entry = enc[bk] and rolePooledEntry(enc[bk], kind, role)
+			if usable(entry) then
+				return entry, (i > 1) and ("role · " .. (BRACKET_LABELS[bk] or bk)) or "role", true
+			end
+		end
+	end
+	-- 4. the role across every boss, then simply everyone
+	local roles = TP.SPEC_ROLES
+	if roles then
+		for _, bk in ipairs(order) do
+			if bk ~= "all" then
+				local e = globalPool(L.P, bk, kind, function(id) return roles[id] == role end,
+					"role:" .. role .. ":" .. kind .. ":" .. bk)
+				if usable(e) then
+					return e, "role · all bosses", true
+				end
+			end
+		end
+	end
+	local e = globalPool(L.P, nil, kind, nil, "any:" .. kind)
+	if usable(e) then
+		return e, "all players", true
+	end
+	return nil
+end
+
 -- Returns normalizedScore (0-100), applicable, absolute, relative,
 -- specMedian (the p50 rate for this spec+fight+bracket, when curve-scored)
 local function normalizeMetric(p, role, key, ctx)
-	local specMedian, pctile, rolePooled
+	local specMedian, pctile, rolePooled, curveFrom
 	local W = TP.Scoring.Weights
 	local value = metricValue(p, key)
 
@@ -315,26 +477,19 @@ local function normalizeMetric(p, role, key, ctx)
 	--    fallback for solo-role slots — differentiates the room.
 	local absolute, fromCurve
 	if role ~= "SUPPORT" and ctx.duration and ctx.duration > 0 then
-		if ctx.percentiles then
-			local kind = (key == "healing") and "hps" or (key == "damage") and "dps"
-			local kindTbl = kind and ctx.percentiles[kind]
-			local entry = kindTbl and p.specID and kindTbl[p.specID]
-			if not entry and kind then
-				entry = rolePooledEntry(ctx.percentiles, kind, role)
-				rolePooled = entry and true or nil
-			end
-			if entry and entry.curve and #entry.curve > 1 then
+		local kind = (key == "healing") and "hps" or (key == "damage") and "dps"
+		if kind then
+			local entry, label, pooled = findCurve(ctx, kind, p.specID, role)
+			if entry then
+				rolePooled = pooled
+				curveFrom = label
 				local pct = percentileFor(entry.curve, metricValue(p, key) / ctx.duration)
 				absolute = math.min(100, (W.trueAbsFloor or 0) + (W.trueAbsSlope or 1) * pct)
 				fromCurve = true
 				pctile = pct -- raw percentile, for the tooltip gauge
 				-- surfaced in tooltips: "the median of your spec does Y/s
 				-- here" — answers every 'but I topped the meter?!'
-				for _, point in ipairs(entry.curve) do
-					if point[1] == 50 then
-						specMedian = point[2]
-					end
-				end
+				specMedian = curveP50(entry.curve)
 			end
 		end
 		if not absolute and ctx.fightFactors then
@@ -358,7 +513,7 @@ local function normalizeMetric(p, role, key, ctx)
 	-- vs other tanks, Disc/Mistweaver damage vs other healers). Curves for
 	-- EVERY spec x metric make cross-metric contributions spec-fair.
 	if absolute and fromCurve and not ctx.parseMode then
-		return absolute, true, absolute, nil, specMedian, pctile, rolePooled
+		return absolute, true, absolute, nil, specMedian, pctile, rolePooled, curveFrom
 	end
 
 	local relative, applicable
@@ -389,23 +544,15 @@ local function normalizeMetric(p, role, key, ctx)
 		-- covers this fight+spec (raw per-second output, no ilvl adjustment
 		-- — WCL's headline parse doesn't bracket by gear either), then the
 		-- %-of-elite-median, then the group comparison.
-		if ctx.percentiles and ctx.duration and ctx.duration > 0 then
-			local kindTbl = (key == "healing") and ctx.percentiles.hps
-				or (key == "damage") and ctx.percentiles.dps
-			local kind = (key == "healing") and "hps" or (key == "damage") and "dps"
-			local entry = kindTbl and p.specID and kindTbl[p.specID]
-			if not entry and kind then
-				entry = rolePooledEntry(ctx.percentiles, kind, role)
-				rolePooled = entry and true or nil
-			end
-			if entry and entry.curve and #entry.curve > 1 then
+		local kind = (key == "healing") and "hps" or (key == "damage") and "dps"
+		if kind and ctx.duration and ctx.duration > 0 then
+			local entry, label, pooled = findCurve(ctx, kind, p.specID, role)
+			if entry then
+				rolePooled = pooled
+				curveFrom = label
 				local pct = percentileFor(entry.curve, metricValue(p, key) / ctx.duration)
-				for _, point in ipairs(entry.curve) do
-					if point[1] == 50 then
-						specMedian = point[2]
-					end
-				end
-				return pct, true, pct, nil, specMedian, pct, rolePooled
+				specMedian = curveP50(entry.curve)
+				return pct, true, pct, nil, specMedian, pct, rolePooled, curveFrom
 			end
 		end
 		-- WCL semantics: 100 doesn't exist. And a relative-only fallback
@@ -470,9 +617,22 @@ function Engine.ScoreFight(fight, opts)
 		parseMode = (opts.mode == "parse"),
 		percentiles = resolvePercentiles(fight), -- raw pct in parse; transformed in True
 		fightFactors = resolveFightFactors(fight),
+		curves = nil, -- widening WCL evidence ladder, set below
 		duration = fight.duration,
 		totals = { damage = 0, healing = 0, damageTaken = 0, interrupts = 0, dispels = 0, avoidable = 0 },
 	}
+
+	-- The ladder covers every boss fight the moment ANY percentile data is
+	-- loaded — an unlisted encounter or unknown bracket zooms out to the
+	-- populations we do have instead of dropping to a group comparison
+	do
+		local P = TP.Percentiles
+		if P and P.encounters and fight.isBoss then
+			local enc = fight.name and P.encounters[fight.name:gsub("^%(!%)%s*", "")]
+			local bracketKey = fight.difficultyID and WCL_BRACKET[fight.difficultyID]
+			ctx.curves = { P = P, enc = enc, order = bracketSearchOrder(bracketKey) }
+		end
+	end
 
 	-- Reference ilvl for gear normalization: group mean of known ilvls
 	local ilvlSum, ilvlCount = 0, 0
@@ -537,9 +697,11 @@ function Engine.ScoreFight(fight, opts)
 		-- weight; a Blood DK's fat self-healing median earns a real healing
 		-- slice; Disc damage earns damage weight other healers don't get.
 		-- Data-derived, per-fight, refreshed weekly — no hand-tuned table.
-		if not ctx.parseMode and ctx.percentiles and p.specID and role ~= "SUPPORT" then
-			local dEntry = ctx.percentiles.dps and ctx.percentiles.dps[p.specID]
-			local hEntry = ctx.percentiles.hps and ctx.percentiles.hps[p.specID]
+		if not ctx.parseMode and ctx.curves and p.specID and role ~= "SUPPORT" then
+			-- specOnly ladder: the mix may zoom to other brackets or the
+			-- spec's all-boss pool, but never to a role's generic mix
+			local dEntry = findCurve(ctx, "dps", p.specID, role, true)
+			local hEntry = findCurve(ctx, "hps", p.specID, role, true)
 			local d50 = dEntry and curveP50(dEntry.curve)
 			local h50 = hEntry and curveP50(hEntry.curve)
 			local budget = (weights.damage or 0) + (weights.healing or 0)
@@ -561,7 +723,7 @@ function Engine.ScoreFight(fight, opts)
 		local breakdown = {}
 		local activeWeight = 0
 		for key, weight in pairs(weights) do
-			local normalized, applicable, absolute, relative, specMedian, pctile, rolePooled = normalizeMetric(p, role, key, ctx)
+			local normalized, applicable, absolute, relative, specMedian, pctile, rolePooled, curveFrom = normalizeMetric(p, role, key, ctx)
 			-- Trivial-demand floor: only for share-based healer healing (a
 			-- WCL absolute already prices the fight's real demand), and only
 			-- outside parse mode (a raw parse SHOULD read low on a fight
@@ -583,6 +745,7 @@ function Engine.ScoreFight(fight, opts)
 				specMedian = specMedian, -- p50 rate for this spec+fight+bracket
 				pctile = pctile, -- raw population percentile (tooltip gauge)
 				rolePooled = rolePooled, -- scored vs the ROLE's pooled curve
+				curveFrom = curveFrom, -- comparison population when zoomed out
 				value = metricValue(p, key),
 			}
 			if applicable then
