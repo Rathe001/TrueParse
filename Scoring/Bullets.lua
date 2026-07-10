@@ -14,24 +14,36 @@ local MID = { 0.80, 0.80, 0.55 }
 local GOLD = { 1.00, 0.82, 0.20 }
 local MIDDOT = "\194\183"
 
-local function sentimentOf(normalized)
-	if normalized >= 70 then
-		return "good", "+", GOOD
-	elseif normalized <= 45 then
-		return "bad", "-", BAD
+-- Five tiers matching the parse-bracket colors players already read:
+-- grey = low, green = average, blue = good, purple = excellent,
+-- orange = godly. Bullet text and color always agree with the gauge.
+local function tierOf(score)
+	if score >= 95 then
+		return "godly", "+"
+	elseif score >= 75 then
+		return "excellent", "+"
+	elseif score >= 50 then
+		return "good", "+"
+	elseif score >= 25 then
+		return "average", MIDDOT
 	end
-	return "mid", MIDDOT, MID
+	return "low", "-"
+end
+
+local function tierColor(score)
+	local r, g, b = TP.Scoring.Grades.ColorForScore(score)
+	return { r, g, b }
 end
 
 local PHRASES = {
-	damage = { good = "Strong damage", mid = "Decent damage", bad = "Low damage", zero = "Did no damage" },
-	healing = { good = "Strong healing", mid = "Decent healing", bad = "Low healing", zero = "No healing" },
-	healingOff = { good = "Great off-healing", mid = "Some off-healing", bad = "Little off-healing", zero = "No off-healing" },
-	selfSustain = { good = "Strong self-sustain", mid = "Decent self-sustain", bad = "Little self-sustain", zero = "No self-healing" },
-	damageTaken = { good = "Soaked the group's hits", mid = "Took a fair share of hits", bad = "Didn't soak much", zero = "Took no hits" },
-	interrupts = { good = "Great interrupting", mid = "Some interrupts", bad = "Too few interrupts", zero = "Did not interrupt" },
-	dispels = { good = "Great dispelling", mid = "Some dispels", bad = "Too few dispels", zero = "Did not dispel" },
-	buffUptime = { good = "Kept the buffs rolling", mid = "Decent buff uptime", bad = "Low buff uptime", zero = "Buffs never up" },
+	damage = { godly = "Godly damage", excellent = "Excellent damage", good = "Good damage", average = "Average damage", low = "Low damage", zero = "Did no damage" },
+	healing = { godly = "Godly healing", excellent = "Excellent healing", good = "Good healing", average = "Average healing", low = "Low healing", zero = "No healing" },
+	healingOff = { godly = "Godly off-healing", excellent = "Excellent off-healing", good = "Good off-healing", average = "Some off-healing", low = "Little off-healing", zero = "No off-healing" },
+	selfSustain = { godly = "Godly self-sustain", excellent = "Excellent self-sustain", good = "Good self-sustain", average = "Average self-sustain", low = "Little self-sustain", zero = "No self-healing" },
+	damageTaken = { godly = "Soaked everything", excellent = "Excellent soaking", good = "Solid soaking", average = "Average soaking", low = "Light soaking", zero = "Took no hits" },
+	interrupts = { godly = "Godly interrupting", excellent = "Excellent interrupting", good = "Good interrupting", average = "Some interrupts", low = "Too few interrupts", zero = "Did not interrupt" },
+	dispels = { godly = "Godly dispelling", excellent = "Excellent dispelling", good = "Good dispelling", average = "Some dispels", low = "Too few dispels", zero = "Did not dispel" },
+	buffUptime = { godly = "Godly buff uptime", excellent = "Excellent buff uptime", good = "Good buff uptime", average = "Average buff uptime", low = "Low buff uptime", zero = "Buffs never up" },
 }
 
 local PENALTY_DEFS = {
@@ -67,7 +79,9 @@ function Bullets.ForResult(result, awards, extra)
 
 	for _, m in ipairs(metrics) do
 		local b, key = m.b, m.key
-		local sentiment, symbol, color = sentimentOf(b.normalized or 0)
+		local score = b.normalized or 0
+		local tier, symbol = tierOf(score)
+		local color = tierColor(score)
 		local phraseKey = key
 		if key == "healing" and result.role ~= "HEALER" then
 			-- mostly-self healing is sustain, not off-healing: different
@@ -76,7 +90,7 @@ function Bullets.ForResult(result, awards, extra)
 				and "selfSustain" or "healingOff"
 		end
 		local phrases = PHRASES[phraseKey] or PHRASES.damage
-		local text = phrases[sentiment]
+		local text = phrases[tier]
 		-- a zero count always says so plainly, whatever the smoothed score
 		-- ("Great interrupting" on 0 kicks was a real bug)
 		if (b.value or 0) == 0 and phrases.zero then
@@ -152,10 +166,10 @@ function Bullets.ForResult(result, awards, extra)
 end
 
 local GROUP_PHRASES = {
-	damage = { good = "Strong damage from the group", mid = "Group damage was okay", bad = "Group damage was low" },
-	healing = { good = "Healing kept everyone up", mid = "Healing was okay", bad = "Healing struggled" },
-	interrupts = { good = "Kicks were covered", mid = "Interrupts were spotty", bad = "Not enough interrupting", zero = "Nobody interrupted" },
-	dispels = { good = "Dispels were handled", mid = "Dispels were spotty", bad = "Too few dispels", zero = "Nobody dispelled" },
+	damage = { godly = "Godly group damage", excellent = "Excellent group damage", good = "Good group damage", average = "Average group damage", low = "Low group damage" },
+	healing = { godly = "Godly group healing", excellent = "Excellent group healing", good = "Good group healing", average = "Average group healing", low = "Healing struggled" },
+	interrupts = { godly = "Godly kick coverage", excellent = "Kicks were covered", good = "Good interrupting", average = "Interrupts were spotty", low = "Not enough interrupting", zero = "Nobody interrupted" },
+	dispels = { godly = "Godly dispel coverage", excellent = "Dispels were handled", good = "Good dispelling", average = "Dispels were spotty", low = "Too few dispels", zero = "Nobody dispelled" },
 }
 local GROUP_ORDER = { "damage", "healing", "interrupts", "dispels" }
 
@@ -186,10 +200,11 @@ function Bullets.ForGroup(results)
 	for _, key in ipairs(GROUP_ORDER) do
 		if counts[key] and counts[key] > 0 then
 			local avg = sums[key] / counts[key]
-			local sentiment, symbol, color = sentimentOf(avg)
+			local tier, symbol = tierOf(avg)
+			local color = tierColor(avg)
 			local phrases = GROUP_PHRASES[key]
-			local text = phrases[sentiment]
-			if sentiment == "bad" and (totals[key] or 0) == 0 and phrases.zero then
+			local text = phrases[tier]
+			if (totals[key] or 0) == 0 and phrases.zero then
 				text = phrases.zero
 			end
 			out[#out + 1] = {

@@ -430,14 +430,14 @@ local function normalizeMetric(p, role, key, ctx)
 	return 0, false
 end
 
--- Parse mode: the WCL-style lens. One throughput metric per role, no
--- utility weights and no penalties. The contribution score remains the
--- default and feeds career/coach/run reports; this is a display lens.
+-- Parse mode: the WCL-style lens. One metric CARRIES the score; the other
+-- big-3 metrics compute at zero weight so the breakdown can always show
+-- them (a healer's p92 damage deserves a line even when it isn't graded).
 local PARSE_WEIGHTS = {
-	TANK = { damage = 1 },
-	HEALER = { healing = 1 },
-	DAMAGER = { damage = 1 },
-	SUPPORT = { damage = 1 },
+	TANK = { damage = 1, healing = 0, damageTaken = 0 },
+	HEALER = { healing = 1, damage = 0, damageTaken = 0 },
+	DAMAGER = { damage = 1, healing = 0, damageTaken = 0 },
+	SUPPORT = { damage = 1, healing = 0 },
 }
 
 -- Public for Awards (Virtuoso needs off-metric percentiles) and tooling

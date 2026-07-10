@@ -323,7 +323,7 @@ function Panel:ShowFor(fight, result)
 	local approx = false
 	if rawShaped then
 		for _, b in pairs(result.breakdown) do
-			if b.applicable and not b.absolute then
+			if b.applicable and not b.absolute and (b.effectiveWeight or 0) > 0 then
 				approx = true
 			end
 		end

@@ -522,7 +522,8 @@ function MeterWindow:RenderScorecard(fight)
 		local approx = false
 		if isRaw then
 			for _, b in pairs(r.breakdown) do
-				if b.applicable and not b.absolute then
+				-- zero-weight display metrics don't make a parse approximate
+				if b.applicable and not b.absolute and (b.effectiveWeight or 0) > 0 then
 					approx = true
 				end
 			end

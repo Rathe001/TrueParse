@@ -541,8 +541,8 @@ bulletResult.role = "DAMAGER"
 local bullets = TP.Scoring.Bullets.ForResult(bulletResult, { "Kick King" })
 check(#bullets == 5, ("5 bullets: award + 3 metrics + penalty (%d)"):format(#bullets))
 check(bullets[1].kind == "award" and bullets[1].text == "Kick King", "award bullet first, gold")
-check(bullets[2].text == "Strong damage" and bullets[2].symbol == "+", "biggest weight first, human phrase, green +")
-check(bullets[3].text == "Some interrupts" and bullets[3].symbol ~= "+" and bullets[3].symbol ~= "-", "middling = neutral phrase")
+check(bullets[2].text == "Excellent damage" and bullets[2].symbol == "+", "biggest weight first, human phrase, green +")
+check(bullets[3].text == "Good interrupting" and bullets[3].symbol == "+", "good tier at 60")
 check(bullets[4].text == "Little off-healing" and bullets[4].symbol == "-", "weak DPS healing phrased as off-healing")
 check(bullets[5].kind == "penalty" and bullets[5].text == "Died", "penalty bullet human")
 bulletResult.breakdown.interrupts.normalized = 0
@@ -628,7 +628,7 @@ local groupBullets = TP.Scoring.Bullets.ForGroup({
 	{ breakdown = { damage = { applicable = true, normalized = 76, value = 100 }, interrupts = { applicable = true, normalized = 0, value = 0 } },
 		penaltyDetail = { deaths = 10 } },
 })
-check(groupBullets[1].text == "Strong damage from the group", "group damage phrase")
+check(groupBullets[1].text == "Excellent group damage", "group damage phrase")
 check(groupBullets[2].text == "Nobody interrupted", "group zero-kick phrase")
 local deathsBullet
 for _, b in ipairs(groupBullets) do
@@ -762,8 +762,12 @@ for _, r in ipairs(parseResults) do pByName[r.name] = r end
 check(pByName.Deeps.penalty == 0, "parse mode ignores deaths")
 check(pByName.Deeps.breakdown.interrupts == nil, "parse mode carries no utility metrics")
 check(pByName.Deeps.breakdown.damage.applicable, "DPS parse scores damage")
-check(pByName.Heals.breakdown.healing.applicable and pByName.Heals.breakdown.damage == nil,
-	"healer parse scores healing only")
+check(pByName.Heals.breakdown.healing.applicable
+	and (pByName.Heals.breakdown.healing.effectiveWeight or 0) > 0,
+	"healer parse weights healing only")
+check(pByName.Heals.breakdown.damage ~= nil
+	and (pByName.Heals.breakdown.damage.effectiveWeight or 0) == 0,
+	"healer parse still shows damage at zero weight")
 local contribResults = TP.Scoring.Engine.ScoreFight(parseFight, { normalizeIlvl = false })
 for _, r in ipairs(contribResults) do
 	if r.name == "Deeps" then
@@ -1033,12 +1037,12 @@ local sustainText
 for _, b in ipairs(TP.Scoring.Bullets.ForResult(sustainResult, nil, { selfShare = 0.95 })) do
 	if b.key == "healing" then sustainText = b.text end
 end
-check(sustainText == "Strong self-sustain", ("self-heavy healing phrased as sustain (%s)"):format(tostring(sustainText)))
+check(sustainText == "Excellent self-sustain", ("self-heavy healing phrased as sustain (%s)"):format(tostring(sustainText)))
 local offText
 for _, b in ipairs(TP.Scoring.Bullets.ForResult(sustainResult, nil, { selfShare = 0.3 })) do
 	if b.key == "healing" then offText = b.text end
 end
-check(offText == "Great off-healing", ("outward healing keeps off-healing phrase (%s)"):format(tostring(offText)))
+check(offText == "Excellent off-healing", ("outward healing keeps off-healing phrase (%s)"):format(tostring(offText)))
 check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 players") ~= nil, "group tooltip carries the numbers")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file
