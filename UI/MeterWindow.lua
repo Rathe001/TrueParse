@@ -212,7 +212,7 @@ local function createWindow()
 	window.footnote:SetPoint("BOTTOMLEFT", PADDING + 2, MODE_HEIGHT + 4)
 	window.footnote:SetPoint("BOTTOMRIGHT", -(PADDING + 2), MODE_HEIGHT + 4)
 	window.footnote:SetJustifyH("LEFT")
-	window.footnote:SetText("|TInterface\\RaidFrame\\ReadyCheck-NotReady:8:8|t = TrueParse not installed")
+	window.footnote:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:8:8|t = TrueParse installed")
 	MeterWindow:UpdateModeButtons()
 end
 
