@@ -233,7 +233,7 @@ local function normalizeMetric(p, role, key, ctx)
 	--    collapses far below elite gear — see Weights).
 	--  * RELATIVE: cohort comparison (spec/ilvl-adjusted), expected-share
 	--    fallback for solo-role slots — differentiates the room.
-	local absolute
+	local absolute, fromCurve
 	if role ~= "SUPPORT" and ctx.duration and ctx.duration > 0 then
 		if ctx.percentiles then
 			local kindTbl = (key == "healing") and ctx.percentiles.hps
@@ -242,6 +242,7 @@ local function normalizeMetric(p, role, key, ctx)
 			if entry and entry.curve and #entry.curve > 1 then
 				local pct = percentileFor(entry.curve, metricValue(p, key) / ctx.duration)
 				absolute = math.min(100, (W.trueAbsFloor or 0) + (W.trueAbsSlope or 1) * pct)
+				fromCurve = true
 			end
 		end
 		if not absolute and ctx.fightFactors then
@@ -257,6 +258,15 @@ local function normalizeMetric(p, role, key, ctx)
 				absolute = math.min(100, 100 * (metricValue(p, key) / ctx.duration) / bench)
 			end
 		end
+	end
+
+	-- A per-spec, per-fight, per-bracket population percentile is complete
+	-- evidence: blending in the cohort comparison only re-introduces the
+	-- structural spec biases it exists to paper over (Blood DK self-healing
+	-- vs other tanks, Disc/Mistweaver damage vs other healers). Curves for
+	-- EVERY spec x metric make cross-metric contributions spec-fair.
+	if absolute and fromCurve and not ctx.parseMode then
+		return absolute, true, absolute, nil
 	end
 
 	local relative, applicable

@@ -929,7 +929,8 @@ for _, r in ipairs(pctResults) do
 	end
 end
 
--- True mode uses the curve through the contribution transform: p50 -> 65
+-- True mode uses the curve through the contribution transform: p50 -> 65,
+-- standing ALONE (no cohort blend: that re-imports spec bias)
 pctFight.difficultyID = 3
 pctFight.players.d.metrics.damage = 50000 -- 500/s = the p50 sample
 local trueCurve = TP.Scoring.Engine.ScoreFight(pctFight, { normalizeIlvl = false })
@@ -937,6 +938,9 @@ for _, r in ipairs(trueCurve) do
 	if r.name == "Deeps" then
 		check(math.abs(r.breakdown.damage.absolute - 65) < 0.001,
 			("True absolute from curve: p50 -> 65 (%.1f)"):format(r.breakdown.damage.absolute))
+		check(math.abs(r.breakdown.damage.normalized - 65) < 0.001,
+			("curve evidence stands alone, unblended (%.1f)"):format(r.breakdown.damage.normalized))
+		check(r.breakdown.damage.relative == nil, "no cohort component when a curve covers the metric")
 	end
 end
 TP.Percentiles = nil

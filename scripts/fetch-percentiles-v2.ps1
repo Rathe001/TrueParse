@@ -149,19 +149,23 @@ if ($EncounterLimit -gt 0 -and $encList.Count -gt $EncounterLimit) {
 Write-Host ("Zone: {0} ({1} encounters)" -f $zone.name, $encList.Count)
 
 # ---- combo list ----
+# BOTH metrics per spec: healer damage and tank/DPS self-healing rank on WCL
+# too, and those off-metric curves are what make cross-metric contributions
+# spec-fair (a Blood DK's self-healing measured against Blood DKs, Disc
+# damage against Disc). Thin populations fall out via MinParses.
 $combos = New-Object System.Collections.ArrayList
 foreach ($specKey in $specIDs.Keys) {
+    if ($skipDamage -contains $specKey) { continue } # Aug: support damage invisible
     $parts = $specKey -split ":"
-    $metric = "dps"
-    if ($healerSpecs -contains $specKey) { $metric = "hps" }
-    elseif ($skipDamage -contains $specKey) { continue }
-    [void]$combos.Add(@{
-        key = $specKey
-        specID = $specIDs[$specKey]
-        classV2 = ($parts[0] -replace " ", "")
-        specV2 = ($parts[1] -replace " ", "")
-        metric = $metric
-    })
+    foreach ($metric in @("dps", "hps")) {
+        [void]$combos.Add(@{
+            key = "$specKey/$metric"
+            specID = $specIDs[$specKey]
+            classV2 = ($parts[0] -replace " ", "")
+            specV2 = ($parts[1] -replace " ", "")
+            metric = $metric
+        })
+    }
 }
 
 # Parsed bracket list: @{ key; args } where args is the GraphQL argument
