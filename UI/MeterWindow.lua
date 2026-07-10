@@ -8,6 +8,7 @@ local MeterWindow = {}
 TP.MeterWindow = MeterWindow
 
 local HEADER_HEIGHT = 22
+local COLHEAD_HEIGHT = 11 -- thin "fight / run" column labels (scorecard only)
 local MODE_HEIGHT = 16 -- bottom strip: Mode: (*)Real ( )Raw
 local PADDING = 6
 local SCORECARD_ROW_HEIGHT = 14
@@ -179,6 +180,21 @@ local function createWindow()
 		end)
 		return btn
 	end
+	-- Column labels over the two number columns, aligned to their edges
+	local function colLabel(text, rightOffset, colWidth)
+		local fs = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+		local path = fs:GetFont()
+		fs:SetFont(path, 9, "")
+		fs:SetPoint("TOPRIGHT", rightOffset, -(HEADER_HEIGHT - 1))
+		fs:SetWidth(colWidth)
+		fs:SetJustifyH("RIGHT")
+		fs:SetTextColor(0.55, 0.55, 0.55)
+		fs:SetText(text)
+		return fs
+	end
+	window.colRun = colLabel("run", -(PADDING + 3), 20)
+	window.colFight = colLabel("fight", -(PADDING + 3 + 20 + 4), 30)
+
 	window.modeLabel = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	window.modeLabel:SetText("Mode:")
 	window.modeReal = makeRadio("True", "contribution",
@@ -305,9 +321,14 @@ local function applyWindowHeight(newHeight, pinTop)
 	end
 end
 
-local function setWindowHeight(shown, rowHeight)
+local function setWindowHeight(shown, rowHeight, withColHead)
 	setModeStripShown(true)
-	applyWindowHeight(HEADER_HEIGHT + math.max(shown, 1) * (rowHeight + 1) + MODE_HEIGHT + PADDING * 2)
+	if window.colFight then
+		window.colFight:SetShown(withColHead and true or false)
+		window.colRun:SetShown(withColHead and true or false)
+	end
+	applyWindowHeight(HEADER_HEIGHT + (withColHead and COLHEAD_HEIGHT or 0)
+		+ math.max(shown, 1) * (rowHeight + 1) + MODE_HEIGHT + PADDING * 2)
 end
 
 -- ========================= Scorecard (primary) =========================
@@ -461,7 +482,7 @@ function MeterWindow:RenderScorecard(fight)
 		end
 		row:SetSize(width, rowHeight)
 		row:ClearAllPoints()
-		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (i - 1) * (rowHeight + 1)))
+		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + COLHEAD_HEIGHT + (i - 1) * (rowHeight + 1)))
 
 		local gcr, gcg, gcb = TP.Scoring.Grades.ColorForScore(r.score)
 
@@ -541,7 +562,7 @@ function MeterWindow:RenderScorecard(fight)
 		end
 		row:SetSize(width, rowHeight)
 		row:ClearAllPoints()
-		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (index - 1) * (rowHeight + 1)))
+		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + COLHEAD_HEIGHT + (index - 1) * (rowHeight + 1)))
 		local sum = 0
 		for _, r in ipairs(results) do
 			sum = sum + r.score
@@ -578,7 +599,8 @@ function MeterWindow:RenderScorecard(fight)
 		row.runGroup = runResults and { fight = runFight, results = runResults } or nil
 	end
 
-	setWindowHeight(totalRows, rowHeight)
+	setWindowHeight(totalRows, rowHeight, true)
+	window.colRun:SetShown(runBy ~= nil) -- no run yet: no misleading label
 	TP.BreakdownPanel:OnFightRendered(fight, results)
 end
 
@@ -757,6 +779,10 @@ local function refreshImpl(self, force)
 		end
 		window.subtitleButton:Hide()
 		setModeStripShown(false)
+		if window.colFight then
+			window.colFight:Hide()
+			window.colRun:Hide()
+		end
 		applyWindowHeight(HEADER_HEIGHT + PADDING, true)
 		return
 	end
