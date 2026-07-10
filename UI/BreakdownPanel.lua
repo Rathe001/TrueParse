@@ -276,9 +276,11 @@ local PENALTY_HELP = {
 	avoidable = "Took more than an equal share of the group's avoidable damage (fire, swirls, void zones). A mechanic everyone eats equally penalizes nobody. Capped at -15.",
 	deaths = "Deaths subtract up to -20. Dying late in a fight costs much less than dying early.",
 	buffs = "Your class's raid buff wasn't on the whole group when the pull started. Capped at -5.",
-	pull = "Started combat before the tank and held the aggro. -5. Tracked on Classic clients; an immediate taunt save forgives it.",
-	aggro = "Took a mob off the tank mid-fight. -2.5 each, capped at -8. Tracked on Classic clients.",
-	aggroLoss = "Time mobs spent beating on a non-tank while a tank was alive: -0.4 per second, capped at -8. Tracked on Classic clients; taunt swaps to another tank never count.",
+	-- threat penalties only exist on captures that HAVE threat data, so no
+	-- "on Classic" disclaimers needed - retail never shows these
+	pull = "Started combat before the tank and held the aggro. -5. An immediate taunt save forgives it.",
+	aggro = "Took a mob off the tank mid-fight. -2.5 each, capped at -8.",
+	aggroLoss = "Time mobs spent beating on a non-tank while a tank was alive: -0.4 per second, capped at -8. Taunt swaps to another tank never count.",
 }
 
 local ROLE_LABELS = {
@@ -361,7 +363,9 @@ function Panel:ShowFor(fight, result)
 			local INFO_HELP = {
 				adds = "Share of this player's damage that went into non-boss targets. Whether that's right depends on the fight - context, not a judgment.",
 				tankFocus = "Share of this healer's output that landed on tanks.",
-				defensives = "Major defensive cooldowns used this fight. On Classic this is read from the combat log for everyone; on retail it's reported by the player's own TrueParse. Informational only - not scored.",
+				defensives = TP.Compat.IS_RETAIL
+					and "Major defensive cooldowns used this fight, reported by the player's own TrueParse. Informational only - not scored."
+					or "Major defensive cooldowns used this fight, read from the combat log. Informational only - not scored.",
 				consumables = "Long-duration buffs (flask, food, rune) detected on this player at pull start, self-reported by their TrueParse. Informational only - not scored.",
 				deathReady = "At the moment they died, this many major defensive cooldowns were available and unused. Self-reported by their TrueParse. Informational only - not scored.",
 			}

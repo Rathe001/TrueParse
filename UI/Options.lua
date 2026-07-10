@@ -25,7 +25,9 @@ local optionsTable = {
 				},
 				autoCollapse = {
 					type = "toggle", order = 2, name = "Auto-collapse in combat",
-					desc = "Fold to the title bar while fighting (retail shows no live data anyway) and re-open when the scorecard lands.",
+					desc = TP.Compat.IS_RETAIL
+						and "Fold to the title bar while fighting (the client shows no live data mid-fight) and re-open when the scorecard lands."
+						or "Fold to the title bar while fighting (hides the live damage bars) and re-open when the scorecard lands.",
 					get = function() return profile().window.autoCollapse end,
 					set = function(_, v) profile().window.autoCollapse = v end,
 				},
