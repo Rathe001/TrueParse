@@ -988,14 +988,15 @@ local mysteryFight = {
 			metrics = { damage = 30000, healing = 0, damageTaken = 900000, interrupts = 0, dispels = 0, deaths = 0 } },
 	},
 }
+-- True mode zooms across encounters (fairness fallback)...
 local mystByName = {}
-for _, r in ipairs(TP.Scoring.Engine.ScoreFight(mysteryFight, { mode = "parse", normalizeIlvl = false })) do
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(mysteryFight, { normalizeIlvl = false })) do
 	mystByName[r.name] = r
 end
 check(mystByName.Deeps.breakdown.damage.curveFrom == "spec \194\183 all bosses"
-	and math.abs(mystByName.Deeps.breakdown.damage.normalized - 50) < 0.001,
-	("unknown boss uses the spec's all-boss pool (%s, %.1f)"):format(
-		tostring(mystByName.Deeps.breakdown.damage.curveFrom), mystByName.Deeps.breakdown.damage.normalized))
+	and math.abs((mystByName.Deeps.breakdown.damage.pctile or 0) - 50) < 0.001,
+	("unknown boss uses the spec's all-boss pool in True (%s, p%.1f)"):format(
+		tostring(mystByName.Deeps.breakdown.damage.curveFrom), mystByName.Deeps.breakdown.damage.pctile or -1))
 check(mystByName.OffMeta.breakdown.healing.curveFrom == "role \194\183 all bosses"
 	and mystByName.OffMeta.breakdown.healing.rolePooled,
 	("spec with no hps curve anywhere pools the role (%s)"):format(tostring(mystByName.OffMeta.breakdown.healing.curveFrom)))
@@ -1003,12 +1004,20 @@ check(mystByName.Wall.breakdown.damage.curveFrom == "all players",
 	("role with no curves at all compares vs everyone (%s)"):format(tostring(mystByName.Wall.breakdown.damage.curveFrom)))
 check(mystByName.Deeps.breakdown.damage.absolute and mystByName.OffMeta.breakdown.healing.absolute
 	and mystByName.Wall.breakdown.damage.absolute,
-	"the ladder never falls back to a group comparison while data is loaded")
+	"True never falls back to a group comparison while data is loaded")
 -- ...but the everyone-pool is PRIMARY-metric only: a healer's damage vs a
 -- mostly-DPS population reads p2 where WCL says 92
 check(mystByName.OffMeta.breakdown.damage.absolute == nil
 	and mystByName.OffMeta.breakdown.damage.curveFrom == nil,
 	"healer damage never compares vs the all-players pool")
+-- ...and Raw never borrows other bosses' populations: a trivial dungeon
+-- healer read F against raid healing demand. No encounter data = no parse.
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(mysteryFight, { mode = "parse", normalizeIlvl = false })) do
+	if r.name == "Deeps" then
+		check(r.breakdown.damage.absolute == nil,
+			"Raw carries no cross-encounter evidence on an unknown boss")
+	end
+end
 
 -- True mode uses the curve through the contribution transform: p50 -> 65,
 -- standing ALONE (no cohort blend: that re-imports spec bias)

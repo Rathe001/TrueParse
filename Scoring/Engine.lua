@@ -326,13 +326,16 @@ end
 
 -- Walk the ladder for one spec+metric. specOnly stops after the spec
 -- steps (the throughput-mix profile must not inherit a role's generic
--- mix). Returns entry, sourceLabel (nil = exact spec+bracket),
--- rolePooledFlag. Never returns a curve with fewer than 2 points.
+-- mix). encounterOnly stops before the cross-encounter pools: a "parse"
+-- must be evidence from THIS fight — a trivial dungeon healer measured
+-- against raid-boss populations read F on a fight with nothing to heal.
+-- Returns entry, sourceLabel (nil = exact spec+bracket), rolePooledFlag.
+-- Never returns a curve with fewer than 2 points.
 local function usable(entry)
 	return entry and entry.curve and #entry.curve > 1
 end
 
-local function findCurve(ctx, kind, specID, role, specOnly)
+local function findCurve(ctx, kind, specID, role, specOnly, encounterOnly)
 	local L = ctx.curves
 	if not L then
 		return nil
@@ -347,6 +350,18 @@ local function findCurve(ctx, kind, specID, role, specOnly)
 				return entry, (i > 1) and ("spec · " .. (BRACKET_LABELS[bk] or bk)) or nil, nil
 			end
 		end
+	end
+	if encounterOnly then
+		-- role pools within the encounter are still real evidence for it
+		if enc then
+			for i, bk in ipairs(order) do
+				local entry = enc[bk] and rolePooledEntry(enc[bk], kind, role)
+				if usable(entry) then
+					return entry, (i > 1) and ("role · " .. (BRACKET_LABELS[bk] or bk)) or "role", true
+				end
+			end
+		end
+		return nil
 	end
 	-- 2. this spec pooled across every boss in the data file
 	if specID then
@@ -484,7 +499,10 @@ local function normalizeMetric(p, role, key, ctx)
 	local absolute, fromCurve
 	if role ~= "SUPPORT" and ctx.duration and ctx.duration > 0 then
 		local kind = (key == "healing") and "hps" or (key == "damage") and "dps"
-		if kind then
+		-- True mode only: the full cross-encounter ladder must not leak
+		-- into Raw's fallback chain (parse curves resolve encounter-local
+		-- in the parse branch below)
+		if kind and not ctx.parseMode then
 			local entry, label, pooled = findCurve(ctx, kind, p.specID, role)
 			if entry then
 				rolePooled = pooled
@@ -552,7 +570,8 @@ local function normalizeMetric(p, role, key, ctx)
 		-- %-of-elite-median, then the group comparison.
 		local kind = (key == "healing") and "hps" or (key == "damage") and "dps"
 		if kind and ctx.duration and ctx.duration > 0 then
-			local entry, label, pooled = findCurve(ctx, kind, p.specID, role)
+			-- encounterOnly: a parse never borrows other bosses' populations
+			local entry, label, pooled = findCurve(ctx, kind, p.specID, role, false, true)
 			if entry then
 				rolePooled = pooled
 				curveFrom = label
