@@ -197,7 +197,7 @@ local function createWindow()
 	window.colFight = colLabel("fight", -(PADDING + 3 + 20 + 4), 30)
 
 	window.modeReal = makeRadio("TrueParse", "contribution",
-		"The full TrueParse score: damage, healing, kicks, dispels, soaking, minus penalties. What careers and run reports use.")
+		"Considers damage, healing, damage taken, interrupts, and much more compared to others of your same spec and role.")
 	window.modeRaw = makeRadio("Raw", "parse",
 		"Straight comparison to top Warcraft Logs parses for your spec on this fight: damage for DPS and tanks, healing for healers.")
 	-- right-aligned in the footer: ... Mode:  (*)True  ( )Raw]
