@@ -398,7 +398,7 @@ function FightHistory:AddFromSegment(seg)
 			healingToTanks = acc.healing and acc.healing.toTanks or 0,
 			absorbs = acc.absorbs and acc.absorbs.granted or 0,
 			damageTaken = acc.taken and acc.taken.total or 0,
-			avoidableTaken = 0,
+			avoidableTaken = acc.taken and acc.taken.avoidable or 0,
 			interrupts = acc.interrupts and acc.interrupts.kicks or 0,
 			dispels = acc.dispels and acc.dispels.count or 0,
 			deaths = acc.deaths and acc.deaths.total or 0,

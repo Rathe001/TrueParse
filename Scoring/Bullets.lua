@@ -48,7 +48,7 @@ local PHRASES = {
 
 local PENALTY_DEFS = {
 	{ key = "deaths", label = "Died" },
-	{ key = "avoidable", label = "Took avoidable damage" },
+	{ key = "avoidable", label = "Stood in bad" },
 	{ key = "pull", label = "Pulled before the tank" },
 	{ key = "aggro", label = "Ripped aggro off the tank" },
 	{ key = "aggroLoss", label = "Lost aggro" },
@@ -225,7 +225,7 @@ function Bullets.ForGroup(results)
 	end
 	if avoidable > 0 then
 		out[#out + 1] = { kind = "penalty", key = "avoidable", symbol = "-", color = BAD,
-			text = avoidable == 1 and "1 player took avoidable damage" or ("%d players took avoidable damage"):format(avoidable) }
+			text = avoidable == 1 and "1 player stood in bad" or ("%d players stood in bad"):format(avoidable) }
 	end
 	if aggroed > 0 then
 		out[#out + 1] = { kind = "penalty", key = "aggro", symbol = "-", color = BAD,

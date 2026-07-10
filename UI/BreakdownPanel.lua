@@ -39,6 +39,7 @@ local function buildMetricTip()
 	-- tall enough that the marker label gets its own band between the
 	-- median line and the gauge (it used to overlap both)
 	metricTip:SetSize(GAUGE_W + 24, 108)
+	metricTip:SetClampedToScreen(true)
 	metricTip:SetFrameStrata("TOOLTIP")
 	metricTip:Hide()
 
@@ -115,7 +116,13 @@ local function showMetricTip(anchor, data)
 		b.normalized or 0, (b.effectiveWeight or 0) * 100))
 
 	metricTip:ClearAllPoints()
-	metricTip:SetPoint("LEFT", anchor, "RIGHT", 8, 0)
+	-- flip to whichever side of the row has room (the panel itself may sit
+	-- left of the meter window near the screen edge)
+	if (anchor:GetRight() or 0) + metricTip:GetWidth() + 12 <= UIParent:GetWidth() then
+		metricTip:SetPoint("LEFT", anchor, "RIGHT", 8, 0)
+	else
+		metricTip:SetPoint("RIGHT", anchor, "LEFT", -8, 0)
+	end
 	metricTip:Show()
 end
 
@@ -161,6 +168,31 @@ local function newRow(parent)
 	row.text:SetJustifyH("LEFT")
 	row.text:SetWordWrap(false)
 	return row
+end
+
+-- Side-aware anchoring: the panel takes the roomier side of the meter
+-- window (clamping used to slide it back OVER the window at the screen
+-- edge), and top-aligns unless that would clip the bottom of the screen.
+local function anchorPanel()
+	local anchor = _G.TrueParseWindow
+	frame:ClearAllPoints()
+	if not anchor then
+		frame:SetPoint("CENTER")
+		return
+	end
+	local screenW = UIParent:GetWidth()
+	local spaceRight = screenW - (anchor:GetRight() or screenW)
+	local spaceLeft = anchor:GetLeft() or 0
+	local needed = frame:GetWidth() + 10
+	local side, opposite, dx = "LEFT", "RIGHT", 6
+	if spaceRight < needed and spaceLeft > spaceRight then
+		side, opposite, dx = "RIGHT", "LEFT", -6
+	end
+	local vert = "TOP"
+	if (anchor:GetTop() or 0) < frame:GetHeight() then
+		vert = "BOTTOM"
+	end
+	frame:SetPoint(vert .. side, anchor, vert .. opposite, dx, 0)
 end
 
 local function createFrame()
@@ -229,7 +261,7 @@ end
 
 
 local PENALTY_HELP = {
-	avoidable = "You took more than an equal share of the group's avoidable damage. Capped at -15.",
+	avoidable = "Took more than an equal share of the group's avoidable damage (fire, swirls, void zones). A mechanic everyone eats equally penalizes nobody. Capped at -15.",
 	deaths = "Deaths subtract up to -20. Dying late in a fight costs much less than dying early.",
 	buffs = "Your class's raid buff wasn't on the whole group when the pull started. Capped at -5.",
 	pull = "Started combat before the tank and held the aggro. -5. Tracked on Classic clients; an immediate taunt save forgives it.",
@@ -335,13 +367,7 @@ function Panel:ShowFor(fight, result)
 
 	frame:SetHeight(-y + ROW_HEIGHT + 34)
 
-	local anchor = _G.TrueParseWindow
-	frame:ClearAllPoints()
-	if anchor then
-		frame:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 6, 0)
-	else
-		frame:SetPoint("CENTER")
-	end
+	anchorPanel()
 	frame.close:SetShown(self.pinned)
 	frame.bigScore:ClearAllPoints()
 	frame.bigScore:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -8)
@@ -450,13 +476,7 @@ function Panel:ShowForGroup(fight, results)
 	frame.total:SetTextColor(0.6, 0.6, 0.6)
 
 	frame:SetHeight(-y + ROW_HEIGHT + 34)
-	local anchor = _G.TrueParseWindow
-	frame:ClearAllPoints()
-	if anchor then
-		frame:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 6, 0)
-	else
-		frame:SetPoint("CENTER")
-	end
+	anchorPanel()
 	frame.close:SetShown(self.pinned)
 	frame.bigScore:ClearAllPoints()
 	frame.bigScore:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -8)

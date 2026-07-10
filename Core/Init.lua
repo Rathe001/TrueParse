@@ -142,6 +142,26 @@ function Addon:HandleSlash(input)
 		TP.Trends:Report()
 	elseif cmd == "buffs" then
 		TP.Readiness:Report()
+	elseif cmd == "baddies" then
+		-- curation aid for Data/Avoidable_*.lua: what hurt people today
+		local list = {}
+		for id, e in pairs(TP.TakenSpells or {}) do
+			list[#list + 1] = { id = id, name = e.name, total = e.total, hits = e.hits }
+		end
+		if #list == 0 then
+			self:Print("No spell damage taken recorded this session.")
+		else
+			table.sort(list, function(a, b)
+				return a.total > b.total
+			end)
+			self:Print("Top damage-taken spells this session (for the avoidable list):")
+			for i = 1, math.min(15, #list) do
+				local e = list[i]
+				self:Print(("  %d. %s (%d) - %s over %d hits%s"):format(
+					i, e.name or "?", e.id, TP.FormatNumber(e.total), e.hits,
+					(TP.AVOIDABLE and TP.AVOIDABLE[e.id]) and " [avoidable]" or ""))
+			end
+		end
 	elseif cmd == "coach" then
 		self.db.profile.coach = not self.db.profile.coach
 		self:Print("Post-fight coach line " .. (self.db.profile.coach and "on." or "off."))

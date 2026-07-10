@@ -207,6 +207,15 @@ local function createWindow()
 	window.modeReal:SetPoint("RIGHT", window.modeRaw, "LEFT",
 		-(window.modeReal.label:GetStringWidth() + 12), 0)
 	window.modeLabel:SetPoint("RIGHT", window.modeReal, "LEFT", -6, 0)
+
+	-- legend for the presence marks, wrapping above the mode strip
+	window.footnote = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	window.footnote:SetPoint("BOTTOMLEFT", PADDING + 2, MODE_HEIGHT + 4)
+	window.footnote:SetPoint("BOTTOMRIGHT", -(PADDING + 2), MODE_HEIGHT + 4)
+	window.footnote:SetJustifyH("LEFT")
+	window.footnote:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:8:8|t TrueParse user"
+		.. "  |TInterface\\RaidFrame\\ReadyCheck-NotReady:8:8|t not detected - data may be inaccurate"
+		.. "  |TInterface\\Icons\\INV_Misc_QuestionMark:8:8:0:0:64:64:8:56:8:56|t unknown")
 	MeterWindow:UpdateModeButtons()
 end
 
@@ -228,6 +237,9 @@ local function setModeStripShown(shown)
 	window.modeReal.label:SetShown(shown)
 	window.modeRaw:SetShown(shown)
 	window.modeRaw.label:SetShown(shown)
+	if not shown and window.footnote then
+		window.footnote:Hide()
+	end
 end
 
 -- Force the next refresh to re-render (e.g. after a scoring option change)
@@ -293,11 +305,9 @@ end
 
 -- Resize while keeping the on-screen edge stable: a window in the top half
 -- of the screen stays pinned at its top and grows downward; in the bottom
--- half it stays pinned at its bottom and grows upward.
--- pinTop forces top-edge pinning: used when COLLAPSING, so the title bar
--- stays exactly where it was clicked. Bottom-pinning a collapse used to
--- drop the bar to the window's old bottom edge — straight under hotbars,
--- where their frames eat the clicks and the window becomes unreachable.
+-- half it stays pinned at its bottom and grows upward — collapse included,
+-- so a bottom-anchored window's title bar drops to its bottom edge instead
+-- of floating mid-screen.
 local function applyWindowHeight(newHeight, pinTop)
 	-- No-op when nothing changes (the 0.5s refresh calls this constantly),
 	-- and never re-anchor mid-drag — SetPoint during StartMoving snaps the
@@ -327,8 +337,16 @@ local function setWindowHeight(shown, rowHeight, withColHead)
 		window.colFight:SetShown(withColHead and true or false)
 		window.colRun:SetShown(withColHead and true or false)
 	end
+	-- presence-mark legend only makes sense on the scorecard
+	local footnote = 0
+	if window.footnote then
+		window.footnote:SetShown(withColHead and true or false)
+		if withColHead then
+			footnote = window.footnote:GetStringHeight() + 4
+		end
+	end
 	applyWindowHeight(HEADER_HEIGHT + (withColHead and COLHEAD_HEIGHT or 0)
-		+ math.max(shown, 1) * (rowHeight + 1) + MODE_HEIGHT + PADDING * 2)
+		+ math.max(shown, 1) * (rowHeight + 1) + footnote + MODE_HEIGHT + PADDING * 2)
 end
 
 -- ========================= Scorecard (primary) =========================
@@ -495,9 +513,18 @@ function MeterWindow:RenderScorecard(fight)
 		row.score:SetAlpha(1)
 		row.penalty:SetAlpha(1)
 		row.icon:SetAlpha(hasAddon and 1 or 0.7)
-		row.addonMark:SetTexture(hasAddon
-			and "Interface\\RaidFrame\\ReadyCheck-Ready"
-			or "Interface\\RaidFrame\\ReadyCheck-NotReady")
+		if hasAddon then
+			row.addonMark:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
+			row.addonMark:SetTexCoord(0, 1, 0, 1)
+		elseif player and player.hasAddon == false then
+			row.addonMark:SetTexture("Interface\\RaidFrame\\ReadyCheck-NotReady")
+			row.addonMark:SetTexCoord(0, 1, 0, 1)
+		else
+			-- presence not settled yet (hellos still in flight, or an old
+			-- capture from before the three-state stamp)
+			row.addonMark:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+			row.addonMark:SetTexCoord(0.12, 0.88, 0.12, 0.88)
+		end
 		row.addonMark:Show()
 
 		-- Details-style: the row IS a solid class-colored bar with a white
@@ -786,7 +813,9 @@ local function refreshImpl(self, force)
 			window.colFight:Hide()
 			window.colRun:Hide()
 		end
-		applyWindowHeight(HEADER_HEIGHT + PADDING, true)
+		-- screen-half pinning (no pinTop): top half keeps the title bar in
+		-- place, bottom half collapses DOWN to the window's bottom edge
+		applyWindowHeight(HEADER_HEIGHT + PADDING)
 		return
 	end
 	window.title:SetText("TrueParse")

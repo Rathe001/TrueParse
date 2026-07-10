@@ -16,6 +16,7 @@ Core\Compat.lua
 Data\Benchmarks_Mists.lua
 Data\Percentiles_Mists.lua
 Data\Potions.lua
+Data\Avoidable_Mists.lua
 Data\GroupBuffs.lua
 Data\Defensives.lua
 Collect\Roster.lua

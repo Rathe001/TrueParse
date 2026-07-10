@@ -83,8 +83,16 @@ end
 -- arrive long after the pull, in bulk). Also stamps addon presence.
 function Sync:AttachReports(fight)
 	for guid, p in pairs(fight.players) do
-		if p.hasAddon == nil then
-			p.hasAddon = (p.isLocalPlayer or self.users[guid] ~= nil) or nil
+		-- Three-state presence: true = detected, false = confidently not
+		-- (our hello went out long enough ago that a reply would have
+		-- arrived), nil = unknown (UI shows "?"). Upgrades to true whenever
+		-- the player finally answers; never downgrades.
+		if p.hasAddon ~= true then
+			if p.isLocalPlayer or self.users[guid] ~= nil then
+				p.hasAddon = true
+			elseif self.helloAt and (time() - self.helloAt) > 10 then
+				p.hasAddon = false
+			end
 		end
 		-- gate the match on consumables: defensives may already be filled
 		-- by CLEU on Classic, but consumables/readiness only come from
@@ -130,6 +138,8 @@ function Sync:SendHello()
 		(me and me.ilvl) or 0,
 		addonVersion())
 	self:SendCommMessage(PREFIX, msg, IsInRaid() and "RAID" or "PARTY")
+	self.helloAt = time() -- presence stamps stay "unknown" until replies had time
+
 end
 
 -- Roster changes fire in bursts (zoning, joins); send one hello per burst
