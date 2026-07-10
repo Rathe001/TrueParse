@@ -87,7 +87,7 @@ local function createWindow()
 		edgeSize = 12,
 		insets = { left = 3, right = 3, top = 3, bottom = 3 },
 	})
-	window:SetBackdropColor(0, 0, 0, 0.85)
+	window:SetBackdropColor(0, 0, 0, 0.95)
 	window:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
 	window:SetSize(db().window.width, 100)
 	window:SetClampedToScreen(true)

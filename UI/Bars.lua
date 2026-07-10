@@ -14,7 +14,7 @@ function Bars:Acquire(parent)
 
 		bar.bg = bar:CreateTexture(nil, "BACKGROUND")
 		bar.bg:SetAllPoints()
-		bar.bg:SetColorTexture(0, 0, 0, 0.35)
+		bar.bg:SetColorTexture(0, 0, 0, 0.55)
 
 		bar.nameText = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 		bar.nameText:SetPoint("LEFT", 4, 0)

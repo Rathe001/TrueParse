@@ -34,9 +34,11 @@ local function buildMetricTip()
 		edgeSize = 12,
 		insets = { left = 3, right = 3, top = 3, bottom = 3 },
 	})
-	metricTip:SetBackdropColor(0, 0, 0, 0.92)
+	metricTip:SetBackdropColor(0, 0, 0, 0.95)
 	metricTip:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
-	metricTip:SetSize(GAUGE_W + 24, 96)
+	-- tall enough that the marker label gets its own band between the
+	-- median line and the gauge (it used to overlap both)
+	metricTip:SetSize(GAUGE_W + 24, 108)
 	metricTip:SetFrameStrata("TOOLTIP")
 	metricTip:Hide()
 
@@ -49,7 +51,7 @@ local function buildMetricTip()
 
 	metricTip.gauge = CreateFrame("Frame", nil, metricTip)
 	metricTip.gauge:SetSize(GAUGE_W, GAUGE_H)
-	metricTip.gauge:SetPoint("TOPLEFT", 12, -58)
+	metricTip.gauge:SetPoint("TOPLEFT", 12, -67)
 	for _, z in ipairs(GAUGE_ZONES) do
 		local t = metricTip.gauge:CreateTexture(nil, "ARTWORK")
 		t:SetPoint("TOPLEFT", z[1] / 100 * GAUGE_W, 0)
@@ -93,7 +95,7 @@ local function showMetricTip(anchor, data)
 	elseif b.lowDemand then
 		metricTip.median:SetText("barely anything to heal - scored neutral")
 	elseif b.relative and not b.absolute then
-		metricTip.median:SetText("vs this group (no WCL data for this fight)")
+		metricTip.median:SetText("no WCL population data - vs group share")
 	else
 		metricTip.median:SetText("")
 	end
@@ -167,7 +169,7 @@ local function createFrame()
 		edgeSize = 12,
 		insets = { left = 3, right = 3, top = 3, bottom = 3 },
 	})
-	frame:SetBackdropColor(0, 0, 0, 0.75)
+	frame:SetBackdropColor(0, 0, 0, 0.95)
 	frame:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
 	frame:SetWidth(WIDTH)
 	frame:SetClampedToScreen(true)

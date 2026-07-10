@@ -40,7 +40,7 @@ function Scorecard:Acquire(parent)
 		-- the score (a 45 bar fills 45% of the row), mouseover brightening
 		row.track = row:CreateTexture(nil, "BACKGROUND", nil, -1)
 		row.track:SetAllPoints()
-		row.track:SetColorTexture(0, 0, 0, 0.35)
+		row.track:SetColorTexture(0, 0, 0, 0.55)
 		row.bg = row:CreateTexture(nil, "BACKGROUND")
 		row.bg:SetPoint("TOPLEFT")
 		row.bg:SetPoint("BOTTOMLEFT")
