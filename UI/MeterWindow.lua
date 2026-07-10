@@ -509,6 +509,10 @@ function MeterWindow:RenderScorecard(fight)
 		row.name:SetAlpha(1)
 		row.score:SetAlpha(1)
 		row.penalty:SetAlpha(1)
+		-- letters read ragged when right-aligned; numbers ragged when left
+		local letterAlign = db().letterGrades and "LEFT" or "RIGHT"
+		row.score:SetJustifyH(letterAlign)
+		row.runAvg:SetJustifyH(letterAlign)
 		row.icon:SetAlpha(hasAddon and 1 or 0.7)
 		if hasAddon then
 			row.addonMark:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
@@ -602,6 +606,9 @@ function MeterWindow:RenderScorecard(fight)
 		row.name:SetAlpha(1)
 		row.score:SetAlpha(1)
 		row.penalty:SetAlpha(1)
+		local letterAlign = db().letterGrades and "LEFT" or "RIGHT"
+		row.score:SetJustifyH(letterAlign)
+		row.runAvg:SetJustifyH(letterAlign)
 		row.name:SetText(label)
 		row.name:SetTextColor(1, 1, 1)
 		row.score:SetText(TP.Scoring.Grades.ScoreLabel(groupScore))

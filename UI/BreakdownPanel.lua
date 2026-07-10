@@ -9,7 +9,7 @@ local _, TP = ...
 local Panel = { pinned = false }
 TP.BreakdownPanel = Panel
 
-local WIDTH = 380
+local WIDTH = 300
 local ROW_HEIGHT = 15
 local FIRST_ROW_Y = -40
 
