@@ -495,6 +495,10 @@ function MeterWindow:RenderScorecard(fight)
 		row.score:SetAlpha(1)
 		row.penalty:SetAlpha(1)
 		row.icon:SetAlpha(hasAddon and 1 or 0.7)
+		row.addonMark:SetTexture(hasAddon
+			and "Interface\\RaidFrame\\ReadyCheck-Ready"
+			or "Interface\\RaidFrame\\ReadyCheck-NotReady")
+		row.addonMark:Show()
 
 		-- Details-style: the row IS a solid class-colored bar with a white
 		-- outlined name. Non-addon players get the color MUTED (washed
@@ -590,6 +594,7 @@ function MeterWindow:RenderScorecard(fight)
 		row.bg:SetColorTexture(0.60, 0.48, 0.10, 0.95)
 		row.bg:SetWidth(math.max(8, width * math.min(math.max(groupScore, 0), 100) / 100))
 		row.icon:Hide()
+		row.addonMark:Hide()
 		row.playerName = label
 		row.fight = fight
 		row.result = nil

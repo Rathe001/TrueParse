@@ -72,11 +72,17 @@ function Scorecard:Acquire(parent)
 		row.penalty:SetPoint("RIGHT", row.score, "LEFT", -3, 0)
 		row.penalty:SetJustifyH("RIGHT")
 
-		-- spec icon (class icon fallback), like Details: flush with the row
-		-- edges, full row height (renderer sets the width to match)
+		-- TrueParse presence: green check (running it) or red X (not),
+		-- leftmost so the whole column reads at a glance
+		row.addonMark = row:CreateTexture(nil, "ARTWORK")
+		row.addonMark:SetSize(9, 9)
+		row.addonMark:SetPoint("LEFT", 2, 0)
+
+		-- spec icon (class icon fallback), like Details: full row height
+		-- (renderer sets the width to match), right of the presence mark
 		row.icon = row:CreateTexture(nil, "ARTWORK")
-		row.icon:SetPoint("TOPLEFT")
-		row.icon:SetPoint("BOTTOMLEFT")
+		row.icon:SetPoint("TOPLEFT", 12, 0)
+		row.icon:SetPoint("BOTTOMLEFT", 12, 0)
 		row.icon:SetWidth(14)
 
 		row.name = outlined("GameFontHighlightSmall")

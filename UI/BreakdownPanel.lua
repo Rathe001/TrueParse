@@ -301,21 +301,9 @@ function Panel:ShowFor(fight, result)
 		end
 	end
 
-	local total = #bullets
-	if player and not (player.hasAddon or player.isLocalPlayer) then
-		total = total + 1
-		local row = getRow(total, y)
-		y = y - ROW_HEIGHT
-		row.symbol:SetText("\194\183")
-		row.symbol:SetTextColor(0.5, 0.5, 0.5)
-		row.text:SetText("Not running TrueParse - no peer-reported data")
-		row.text:SetTextColor(0.5, 0.5, 0.5)
-		row.tooltipData = { title = "Not running TrueParse", lines = {
-			{ "Defensives used, consumables at the pull, and death readiness are reported by each player's own TrueParse over a hidden addon channel. This player isn't running it, so those lines are missing. The grade itself is unaffected.", 0.8, 0.8, 0.8, true },
-		} }
-		row.metricData = nil
-	end
-	hideRowsFrom(total + 1)
+	-- (players without TrueParse are flagged by the red X on their
+	-- scorecard row, not an extra bullet here)
+	hideRowsFrom(#bullets + 1)
 
 	local gr, gg, gb = TP.Scoring.Grades.ColorForScore(result.score)
 	-- parse-shaped results carry no utility metrics; a raw-SETTING fight
