@@ -1,3 +1,5 @@
+<img src="Logo.png" alt="TrueParse" width="160" align="right" />
+
 # TrueParse
 
 *A parse that shows you actually did your job.*

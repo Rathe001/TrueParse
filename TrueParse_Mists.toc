@@ -6,6 +6,7 @@
 ## SavedVariables: TrueParseDB
 ## X-Category: Combat
 ## X-Website: https://github.com/rathe001/TrueParse
+## IconTexture: Interface\AddOns\TrueParse\Logo.png
 
 embeds.xml
 
