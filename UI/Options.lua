@@ -29,6 +29,15 @@ local optionsTable = {
 					get = function() return profile().window.autoCollapse end,
 					set = function(_, v) profile().window.autoCollapse = v end,
 				},
+				letterGrades = {
+					type = "toggle", order = 5, name = "Letter grades",
+					desc = "Show scores as letter tiers (F, D- up to S+) instead of 0-100 numbers. Colors stay the same either way.",
+					get = function() return profile().letterGrades end,
+					set = function(_, v)
+						profile().letterGrades = v
+						TP.MeterWindow:Invalidate()
+					end,
+				},
 				toasts = {
 					type = "toggle", order = 4, name = "Award toasts",
 					desc = "Flash a gold star and a fanfare on your screen when you earn an award.",

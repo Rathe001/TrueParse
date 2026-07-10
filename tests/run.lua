@@ -60,6 +60,15 @@ do
 	check(select(1, G.ColorForScore(100)) == 0.90, "100 is WCL gold")
 	check(select(1, G.ColorForScore(97)) == 1.00, "97 stays orange")
 	check(G.ColoredScore(87.4):find("87", 1, true) ~= nil, "ColoredScore embeds the rounded number")
+	-- optional letter ladder: F below 25, five-point steps to S+
+	check(G.LetterFor(0) == "F" and G.LetterFor(24.9) == "F", "below 25 is an F")
+	check(G.LetterFor(25) == "D-", "25 is a D-")
+	check(G.LetterFor(50) == "C+", "50 is a C+")
+	check(G.LetterFor(65) == "B+", "65 is a B+")
+	check(G.LetterFor(70) == "A-" and G.LetterFor(75) == "A", "70 is an A-, 75 an A")
+	check(G.LetterFor(90) == "S", "90 is an S")
+	check(G.LetterFor(95) == "S+" and G.LetterFor(100) == "S+", "95+ caps at S+")
+	check(G.ScoreLabel(87.4) == "87", "ScoreLabel defaults to numbers without an options DB")
 end
 
 -- 2. Capability gating

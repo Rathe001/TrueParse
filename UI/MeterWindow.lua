@@ -559,7 +559,7 @@ function MeterWindow:RenderScorecard(fight)
 				end
 			end
 		end
-		row.score:SetText((approx and "~" or "") .. ("%.0f"):format(r.score))
+		row.score:SetText((approx and "~" or "") .. TP.Scoring.Grades.ScoreLabel(r.score))
 		row.score:SetTextColor(gcr, gcg, gcb)
 		row.penalty:SetText(r.penalty > 0 and ("|cffff4444-%.0f|r"):format(r.penalty) or "")
 
@@ -567,7 +567,7 @@ function MeterWindow:RenderScorecard(fight)
 		-- both modes: the distinct dimmed column carries the distinction)
 		local runR = runBy and runBy[r.guid]
 		if runR then
-			row.runAvg:SetText(("%.0f"):format(runR.score))
+			row.runAvg:SetText(TP.Scoring.Grades.ScoreLabel(runR.score))
 			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runR.score))
 			row.runAvg:SetWidth(20)
 		else
@@ -607,11 +607,11 @@ function MeterWindow:RenderScorecard(fight)
 		row.penalty:SetAlpha(1)
 		row.name:SetText(label)
 		row.name:SetTextColor(1, 1, 1)
-		row.score:SetText(("%.0f"):format(groupScore))
+		row.score:SetText(TP.Scoring.Grades.ScoreLabel(groupScore))
 		row.score:SetTextColor(sr, sg, sb)
 		row.penalty:SetText("")
 		if runScore then
-			row.runAvg:SetText(("%.0f"):format(runScore))
+			row.runAvg:SetText(TP.Scoring.Grades.ScoreLabel(runScore))
 			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runScore))
 			row.runAvg:SetWidth(20)
 		else
@@ -763,6 +763,7 @@ local collapsedCache = {}
 local function collapsedSummary(fight)
 	local opts = TP.GetDisplayScoringOptions()
 	local key = tostring(opts.mode) .. ":" .. tostring(opts.normalizeIlvl)
+		.. ":" .. tostring(db().letterGrades) -- letters toggle re-renders the title too
 	if collapsedCache.fight ~= fight or collapsedCache.key ~= key then
 		collapsedCache.fight, collapsedCache.key = fight, key
 		local results = scoreForDisplay(fight)

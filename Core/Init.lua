@@ -15,6 +15,7 @@ local defaults = {
 		},
 		coach = true,
 		toasts = true, -- on-screen flash when you earn an award
+		letterGrades = false, -- show D-/C/B+/S letter tiers instead of numbers
 		announce = false, -- opt-in: one MVP line to group chat on run completion
 		announceSummary = false, -- opt-in: one group strengths/weaknesses line
 		minimap = { hide = false },
@@ -43,6 +44,9 @@ function Addon:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("TrueParseDB", defaults, true)
 	self:RegisterChatCommand("trueparse", "HandleSlash")
 	self:RegisterChatCommand("tp", "HandleSlash")
+	-- /tp baddies curation data survives reloads (account-wide, resettable)
+	self.db.global.takenSpells = self.db.global.takenSpells or {}
+	TP.TakenSpells = self.db.global.takenSpells
 end
 
 -- Benchmarks are point-in-time WCL statistics; class tuning drifts every
@@ -144,6 +148,13 @@ function Addon:HandleSlash(input)
 		TP.Readiness:Report()
 	elseif cmd == "baddies" then
 		-- curation aid for Data/Avoidable_*.lua: what hurt people today
+		if rest == "reset" then
+			for k in pairs(TP.TakenSpells or {}) do
+				TP.TakenSpells[k] = nil
+			end
+			self:Print("Damage-taken spell tally reset.")
+			return
+		end
 		local list = {}
 		for id, e in pairs(TP.TakenSpells or {}) do
 			list[#list + 1] = { id = id, name = e.name, total = e.total, hits = e.hits }
@@ -178,6 +189,10 @@ function Addon:HandleSlash(input)
 			self:Print("Score mode: TRUE — the full TrueParse score (damage, healing, kicks, dispels, soaking, penalties).")
 		end
 		TP.MeterWindow:UpdateModeButtons()
+		TP.MeterWindow:Invalidate()
+	elseif cmd == "letters" then
+		self.db.profile.letterGrades = not self.db.profile.letterGrades
+		self:Print("Letter grades " .. (self.db.profile.letterGrades and "on (F to S+)." or "off (numbers)."))
 		TP.MeterWindow:Invalidate()
 	elseif cmd == "ilvl" then
 		self.db.profile.scoring.normalizeIlvl = not self.db.profile.scoring.normalizeIlvl
