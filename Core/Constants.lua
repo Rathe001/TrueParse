@@ -27,6 +27,24 @@ TP.METRIC_LABELS = {
 	buffUptime = "Buff Uptime",
 }
 
+-- Global specID -> role, for pooling percentile curves by role when a spec
+-- lacks its own curve. Static across seasons.
+TP.SPEC_ROLES = {
+	[62] = "DAMAGER", [63] = "DAMAGER", [64] = "DAMAGER", -- mage
+	[65] = "HEALER", [66] = "TANK", [70] = "DAMAGER", -- paladin
+	[71] = "DAMAGER", [72] = "DAMAGER", [73] = "TANK", -- warrior
+	[102] = "DAMAGER", [103] = "DAMAGER", [104] = "TANK", [105] = "HEALER", -- druid
+	[250] = "TANK", [251] = "DAMAGER", [252] = "DAMAGER", -- dk
+	[253] = "DAMAGER", [254] = "DAMAGER", [255] = "DAMAGER", -- hunter
+	[256] = "HEALER", [257] = "HEALER", [258] = "DAMAGER", -- priest
+	[259] = "DAMAGER", [260] = "DAMAGER", [261] = "DAMAGER", -- rogue
+	[262] = "DAMAGER", [263] = "DAMAGER", [264] = "HEALER", -- shaman
+	[265] = "DAMAGER", [266] = "DAMAGER", [267] = "DAMAGER", -- warlock
+	[268] = "TANK", [269] = "DAMAGER", [270] = "HEALER", -- monk
+	[577] = "DAMAGER", [581] = "TANK", -- dh
+	[1467] = "DAMAGER", [1468] = "HEALER", [1473] = "SUPPORT", -- evoker
+}
+
 -- The C_DamageMeter attributes captured per fight (Midnight+ clients).
 -- `enum` names a key in Enum.DamageMeterType, resolved at runtime so a
 -- missing attribute on some client just drops that metric.

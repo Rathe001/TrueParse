@@ -139,6 +139,56 @@ local function resolvePercentiles(fight)
 	return (key and enc[key]) or enc.all
 end
 
+-- Role-pooled fallback curves: when a spec has no curve for a metric,
+-- score against the aggregated population of its ROLE in the same bracket
+-- (sample-size-weighted average of the spec curves). Still real bracket
+-- population data — the group-relative comparison becomes the LAST resort,
+-- not the second (best-in-group=100 distorted scores badly).
+local QUANTS = { 99, 95, 90, 75, 50, 25, 10 }
+local poolCache = {} -- [bracketTable] = { dps = { [role] = entry|false }, hps = ... }
+
+local function rolePooledEntry(bracket, kind, role)
+	local roles = TP.SPEC_ROLES
+	if not roles or not bracket then
+		return nil
+	end
+	local cache = poolCache[bracket]
+	if not cache then
+		cache = { dps = {}, hps = {} }
+		poolCache[bracket] = cache
+	end
+	local hit = cache[kind][role]
+	if hit ~= nil then
+		return hit or nil
+	end
+	local tbl = bracket[kind]
+	local sums, total = {}, 0
+	if tbl then
+		for specID, entry in pairs(tbl) do
+			if roles[specID] == role and entry.curve then
+				local n = entry.n or 0
+				total = total + n
+				for _, pt in ipairs(entry.curve) do
+					sums[pt[1]] = (sums[pt[1]] or 0) + pt[2] * n
+				end
+			end
+		end
+	end
+	if total < 100 then
+		cache[kind][role] = false
+		return nil
+	end
+	local curve = {}
+	for _, pct in ipairs(QUANTS) do
+		if sums[pct] then
+			curve[#curve + 1] = { pct, sums[pct] / total }
+		end
+	end
+	local pooled = { n = total, curve = curve }
+	cache[kind][role] = pooled
+	return pooled
+end
+
 local function curveP50(curve)
 	if not curve then
 		return nil
@@ -183,7 +233,7 @@ end
 -- Returns normalizedScore (0-100), applicable, absolute, relative,
 -- specMedian (the p50 rate for this spec+fight+bracket, when curve-scored)
 local function normalizeMetric(p, role, key, ctx)
-	local specMedian, pctile
+	local specMedian, pctile, rolePooled
 	local W = TP.Scoring.Weights
 	local value = metricValue(p, key)
 
@@ -236,8 +286,24 @@ local function normalizeMetric(p, role, key, ctx)
 		return math.min(100, 100 * uptime / (W.supportUptimeAnchor or 1)), true
 	end
 
-	if key == "damageTaken" and role ~= "TANK" then
-		return 0, false
+	-- Damage soaked: no external population exists (WCL doesn't rank damage
+	-- taken), so it's your share of the group's damage taken against the
+	-- expected tank share SPLIT BY TANK COUNT. Co-tanks splitting duty both
+	-- score well; the old cohort comparison handed the bigger soaker a
+	-- structural 100 every fight.
+	if key == "damageTaken" then
+		if role ~= "TANK" then
+			return 0, false
+		end
+		local groupTotal = ctx.totals.damageTaken
+		if not groupTotal or groupTotal <= 0 then
+			return 0, false
+		end
+		local tankCount = math.max(1, #(ctx.cohorts.TANK or {}))
+		local expected = ((TP.Scoring.Weights.expectedShare.TANK.damageTaken) or 0.58) / tankCount
+		local share = (p.metrics.damageTaken or 0) / groupTotal
+		local score = math.min(TP.Scoring.Weights.soloCohortCap or 100, 100 * share / expected)
+		return score, true, nil, score
 	end
 
 	-- Throughput family. Two views, blended when both exist:
@@ -250,9 +316,13 @@ local function normalizeMetric(p, role, key, ctx)
 	local absolute, fromCurve
 	if role ~= "SUPPORT" and ctx.duration and ctx.duration > 0 then
 		if ctx.percentiles then
-			local kindTbl = (key == "healing") and ctx.percentiles.hps
-				or (key == "damage") and ctx.percentiles.dps
+			local kind = (key == "healing") and "hps" or (key == "damage") and "dps"
+			local kindTbl = kind and ctx.percentiles[kind]
 			local entry = kindTbl and p.specID and kindTbl[p.specID]
+			if not entry and kind then
+				entry = rolePooledEntry(ctx.percentiles, kind, role)
+				rolePooled = entry and true or nil
+			end
 			if entry and entry.curve and #entry.curve > 1 then
 				local pct = percentileFor(entry.curve, metricValue(p, key) / ctx.duration)
 				absolute = math.min(100, (W.trueAbsFloor or 0) + (W.trueAbsSlope or 1) * pct)
@@ -288,7 +358,7 @@ local function normalizeMetric(p, role, key, ctx)
 	-- vs other tanks, Disc/Mistweaver damage vs other healers). Curves for
 	-- EVERY spec x metric make cross-metric contributions spec-fair.
 	if absolute and fromCurve and not ctx.parseMode then
-		return absolute, true, absolute, nil, specMedian, pctile
+		return absolute, true, absolute, nil, specMedian, pctile, rolePooled
 	end
 
 	local relative, applicable
@@ -322,7 +392,12 @@ local function normalizeMetric(p, role, key, ctx)
 		if ctx.percentiles and ctx.duration and ctx.duration > 0 then
 			local kindTbl = (key == "healing") and ctx.percentiles.hps
 				or (key == "damage") and ctx.percentiles.dps
+			local kind = (key == "healing") and "hps" or (key == "damage") and "dps"
 			local entry = kindTbl and p.specID and kindTbl[p.specID]
+			if not entry and kind then
+				entry = rolePooledEntry(ctx.percentiles, kind, role)
+				rolePooled = entry and true or nil
+			end
 			if entry and entry.curve and #entry.curve > 1 then
 				local pct = percentileFor(entry.curve, metricValue(p, key) / ctx.duration)
 				for _, point in ipairs(entry.curve) do
@@ -330,7 +405,7 @@ local function normalizeMetric(p, role, key, ctx)
 						specMedian = point[2]
 					end
 				end
-				return pct, true, pct, nil, specMedian, pct
+				return pct, true, pct, nil, specMedian, pct, rolePooled
 			end
 		end
 		-- WCL semantics: 100 doesn't exist. And a relative-only fallback
@@ -486,7 +561,7 @@ function Engine.ScoreFight(fight, opts)
 		local breakdown = {}
 		local activeWeight = 0
 		for key, weight in pairs(weights) do
-			local normalized, applicable, absolute, relative, specMedian, pctile = normalizeMetric(p, role, key, ctx)
+			local normalized, applicable, absolute, relative, specMedian, pctile, rolePooled = normalizeMetric(p, role, key, ctx)
 			-- Trivial-demand floor: only for share-based healer healing (a
 			-- WCL absolute already prices the fight's real demand), and only
 			-- outside parse mode (a raw parse SHOULD read low on a fight
@@ -507,6 +582,7 @@ function Engine.ScoreFight(fight, opts)
 				lowDemand = lowDemand, -- floored: nothing to heal this fight
 				specMedian = specMedian, -- p50 rate for this spec+fight+bracket
 				pctile = pctile, -- raw population percentile (tooltip gauge)
+				rolePooled = rolePooled, -- scored vs the ROLE's pooled curve
 				value = metricValue(p, key),
 			}
 			if applicable then

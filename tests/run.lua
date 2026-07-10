@@ -989,6 +989,41 @@ end
 check(not stillVirt, "p66 off-category is not Virtuoso")
 TP.Percentiles = nil
 
+-- 21. Role-pooled fallback + co-tank soak split
+TP.Percentiles = { encounters = { ["Pool Boss"] = { ["3x10"] = {
+	dps = {},
+	hps = { -- two tank specs with curves; 104 (guardian) has none
+		[250] = { n = 300, curve = { { 99, 900 }, { 95, 800 }, { 90, 700 }, { 75, 600 }, { 50, 500 }, { 25, 400 }, { 10, 300 } } },
+		[73] = { n = 100, curve = { { 99, 500 }, { 95, 440 }, { 90, 380 }, { 75, 320 }, { 50, 260 }, { 25, 200 }, { 10, 140 } } },
+	},
+} } } }
+local poolFight = {
+	name = "(!) Pool Boss", isBoss = true, duration = 100, difficultyID = 3,
+	players = {
+		t1 = { guid = "t1", name = "Bear", class = "DRUID", role = "TANK", specID = 104,
+			metrics = { damage = 100, healing = 44000, damageTaken = 5000, interrupts = 0, dispels = 0, deaths = 0 } },
+		t2 = { guid = "t2", name = "Blood", class = "DEATHKNIGHT", role = "TANK", specID = 250,
+			metrics = { damage = 100, healing = 50000, damageTaken = 5000, interrupts = 0, dispels = 0, deaths = 0 } },
+	},
+}
+local pool = TP.Scoring.Engine.ScoreFight(poolFight, { normalizeIlvl = false })
+local bear, blood
+for _, r in ipairs(pool) do
+	if r.name == "Bear" then bear = r end
+	if r.name == "Blood" then blood = r end
+end
+-- Bear (no guardian hps curve) scores vs the pooled TANK curve:
+-- pooled p50 = (500*300 + 260*100)/400 = 440; 440/s rate = exactly p50 -> 65
+check(bear.breakdown.healing.rolePooled == true, "spec without a curve pools to its role")
+check(math.abs(bear.breakdown.healing.absolute - 65) < 1.5,
+	("pooled tank healing at pooled p50 ~65 (%.1f)"):format(bear.breakdown.healing.absolute))
+-- co-tank soak: both split evenly -> both score the same capped-high value,
+-- nobody gets a structural 100
+check(math.abs(bear.breakdown.damageTaken.normalized - blood.breakdown.damageTaken.normalized) < 0.001,
+	"even co-tank soak scores equally")
+check(bear.breakdown.damageTaken.normalized < 100, "no structural 100 for the bigger soaker")
+TP.Percentiles = nil
+
 -- self-sustain phrasing: mostly-self healing reads as sustain, not off-heals
 local sustainResult = { role = "DAMAGER", penaltyDetail = {}, breakdown = {
 	healing = { applicable = true, normalized = 80, effectiveWeight = 0.1, value = 500 },

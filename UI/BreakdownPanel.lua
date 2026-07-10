@@ -88,7 +88,8 @@ local function showMetricTip(anchor, data)
 	metricTip.value:SetText(valueText)
 
 	if b.specMedian and duration and duration > 0 then
-		metricTip.median:SetText(("spec median here: %s per second"):format(TP.FormatNumber(b.specMedian)))
+		metricTip.median:SetText(("%s median here: %s per second"):format(
+			b.rolePooled and "role" or "spec", TP.FormatNumber(b.specMedian)))
 	elseif b.lowDemand then
 		metricTip.median:SetText("barely anything to heal - scored neutral")
 	elseif b.relative and not b.absolute then
