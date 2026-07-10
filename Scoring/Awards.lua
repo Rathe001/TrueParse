@@ -96,11 +96,12 @@ function Awards.Compute(fight)
 		grant(survivor, "survivalist")
 	end
 
-	-- Non-healer covering a meaningful slice of group healing
+	-- Non-healer covering a meaningful slice of group healing (effective
+	-- role: the assigned one calls a solo Mistweaver a DAMAGER)
 	local totalHeal = (fight.totals.healing or 0) + (fight.totals.absorbs or 0)
 	if totalHeal > 0 then
 		for guid, p in pairs(fight.players) do
-			if p.role ~= "HEALER" then
+			if TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID) ~= "HEALER" then
 				local heal = (p.metrics.healing or 0) + (p.metrics.absorbs or 0)
 				if heal / totalHeal >= 0.15 then
 					grant(guid, "lifesaver")
@@ -118,7 +119,7 @@ function Awards.Compute(fight)
 	-- Healer awards: shared by every healer on the card (usually one)
 	local function grantHealers(key)
 		for guid, p in pairs(fight.players) do
-			if p.role == "HEALER" then
+			if TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID) == "HEALER" then
 				grant(guid, key)
 			end
 		end
@@ -160,7 +161,7 @@ function Awards.Compute(fight)
 	local pcts = Engine.ResolvePercentiles and Engine.ResolvePercentiles(fight)
 	if pcts and (fight.duration or 0) > 0 then
 		for guid, p in pairs(fight.players) do
-			local role = TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID)
+			local role = TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID)
 			local offTbl, rate
 			if role == "HEALER" then
 				offTbl = pcts.dps

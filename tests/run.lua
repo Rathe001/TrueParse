@@ -71,6 +71,17 @@ do
 	check(G.ScoreLabel(87.4) == "87", "ScoreLabel defaults to numbers without an options DB")
 end
 
+-- 1b. Effective role: the spec outranks the assigned group role (solo and
+-- open-world content assign none, defaulting everyone to DAMAGER — which
+-- graded a Mistweaver as DPS and gave them the non-healer Lifesaver)
+do
+	local Cap = TP.Scoring.Capabilities
+	check(Cap.EffectiveRole("DAMAGER", nil, 270) == "HEALER", "Mistweaver specID overrides DAMAGER fallback")
+	check(Cap.EffectiveRole(nil, nil, 66) == "TANK", "Prot paladin specID supplies role with none assigned")
+	check(Cap.EffectiveRole("HEALER", nil, nil) == "HEALER", "assigned role stands without a specID")
+	check(Cap.EffectiveRole("DAMAGER", 5198700, 1467) == "SUPPORT", "Aug icon still wins over everything")
+end
+
 -- 2. Capability gating
 local Cap = TP.Scoring.Capabilities
 check(not Cap.CanInterrupt("PRIEST", "HEALER"), "priest healer cannot interrupt")
@@ -217,8 +228,12 @@ local specFight = {
 		c = mkPlayer("c", "Heal", "SHAMAN", "HEALER", { healing = 500000 }),
 	},
 }
-specFight.players.a.specID = 581
-specFight.players.b.specID = 64
+-- synthetic spec factors: real tank-spec IDs would get reroled TANK by
+-- spec-first EffectiveRole; the point here is factor math inside a cohort
+specFight.players.a.specID = 99991
+specFight.players.b.specID = 99992
+TP.Benchmarks.damageFactor[99991] = 0.5
+TP.Benchmarks.damageFactor[99992] = 1.1
 local specResults = TP.Scoring.Engine.ScoreFight(specFight, { normalizeIlvl = false })
 local specByName = {}
 for _, r in ipairs(specResults) do

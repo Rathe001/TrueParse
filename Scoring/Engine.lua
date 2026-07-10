@@ -31,7 +31,7 @@ local function metricValue(p, key)
 end
 
 local function normalizeRole(p)
-	return TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID)
+	return TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID)
 end
 
 -- Difficulties whose runs actually populate the WCL dungeon rankings

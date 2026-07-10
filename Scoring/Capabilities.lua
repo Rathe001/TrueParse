@@ -67,9 +67,17 @@ local SUPPORT_SPEC_ICONS = {
 	[5198700] = true, -- Evoker: Augmentation
 }
 
-function Capabilities.EffectiveRole(role, specIconID)
+function Capabilities.EffectiveRole(role, specIconID, specID)
 	if specIconID and SUPPORT_SPEC_ICONS[specIconID] then
 		return "SUPPORT"
+	end
+	-- The SPEC outranks the assigned group role: solo and open-world
+	-- content assign no role (everyone falls back to DAMAGER), which
+	-- graded a Mistweaver as DPS and handed them the non-healer
+	-- Lifesaver award for doing their actual job.
+	local specRole = specID and TP.SPEC_ROLES and TP.SPEC_ROLES[specID]
+	if specRole then
+		return specRole
 	end
 	if role == "TANK" or role == "HEALER" then
 		return role
