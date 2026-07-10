@@ -67,7 +67,18 @@ Weights.absoluteBlend = 0.6
 -- WCL rankings pages are ELITE parses; their median sits near the top of
 -- the population. Anchoring 100 points at this fraction of that median
 -- keeps S-tier meaning "near-elite" without grading a competent pug C.
+-- FALLBACK ONLY where percentile curves exist (see below): stacked with the
+-- ilvl extrapolation this bar collapsed ~30 ilvls below elite gear, capping
+-- p9 parses at 100 (Malkorok forensics, 2026-07-09).
 Weights.absoluteAnchor = 0.75
+
+-- When a bracket percentile curve covers the fight+spec, True's WCL
+-- component is floor + slope * percentile: the population average (p50)
+-- lands at 65 — the same target mean as every other True bar — and elite
+-- approaches 100. Percentile-within-your-own-bracket also prices gear far
+-- better than exponential ilvl extrapolation from elite parses.
+Weights.trueAbsFloor = 30
+Weights.trueAbsSlope = 0.7
 
 Weights.penalties = {
 	-- Avoidable damage: penalize taking MORE than your equal share of the

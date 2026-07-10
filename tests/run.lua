@@ -928,6 +928,17 @@ for _, r in ipairs(pctResults) do
 		check(r.breakdown.damage.applicable, "missing bracket falls back to non-percentile scoring")
 	end
 end
+
+-- True mode uses the curve through the contribution transform: p50 -> 65
+pctFight.difficultyID = 3
+pctFight.players.d.metrics.damage = 50000 -- 500/s = the p50 sample
+local trueCurve = TP.Scoring.Engine.ScoreFight(pctFight, { normalizeIlvl = false })
+for _, r in ipairs(trueCurve) do
+	if r.name == "Deeps" then
+		check(math.abs(r.breakdown.damage.absolute - 65) < 0.001,
+			("True absolute from curve: p50 -> 65 (%.1f)"):format(r.breakdown.damage.absolute))
+	end
+end
 TP.Percentiles = nil
 check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 players") ~= nil, "group tooltip carries the numbers")
 

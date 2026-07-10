@@ -227,23 +227,35 @@ local function normalizeMetric(p, role, key, ctx)
 	end
 
 	-- Throughput family. Two views, blended when both exist:
-	--  * ABSOLUTE: your per-second output as a fraction of the WCL top-logs
-	--    median for your spec on this fight (ilvl-scaled) — consistent
-	--    across groups.
+	--  * ABSOLUTE: preferred source is the bracket percentile curve mapped
+	--    through the contribution transform (p50 -> 65, elite -> ~100);
+	--    fallback is the elite-median anchor (whose ilvl extrapolation
+	--    collapses far below elite gear — see Weights).
 	--  * RELATIVE: cohort comparison (spec/ilvl-adjusted), expected-share
 	--    fallback for solo-role slots — differentiates the room.
 	local absolute
-	if role ~= "SUPPORT" and ctx.fightFactors and ctx.duration and ctx.duration > 0 then
-		local medians = (key == "healing") and ctx.fightFactors.healingMedian
-			or (key == "damage") and ctx.fightFactors.damageMedian
-		local bench = medians and p.specID and medians[p.specID]
-		if bench and bench > 0 then
-			local B = TP.Benchmarks
-			if ctx.normalizeIlvl and B.ilvlSlopePct and p.ilvl and ctx.fightFactors.ilvlMedian then
-				bench = bench * (1 + B.ilvlSlopePct / 100) ^ (p.ilvl - ctx.fightFactors.ilvlMedian)
+	if role ~= "SUPPORT" and ctx.duration and ctx.duration > 0 then
+		if ctx.percentiles then
+			local kindTbl = (key == "healing") and ctx.percentiles.hps
+				or (key == "damage") and ctx.percentiles.dps
+			local entry = kindTbl and p.specID and kindTbl[p.specID]
+			if entry and entry.curve and #entry.curve > 1 then
+				local pct = percentileFor(entry.curve, metricValue(p, key) / ctx.duration)
+				absolute = math.min(100, (W.trueAbsFloor or 0) + (W.trueAbsSlope or 1) * pct)
 			end
-			bench = bench * (W.absoluteAnchor or 1)
-			absolute = math.min(100, 100 * (metricValue(p, key) / ctx.duration) / bench)
+		end
+		if not absolute and ctx.fightFactors then
+			local medians = (key == "healing") and ctx.fightFactors.healingMedian
+				or (key == "damage") and ctx.fightFactors.damageMedian
+			local bench = medians and p.specID and medians[p.specID]
+			if bench and bench > 0 then
+				local B = TP.Benchmarks
+				if ctx.normalizeIlvl and B.ilvlSlopePct and p.ilvl and ctx.fightFactors.ilvlMedian then
+					bench = bench * (1 + B.ilvlSlopePct / 100) ^ (p.ilvl - ctx.fightFactors.ilvlMedian)
+				end
+				bench = bench * (W.absoluteAnchor or 1)
+				absolute = math.min(100, 100 * (metricValue(p, key) / ctx.duration) / bench)
+			end
 		end
 	end
 
@@ -340,7 +352,7 @@ function Engine.ScoreFight(fight, opts)
 		kickCapable = 0,
 		normalizeIlvl = opts.normalizeIlvl ~= false,
 		parseMode = (opts.mode == "parse"),
-		percentiles = (opts.mode == "parse") and resolvePercentiles(fight) or nil,
+		percentiles = resolvePercentiles(fight), -- raw pct in parse; transformed in True
 		fightFactors = resolveFightFactors(fight),
 		duration = fight.duration,
 		totals = { damage = 0, healing = 0, damageTaken = 0, interrupts = 0, dispels = 0, avoidable = 0 },
