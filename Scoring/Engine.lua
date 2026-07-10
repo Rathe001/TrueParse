@@ -139,6 +139,18 @@ local function resolvePercentiles(fight)
 	return (key and enc[key]) or enc.all
 end
 
+local function curveP50(curve)
+	if not curve then
+		return nil
+	end
+	for _, point in ipairs(curve) do
+		if point[1] == 50 then
+			return point[2]
+		end
+	end
+	return nil
+end
+
 -- curve: { {99, value}, {95, value}, ... } descending. Linear interpolation
 -- between sampled points; above p99 pins at 99, below the lowest sample
 -- fades linearly to 0 at zero output.
@@ -438,6 +450,32 @@ function Engine.ScoreFight(fight, opts)
 	for _, p in ipairs(players) do
 		local role = normalizeRole(p)
 		local weights = ctx.parseMode and PARSE_WEIGHTS[role] or W.roleWeights[role]
+
+		-- Per-spec throughput profile ("the TrueParse profile"): the role's
+		-- damage+healing weight BUDGET is split by this spec's population
+		-- median mix on this exact fight+bracket. A spec whose median player
+		-- heals 5% of their throughput carries ~5% of the budget as healing
+		-- weight; a Blood DK's fat self-healing median earns a real healing
+		-- slice; Disc damage earns damage weight other healers don't get.
+		-- Data-derived, per-fight, refreshed weekly — no hand-tuned table.
+		if not ctx.parseMode and ctx.percentiles and p.specID and role ~= "SUPPORT" then
+			local dEntry = ctx.percentiles.dps and ctx.percentiles.dps[p.specID]
+			local hEntry = ctx.percentiles.hps and ctx.percentiles.hps[p.specID]
+			local d50 = dEntry and curveP50(dEntry.curve)
+			local h50 = hEntry and curveP50(hEntry.curve)
+			local budget = (weights.damage or 0) + (weights.healing or 0)
+			if (d50 or h50) and budget > 0 then
+				local mix = (h50 or 0) / math.max(1, (d50 or 0) + (h50 or 0))
+				mix = math.min(0.95, mix)
+				local specWeights = {}
+				for k, v in pairs(weights) do
+					specWeights[k] = v
+				end
+				specWeights.damage = budget * (1 - mix)
+				specWeights.healing = budget * mix
+				weights = specWeights
+			end
+		end
 
 		local breakdown = {}
 		local activeWeight = 0

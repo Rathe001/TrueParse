@@ -943,6 +943,23 @@ for _, r in ipairs(trueCurve) do
 		check(r.breakdown.damage.relative == nil, "no cohort component when a curve covers the metric")
 	end
 end
+
+-- Spec throughput profile: the damage+healing budget splits by the spec's
+-- population median mix (the "median boomkin heals 5%" rule, literally)
+TP.Percentiles.encounters["Percentile Boss"]["3x10"].hps[63] =
+	{ n = 1000, curve = { { 99, 60 }, { 95, 55 }, { 90, 50 }, { 75, 40 }, { 50, 25 }, { 25, 15 }, { 10, 10 } } }
+-- mage 63: dps p50 = 500, hps p50 = 25 -> mix = 25/525 ~ 4.76% of the
+-- DAMAGER budget (.60 + .10 = .70): healing ~ .0333, damage ~ .6667
+local profiled = TP.Scoring.Engine.ScoreFight(pctFight, { normalizeIlvl = false })
+for _, r in ipairs(profiled) do
+	if r.name == "Deeps" then
+		check(math.abs(r.breakdown.damage.weight - 0.6667) < 0.001,
+			("spec profile: damage weight from median mix (%.4f)"):format(r.breakdown.damage.weight))
+		check(math.abs(r.breakdown.healing.weight - 0.0333) < 0.001,
+			("spec profile: healing weight ~5%% of budget (%.4f)"):format(r.breakdown.healing.weight))
+	end
+end
+TP.Percentiles.encounters["Percentile Boss"]["3x10"].hps[63] = nil
 TP.Percentiles = nil
 check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 players") ~= nil, "group tooltip carries the numbers")
 
