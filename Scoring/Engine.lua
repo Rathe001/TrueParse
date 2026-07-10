@@ -365,6 +365,10 @@ local PARSE_WEIGHTS = {
 	SUPPORT = { damage = 1 },
 }
 
+-- Public for Awards (Virtuoso needs off-metric percentiles) and tooling
+Engine.ResolvePercentiles = resolvePercentiles
+Engine.PercentileFor = percentileFor
+
 -- fight: a FightHistory record. opts.normalizeIlvl (default true) grades
 -- throughput relative to gear. Returns an array sorted by score desc:
 -- { guid, name, class, role, score, base, penalty, breakdown }, where

@@ -960,7 +960,50 @@ for _, r in ipairs(profiled) do
 	end
 end
 TP.Percentiles.encounters["Percentile Boss"]["3x10"].hps[63] = nil
+
+-- 20. Virtuoso: top-10% of your spec in the off-category
+TP.Percentiles.encounters["Virt Boss"] = { ["3x10"] = {
+	dps = { [257] = { n = 500, curve = { { 99, 1000 }, { 95, 900 }, { 90, 800 }, { 75, 650 }, { 50, 500 }, { 25, 380 }, { 10, 300 } } } },
+	hps = {},
+} }
+local virtFight = {
+	name = "(!) Virt Boss", isBoss = true, duration = 100, difficultyID = 3,
+	totals = { deaths = 1, damageTaken = 1000, healing = 100, absorbs = 0, damage = 85000 },
+	players = {
+		h = { guid = "h", name = "Zapheal", role = "HEALER", specID = 257, class = "PRIEST",
+			metrics = { damage = 85000, healing = 100, deaths = 0 } }, -- 850/s ~ p92 among holy priests
+	},
+}
+local virtAwards = TP.Scoring.Awards.Compute(virtFight)
+local hasVirt = false
+for _, a in ipairs(virtAwards.h or {}) do
+	if a == "Virtuoso" then hasVirt = true end
+end
+check(hasVirt, "healer parsing p90+ damage earns Virtuoso")
+virtFight.players.h.metrics.damage = 60000 -- 600/s ~ p66: good, not virtuoso
+virtAwards = TP.Scoring.Awards.Compute(virtFight)
+local stillVirt = false
+for _, a in ipairs(virtAwards.h or {}) do
+	if a == "Virtuoso" then stillVirt = true end
+end
+check(not stillVirt, "p66 off-category is not Virtuoso")
 TP.Percentiles = nil
+
+-- self-sustain phrasing: mostly-self healing reads as sustain, not off-heals
+local sustainResult = { role = "DAMAGER", penaltyDetail = {}, breakdown = {
+	healing = { applicable = true, normalized = 80, effectiveWeight = 0.1, value = 500 },
+	damage = { applicable = true, normalized = 60, effectiveWeight = 0.9, value = 900 },
+} }
+local sustainText
+for _, b in ipairs(TP.Scoring.Bullets.ForResult(sustainResult, nil, { selfShare = 0.95 })) do
+	if b.key == "healing" then sustainText = b.text end
+end
+check(sustainText == "Strong self-sustain", ("self-heavy healing phrased as sustain (%s)"):format(tostring(sustainText)))
+local offText
+for _, b in ipairs(TP.Scoring.Bullets.ForResult(sustainResult, nil, { selfShare = 0.3 })) do
+	if b.key == "healing" then offText = b.text end
+end
+check(offText == "Great off-healing", ("outward healing keeps off-healing phrase (%s)"):format(tostring(offText)))
 check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 players") ~= nil, "group tooltip carries the numbers")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file

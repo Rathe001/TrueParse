@@ -247,11 +247,15 @@ function Panel:ShowFor(fight, result)
 	local player = fight.players[result.guid]
 	local extra
 	if player then
+		local m = player.metrics or {}
 		extra = {
-			defensives = player.metrics and player.metrics.defensives,
-			consumables = player.metrics and player.metrics.consumables,
+			defensives = m.defensives,
+			consumables = m.consumables,
 			deathReady = player.deathReadyDefensives,
 			isRetail = TP.Compat.IS_RETAIL, -- consumable expectations differ
+			-- how much of their healing landed on themselves (Classic data)
+			selfShare = (m.healing and m.healing > 0 and m.selfHealing)
+				and (m.selfHealing / m.healing) or nil,
 		}
 	end
 	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)

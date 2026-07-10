@@ -21,6 +21,8 @@ Awards.LABELS = {
 	-- boss/trash flavored
 	giantSlayer = "Giant Slayer",
 	lawnmower = "Lawnmower",
+	-- cross-role excellence
+	virtuoso = "Virtuoso",
 }
 
 -- Why each award is given, keyed by its display label (what the UI has)
@@ -36,6 +38,7 @@ Awards.DESCRIPTIONS = {
 	[Awards.LABELS.healedStupid] = "Healer award: the group ate a pile of avoidable damage and nobody died. You know what you did.",
 	[Awards.LABELS.giantSlayer] = "Top damage on a boss fight (no tie).",
 	[Awards.LABELS.lawnmower] = "Top damage on a trash pull (no tie).",
+	[Awards.LABELS.virtuoso] = "Top-10% of their spec in the category that ISN'T their job: a healer parsing like a DPS, a tank out-healing expectations.",
 }
 
 -- Sole top performer for a metric, requiring a minimum and no tie.
@@ -149,6 +152,29 @@ function Awards.Compute(fight)
 	local taken = fight.totals.damageTaken or 0
 	if noDeaths and avoidable > 0 and taken > 0 and avoidable / taken >= 0.15 then
 		grantHealers("healedStupid")
+	end
+
+	-- Virtuoso: top-10% of your spec's population in the category that
+	-- isn't your job (needs the off-metric percentile curves)
+	local Engine = TP.Scoring.Engine
+	local pcts = Engine.ResolvePercentiles and Engine.ResolvePercentiles(fight)
+	if pcts and (fight.duration or 0) > 0 then
+		for guid, p in pairs(fight.players) do
+			local role = TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID)
+			local offTbl, rate
+			if role == "HEALER" then
+				offTbl = pcts.dps
+				rate = (p.metrics.damage or 0) / fight.duration
+			elseif role ~= "SUPPORT" then
+				offTbl = pcts.hps
+				rate = ((p.metrics.healing or 0) + (p.metrics.absorbs or 0)) / fight.duration
+			end
+			local entry = offTbl and p.specID and offTbl[p.specID]
+			if entry and entry.curve and #entry.curve > 1
+				and Engine.PercentileFor(entry.curve, rate) >= 90 then
+				grant(guid, "virtuoso")
+			end
+		end
 	end
 
 	return byGuid

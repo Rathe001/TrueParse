@@ -27,6 +27,7 @@ local PHRASES = {
 	damage = { good = "Strong damage", mid = "Decent damage", bad = "Low damage", zero = "Did no damage" },
 	healing = { good = "Strong healing", mid = "Decent healing", bad = "Low healing", zero = "No healing" },
 	healingOff = { good = "Great off-healing", mid = "Some off-healing", bad = "Little off-healing", zero = "No off-healing" },
+	selfSustain = { good = "Strong self-sustain", mid = "Decent self-sustain", bad = "Little self-sustain", zero = "No self-healing" },
 	damageTaken = { good = "Soaked the group's hits", mid = "Took a fair share of hits", bad = "Didn't soak much", zero = "Took no hits" },
 	interrupts = { good = "Great interrupting", mid = "Some interrupts", bad = "Too few interrupts", zero = "Did not interrupt" },
 	dispels = { good = "Great dispelling", mid = "Some dispels", bad = "Too few dispels", zero = "Did not dispel" },
@@ -69,7 +70,10 @@ function Bullets.ForResult(result, awards, extra)
 		local sentiment, symbol, color = sentimentOf(b.normalized or 0)
 		local phraseKey = key
 		if key == "healing" and result.role ~= "HEALER" then
-			phraseKey = "healingOff"
+			-- mostly-self healing is sustain, not off-healing: different
+			-- compliment, different implication for the group
+			phraseKey = (extra and extra.selfShare and extra.selfShare >= 0.8)
+				and "selfSustain" or "healingOff"
 		end
 		local phrases = PHRASES[phraseKey] or PHRASES.damage
 		local text = phrases[sentiment]
