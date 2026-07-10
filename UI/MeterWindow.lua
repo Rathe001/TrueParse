@@ -286,6 +286,7 @@ function MeterWindow:OnEnable()
 		-- Classic keeps its live bars.
 		if TP.Segments.current and db().window.autoCollapse and TP.BlizzardMeter.available then
 			autoCollapsed = true
+			TP.BreakdownPanel:HideAll()
 		end
 		MeterWindow:Refresh(true)
 	end)
@@ -751,6 +752,8 @@ function MeterWindow:ToggleCollapse()
 		db().window.collapsed = false
 	else
 		db().window.collapsed = true
+		-- a collapsed card shouldn't leave its tooltips floating around
+		TP.BreakdownPanel:HideAll()
 	end
 	self:Invalidate()
 end

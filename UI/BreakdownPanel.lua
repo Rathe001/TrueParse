@@ -430,6 +430,23 @@ local function startHoverWatch()
 	end)
 end
 
+-- Close everything at once: pinned or hovering panel, gauge tooltip, and
+-- the shared text tooltip (collapsing the meter window calls this)
+function Panel:HideAll()
+	self.pinned = false
+	self.currentGUID = nil
+	stopHoverWatch()
+	if frame then
+		frame:Hide()
+	end
+	if metricTip then
+		metricTip:Hide()
+	end
+	if TP.Tooltip then
+		TP.Tooltip:Hide()
+	end
+end
+
 function Panel:ShowHover(fight, result)
 	if self.pinned then
 		return
