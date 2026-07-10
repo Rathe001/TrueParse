@@ -136,15 +136,14 @@ local function createWindow()
 		MeterWindow:StepFight(button == "RightButton" and -1 or 1)
 	end)
 	window.subtitleButton:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		GameTooltip:SetText("Fight history")
-		GameTooltip:AddLine("Click: older fight", 0.8, 0.8, 0.8)
-		GameTooltip:AddLine("Right-click: back toward the latest", 0.8, 0.8, 0.8)
-		GameTooltip:AddLine("New captures snap back to the latest.", 0.5, 0.5, 0.5)
-		GameTooltip:Show()
+		TP.Tooltip:Show(self, "TOP", "Fight history", {
+			{ "Click: older fight", 0.8, 0.8, 0.8 },
+			{ "Right-click: back toward the latest", 0.8, 0.8, 0.8 },
+			{ "New captures snap back to the latest.", 0.5, 0.5, 0.5 },
+		})
 	end)
 	window.subtitleButton:SetScript("OnLeave", function()
-		GameTooltip:Hide()
+		TP.Tooltip:Hide()
 	end)
 
 	-- Mode strip along the bottom edge: Real = the full contribution score,
@@ -169,16 +168,14 @@ local function createWindow()
 			MeterWindow:Invalidate()
 		end)
 		btn:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_TOP")
-			GameTooltip:SetText(labelText)
-			GameTooltip:AddLine(tooltip, 0.8, 0.8, 0.8, true)
+			local body = { { tooltip, 0.8, 0.8, 0.8 } }
 			if not self:IsEnabled() then
-				GameTooltip:AddLine("Unavailable: no Warcraft Logs data covers this fight.", 0.95, 0.5, 0.5, true)
+				body[#body + 1] = { "Unavailable: no Warcraft Logs data covers this fight.", 0.95, 0.5, 0.5 }
 			end
-			GameTooltip:Show()
+			TP.Tooltip:Show(self, "TOP", labelText, body)
 		end)
 		btn:SetScript("OnLeave", function()
-			GameTooltip:Hide()
+			TP.Tooltip:Hide()
 		end)
 		return btn
 	end

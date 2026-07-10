@@ -21,7 +21,7 @@ local rows = {}
 
 -- Compact visual tooltip for METRIC bullets: what you did, the spec median,
 -- and a parse-bracket gauge with a tick at your position — glanceable where
--- the old paragraph wasn't. Non-metric bullets keep plain GameTooltip.
+-- the old paragraph wasn't. Non-metric bullets use TP.Tooltip (same card).
 local metricTip
 local GAUGE_W, GAUGE_H = 190, 10
 local GAUGE_ZONES = { { 0, 25 }, { 25, 50 }, { 50, 75 }, { 75, 95 }, { 95, 100 } }
@@ -135,16 +135,11 @@ local function rowEnter(self)
 	if not d then
 		return
 	end
-	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	GameTooltip:SetText(d.title)
-	for _, line in ipairs(d.lines) do
-		GameTooltip:AddLine(line[1], line[2], line[3], line[4], true)
-	end
-	GameTooltip:Show()
+	TP.Tooltip:Show(self, "RIGHT", d.title, d.lines)
 end
 
 local function rowLeave()
-	GameTooltip:Hide()
+	TP.Tooltip:Hide()
 	if metricTip then
 		metricTip:Hide()
 	end

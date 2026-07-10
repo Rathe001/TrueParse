@@ -48,6 +48,7 @@ Scoring\Insights.lua
 Scoring\Bullets.lua
 Core\Career.lua
 Core\Trends.lua
+UI\Tooltip.lua
 UI\Bars.lua
 UI\Scorecard.lua
 UI\BreakdownPanel.lua
