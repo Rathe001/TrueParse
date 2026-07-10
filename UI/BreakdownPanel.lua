@@ -257,6 +257,11 @@ function Panel:ShowFor(fight, result)
 			-- how much of their healing landed on themselves (Classic data)
 			selfShare = (m.healing and m.healing > 0 and m.selfHealing)
 				and (m.selfHealing / m.healing) or nil,
+			-- target splits (Classic data; boss GUIDs from ENCOUNTER_START)
+			addsShare = (fight.isBoss and m.damageToBoss ~= nil and m.damage and m.damage > 0)
+				and math.max(0, (m.damage - m.damageToBoss) / m.damage) or nil,
+			tankFocus = (m.healingToTanks ~= nil and m.healing and m.healing > 0)
+				and (m.healingToTanks / m.healing) or nil,
 		}
 	end
 	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)
@@ -278,7 +283,9 @@ function Panel:ShowFor(fight, result)
 			row.tooltipData = { title = bullet.text, lines = { { PENALTY_HELP[bullet.key] or "", 0.95, 0.5, 0.5 } } }
 		elseif bullet.kind == "info" then
 			local INFO_HELP = {
-				defensives = "Major defensive cooldowns used this fight, reported by this player's own TrueParse (other players' cooldowns aren't visible to addons). Informational only - not scored.",
+				adds = "Share of this player's damage that went into non-boss targets. Whether that's right depends on the fight - context, not a judgment.",
+				tankFocus = "Share of this healer's output that landed on tanks.",
+				defensives = "Major defensive cooldowns used this fight. On Classic this is read from the combat log for everyone; on retail it's reported by the player's own TrueParse. Informational only - not scored.",
 				consumables = "Long-duration buffs (flask, food, rune) detected on this player at pull start, self-reported by their TrueParse. Informational only - not scored.",
 				deathReady = "At the moment they died, this many major defensive cooldowns were available and unused. Self-reported by their TrueParse. Informational only - not scored.",
 			}

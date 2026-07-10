@@ -118,6 +118,17 @@ function Bullets.ForResult(result, awards, extra)
 			end
 		end
 	end
+	-- Target-split facts (CLEU, Classic): neutral context, not judgments —
+	-- whether 62% into adds was right depends on the fight
+	if extra and extra.addsShare and extra.addsShare >= 0.1 and result.role ~= "HEALER" then
+		out[#out + 1] = { kind = "info", key = "adds", symbol = MIDDOT, color = MID,
+			text = ("Put %d%% of damage into adds"):format(extra.addsShare * 100 + 0.5) }
+	end
+	if extra and extra.tankFocus and result.role == "HEALER" then
+		out[#out + 1] = { kind = "info", key = "tankFocus", symbol = MIDDOT, color = MID,
+			text = ("Healing focus: %d%% on tanks"):format(extra.tankFocus * 100 + 0.5) }
+	end
+
 	if extra and extra.deathReady ~= nil then
 		if extra.deathReady > 0 then
 			out[#out + 1] = { kind = "info", key = "deathReady", symbol = "-", color = BAD,

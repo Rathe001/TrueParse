@@ -86,8 +86,11 @@ function Sync:AttachReports(fight)
 		if p.hasAddon == nil then
 			p.hasAddon = (p.isLocalPlayer or self.users[guid] ~= nil) or nil
 		end
+		-- gate the match on consumables: defensives may already be filled
+		-- by CLEU on Classic, but consumables/readiness only come from
+		-- self-reports on both clients
 		local list = self.reports[guid]
-		if list and p.metrics and p.metrics.defensives == nil then
+		if list and p.metrics and p.metrics.consumables == nil then
 			local bestIdx, bestDiff
 			local tolerance = math.max(8, (fight.duration or 0) * 0.2)
 			for i, report in ipairs(list) do
@@ -98,7 +101,9 @@ function Sync:AttachReports(fight)
 			end
 			if bestIdx then
 				local report = list[bestIdx]
-				p.metrics.defensives = report.defensives
+				if p.metrics.defensives == nil then
+					p.metrics.defensives = report.defensives
+				end
 				p.metrics.consumables = report.consumables
 				p.deathReadyDefensives = report.readyAtDeath
 				-- The one self-report that IS scored: Ebon Might uptime as a

@@ -373,7 +373,8 @@ function FightHistory:AddFromSegment(seg)
 		end
 	end
 	local totals = {
-		damage = 0, healing = 0, selfHealing = 0, absorbs = 0, damageTaken = 0,
+		damage = 0, damageToBoss = 0, healing = 0, selfHealing = 0,
+		healingToTanks = 0, absorbs = 0, damageTaken = 0,
 		avoidableTaken = 0, interrupts = 0, dispels = 0, deaths = 0,
 		potionHealing = 0,
 	}
@@ -391,8 +392,10 @@ function FightHistory:AddFromSegment(seg)
 		if active then
 		local m = {
 			damage = acc.damage and acc.damage.useful or 0,
+			damageToBoss = acc.damage and acc.damage.toBoss or 0,
 			healing = acc.healing and acc.healing.effective or 0,
 			selfHealing = acc.healing and acc.healing.selfPart or 0,
+			healingToTanks = acc.healing and acc.healing.toTanks or 0,
 			absorbs = acc.absorbs and acc.absorbs.granted or 0,
 			damageTaken = acc.taken and acc.taken.total or 0,
 			avoidableTaken = 0,
@@ -403,6 +406,11 @@ function FightHistory:AddFromSegment(seg)
 		}
 		for k, v in pairs(m) do
 			totals[k] = totals[k] + v
+		end
+		-- CLEU sees everyone's defensive casts on Classic (added after the
+		-- totals loop: it's a count, not a summable throughput stat)
+		if acc.cooldowns then
+			m.defensives = acc.cooldowns.defensives
 		end
 		local ag = acc.aggro
 		players[guid] = {

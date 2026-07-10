@@ -145,6 +145,17 @@ function Segments:CancelEndCheck()
 	end
 end
 
+-- Boss unit GUIDs let trackers split damage-to-boss from damage-to-adds
+local function captureBossGUIDs(seg)
+	seg.bossGUIDs = seg.bossGUIDs or {}
+	for i = 1, 8 do
+		local guid = UnitGUID("boss" .. i)
+		if guid then
+			seg.bossGUIDs[guid] = true
+		end
+	end
+end
+
 function Segments:OnEncounterStart(encounterID, encounterName)
 	if TP.Compat.IsSecret(encounterName) then
 		encounterName = nil
@@ -157,6 +168,14 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 	if self.current then
 		self.current.encounterID = encounterID
 		self.current.name = encounterName
+		captureBossGUIDs(self.current)
+		local seg = self.current
+		C_Timer.After(3, function()
+			-- boss frames can populate late (multi-boss encounters)
+			if self.current == seg then
+				captureBossGUIDs(seg)
+			end
+		end)
 	end
 end
 
