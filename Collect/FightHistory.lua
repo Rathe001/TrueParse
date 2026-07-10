@@ -82,7 +82,11 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 				if guid then
 					local p = players[guid]
 					if not p then
-						local rosterInfo = TP.Roster.players[guid]
+						-- prefer the roster snapshot recorded while the session
+						-- was live; the current roster may already be empty
+						local ctx = sessionContext[sessionID]
+						local rosterInfo = (ctx and ctx.roster and ctx.roster[guid])
+							or TP.Roster.players[guid]
 						local specIconID = (not IsSecret(src.specIconID)) and src.specIconID or nil
 						local iconInfo = specIconID and specIconMap and specIconMap[specIconID]
 						p = {
@@ -326,7 +330,24 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 				instanceType = (not IsSecret(instanceType)) and instanceType or nil,
 				difficulty = (not IsSecret(difficultyName)) and difficultyName or nil,
 				difficultyID = (not IsSecret(difficultyID)) and difficultyID or nil,
+				roster = {},
 			}
+		end
+		-- Roster facts recorded LIVE: bulk-unlocked captures often land after
+		-- the group disbands, when TP.Roster is empty — a queued Timewalking
+		-- healer lost their role that way. Refresh each update (joins).
+		local ctxRoster = sessionContext[sessionId].roster
+		if ctxRoster then
+			for guid, info in pairs(TP.Roster.players) do
+				local e = ctxRoster[guid]
+				if not e then
+					e = {}
+					ctxRoster[guid] = e
+				end
+				e.role = info.role or e.role
+				e.specID = info.specID or e.specID
+				e.ilvl = info.ilvl or e.ilvl
+			end
 		end
 		if FightHistory.snapshotted[sessionId] then
 			-- Session resumed after we captured it; recapture when it settles
