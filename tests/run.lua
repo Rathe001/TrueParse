@@ -562,6 +562,17 @@ for _, b in ipairs(zeroBullets) do
 	if b.key == "interrupts" then kickText = b.text end
 end
 check(kickText == "Did not interrupt", ("zero kicks phrased plainly (%s)"):format(tostring(kickText)))
+-- curve-scored metrics tier on the PERCENTILE the gauge shows, not the
+-- transformed True score (p37 -> 55.9 called itself "Good" in blue while
+-- the gauge marker sat in the green zone)
+local pctResult = { role = "DAMAGER", penaltyDetail = {}, breakdown = {
+	damage = { applicable = true, normalized = 55.9, pctile = 37, effectiveWeight = 0.85, value = 51920000 },
+} }
+local pctText
+for _, b in ipairs(TP.Scoring.Bullets.ForResult(pctResult, nil)) do
+	if b.key == "damage" then pctText = b.text end
+end
+check(pctText == "Average damage", ("bullet tier follows the gauge percentile (%s)"):format(tostring(pctText)))
 
 -- 14a. Every award has a description
 for _, label in pairs(TP.Scoring.Awards.LABELS) do

@@ -79,7 +79,10 @@ function Bullets.ForResult(result, awards, extra)
 
 	for _, m in ipairs(metrics) do
 		local b, key = m.b, m.key
-		local score = b.normalized or 0
+		-- tier on the population PERCENTILE when curve-scored: the gauge
+		-- marker sits at the percentile, and the True transform (floor 30 +
+		-- 0.7x) would call a green p37 "Good" while the gauge shows green
+		local score = b.pctile or b.normalized or 0
 		local tier, symbol = tierOf(score)
 		local color = tierColor(score)
 		local phraseKey = key
@@ -184,7 +187,8 @@ function Bullets.ForGroup(results)
 	for _, r in ipairs(results) do
 		for key, b in pairs(r.breakdown) do
 			if b.applicable and GROUP_PHRASES[key] then
-				sums[key] = (sums[key] or 0) + (b.normalized or 0)
+				-- same percentile-first basis as the individual bullets
+				sums[key] = (sums[key] or 0) + (b.pctile or b.normalized or 0)
 				counts[key] = (counts[key] or 0) + 1
 				totals[key] = (totals[key] or 0) + (b.value or 0)
 			end
