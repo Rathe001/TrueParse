@@ -573,6 +573,24 @@ for _, b in ipairs(TP.Scoring.Bullets.ForResult(pctResult, nil)) do
 	if b.key == "damage" then pctText = b.text end
 end
 check(pctText == "Average damage", ("bullet tier follows the gauge percentile (%s)"):format(tostring(pctText)))
+-- Bloodlust window bullets: DPS-only, informational
+local lustResult = { role = "DAMAGER", penaltyDetail = {}, breakdown = {
+	damage = { applicable = true, normalized = 60, effectiveWeight = 1, value = 100 },
+} }
+local function lustText(extra, role)
+	lustResult.role = role or "DAMAGER"
+	for _, b in ipairs(TP.Scoring.Bullets.ForResult(lustResult, nil, extra)) do
+		if b.key == "lust" then return b.text end
+	end
+end
+check(lustText({ lustCasts = 2, lustPotion = 1 }) == "Made the most of Bloodlust (cooldowns + potion)",
+	"lust with CDs and potion gets full credit")
+check(lustText({ lustCasts = 1, lustPotion = 0 }) == "Used cooldowns during Bloodlust",
+	"lust with CDs only gets partial credit")
+check(lustText({ lustCasts = 0, lustPotion = 0 }) == "Wasted Bloodlust - no cooldowns used",
+	"lust with nothing used is called out")
+check(lustText({}) == nil, "no lust this fight, no bullet")
+check(lustText({ lustCasts = 0 }, "HEALER") == nil, "healers never get lust bullets")
 
 -- 14a. Every award has a description
 for _, label in pairs(TP.Scoring.Awards.LABELS) do

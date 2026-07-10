@@ -135,6 +135,21 @@ function Bullets.ForResult(result, awards, extra)
 			end
 		end
 	end
+	-- Bloodlust window (CLEU): DPS should stack cooldowns and a potion
+	-- into the 40s. Informational only - crediting or calling it out,
+	-- never scoring it.
+	if extra and extra.lustCasts ~= nil and result.role == "DAMAGER" then
+		if extra.lustCasts > 0 and (extra.lustPotion or 0) > 0 then
+			out[#out + 1] = { kind = "info", key = "lust", symbol = "+", color = GOOD,
+				text = "Made the most of Bloodlust (cooldowns + potion)" }
+		elseif extra.lustCasts > 0 then
+			out[#out + 1] = { kind = "info", key = "lust", symbol = "+", color = GOOD,
+				text = "Used cooldowns during Bloodlust" }
+		else
+			out[#out + 1] = { kind = "info", key = "lust", symbol = "-", color = BAD,
+				text = "Wasted Bloodlust - no cooldowns used" }
+		end
+	end
 	-- Target-split facts (CLEU, Classic): neutral context, not judgments —
 	-- whether 62% into adds was right depends on the fight
 	if extra and extra.addsShare and extra.addsShare >= 0.1 and result.role ~= "HEALER" then

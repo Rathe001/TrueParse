@@ -317,6 +317,9 @@ function Panel:ShowFor(fight, result)
 				and math.max(0, (m.damage - m.damageToBoss) / m.damage) or nil,
 			tankFocus = (m.healingToTanks ~= nil and m.healing and m.healing > 0)
 				and (m.healingToTanks / m.healing) or nil,
+			-- Bloodlust-window usage (CLEU; nil when no lust this fight)
+			lustCasts = m.lustCasts,
+			lustPotion = m.lustPotion,
 		}
 	end
 	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)
@@ -368,6 +371,7 @@ function Panel:ShowFor(fight, result)
 					or "Major defensive cooldowns used this fight, read from the combat log. Informational only - not scored.",
 				consumables = "Long-duration buffs (flask, food, rune) detected on this player at pull start, self-reported by their TrueParse. Informational only - not scored.",
 				deathReady = "At the moment they died, this many major defensive cooldowns were available and unused. Self-reported by their TrueParse. Informational only - not scored.",
+				lust = "Offensive cooldowns and DPS potions cast inside the 40s Bloodlust/Heroism window, read from the combat log. Stacking them there is free extra output. Informational only - not scored.",
 			}
 			row.tooltipData = { title = bullet.text, lines = {
 				{ INFO_HELP[bullet.key] or "Self-reported by this player's TrueParse. Informational only.", 0.8, 0.8, 0.8, true },

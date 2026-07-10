@@ -412,6 +412,12 @@ function FightHistory:AddFromSegment(seg)
 		if acc.cooldowns then
 			m.defensives = acc.cooldowns.defensives
 		end
+		-- Bloodlust-window usage: only meaningful when lust actually went
+		-- out this fight (nil otherwise so bullets stay silent)
+		if seg.lustSeen and acc.lust then
+			m.lustCasts = acc.lust.casts
+			m.lustPotion = acc.lust.potion and 1 or 0
+		end
 		local ag = acc.aggro
 		players[guid] = {
 			guid = guid,
