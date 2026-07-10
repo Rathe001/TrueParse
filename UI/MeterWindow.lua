@@ -481,6 +481,8 @@ function MeterWindow:RenderScorecard(fight)
 			end
 		end
 	end
+	-- the breakdown panel shows "N avg this run" from the same numbers
+	TP.BreakdownPanel.runScores = runBy
 	local totalRows = shown + (hasFooter and 1 or 0)
 
 	for i = #activeRows, totalRows + 1, -1 do

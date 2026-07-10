@@ -213,22 +213,39 @@ local function createFrame()
 		Panel.currentGUID = nil
 	end)
 
-	-- big score, top right; steps left only when the pin close button exists
+	-- big score, top right (group view only; player view puts the score in
+	-- a compact line under the name)
 	frame.bigScore = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
 	local fontPath, _, fontFlags = frame.bigScore:GetFont()
 	frame.bigScore:SetFont(fontPath, 26, fontFlags)
 	frame.bigScore:SetPoint("TOPRIGHT", -10, -8)
 	frame.bigScore:SetJustifyH("RIGHT")
 
+	-- role tag on the title row, right side (player view)
+	frame.role = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	frame.role:SetPoint("TOPRIGHT", -10, -10)
+	frame.role:SetJustifyH("RIGHT")
+
 	frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	frame.title:SetPoint("TOPLEFT", 10, -8)
-	frame.title:SetPoint("RIGHT", frame.bigScore, "LEFT", -8, 0)
+	frame.title:SetPoint("RIGHT", frame.role, "LEFT", -8, 0)
 	frame.title:SetJustifyH("LEFT")
 
 	frame.subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	frame.subtitle:SetPoint("TOPLEFT", 10, -24)
 	frame.subtitle:SetPoint("RIGHT", frame.bigScore, "LEFT", -8, 0)
 	frame.subtitle:SetJustifyH("LEFT")
+
+	-- "54 vs Siegecrafter Blackfuse" / "58 avg this run" (player view)
+	frame.scoreLine = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	frame.scoreLine:SetPoint("TOPLEFT", 10, -23)
+	frame.scoreLine:SetPoint("TOPRIGHT", -10, -23)
+	frame.scoreLine:SetJustifyH("LEFT")
+
+	frame.runLine = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	frame.runLine:SetPoint("TOPLEFT", 10, -36)
+	frame.runLine:SetPoint("TOPRIGHT", -10, -36)
+	frame.runLine:SetJustifyH("LEFT")
 
 	frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	frame.total:SetPoint("BOTTOMLEFT", 10, 10)
@@ -264,6 +281,10 @@ local PENALTY_HELP = {
 	aggroLoss = "Time mobs spent beating on a non-tank while a tank was alive: -0.4 per second, capped at -8. Tracked on Classic clients; taunt swaps to another tank never count.",
 }
 
+local ROLE_LABELS = {
+	DAMAGER = "DPS", TANK = "Tank", HEALER = "Healer", SUPPORT = "Support DPS",
+}
+
 function Panel:ShowFor(fight, result)
 	if not frame then
 		createFrame()
@@ -272,8 +293,9 @@ function Panel:ShowFor(fight, result)
 	local cr, cg, cb = TP.ClassColor(result.class)
 	frame.title:SetText(result.name or "?")
 	frame.title:SetTextColor(cr, cg, cb)
-	frame.subtitle:SetText(("%s%s · %s"):format(
-		fight.wipe and "|cffe64d4dwipe|r · " or "", fight.name or "Fight", result.role))
+	frame.role:SetText(ROLE_LABELS[result.role] or result.role or "")
+	frame.subtitle:SetText("")
+	frame.bigScore:SetText("")
 
 	local myAwards = TP.Scoring.Awards.Compute(fight)[result.guid]
 	local player = fight.players[result.guid]
@@ -297,7 +319,30 @@ function Panel:ShowFor(fight, result)
 	end
 	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)
 
-	local y = FIRST_ROW_Y
+	-- compact score lines under the name; ~ marks estimates like the rows do
+	local rawShaped = TP.Addon.db.profile.scoring.mode == "parse"
+		and result.breakdown.interrupts == nil
+	local approx = false
+	if rawShaped then
+		for _, b in pairs(result.breakdown) do
+			-- a raw-SETTING fight that fell back to True (no WCL data) must
+			-- not decorate zero-weight display metrics
+			if b.applicable and not b.absolute and (b.effectiveWeight or 0) > 0 then
+				approx = true
+			end
+		end
+	end
+	frame.scoreLine:SetText(("%s%s vs %s%s"):format(
+		approx and "~" or "", TP.Scoring.Grades.ColoredScore(result.score),
+		fight.name or "this fight", fight.wipe and " |cffe64d4d(wipe)|r" or ""))
+	local runR = self.runScores and self.runScores[result.guid]
+	if runR then
+		frame.runLine:SetText(TP.Scoring.Grades.ColoredScore(runR.score) .. " avg this run")
+	else
+		frame.runLine:SetText("")
+	end
+
+	local y = runR and -50 or -37
 	for i, bullet in ipairs(bullets) do
 		local row = getRow(i, y)
 		y = y - ROW_HEIGHT
@@ -334,38 +379,13 @@ function Panel:ShowFor(fight, result)
 	-- scorecard row, not an extra bullet here)
 	hideRowsFrom(#bullets + 1)
 
-	local gr, gg, gb = TP.Scoring.Grades.ColorForScore(result.score)
-	-- parse-shaped results carry no utility metrics; a raw-SETTING fight
-	-- that fell back to True (no WCL data) must not get raw decorations
-	local rawShaped = TP.Addon.db.profile.scoring.mode == "parse"
-		and result.breakdown.interrupts == nil
-	local approx = false
-	if rawShaped then
-		for _, b in pairs(result.breakdown) do
-			if b.applicable and not b.absolute and (b.effectiveWeight or 0) > 0 then
-				approx = true
-			end
-		end
-	end
-	frame.bigScore:SetText((approx and "~" or "") .. TP.Scoring.Grades.ScoreLabel(result.score))
-	frame.bigScore:SetTextColor(gr, gg, gb)
-	if result.penalty > 0 then
-		frame.total:SetText(("Base %.1f · penalties -%.1f"):format(result.base, result.penalty))
-		frame.total:SetTextColor(0.95, 0.5, 0.5)
-	elseif rawShaped then
-		frame.total:SetText("Raw mode - throughput vs top logs only")
-		frame.total:SetTextColor(0.4, 0.75, 1)
-	else
-		frame.total:SetText("No penalties")
-		frame.total:SetTextColor(0.6, 0.6, 0.6)
-	end
-
-	frame:SetHeight(-y + ROW_HEIGHT + 34)
+	frame.total:SetText("") -- footer text is group-view only
+	frame:SetHeight(-y + ROW_HEIGHT + 12)
 
 	anchorPanel()
 	frame.close:SetShown(self.pinned)
-	frame.bigScore:ClearAllPoints()
-	frame.bigScore:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -8)
+	frame.role:ClearAllPoints()
+	frame.role:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -10)
 	frame:Show()
 	self.currentGUID = result.guid
 end
@@ -444,6 +464,10 @@ function Panel:ShowForGroup(fight, results)
 	frame.title:SetTextColor(1, 0.82, 0.2)
 	frame.subtitle:SetText(("%s%s · %d players"):format(
 		fight.wipe and "|cffe64d4dwipe|r · " or "", fight.name or "Fight", #results))
+	-- player-view header lines stay out of the group view
+	frame.role:SetText("")
+	frame.scoreLine:SetText("")
+	frame.runLine:SetText("")
 
 	local bullets = TP.Scoring.Bullets.ForGroup(results)
 	local y = FIRST_ROW_Y
