@@ -29,12 +29,12 @@ local GAUGE_ZONES = { { 0, 25 }, { 25, 50 }, { 50, 75 }, { 75, 95 }, { 95, 100 }
 local function buildMetricTip()
 	metricTip = CreateFrame("Frame", "TrueParseMetricTip", UIParent, "BackdropTemplate")
 	metricTip:SetBackdrop({
-		bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+		bgFile = "Interface\\Buttons\\WHITE8X8",
 		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
 		edgeSize = 12,
 		insets = { left = 3, right = 3, top = 3, bottom = 3 },
 	})
-	metricTip:SetBackdropColor(0, 0, 0, 0.95)
+	metricTip:SetBackdropColor(0.04, 0.04, 0.05, 1)
 	metricTip:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
 	-- tall enough that the marker label gets its own band between the
 	-- median line and the gauge (it used to overlap both)
@@ -198,12 +198,12 @@ end
 local function createFrame()
 	frame = CreateFrame("Frame", "TrueParseBreakdown", UIParent, "BackdropTemplate")
 	frame:SetBackdrop({
-		bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+		bgFile = "Interface\\Buttons\\WHITE8X8",
 		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
 		edgeSize = 12,
 		insets = { left = 3, right = 3, top = 3, bottom = 3 },
 	})
-	frame:SetBackdropColor(0, 0, 0, 0.95)
+	frame:SetBackdropColor(0.04, 0.04, 0.05, 1)
 	frame:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
 	frame:SetWidth(WIDTH)
 	frame:SetClampedToScreen(true)

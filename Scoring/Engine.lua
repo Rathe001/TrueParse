@@ -372,7 +372,7 @@ local function findCurve(ctx, kind, specID, role, specOnly)
 			end
 		end
 	end
-	-- 4. the role across every boss, then simply everyone
+	-- 4. the role across every boss
 	local roles = TP.SPEC_ROLES
 	if roles then
 		for _, bk in ipairs(order) do
@@ -385,9 +385,15 @@ local function findCurve(ctx, kind, specID, role, specOnly)
 			end
 		end
 	end
-	local e = globalPool(L.P, nil, kind, nil, "any:" .. kind)
-	if usable(e) then
-		return e, "all players", true
+	-- 5. simply everyone — but ONLY for the role's primary throughput.
+	-- A healer's damage against a mostly-DPS population reads p2 while
+	-- WCL hands the same log a 92 (healer damage ranks vs healers);
+	-- cross-role zoom misleads worse than no comparison at all.
+	if (kind == "hps") == (role == "HEALER") then
+		local e = globalPool(L.P, nil, kind, nil, "any:" .. kind)
+		if usable(e) then
+			return e, "all players", true
+		end
 	end
 	return nil
 end

@@ -975,6 +975,11 @@ check(mystByName.Wall.breakdown.damage.curveFrom == "all players",
 check(mystByName.Deeps.breakdown.damage.absolute and mystByName.OffMeta.breakdown.healing.absolute
 	and mystByName.Wall.breakdown.damage.absolute,
 	"the ladder never falls back to a group comparison while data is loaded")
+-- ...but the everyone-pool is PRIMARY-metric only: a healer's damage vs a
+-- mostly-DPS population reads p2 where WCL says 92
+check(mystByName.OffMeta.breakdown.damage.absolute == nil
+	and mystByName.OffMeta.breakdown.damage.curveFrom == nil,
+	"healer damage never compares vs the all-players pool")
 
 -- True mode uses the curve through the contribution transform: p50 -> 65,
 -- standing ALONE (no cohort blend: that re-imports spec bias)

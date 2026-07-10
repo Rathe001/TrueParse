@@ -82,12 +82,14 @@ end
 local function createWindow()
 	window = CreateFrame("Frame", "TrueParseWindow", UIParent, "BackdropTemplate")
 	window:SetBackdrop({
-		bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+		-- WHITE8x8: truly solid. The tooltip gradient texture reads
+		-- translucent over bright rooms no matter the alpha.
+		bgFile = "Interface\\Buttons\\WHITE8X8",
 		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
 		edgeSize = 12,
 		insets = { left = 3, right = 3, top = 3, bottom = 3 },
 	})
-	window:SetBackdropColor(0, 0, 0, 0.95)
+	window:SetBackdropColor(0.04, 0.04, 0.05, 1)
 	window:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
 	window:SetSize(db().window.width, 100)
 	window:SetClampedToScreen(true)
@@ -208,14 +210,12 @@ local function createWindow()
 		-(window.modeReal.label:GetStringWidth() + 12), 0)
 	window.modeLabel:SetPoint("RIGHT", window.modeReal, "LEFT", -6, 0)
 
-	-- legend for the presence marks, wrapping above the mode strip
+	-- legend for the presence marks, above the mode strip
 	window.footnote = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	window.footnote:SetPoint("BOTTOMLEFT", PADDING + 2, MODE_HEIGHT + 4)
 	window.footnote:SetPoint("BOTTOMRIGHT", -(PADDING + 2), MODE_HEIGHT + 4)
 	window.footnote:SetJustifyH("LEFT")
-	window.footnote:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:8:8|t TrueParse user"
-		.. "  |TInterface\\RaidFrame\\ReadyCheck-NotReady:8:8|t not detected - data may be inaccurate"
-		.. "  |TInterface\\Icons\\INV_Misc_QuestionMark:8:8:0:0:64:64:8:56:8:56|t unknown")
+	window.footnote:SetText("|TInterface\\RaidFrame\\ReadyCheck-NotReady:8:8|t = TrueParse not installed")
 	MeterWindow:UpdateModeButtons()
 end
 
