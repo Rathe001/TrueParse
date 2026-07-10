@@ -184,7 +184,7 @@ function Addon:HandleSlash(input)
 		local s = self.db.profile.scoring
 		s.mode = (s.mode == "parse") and "contribution" or "parse"
 		if s.mode == "parse" then
-			self:Print("Score mode: RAW — pure damage/healing vs top logs for your spec on this fight. No utility, no penalties.")
+			self:Print("Score mode: RAW — pure damage/healing vs Warcraft Logs parses for your spec on this fight. No utility, no penalties.")
 		else
 			self:Print("Score mode: TRUE — the full TrueParse score (damage, healing, kicks, dispels, soaking, penalties).")
 		end

@@ -199,7 +199,7 @@ local function createWindow()
 	window.modeReal = makeRadio("TrueParse", "contribution",
 		"Considers damage, healing, damage taken, interrupts, and much more compared to others of your same spec and role.")
 	window.modeRaw = makeRadio("Raw", "parse",
-		"Straight comparison to top Warcraft Logs parses for your spec on this fight: damage for DPS and tanks, healing for healers.")
+		"Straight comparison to Warcraft Logs parses for your spec on this fight: damage for DPS and tanks, healing for healers.")
 	-- right-aligned in the footer: ... Mode:  (*)True  ( )Raw]
 	window.modeRaw:SetPoint("BOTTOMRIGHT",
 		-(PADDING + 2 + window.modeRaw.label:GetStringWidth() + 2), 6)
