@@ -510,9 +510,9 @@ function MeterWindow:RenderScorecard(fight)
 		row.score:SetTextColor(gcr, gcg, gcb)
 		row.penalty:SetText(r.penalty > 0 and ("|cffff4444-%.0f|r"):format(r.penalty) or "")
 
-		-- cumulative True run average, dimmed, far right (True mode only:
-		-- mixing a True average into a Raw row would cross currencies)
-		local runR = runBy and not isRaw and runBy[r.guid]
+		-- cumulative True run average, dimmed, far right (True currency in
+		-- both modes: the distinct dimmed column carries the distinction)
+		local runR = runBy and runBy[r.guid]
 		if runR then
 			row.runAvg:SetText(("%.0f"):format(runR.score))
 			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runR.score))

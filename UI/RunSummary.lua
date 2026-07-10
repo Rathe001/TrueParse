@@ -23,14 +23,22 @@ end
 -- orphan everything already captured.
 local MAX_PULL_GAP = 3600
 
+-- Returns fights, anchorName. The run anchors to the current instance when
+-- inside one, else to the newest capture's zone — post-raid review from a
+-- city should still see the run, not watch it evaporate at the exit portal.
 local function collectRunFights()
-	if not currentInstance then
+	local anchor = currentInstance and currentInstance.name
+	if not anchor then
+		local newest = TP.FightHistory.fights[1]
+		anchor = newest and newest.zone
+	end
+	if not anchor then
 		return nil
 	end
 	local fights = {}
 	local previousAt
 	for _, fight in ipairs(TP.FightHistory.fights) do -- newest first
-		if fight.zone ~= currentInstance.name then
+		if fight.zone ~= anchor then
 			break -- older fight elsewhere: previous visit boundary
 		end
 		if previousAt and (previousAt - (fight.capturedAt or 0)) > MAX_PULL_GAP then
@@ -39,7 +47,7 @@ local function collectRunFights()
 		fights[#fights + 1] = fight
 		previousAt = fight.capturedAt or 0
 	end
-	return fights
+	return fights, anchor
 end
 
 local function groupChannel()
@@ -86,14 +94,13 @@ end
 -- Cached until the fight streak changes (this runs on render).
 local runCache = {}
 function RunSummary:CurrentRun()
-	local fights = collectRunFights()
+	local fights, anchor = collectRunFights()
 	if not fights or #fights == 0 then
 		return nil
 	end
 	if runCache.newest ~= fights[1] or runCache.count ~= #fights then
 		runCache.newest, runCache.count = fights[1], #fights
-		runCache.run = TP.Scoring.Runs.Aggregate(fights,
-			(currentInstance and currentInstance.name) or fights[1].zone or "Run")
+		runCache.run = TP.Scoring.Runs.Aggregate(fights, anchor or "Run")
 	end
 	return runCache.run, #fights
 end
@@ -102,12 +109,12 @@ end
 -- the /tp announce (MVP line) and announce-summary settings. Manual /tp run
 -- never announces; /tp share posts the summary on demand.
 function RunSummary:Report(announce)
-	local fights = collectRunFights()
+	local fights, anchor = collectRunFights()
 	if not fights or #fights == 0 then
 		TP.Addon:Print("No fights captured in this instance yet.")
 		return
 	end
-	local run = TP.Scoring.Runs.Aggregate(fights, currentInstance.name)
+	local run = TP.Scoring.Runs.Aggregate(fights, anchor)
 	local results = TP.Scoring.Engine.ScoreFight(run, TP.GetScoringOptions())
 	if #results == 0 then
 		return
@@ -120,7 +127,7 @@ function RunSummary:Report(announce)
 	local groupScore = sum / #results
 
 	TP.Addon:Print(("Run report — %s (%d fights, %d:%02d) · group score %s · True scores, whole run"):format(
-		currentInstance.name, #fights,
+		anchor, #fights,
 		math.floor(run.duration / 60), run.duration % 60,
 		TP.Scoring.Grades.ColoredScore(groupScore)))
 
@@ -149,12 +156,12 @@ end
 
 -- Manual share: post ONLY the one-line group summary, on demand.
 function RunSummary:Share()
-	local fights = collectRunFights()
+	local fights, anchor = collectRunFights()
 	if not fights or #fights == 0 then
 		TP.Addon:Print("No fights captured in this instance yet.")
 		return
 	end
-	local run = TP.Scoring.Runs.Aggregate(fights, currentInstance.name)
+	local run = TP.Scoring.Runs.Aggregate(fights, anchor)
 	local results = TP.Scoring.Engine.ScoreFight(run, TP.GetScoringOptions())
 	if #results == 0 then
 		return
