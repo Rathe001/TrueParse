@@ -488,7 +488,10 @@ function Engine.ScoreFight(fight, opts)
 		-- Tanks pulling is their job; everyone else pays for it. Tanks pay
 		-- for the time mobs spent on someone who isn't a tank.
 		local penaltyPull, penaltyAggro, penaltyAggroLoss = 0, 0, 0
-		if ctx.parseMode then -- parse mode is throughput only, no penalties
+		if ctx.parseMode
+			or ctx.playerCount > (W.penalties.threatMaxPlayers or math.huge) then
+			-- raids: fixates and forced target swaps make threat data
+			-- mechanics-noise; it stays visible in bullets, never scored
 		elseif role == "TANK" then
 			if (p.aggroLostTime or 0) > 0 then
 				penaltyAggroLoss = math.min(W.penalties.aggroLossCap or 0,

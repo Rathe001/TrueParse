@@ -111,5 +111,10 @@ Weights.penalties = {
 	aggroRipsCap = 8,
 	aggroLossPerSecond = 0.4, -- tank: per second a mob chewed on a non-tank
 	aggroLossCap = 8,
+	-- Threat penalties only score in small groups: raid encounters fixate,
+	-- charge, and mind-control on purpose (2026-07-09 raid data: every Thok
+	-- attempt penalized both tanks; Spoils marked the whole raid), so above
+	-- this player count the data stays informational.
+	threatMaxPlayers = 5,
 	totalCap = 25,
 }
