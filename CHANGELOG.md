@@ -2,16 +2,58 @@
 
 ## 1.2.0 (unreleased)
 
-- Letter grades are gone: scores are a color-coded 0-100 in Warcraft Logs
-  parse colors, everywhere (scorecard, breakdown panel, chat reports,
-  career, coach).
-- Score modes, switchable via radio buttons on the window (or /tp mode):
-  True - the default TrueParse contribution score - or Raw, a WCL-style
-  lens that grades pure damage (healing for healers) against top logs for
-  your spec on this fight. No utility, no penalties in Raw. Rows render as
-  Details-style class-colored bars sized by the score.
-- CI: the test suite now runs on every push; the benchmark refresh skips
-  green when its API key isn't configured.
+Scoring:
+
+- True Warcraft Logs percentiles: population curves per encounter, spec,
+  and bracket (10/25 x N/H on Classic; N/H/M on retail) for BOTH damage
+  and healing. Raw mode now matches your WCL parse; True mode builds on
+  the same curves through a contribution transform.
+- Per-spec throughput profiles: the damage/healing weight split follows
+  your spec's population median mix on the exact fight and bracket - a
+  Disc priest's damage and a Blood DK's self-healing count the way their
+  populations say they should.
+- Widening evidence ladder: no curve for your exact spec+bracket? The
+  comparison zooms out (neighboring brackets, role pools, whole-tier
+  pools) instead of ever falling back to a group-relative guess. Tooltips
+  name the comparison population.
+- Raw mode is only offered when WCL data covers the fight; group-relative
+  estimates cap at 99 and carry a ~ marker.
+- Fairness: no threat penalties in raids (fixates make them noise),
+  healers pay half for chasing a slacking tank, wipe deaths cost less,
+  low-demand healing floors instead of scolding, and tanks/healers are
+  never nagged about pull consumables on Classic (retail drops the
+  expectation entirely).
+
+Display:
+
+- Scores are color-coded 0-100 in WCL parse colors everywhere; an
+  optional letter-grade display (F to S+) is available in options or via
+  /tp letters.
+- Details-style rows: class-colored bars sized by score, spec icons,
+  presence check/X/? marks, fight + run-average columns with headers, a
+  merged Raid summary row, and a one-line footer legend with the
+  TrueParse/Raw mode radios. The window title shows the active mode.
+- Compact breakdown card: role tag by the name, score-vs-boss and
+  run-average lines, five-tier bullet language (low / average / good /
+  excellent / godly) that always matches the gauge percentile, and gauge
+  tooltips with your marker on the parse-color scale.
+- One tooltip style everywhere; solid backgrounds; panels and tooltips
+  pick the roomier side of the screen; collapsing closes every tooltip
+  and respects the window's screen half.
+
+Collection (Classic):
+
+- Boss-only capture in instances; damage-to-boss vs adds splits; healing
+  to tanks vs self splits; guardian pets credited to their owners;
+  defensive cooldowns read from the combat log for everyone; Bloodlust
+  windows tracked with DPS cooldown+potion usage bullets; the
+  self-report fight window survives mid-encounter combat drops
+  (conveyor belts, fixates).
+- Groundwork for a curated avoidable-damage list ("Stood in bad") with
+  /tp baddies to review what actually hurt people.
+
+CI: the test suite runs on every push; benchmark and percentile
+refreshes skip green when API keys aren't configured.
 
 ## 1.1.0
 
