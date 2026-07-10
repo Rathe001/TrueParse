@@ -429,15 +429,17 @@ function MeterWindow:RenderScorecard(fight)
 
 	-- Run row: the cumulative run average (always True — same currency the
 	-- chat reports use), shown once the run has 2+ fights
-	local runFight, runResults, runScore, runFightCount
+	local runFight, runResults, runScore, runFightCount, runBy
 	if TP.RunSummary and TP.RunSummary.CurrentRun then
 		local run, count = TP.RunSummary:CurrentRun()
 		if run and count and count >= 2 then
 			local rr = TP.Scoring.Engine.ScoreFight(run, TP.GetScoringOptions())
 			if #rr > 0 then
 				local s = 0
+				runBy = {}
 				for _, r in ipairs(rr) do
 					s = s + r.score
+					runBy[r.guid] = r
 				end
 				runFight, runResults, runScore, runFightCount = run, rr, s / #rr, count
 			end
@@ -508,6 +510,18 @@ function MeterWindow:RenderScorecard(fight)
 		row.score:SetTextColor(gcr, gcg, gcb)
 		row.penalty:SetText(r.penalty > 0 and ("|cffff4444-%.0f|r"):format(r.penalty) or "")
 
+		-- cumulative True run average, dimmed, far right (True mode only:
+		-- mixing a True average into a Raw row would cross currencies)
+		local runR = runBy and not isRaw and runBy[r.guid]
+		if runR then
+			row.runAvg:SetText(("%.0f"):format(runR.score))
+			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runR.score))
+			row.runAvg:SetWidth(20)
+		else
+			row.runAvg:SetText("")
+			row.runAvg:SetWidth(1)
+		end
+
 		row.fight = fight
 		row.result = r
 		row.groupResults = nil
@@ -532,6 +546,8 @@ function MeterWindow:RenderScorecard(fight)
 		row.score:SetText(("%.0f"):format(score))
 		row.score:SetTextColor(sr, sg, sb)
 		row.penalty:SetText("")
+		row.runAvg:SetText("")
+		row.runAvg:SetWidth(1)
 		row.bg:SetColorTexture(bg[1], bg[2], bg[3], 0.95)
 		row.bg:SetWidth(math.max(8, width * math.min(math.max(score, 0), 100) / 100))
 		row.icon:Hide()

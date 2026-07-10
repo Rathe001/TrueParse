@@ -19,7 +19,106 @@ local PERCENT_METRICS = { buffUptime = true }
 local frame
 local rows = {}
 
+-- Compact visual tooltip for METRIC bullets: what you did, the spec median,
+-- and a parse-bracket gauge with a tick at your position — glanceable where
+-- the old paragraph wasn't. Non-metric bullets keep plain GameTooltip.
+local metricTip
+local GAUGE_W, GAUGE_H = 190, 10
+local GAUGE_ZONES = { { 0, 25 }, { 25, 50 }, { 50, 75 }, { 75, 95 }, { 95, 100 } }
+
+local function buildMetricTip()
+	metricTip = CreateFrame("Frame", "TrueParseMetricTip", UIParent, "BackdropTemplate")
+	metricTip:SetBackdrop({
+		bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+		edgeSize = 12,
+		insets = { left = 3, right = 3, top = 3, bottom = 3 },
+	})
+	metricTip:SetBackdropColor(0, 0, 0, 0.92)
+	metricTip:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
+	metricTip:SetSize(GAUGE_W + 24, 96)
+	metricTip:SetFrameStrata("TOOLTIP")
+	metricTip:Hide()
+
+	metricTip.title = metricTip:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	metricTip.title:SetPoint("TOPLEFT", 10, -8)
+	metricTip.value = metricTip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	metricTip.value:SetPoint("TOPLEFT", 10, -24)
+	metricTip.median = metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	metricTip.median:SetPoint("TOPLEFT", 10, -38)
+
+	metricTip.gauge = CreateFrame("Frame", nil, metricTip)
+	metricTip.gauge:SetSize(GAUGE_W, GAUGE_H)
+	metricTip.gauge:SetPoint("TOPLEFT", 12, -58)
+	for _, z in ipairs(GAUGE_ZONES) do
+		local t = metricTip.gauge:CreateTexture(nil, "ARTWORK")
+		t:SetPoint("TOPLEFT", z[1] / 100 * GAUGE_W, 0)
+		t:SetSize((z[2] - z[1]) / 100 * GAUGE_W, GAUGE_H)
+		local mid = (z[1] + z[2]) / 2
+		local r, g, b = TP.Scoring.Grades.ColorForScore(mid > 95 and 96 or mid)
+		t:SetColorTexture(r, g, b, 0.55)
+	end
+	metricTip.marker = metricTip.gauge:CreateTexture(nil, "OVERLAY")
+	metricTip.marker:SetSize(2, GAUGE_H + 6)
+	metricTip.marker:SetColorTexture(1, 1, 1, 1)
+	metricTip.markerText = metricTip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+
+	metricTip.footer = metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	metricTip.footer:SetPoint("BOTTOMLEFT", 10, 8)
+end
+
+local function showMetricTip(anchor, data)
+	if not metricTip then
+		buildMetricTip()
+	end
+	local b, key, duration = data.b, data.key, data.duration
+	metricTip.title:SetText(TP.METRIC_LABELS[key] or key)
+
+	local valueText
+	if COUNT_METRICS[key] then
+		valueText = ("%d this fight"):format(b.value or 0)
+	elseif PERCENT_METRICS[key] then
+		valueText = ("Up %d%% of the fight"):format((b.value or 0) * 100 + 0.5)
+	elseif duration and duration > 0 then
+		valueText = ("%s · %s per second"):format(
+			TP.FormatNumber(b.value or 0), TP.FormatNumber((b.value or 0) / duration))
+	else
+		valueText = TP.FormatNumber(b.value or 0)
+	end
+	metricTip.value:SetText(valueText)
+
+	if b.specMedian and duration and duration > 0 then
+		metricTip.median:SetText(("spec median here: %s per second"):format(TP.FormatNumber(b.specMedian)))
+	elseif b.lowDemand then
+		metricTip.median:SetText("barely anything to heal - scored neutral")
+	elseif b.relative and not b.absolute then
+		metricTip.median:SetText("vs this group (no WCL data for this fight)")
+	else
+		metricTip.median:SetText("")
+	end
+
+	-- tick at your percentile when known, else at the normalized score
+	local pos = b.pctile or b.normalized or 0
+	local frac = math.max(0, math.min(99, pos)) / 100
+	metricTip.marker:ClearAllPoints()
+	metricTip.marker:SetPoint("CENTER", metricTip.gauge, "LEFT", frac * GAUGE_W, 0)
+	metricTip.markerText:ClearAllPoints()
+	metricTip.markerText:SetPoint("BOTTOM", metricTip.marker, "TOP", 0, 1)
+	metricTip.markerText:SetText(b.pctile and ("p%.0f"):format(b.pctile) or ("%.0f"):format(pos))
+
+	metricTip.footer:SetText(("score %d · worth %d%% of the grade"):format(
+		b.normalized or 0, (b.effectiveWeight or 0) * 100))
+
+	metricTip:ClearAllPoints()
+	metricTip:SetPoint("LEFT", anchor, "RIGHT", 8, 0)
+	metricTip:Show()
+end
+
 local function rowEnter(self)
+	if self.metricData then
+		showMetricTip(self, self.metricData)
+		return
+	end
 	local d = self.tooltipData
 	if not d then
 		return
@@ -34,6 +133,9 @@ end
 
 local function rowLeave()
 	GameTooltip:Hide()
+	if metricTip then
+		metricTip:Hide()
+	end
 end
 
 local function newRow(parent)
@@ -116,51 +218,10 @@ local function hideRowsFrom(i)
 	for j = i, #rows do
 		rows[j]:Hide()
 		rows[j].tooltipData = nil
+		rows[j].metricData = nil
 	end
 end
 
--- Hover derivation: one short line per fact. What you did, the 0-100 score
--- (with its sources when there are two), and what it added to the grade.
-local function buildMetricTooltip(key, b, duration)
-	local label = TP.METRIC_LABELS[key] or key
-	local lines = {}
-	local value = b.value or 0
-
-	if COUNT_METRICS[key] then
-		lines[#lines + 1] = { ("%d this fight"):format(value), 1, 1, 1 }
-	elseif PERCENT_METRICS[key] then
-		lines[#lines + 1] = { ("Up %d%% of the fight"):format(value * 100 + 0.5), 1, 1, 1 }
-	elseif duration and duration > 0 then
-		lines[#lines + 1] = { ("%s · %s per second"):format(
-			TP.FormatNumber(value), TP.FormatNumber(value / duration)), 1, 1, 1 }
-	else
-		lines[#lines + 1] = { TP.FormatNumber(value), 1, 1, 1 }
-	end
-
-	if b.specMedian and duration and duration > 0 then
-		-- the "but I topped the meter?!" answer: your spec's median on
-		-- exactly this fight and difficulty
-		lines[#lines + 1] = { ("The median player of your spec does %s per second here."):format(
-			TP.FormatNumber(b.specMedian)), 0.5, 0.8, 1 }
-	end
-	lines[#lines + 1] = { ("Score %d of 100"):format(b.normalized or 0), 1, 0.82, 0.2 }
-	if b.lowDemand then
-		lines[#lines + 1] = { "Nobody died or even dipped below 70% - there was too little to heal to grade this, so it scores a neutral 75.", 0.7, 0.7, 0.7 }
-	end
-	-- Only itemize the sources when the score blends two of them
-	if b.absolute and b.relative then
-		lines[#lines + 1] = { ("%d vs top parses for your spec"):format(b.absolute), 0.4, 0.75, 1 }
-		lines[#lines + 1] = { ("%d vs this group"):format(b.relative), 0.8, 0.8, 0.8 }
-	elseif b.absolute then
-		lines[#lines + 1] = { "Measured against top parses for your spec", 0.4, 0.75, 1 }
-	elseif b.relative then
-		lines[#lines + 1] = { "Measured against this group", 0.8, 0.8, 0.8 }
-	end
-	lines[#lines + 1] = { ("Added %.0f of a possible %.0f points"):format(
-		b.contribution or 0, (b.effectiveWeight or 0) * 100), 0.7, 0.7, 0.7 }
-
-	return { title = label, lines = lines }
-end
 
 local PENALTY_HELP = {
 	avoidable = "You took more than an equal share of the group's avoidable damage. Capped at -15.",
@@ -204,8 +265,10 @@ function Panel:ShowFor(fight, result)
 		row.text:SetText(bullet.text)
 		row.text:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
 
+		row.metricData = nil
 		if bullet.kind == "metric" then
-			row.tooltipData = buildMetricTooltip(bullet.key, result.breakdown[bullet.key], fight.duration)
+			row.tooltipData = nil
+			row.metricData = { b = result.breakdown[bullet.key], key = bullet.key, duration = fight.duration }
 		elseif bullet.kind == "penalty" then
 			row.tooltipData = { title = bullet.text, lines = { { PENALTY_HELP[bullet.key] or "", 0.95, 0.5, 0.5 } } }
 		elseif bullet.kind == "info" then
@@ -236,6 +299,7 @@ function Panel:ShowFor(fight, result)
 		row.tooltipData = { title = "Not running TrueParse", lines = {
 			{ "Defensives used, consumables at the pull, and death readiness are reported by each player's own TrueParse over a hidden addon channel. This player isn't running it, so those lines are missing. The grade itself is unaffected.", 0.8, 0.8, 0.8, true },
 		} }
+		row.metricData = nil
 	end
 	hideRowsFrom(total + 1)
 
@@ -366,6 +430,7 @@ function Panel:ShowForGroup(fight, results)
 		row.text:SetText(bullet.text)
 		row.text:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
 		row.tooltipData = bullet.tooltip
+		row.metricData = nil
 	end
 	hideRowsFrom(#bullets + 1)
 

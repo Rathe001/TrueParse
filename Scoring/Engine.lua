@@ -171,7 +171,7 @@ end
 -- Returns normalizedScore (0-100), applicable, absolute, relative,
 -- specMedian (the p50 rate for this spec+fight+bracket, when curve-scored)
 local function normalizeMetric(p, role, key, ctx)
-	local specMedian
+	local specMedian, pctile
 	local W = TP.Scoring.Weights
 	local value = metricValue(p, key)
 
@@ -245,6 +245,7 @@ local function normalizeMetric(p, role, key, ctx)
 				local pct = percentileFor(entry.curve, metricValue(p, key) / ctx.duration)
 				absolute = math.min(100, (W.trueAbsFloor or 0) + (W.trueAbsSlope or 1) * pct)
 				fromCurve = true
+				pctile = pct -- raw percentile, for the tooltip gauge
 				-- surfaced in tooltips: "the median of your spec does Y/s
 				-- here" — answers every 'but I topped the meter?!'
 				for _, point in ipairs(entry.curve) do
@@ -275,7 +276,7 @@ local function normalizeMetric(p, role, key, ctx)
 	-- vs other tanks, Disc/Mistweaver damage vs other healers). Curves for
 	-- EVERY spec x metric make cross-metric contributions spec-fair.
 	if absolute and fromCurve and not ctx.parseMode then
-		return absolute, true, absolute, nil, specMedian
+		return absolute, true, absolute, nil, specMedian, pctile
 	end
 
 	local relative, applicable
@@ -317,7 +318,7 @@ local function normalizeMetric(p, role, key, ctx)
 						specMedian = point[2]
 					end
 				end
-				return pct, true, pct, nil, specMedian
+				return pct, true, pct, nil, specMedian, pct
 			end
 		end
 		-- WCL semantics: 100 doesn't exist. And a relative-only fallback
@@ -441,7 +442,7 @@ function Engine.ScoreFight(fight, opts)
 		local breakdown = {}
 		local activeWeight = 0
 		for key, weight in pairs(weights) do
-			local normalized, applicable, absolute, relative, specMedian = normalizeMetric(p, role, key, ctx)
+			local normalized, applicable, absolute, relative, specMedian, pctile = normalizeMetric(p, role, key, ctx)
 			-- Trivial-demand floor: only for share-based healer healing (a
 			-- WCL absolute already prices the fight's real demand), and only
 			-- outside parse mode (a raw parse SHOULD read low on a fight
@@ -461,6 +462,7 @@ function Engine.ScoreFight(fight, opts)
 				relative = relative, -- vs the group, when available
 				lowDemand = lowDemand, -- floored: nothing to heal this fight
 				specMedian = specMedian, -- p50 rate for this spec+fight+bracket
+				pctile = pctile, -- raw population percentile (tooltip gauge)
 				value = metricValue(p, key),
 			}
 			if applicable then

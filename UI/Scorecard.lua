@@ -42,16 +42,22 @@ function Scorecard:Acquire(parent)
 		highlight:SetAllPoints()
 		highlight:SetColorTexture(1, 1, 1, 0.15)
 
-		-- Name ................. penalty score (white outlined name; the
-		-- score wears its parse-bracket color, on the right)
+		-- Name ....... penalty score runAvg (white outlined name; scores in
+		-- parse-bracket colors; runAvg = dimmer cumulative True run average)
 		local function outlined(template)
 			local fs = row:CreateFontString(nil, "OVERLAY", template)
 			local path, size = fs:GetFont()
 			fs:SetFont(path, size, "OUTLINE")
 			return fs
 		end
+		row.runAvg = outlined("GameFontDisableSmall")
+		row.runAvg:SetPoint("RIGHT", -3, 0)
+		row.runAvg:SetWidth(20)
+		row.runAvg:SetJustifyH("RIGHT")
+		row.runAvg:SetAlpha(0.75)
+
 		row.score = outlined("GameFontNormalSmall")
-		row.score:SetPoint("RIGHT", -4, 0)
+		row.score:SetPoint("RIGHT", row.runAvg, "LEFT", -4, 0)
 		row.score:SetWidth(26)
 		row.score:SetJustifyH("RIGHT")
 
