@@ -145,12 +145,17 @@ function Segments:CancelEndCheck()
 	end
 end
 
--- Boss unit GUIDs let trackers split damage-to-boss from damage-to-adds
+-- Boss unit GUIDs let trackers split damage-to-boss from damage-to-adds.
+-- Only the CLEU (Classic) trackers consume these, and Midnight secrets
+-- boss GUIDs mid-combat — a secret string as a table key throws.
 local function captureBossGUIDs(seg)
+	if TP.Compat.IS_RETAIL then
+		return
+	end
 	seg.bossGUIDs = seg.bossGUIDs or {}
 	for i = 1, 8 do
 		local guid = UnitGUID("boss" .. i)
-		if guid then
+		if guid and not TP.Compat.IsSecret(guid) then
 			seg.bossGUIDs[guid] = true
 		end
 	end
