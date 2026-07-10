@@ -196,7 +196,7 @@ local function createWindow()
 
 	window.modeLabel = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	window.modeLabel:SetText("Mode:")
-	window.modeReal = makeRadio("True", "contribution",
+	window.modeReal = makeRadio("TrueParse", "contribution",
 		"The full TrueParse score: damage, healing, kicks, dispels, soaking, minus penalties. What careers and run reports use.")
 	window.modeRaw = makeRadio("Raw", "parse",
 		"Straight comparison to top Warcraft Logs parses for your spec on this fight: damage for DPS and tanks, healing for healers. Nothing else counts.")
@@ -421,9 +421,10 @@ function MeterWindow:RenderScorecard(fight)
 		if viewOffset > 0 then
 			label = ("|cffaaaaaa%d/%d|r · "):format(viewOffset + 1, #TP.FightHistory.fights) .. label
 		end
-		if isRawSetting then
+		if isRawSetting and not rawAvail then
 			-- no WCL data for this fight: the card falls back to True scores
-			label = (rawAvail and "|cff66ccffraw|r · " or "|cff888888raw n/a|r · ") .. label
+			-- (the mode itself lives in the window title now)
+			label = "|cff888888no WCL data|r · " .. label
 		end
 		if fight.wipe then
 			label = "|cffe64d4dwipe|r · " .. label
@@ -799,11 +800,13 @@ local function refreshImpl(self, force)
 	if not window or not window:IsShown() then
 		return
 	end
+	-- the title carries the selected mode; the subtitle no longer tags raw
+	local modeTitle = (db().scoring.mode == "parse") and "Raw" or "TrueParse"
 	if db().window.collapsed or autoCollapsed then
 		releaseAllRows()
 		releaseAllBars()
 		lastRenderedFight = nil
-		window.title:SetText("TrueParse (+)")
+		window.title:SetText(modeTitle .. " (+)")
 		local latest = TP.FightHistory.fights[1]
 		if latest then
 			window.subtitle:SetText(collapsedSummary(latest))
@@ -821,7 +824,7 @@ local function refreshImpl(self, force)
 		applyWindowHeight(HEADER_HEIGHT + PADDING)
 		return
 	end
-	window.title:SetText("TrueParse")
+	window.title:SetText(modeTitle)
 	window.subtitleButton:Show()
 	local fights = TP.FightHistory.fights
 	local fight = fights[1 + viewOffset] or fights[1]
