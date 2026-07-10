@@ -107,6 +107,56 @@ local function countReadyDefensives()
 	return math.min(ready, 9)
 end
 
+-- Leaving combat mid-encounter (Blackfuse conveyor, fixates, feign-style
+-- phasing) must NOT finalize the report: a fragment with a reset defensive
+-- count matched the encounter duration and reported "0 defensives" for a
+-- player who visibly used them. While ANY group member is still fighting,
+-- the fight window stays open; re-entering combat resumes it.
+local graceTicker
+local GRACE_MAX_SECONDS = 180
+
+local function stopGrace()
+	if graceTicker then
+		graceTicker:Cancel()
+		graceTicker = nil
+	end
+end
+
+local function groupInCombat()
+	if IsInRaid() then
+		for i = 1, GetNumGroupMembers() do
+			if UnitAffectingCombat("raid" .. i) then
+				return true
+			end
+		end
+	elseif IsInGroup() then
+		for i = 1, GetNumGroupMembers() - 1 do
+			if UnitAffectingCombat("party" .. i) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function finalizeFight()
+	stopGrace()
+	stopUptimeTicker()
+	if not combatStart then
+		return
+	end
+	local duration = GetTime() - combatStart
+	combatStart = nil
+	local uptimePct = -1 -- -1 = not an Aug, no uptime to report
+	if trackingUptime and duration > 0 then
+		uptimePct = math.min(100, math.floor(uptimeSeconds / duration * 100 + 0.5))
+	end
+	if duration >= 10 and TP.Sync.RecordFightReport then
+		TP.Sync:RecordFightReport(UnitGUID("player"), duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct)
+		TP.Sync:BroadcastFightReport(duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct)
+	end
+end
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -118,6 +168,12 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 			defensivesUsed = defensivesUsed + 1
 		end
 	elseif event == "PLAYER_REGEN_DISABLED" then
+		if graceTicker then
+			-- back in combat while the group never left: same fight, keep
+			-- every counter
+			stopGrace()
+			return
+		end
 		combatStart = GetTime()
 		defensivesUsed = 0
 		readyAtDeath = -1
@@ -139,19 +195,23 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 			readyAtDeath = ok and count or -1
 		end
 	elseif event == "PLAYER_REGEN_ENABLED" then
-		stopUptimeTicker()
-		if combatStart then
-			local duration = GetTime() - combatStart
-			combatStart = nil
-			local uptimePct = -1 -- -1 = not an Aug, no uptime to report
-			if trackingUptime and duration > 0 then
-				uptimePct = math.min(100, math.floor(uptimeSeconds / duration * 100 + 0.5))
-			end
-			if duration >= 10 and TP.Sync.RecordFightReport then
-				TP.Sync:RecordFightReport(UnitGUID("player"), duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct)
-				TP.Sync:BroadcastFightReport(duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct)
-			end
+		if not combatStart then
+			return
 		end
+		if not IsInGroup() then
+			finalizeFight()
+			return
+		end
+		local waited = 0
+		stopGrace()
+		graceTicker = C_Timer.NewTicker(2, function()
+			waited = waited + 2
+			local ok, fighting = pcall(groupInCombat)
+			if (ok and fighting) and waited < GRACE_MAX_SECONDS then
+				return -- encounter still running; hold the window open
+			end
+			finalizeFight()
+		end)
 	end
 end)
 
