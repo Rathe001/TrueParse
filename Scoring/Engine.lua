@@ -464,8 +464,10 @@ function Engine.ScoreFight(fight, opts)
 			local d50 = dEntry and curveP50(dEntry.curve)
 			local h50 = hEntry and curveP50(hEntry.curve)
 			local budget = (weights.damage or 0) + (weights.healing or 0)
-			if (d50 or h50) and budget > 0 then
-				local mix = (h50 or 0) / math.max(1, (d50 or 0) + (h50 or 0))
+			-- BOTH medians required: a missing curve means "no data", not
+			-- "zero output" — one-sided evidence must not zero a weight
+			if d50 and h50 and budget > 0 then
+				local mix = h50 / math.max(1, d50 + h50)
 				mix = math.min(0.95, mix)
 				local specWeights = {}
 				for k, v in pairs(weights) do
