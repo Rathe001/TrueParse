@@ -49,6 +49,10 @@ local function buildMetricTip()
 	metricTip.value:SetPoint("TOPLEFT", 10, -24)
 	metricTip.median = metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	metricTip.median:SetPoint("TOPLEFT", 10, -38)
+	-- clamped to the card: long population labels must truncate, not spill
+	metricTip.median:SetPoint("TOPRIGHT", -10, -38)
+	metricTip.median:SetJustifyH("LEFT")
+	metricTip.median:SetWordWrap(false)
 
 	metricTip.gauge = CreateFrame("Frame", nil, metricTip)
 	metricTip.gauge:SetSize(GAUGE_W, GAUGE_H)
@@ -93,7 +97,7 @@ local function showMetricTip(anchor, data)
 	if b.specMedian and duration and duration > 0 then
 		-- curveFrom names the comparison population when the evidence
 		-- ladder had to zoom out (other bracket, all bosses, everyone)
-		metricTip.median:SetText(("%s median: %s per second"):format(
+		metricTip.median:SetText(("%s median: %s/s"):format(
 			b.curveFrom or (b.rolePooled and "role" or "spec"), TP.FormatNumber(b.specMedian)))
 	elseif b.lowDemand then
 		metricTip.median:SetText("barely anything to heal - scored neutral")

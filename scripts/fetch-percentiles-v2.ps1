@@ -408,25 +408,26 @@ Emit "-- the curve matching their fight's bracket, producing a true WCL-style"
 Emit "-- percentile. Same staleness rules as Benchmarks: regenerate per patch."
 Emit "local _, TP = ..."
 Emit ""
-Emit "TP.Percentiles = {"
-Emit ("`tgenerated = `"{0}`"," -f (Get-Date -Format "yyyy-MM-dd"))
-Emit ("`tzone = `"{0}`"," -f $zone.name)
-Emit "`tencounters = {"
+# Merge-friendly shape: multiple generated files (raid + dungeons) coexist;
+# whichever loads later ADDS its encounters instead of clobbering the table.
+Emit "TP.Percentiles = TP.Percentiles or {}"
+Emit "TP.Percentiles.encounters = TP.Percentiles.encounters or {}"
+Emit ("TP.Percentiles.generated = `"{0}`" -- {1}" -f (Get-Date -Format "yyyy-MM-dd"), $zone.name)
+Emit "local E = TP.Percentiles.encounters"
+Emit ""
 foreach ($name in ($encounters.Keys | Sort-Object)) {
     $bracketSets = $encounters[$name]
     if ($bracketSets.Count -eq 0) { continue }
-    Emit ("`t`t[`"{0}`"] = {{" -f ($name -replace '"', '\"'))
+    Emit ("E[`"{0}`"] = {{" -f ($name -replace '"', '\"'))
     foreach ($bk in ($bracketSets.Keys | Sort-Object)) {
         $set = $bracketSets[$bk]
-        Emit ("`t`t`t[`"{0}`"] = {{" -f $bk)
-        Emit-CurveTable "`t`t`t`t" "dps" $set.dps
-        Emit-CurveTable "`t`t`t`t" "hps" $set.hps
-        Emit "`t`t`t},"
+        Emit ("`t[`"{0}`"] = {{" -f $bk)
+        Emit-CurveTable "`t`t" "dps" $set.dps
+        Emit-CurveTable "`t`t" "hps" $set.hps
+        Emit "`t},"
     }
-    Emit "`t`t},"
+    Emit "}"
 }
-Emit "`t},"
-Emit "}"
 
 $outPath = Join-Path (Split-Path $PSScriptRoot -Parent) "Data\$OutFile"
 [System.IO.File]::WriteAllLines($outPath, $lines)
