@@ -450,7 +450,7 @@ function MeterWindow:RenderScorecard(fight)
 
 	-- Run row: the cumulative run average (always True — same currency the
 	-- chat reports use), shown once the run has 2+ fights
-	local runFight, runResults, runScore, runFightCount, runBy
+	local runFight, runResults, runScore, runBy
 	if TP.RunSummary and TP.RunSummary.CurrentRun then
 		local run, count = TP.RunSummary:CurrentRun()
 		if run and count and count >= 2 then
@@ -462,7 +462,7 @@ function MeterWindow:RenderScorecard(fight)
 					s = s + r.score
 					runBy[r.guid] = r
 				end
-				runFight, runResults, runScore, runFightCount = run, rr, s / #rr, count
+				runFight, runResults, runScore = run, rr, s / #rr
 			end
 		end
 	end
@@ -571,9 +571,6 @@ function MeterWindow:RenderScorecard(fight)
 		local groupScore = sum / #results
 		local sr, sg, sb = TP.Scoring.Grades.ColorForScore(groupScore)
 		local label = (#results > 5) and "Raid" or "Group"
-		if runScore then
-			label = ("%s · %d fights"):format(label, runFightCount)
-		end
 		row.name:SetAlpha(1)
 		row.score:SetAlpha(1)
 		row.penalty:SetAlpha(1)
