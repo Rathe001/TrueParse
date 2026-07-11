@@ -416,6 +416,17 @@ if awards.d1 then
 	end
 end
 check(offHealerHasLifesaver, "DPS with 25% of group healing earns Lifesaver")
+-- ...but only when the healing lands on OTHER people: mostly-self
+-- sustain earns Unbreakable instead
+awardFight.players.d1.metrics.selfHealing = awardFight.players.d1.metrics.healing * 0.9
+local selfAwards = TP.Scoring.Awards.Compute(awardFight)
+local hasUnbreakable, stillLifesaver = false, false
+for _, a in ipairs(selfAwards.d1 or {}) do
+	if a == "Unbreakable" then hasUnbreakable = true end
+	if a == "Lifesaver" then stillLifesaver = true end
+end
+check(hasUnbreakable and not stillLifesaver, "self-heavy healing earns Unbreakable, not Lifesaver")
+awardFight.players.d1.metrics.selfHealing = nil
 -- Survivalist: most self-rescue healing, and lived
 awardFight.players.d2.metrics.potionHealing = 60000
 local awards2 = TP.Scoring.Awards.Compute(awardFight)

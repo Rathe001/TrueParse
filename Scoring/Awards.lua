@@ -12,6 +12,7 @@ Awards.LABELS = {
 	cleanser = "Cleanser",
 	untouchable = "Untouchable",
 	lifesaver = "Lifesaver",
+	unbreakable = "Unbreakable",
 	survivalist = "Survivalist",
 	ironWall = "Iron Wall",
 	-- healer-only
@@ -30,7 +31,8 @@ Awards.DESCRIPTIONS = {
 	[Awards.LABELS.kickKing] = "Most interrupts this fight (at least 2, no tie).",
 	[Awards.LABELS.cleanser] = "Most dispels this fight (at least 2, no tie).",
 	[Awards.LABELS.untouchable] = "Avoidable damage went out and you dodged every bit of it.",
-	[Awards.LABELS.lifesaver] = "A non-healer who covered 15%+ of the group's healing.",
+	[Awards.LABELS.lifesaver] = "A non-healer who covered 15%+ of the group's healing - on other people.",
+	[Awards.LABELS.unbreakable] = "A non-healer who covered 15%+ of the group's healing by keeping themselves alive. Nobody heals this one.",
 	[Awards.LABELS.survivalist] = "Most self-rescue healing (potion or Healthstone) - and lived to tell about it.",
 	[Awards.LABELS.ironWall] = "Most defensive cooldowns used (reported by their own TrueParse).",
 	[Awards.LABELS.notOnMyWatch] = "Healer award: the boss went down and nobody died.",
@@ -111,14 +113,23 @@ function Awards.Compute(fight)
 	end
 
 	-- Non-healer covering a meaningful slice of group healing (effective
-	-- role: the assigned one calls a solo Mistweaver a DAMAGER)
+	-- role: the assigned one calls a solo Mistweaver a DAMAGER).
+	-- "Saving lives" requires healing OTHER people: mostly-self healing
+	-- earns Unbreakable instead (split only known on Classic captures;
+	-- without it the healing is assumed outward).
 	local totalHeal = (fight.totals.healing or 0) + (fight.totals.absorbs or 0)
 	if totalHeal > 0 then
 		for guid, p in pairs(fight.players) do
 			if TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID) ~= "HEALER" then
 				local heal = (p.metrics.healing or 0) + (p.metrics.absorbs or 0)
 				if heal / totalHeal >= 0.15 then
-					grant(guid, "lifesaver")
+					local selfShare = (p.metrics.selfHealing and (p.metrics.healing or 0) > 0)
+						and (p.metrics.selfHealing / p.metrics.healing) or nil
+					if selfShare and selfShare >= 0.8 then
+						grant(guid, "unbreakable")
+					else
+						grant(guid, "lifesaver")
+					end
 				end
 			end
 		end
