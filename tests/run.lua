@@ -1067,6 +1067,20 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(dungeonFight, { mode = "parse", 
 end
 TP.Percentiles.encounters["Pool Dungeon"] = nil
 
+-- 18e. Run aggregates score through the percentile ladder too: cohort-
+-- relative run averages handed the best of each role a structural 100
+local runAgg = TP.Scoring.Runs.Aggregate({ pctFight, pctFight }, "Run")
+check(runAgg.isRun and runAgg.difficultyID == pctFight.difficultyID,
+	"run aggregate carries isRun and difficulty context")
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(runAgg, { normalizeIlvl = false })) do
+	if r.name == "Deeps" then
+		check(r.breakdown.damage.absolute ~= nil
+			and r.breakdown.damage.curveFrom == "spec \194\183 all bosses",
+			("run average scored vs population pools, not the cohort (%s)"):format(
+				tostring(r.breakdown.damage.curveFrom)))
+	end
+end
+
 -- True mode uses the curve through the contribution transform: p50 -> 65,
 -- standing ALONE (no cohort blend: that re-imports spec bias)
 pctFight.difficultyID = 3

@@ -12,6 +12,9 @@ function Runs.Aggregate(fights, name)
 	local run = {
 		name = name or "Run",
 		isBoss = false,
+		isRun = true, -- lets the engine's percentile ladder apply: cohort-
+		-- relative run averages handed the best of each role a structural
+		-- 100 (a 99 "run parse" on the card)
 		duration = 0,
 		capturedAt = 0,
 		players = {},
@@ -25,6 +28,11 @@ function Runs.Aggregate(fights, name)
 		if fight.zone and not run.zone then
 			run.zone = fight.zone
 		end
+		-- bracket/dungeon matching wants the run's difficulty context;
+		-- later fights win (mid-run difficulty swaps are rare but real)
+		run.difficulty = fight.difficulty or run.difficulty
+		run.difficultyID = fight.difficultyID or run.difficultyID
+		run.keystoneLevel = fight.keystoneLevel or run.keystoneLevel
 		for key, value in pairs(fight.totals or {}) do
 			run.totals[key] = (run.totals[key] or 0) + value
 		end

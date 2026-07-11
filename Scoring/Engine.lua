@@ -131,7 +131,7 @@ local WCL_BRACKET = {
 -- populate those rankings — a Timewalking healer measured against the M+
 -- population would read F on content nobody ranks.
 local function encounterCurvesFor(P, fight)
-	if not fight.isBoss or not P.encounters then
+	if not (fight.isBoss or fight.isRun) or not P.encounters then
 		return nil
 	end
 	if fight.name then
@@ -672,7 +672,7 @@ function Engine.ScoreFight(fight, opts)
 	-- populations we do have instead of dropping to a group comparison
 	do
 		local P = TP.Percentiles
-		if P and P.encounters and fight.isBoss then
+		if P and P.encounters and (fight.isBoss or fight.isRun) then
 			local enc = encounterCurvesFor(P, fight)
 			local bracketKey = fight.difficultyID and WCL_BRACKET[fight.difficultyID]
 			ctx.curves = { P = P, enc = enc, order = bracketSearchOrder(bracketKey) }
