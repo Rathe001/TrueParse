@@ -1,6 +1,23 @@
 # TrueParse Changelog
 
-## 1.2.0 (unreleased)
+## 1.2.1
+
+- Retail percentile data doubled: damage AND healing curves for all 37
+  specs across Normal/Heroic/Mythic raid brackets.
+- Mythic+ dungeon curves (8 dungeons, whole-run populations): M+ and
+  Challenge Mode bosses parse against the right dungeon. Unranked
+  difficulties (Timewalking, normal/heroic dungeons) never borrow the
+  M+ population - Raw disables there instead of handing out unfair Fs.
+- Raw mode only uses evidence from THIS encounter; the cross-encounter
+  zoom ladder is now a True-mode fairness fallback only.
+- Your spec decides your role everywhere (matching how Warcraft Logs
+  ranks): a healer in unassigned-role content is no longer graded as
+  DPS or handed the non-healer Lifesaver award.
+- Retail captures record role/spec/ilvl while the fight is live - late
+  bulk-unlocked captures no longer lose them when the group disbands.
+- Fixed a retail error when boss GUIDs are secret mid-combat.
+
+## 1.2.0
 
 Scoring:
 
