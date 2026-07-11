@@ -240,7 +240,21 @@ function Addon:HandleSlash(input)
 			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 		end
 	else
-		self:Print("Commands: /tp (toggle window), /tp config, /tp mode, /tp run, /tp share, /tp career, /tp trends, /tp fights, /tp score [n], /tp lock, /tp reset, /tp coach, /tp announce, /tp ilvl, /tp debug, /tp probe")
+		-- /tp help, and the landing spot for any unknown command
+		local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+		local version = (getMeta and getMeta(ADDON_NAME, "Version")) or "?"
+		self:Print(("TrueParse v%s - commands:"):format(version))
+		self:Print("  /tp - toggle the scorecard window")
+		self:Print("  /tp config - options panel")
+		self:Print("  /tp mode - switch TrueParse/Raw scoring")
+		self:Print("  /tp letters - letter grades instead of numbers")
+		self:Print("  /tp run - run report · /tp share - post group summary")
+		self:Print("  /tp career - your stats · /tp trends - where they're heading")
+		self:Print("  /tp fights - capture history · /tp score [n] - rescore one")
+		self:Print("  /tp buffs - pre-pull raid buff diagnostic")
+		self:Print("  /tp coach · /tp announce · /tp ilvl - toggles")
+		self:Print("  /tp lock - lock the window · /tp reset - re-center it")
+		self:Print("Bugs: github.com/Rathe001/TrueParse/issues")
 	end
 end
 
