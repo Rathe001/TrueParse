@@ -126,12 +126,32 @@ local WCL_BRACKET = {
 	[14] = "3", [15] = "4", [16] = "5", -- retail Normal/Heroic/Mythic
 }
 
-local function resolvePercentiles(fight)
-	local P = TP.Percentiles
-	if not P or not P.encounters or not fight.isBoss or not fight.name then
+-- Raid curves key by BOSS name; dungeon curves key by DUNGEON name (WCL
+-- ranks M+ as whole runs) and only apply on difficulties that actually
+-- populate those rankings — a Timewalking healer measured against the M+
+-- population would read F on content nobody ranks.
+local function encounterCurvesFor(P, fight)
+	if not fight.isBoss or not P.encounters then
 		return nil
 	end
-	local enc = P.encounters[fight.name:gsub("^%(!%)%s*", "")]
+	if fight.name then
+		local enc = P.encounters[fight.name:gsub("^%(!%)%s*", "")]
+		if enc then
+			return enc
+		end
+	end
+	if fight.zone and (DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or fight.keystoneLevel) then
+		return P.encounters[fight.zone]
+	end
+	return nil
+end
+
+local function resolvePercentiles(fight)
+	local P = TP.Percentiles
+	if not P then
+		return nil
+	end
+	local enc = encounterCurvesFor(P, fight)
 	if not enc then
 		return nil
 	end
@@ -653,7 +673,7 @@ function Engine.ScoreFight(fight, opts)
 	do
 		local P = TP.Percentiles
 		if P and P.encounters and fight.isBoss then
-			local enc = fight.name and P.encounters[fight.name:gsub("^%(!%)%s*", "")]
+			local enc = encounterCurvesFor(P, fight)
 			local bracketKey = fight.difficultyID and WCL_BRACKET[fight.difficultyID]
 			ctx.curves = { P = P, enc = enc, order = bracketSearchOrder(bracketKey) }
 		end

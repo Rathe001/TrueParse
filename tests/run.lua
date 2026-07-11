@@ -1034,6 +1034,39 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(mysteryFight, { mode = "parse", 
 	end
 end
 
+-- 18d. Dungeon curves key by DUNGEON name (whole-run M+ rankings) and only
+-- apply on ranked difficulties: a Timewalking healer must not be parsed
+-- against the M+ population
+TP.Percentiles.encounters["Pool Dungeon"] = { ["all"] = {
+	dps = { [63] = { n = 800, curve = { { 99, 1000 }, { 95, 900 }, { 90, 800 }, { 75, 650 }, { 50, 500 }, { 25, 380 }, { 10, 300 } } } },
+	hps = {},
+} }
+local dungeonFight = {
+	name = "(!) Some Boss", isBoss = true, duration = 100,
+	zone = "Pool Dungeon", difficulty = "Mythic Keystone", keystoneLevel = 10,
+	players = {
+		d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 50000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+		d2 = { guid = "d2", name = "Deeps2", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 30000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+	},
+}
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(dungeonFight, { mode = "parse", normalizeIlvl = false })) do
+	if r.name == "Deeps" then
+		check(math.abs(r.breakdown.damage.normalized - 50) < 0.001,
+			("M+ boss parses against the dungeon's whole-run curve (%.1f)"):format(r.breakdown.damage.normalized))
+	end
+end
+dungeonFight.difficulty = "Timewalking"
+dungeonFight.keystoneLevel = nil
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(dungeonFight, { mode = "parse", normalizeIlvl = false })) do
+	if r.name == "Deeps" then
+		check(r.breakdown.damage.absolute == nil,
+			"unranked dungeon difficulty gets no parse from M+ curves")
+	end
+end
+TP.Percentiles.encounters["Pool Dungeon"] = nil
+
 -- True mode uses the curve through the contribution transform: p50 -> 65,
 -- standing ALONE (no cohort blend: that re-imports spec bias)
 pctFight.difficultyID = 3
