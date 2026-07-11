@@ -57,8 +57,22 @@ local function topUnique(fight, metric, minValue)
 	end
 end
 
+-- Awards are deterministic per fight record; hovering a 25-row card was
+-- recomputing them 25 times. Weak-keyed so released fights free the memo.
+local computeCache = setmetatable({}, { __mode = "k" })
+
+-- Late-arriving peer reports change award inputs (Iron Wall reads
+-- defensives): Sync invalidates after attaching.
+function Awards.Invalidate(fight)
+	computeCache[fight] = nil
+end
+
 -- Returns [guid] = { "Kick King", ... } for every player who earned one.
 function Awards.Compute(fight)
+	local cached = computeCache[fight]
+	if cached then
+		return cached
+	end
 	local byGuid = {}
 	local function grant(guid, key)
 		byGuid[guid] = byGuid[guid] or {}
@@ -178,5 +192,6 @@ function Awards.Compute(fight)
 		end
 	end
 
+	computeCache[fight] = byGuid
 	return byGuid
 end

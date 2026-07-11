@@ -42,6 +42,9 @@ TP.SPEC_ROLES = {
 	[265] = "DAMAGER", [266] = "DAMAGER", [267] = "DAMAGER", -- warlock
 	[268] = "TANK", [269] = "DAMAGER", [270] = "HEALER", -- monk
 	[577] = "DAMAGER", [581] = "TANK", -- dh
+	-- Midnight third DH spec, observed live (2026-07-10 field data:
+	-- 1.08M damage / 960 healing, queued as DPS)
+	[1480] = "DAMAGER",
 	[1467] = "DAMAGER", [1468] = "HEALER", [1473] = "SUPPORT", -- evoker
 }
 

@@ -39,12 +39,23 @@ function Roster:Rebuild()
 	for _, unit in ipairs(TP.Compat.GroupUnits(unitScratch)) do
 		if UnitExists(unit) then
 			local guid = UnitGUID(unit)
+			-- Midnight can secret unit identity mid-combat (rebuilds fire on
+			-- joins/leaves): a secret GUID as a table key throws, a secret
+			-- name poisons later concats. Skip the member this pass; the
+			-- next roster event fills them in.
+			if guid and TP.Compat.IsSecret(guid) then
+				guid = nil
+			end
 			if guid then
 				local _, class = UnitClass(unit)
+				local name = GetUnitName(unit, true)
+				if name and TP.Compat.IsSecret(name) then
+					name = nil
+				end
 				local cached = self.cache[guid]
 				local info = {
 					guid = guid,
-					name = GetUnitName(unit, true) or UNKNOWN,
+					name = name or UNKNOWN,
 					class = class or "PRIEST",
 					role = TP.Compat.GetRole(unit),
 					unit = unit,

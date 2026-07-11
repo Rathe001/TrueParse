@@ -56,6 +56,9 @@ local function readAttribute(sessionID, enumValue)
 	if not session then
 		return nil
 	end
+	if IsSecret(session.durationSeconds) then
+		return nil, true
+	end
 	local src = session.combatSources[1]
 	if src and (IsSecret(src.name) or IsSecret(src.totalAmount) or IsSecret(src.sourceGUID)) then
 		return nil, true
@@ -79,6 +82,12 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 			for i = 1, #session.combatSources do
 				local src = session.combatSources[i]
 				local guid = src.sourceGUID
+				-- locking is per-VALUE, not per-session: source #1 readable
+				-- doesn't mean source #7's GUID is (a secret table key throws,
+				-- and the 5s retry ticker would re-throw forever)
+				if guid and IsSecret(guid) then
+					guid = nil
+				end
 				if guid then
 					local p = players[guid]
 					if not p then
@@ -335,14 +344,17 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 		end
 		-- Roster facts recorded LIVE: bulk-unlocked captures often land after
 		-- the group disbands, when TP.Roster is empty — a queued Timewalking
-		-- healer lost their role that way. Refresh each update (joins).
-		local ctxRoster = sessionContext[sessionId].roster
-		if ctxRoster then
+		-- healer lost their role that way. Meter updates stream several times
+		-- a second in combat, and roles/specs basically never change mid-
+		-- fight: refresh at most every 5s (still catches joins).
+		local ctx = sessionContext[sessionId]
+		if ctx.roster and (not ctx.rosterAt or (GetTime() - ctx.rosterAt) > 5) then
+			ctx.rosterAt = GetTime()
 			for guid, info in pairs(TP.Roster.players) do
-				local e = ctxRoster[guid]
+				local e = ctx.roster[guid]
 				if not e then
 					e = {}
-					ctxRoster[guid] = e
+					ctx.roster[guid] = e
 				end
 				e.role = info.role or e.role
 				e.specID = info.specID or e.specID

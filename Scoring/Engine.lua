@@ -142,17 +142,62 @@ local function encounterByName(P, name)
 	end
 	local key = normalizeName(name)
 	local idx = nameIndexCache[P]
-	if idx and idx[key] then
-		return idx[key]
+	if not idx then
+		idx = {}
+		for k, v in pairs(P.encounters) do
+			idx[normalizeName(k)] = v
+		end
+		nameIndexCache[P] = idx
 	end
-	-- rebuild on any normalized miss (self-healing when the encounters
-	-- table gains entries; genuinely unknown bosses pay ~17 gsubs)
-	idx = {}
-	for k, v in pairs(P.encounters) do
-		idx[normalizeName(k)] = v
-	end
-	nameIndexCache[P] = idx
+	-- misses stay misses (run aggregates query "Run" on every score);
+	-- the encounters table never changes at runtime
 	return idx[key]
+end
+
+-- Tests mutate the encounters table; runtime never does
+function Engine.InvalidateNameIndex(P)
+	nameIndexCache[P or TP.Percentiles] = nil
+end
+
+-- WCL orders DUNGEON rankings by keystone score, not by the requested
+-- throughput metric, so sampled curves come back shuffled (583 of the 592
+-- shipped M+ curves were non-monotonic) — and percentileFor assumes
+-- descending values. Sorting the sampled values restores a usable curve.
+local function sanitizeEncounter(enc)
+	if enc._mono then
+		return enc
+	end
+	enc._mono = true
+	local scratch = {}
+	for bk, bracket in pairs(enc) do
+		if bk ~= "_mono" and type(bracket) == "table" then
+			for _, kind in ipairs({ "dps", "hps" }) do
+				for _, entry in pairs(bracket[kind] or {}) do
+					local curve = entry.curve
+					local sorted = true
+					for i = 2, #curve do
+						if curve[i][2] > curve[i - 1][2] then
+							sorted = false
+							break
+						end
+					end
+					if not sorted then
+						for i = 1, #curve do
+							scratch[i] = curve[i][2]
+						end
+						table.sort(scratch, function(a, b)
+							return a > b
+						end)
+						for i = 1, #curve do
+							curve[i][2] = scratch[i]
+							scratch[i] = nil
+						end
+					end
+				end
+			end
+		end
+	end
+	return enc
 end
 
 -- Raid curves key by BOSS name; dungeon curves key by DUNGEON name (WCL
@@ -166,11 +211,15 @@ local function encounterCurvesFor(P, fight)
 	if fight.name then
 		local enc = encounterByName(P, fight.name:gsub("^%(!%)%s*", ""))
 		if enc then
-			return enc
+			return sanitizeEncounter(enc)
 		end
 	end
-	if fight.zone and (DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or fight.keystoneLevel) then
-		return P.encounters[fight.zone]
+	-- difficultyID 8 = Mythic Keystone on any locale; the localized-name
+	-- check keeps working for English and MoP Challenge Modes
+	if fight.zone and (fight.difficultyID == 8
+		or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or fight.keystoneLevel) then
+		local enc = P.encounters[fight.zone]
+		return enc and sanitizeEncounter(enc) or nil
 	end
 	return nil
 end
@@ -271,6 +320,13 @@ local function rolePooledEntry(bracket, kind, role)
 			curve[#curve + 1] = { pct, sums[pct] / total }
 		end
 	end
+	-- pooled points are computed per-quantile independently; keep the
+	-- curve descending (percentileFor's contract)
+	for i = 2, #curve do
+		if curve[i][2] > curve[i - 1][2] then
+			curve[i][2] = curve[i - 1][2]
+		end
+	end
 	local pooled = { n = total, curve = curve }
 	cache[kind][role] = pooled
 	return pooled
@@ -298,8 +354,11 @@ local function globalPool(P, bracketKey, kind, accept, cacheKey)
 			brackets = { enc[bracketKey] }
 		else
 			brackets = {}
-			for _, b in pairs(enc) do
-				brackets[#brackets + 1] = b
+			for k, b in pairs(enc) do
+				-- skip the _mono sanitize marker and any non-bracket field
+				if type(b) == "table" then
+					brackets[#brackets + 1] = b
+				end
 			end
 		end
 		for _, bracket in ipairs(brackets) do
@@ -325,6 +384,11 @@ local function globalPool(P, bracketKey, kind, accept, cacheKey)
 	for _, pct in ipairs(QUANTS) do
 		if sums[pct] then
 			curve[#curve + 1] = { pct, sums[pct] / total }
+		end
+	end
+	for i = 2, #curve do
+		if curve[i][2] > curve[i - 1][2] then
+			curve[i][2] = curve[i - 1][2]
 		end
 	end
 	local pooled = { n = total, curve = curve }

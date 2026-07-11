@@ -176,7 +176,9 @@ local function startWindow()
 end
 
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+-- unit-filtered: the handler only cares about our own casts, and the
+-- unfiltered event fires for every nameplate cast in a raid
+frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("PLAYER_DEAD")

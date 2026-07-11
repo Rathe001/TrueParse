@@ -99,6 +99,22 @@ function Bullets.ForResult(result, awards, extra)
 		if (b.value or 0) == 0 and phrases.zero then
 			text = phrases.zero
 		end
+		-- Count metrics tier on the COUNT, statically: the smoothed
+		-- fair-share score painted "Did not interrupt" as a blue + (zero
+		-- kicks score 55 so the GRADE stays fair; the bullet shouldn't).
+		-- 0 = plain grey statement, 1 grey, 2 green, 3 blue, 4 purple,
+		-- 5+ orange.
+		if key == "interrupts" or key == "dispels" then
+			local n = b.value or 0
+			if n == 0 then
+				text, symbol, color = phrases.zero, MIDDOT, MID
+			else
+				local staticScore = (n >= 5 and 96) or (n == 4 and 80)
+					or (n == 3 and 60) or (n == 2 and 30) or 10
+				local sTier, sSymbol = tierOf(staticScore)
+				text, symbol, color = phrases[sTier], sSymbol, tierColor(staticScore)
+			end
+		end
 		if b.lowDemand then
 			-- floored: the fight barely needed healing, don't scold or gush
 			text, symbol, color = "Little healing needed - group stayed topped", MIDDOT, MID

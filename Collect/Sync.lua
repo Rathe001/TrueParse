@@ -120,6 +120,10 @@ function Sync:AttachReports(fight)
 					p.metrics.buffUptime = report.buffUptime / 100
 				end
 				table.remove(list, bestIdx)
+				-- award inputs changed (Iron Wall reads defensives)
+				if TP.Scoring and TP.Scoring.Awards then
+					TP.Scoring.Awards.Invalidate(fight)
+				end
 			end
 		end
 	end
@@ -150,6 +154,17 @@ function Sync:QueueHello()
 	self.helloTimer = self:ScheduleTimer("SendHello", 5)
 end
 
+-- A payload's claimed GUID must belong to the SENDER: without this, any
+-- groupmate could overwrite teammates' spec/ilvl or inject fight reports
+-- for them (defensives, readiness) that flow into cards and history.
+local function senderOwnsGuid(sender, guid)
+	local info = TP.Roster.players[guid]
+	if not info or not info.name or not sender then
+		return false
+	end
+	return Ambiguate(info.name, "none") == Ambiguate(sender, "none")
+end
+
 function Sync:OnCommReceived(prefix, message, _, sender)
 	if prefix ~= PREFIX then
 		return
@@ -163,8 +178,8 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 	end
 	if version then
 		local info = TP.Roster.players[guid]
-		if not info then
-			return -- claimed GUID isn't in our group: ignore
+		if not info or not senderOwnsGuid(sender, guid) then
+			return -- not in our group, or claiming someone else's GUID
 		end
 		if guid ~= UnitGUID("player") then
 			checkNewerVersion(remoteAddonVersion)
@@ -172,10 +187,12 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		self.users[guid] = { version = tonumber(version), seen = time() }
 		specID = tonumber(specID)
 		ilvl = tonumber(ilvl)
-		if specID and specID > 0 then
+		-- clamp remote claims: a bogus ilvl of 1e8 turns the gear curve
+		-- into inf/NaN scores for the whole card
+		if specID and TP.SPEC_ROLES and TP.SPEC_ROLES[specID] then
 			info.specID = specID
 		end
-		if ilvl and ilvl > 0 then
+		if ilvl and ilvl > 0 and ilvl <= 2000 then
 			info.ilvl = ilvl
 		end
 		TP.Roster.cache[guid] = { specID = info.specID, ilvl = info.ilvl }
@@ -197,16 +214,17 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		if fGuid == UnitGUID("player") then
 			return -- our own broadcast looping back; recorded locally already
 		end
-		if not TP.Roster.players[fGuid] then
-			return -- not in our group
+		if not TP.Roster.players[fGuid] or not senderOwnsGuid(sender, fGuid) then
+			return -- not in our group, or claiming someone else's GUID
 		end
 		self.users[fGuid] = { version = tonumber(fVersion), seen = time() }
 		-- sanity-bound self-reported numbers
+		local ready = tonumber(readyAtDeath)
 		self:RecordFightReport(fGuid,
 			tonumber(duration) or 0,
 			math.min(tonumber(defensives) or 0, 50),
 			math.min(tonumber(consumables) or 0, 5),
-			tonumber(readyAtDeath),
+			ready and math.min(ready, 9) or nil,
 			tonumber(buffUptime))
 	end
 end

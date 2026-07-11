@@ -395,7 +395,16 @@ function Emit-CurveTable($indent, $name, $tbl) {
     Emit ("$indent$name = {")
     foreach ($specID in ($tbl.Keys | Sort-Object)) {
         $entry = $tbl[$specID]
-        $points = ($entry.curve | ForEach-Object { "{ $($_[0]), $($_[1]) }" }) -join ", "
+        # Dungeon (M+) rankings are ordered by keystone score, not by the
+        # requested metric, so sampled values can come back shuffled while
+        # the engine's interpolation assumes descending curves. Re-sorting
+        # is a no-op for metric-ordered (raid) crawls.
+        $vals = @($entry.curve | ForEach-Object { $_[1] }) | Sort-Object -Descending
+        $pts = New-Object System.Collections.ArrayList
+        for ($i = 0; $i -lt $entry.curve.Count; $i++) {
+            [void]$pts.Add("{ $($entry.curve[$i][0]), $($vals[$i]) }")
+        }
+        $points = $pts -join ", "
         Emit ("$indent`t[{0}] = {{ n = {1}, curve = {{ {2} }} }}," -f $specID, $entry.n, $points)
     }
     Emit ("$indent},")

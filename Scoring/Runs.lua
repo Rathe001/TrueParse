@@ -51,8 +51,20 @@ function Runs.Aggregate(fights, name)
 			rp.specID = p.specID or rp.specID
 			rp.ilvl = p.ilvl or rp.ilvl
 			for key, value in pairs(p.metrics) do
-				rp.metrics[key] = (rp.metrics[key] or 0) + value
+				if key == "buffUptime" then
+					-- a 0-1 RATIO: summing gave a 5-fight Aug ~3.0 "uptime"
+					-- (scored 100 regardless of play). Duration-weight it.
+					rp.uptimeWeighted = (rp.uptimeWeighted or 0) + value * (fight.duration or 0)
+				else
+					rp.metrics[key] = (rp.metrics[key] or 0) + value
+				end
 			end
+		end
+	end
+	for _, rp in pairs(run.players) do
+		if rp.uptimeWeighted then
+			rp.metrics.buffUptime = run.duration > 0 and (rp.uptimeWeighted / run.duration) or nil
+			rp.uptimeWeighted = nil
 		end
 	end
 	return run

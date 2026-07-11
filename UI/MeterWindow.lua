@@ -362,23 +362,39 @@ local function anyWclEvidence(parseResults)
 	return false
 end
 
+-- Raw availability is fight-static (curve coverage doesn't change after
+-- capture): cache it so re-renders don't pay a probe ScoreFight each time
+local rawAvailCache = setmetatable({}, { __mode = "k" })
+
+local function rawAvailableFor(fight, parseResults)
+	local hit = rawAvailCache[fight]
+	if hit ~= nil then
+		return hit
+	end
+	local results = parseResults
+	if not results then
+		local parseOpts = TP.GetScoringOptions()
+		parseOpts.mode = "parse"
+		results = TP.Scoring.Engine.ScoreFight(fight, parseOpts)
+	end
+	local avail = anyWclEvidence(results)
+	rawAvailCache[fight] = avail
+	return avail
+end
+
 local function scoreForDisplay(fight)
 	local opts = TP.GetDisplayScoringOptions()
-	local rawAvailable
 	if opts.mode == "parse" then
+		if rawAvailCache[fight] == false then
+			return TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions()), false
+		end
 		local results = TP.Scoring.Engine.ScoreFight(fight, opts)
-		rawAvailable = anyWclEvidence(results)
-		if rawAvailable then
+		if rawAvailableFor(fight, results) then
 			return results, true
 		end
 		return TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions()), false
 	end
-	-- True mode still probes availability (cheap pure-Lua pass) so the Raw
-	-- radio can disable itself on fights it would have nothing to say about
-	local parseOpts = TP.GetScoringOptions()
-	parseOpts.mode = "parse"
-	rawAvailable = anyWclEvidence(TP.Scoring.Engine.ScoreFight(fight, parseOpts))
-	return TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions()), rawAvailable
+	return TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions()), rawAvailableFor(fight)
 end
 
 -- Spec icon for a row: the capture's own specIconID (retail sessions carry
@@ -675,7 +691,10 @@ function MeterWindow:RefreshFromBlizzardMeter()
 	releaseAllRows()
 	lastRenderedFight = nil
 
-	if Meter:IsLocked(session) then
+	-- locking is per-VALUE: IsLocked's first-source heuristic can pass
+	-- while later sources are still secret (own row readable, others not)
+	local IsSecret = TP.Compat.IsSecret
+	if Meter:IsLocked(session) or IsSecret(session.durationSeconds) then
 		window.subtitle:SetText("|cffff8888in combat · live data locked|r")
 		finishBars(0, conf.height)
 		return
@@ -688,7 +707,8 @@ function MeterWindow:RefreshFromBlizzardMeter()
 	local sources = session.combatSources
 	for i = 1, #sources do
 		local src = sources[i]
-		if (src.totalAmount or 0) > 0 then
+		if not IsSecret(src.totalAmount) and not IsSecret(src.name)
+			and (src.totalAmount or 0) > 0 then
 			sortScratch[#sortScratch + 1] = src
 		end
 	end

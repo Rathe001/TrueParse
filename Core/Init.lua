@@ -44,9 +44,25 @@ function Addon:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("TrueParseDB", defaults, true)
 	self:RegisterChatCommand("trueparse", "HandleSlash")
 	self:RegisterChatCommand("tp", "HandleSlash")
-	-- /tp baddies curation data survives reloads (account-wide, resettable)
+	-- /tp baddies curation data survives reloads (account-wide, resettable).
+	-- Prune at login so months of raiding can't bloat SavedVariables: keep
+	-- the 200 biggest totals (the curation-relevant tail).
 	self.db.global.takenSpells = self.db.global.takenSpells or {}
 	TP.TakenSpells = self.db.global.takenSpells
+	do
+		local list = {}
+		for id, e in pairs(TP.TakenSpells) do
+			list[#list + 1] = { id = id, total = e.total or 0 }
+		end
+		if #list > 300 then
+			table.sort(list, function(a, b)
+				return a.total > b.total
+			end)
+			for i = 201, #list do
+				TP.TakenSpells[list[i].id] = nil
+			end
+		end
+	end
 end
 
 -- Benchmarks are point-in-time WCL statistics; class tuning drifts every

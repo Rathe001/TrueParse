@@ -22,6 +22,17 @@ loadModule("Scoring/Runs.lua", TP)
 loadModule("Scoring/Insights.lua", TP)
 loadModule("Scoring/Bullets.lua", TP)
 
+-- Awards memoize per fight record; production fights never mutate after
+-- capture (late reports invalidate explicitly), but test fixtures do —
+-- bypass the memo so every Compute call reflects the current fixture.
+do
+	local realCompute = TP.Scoring.Awards.Compute
+	TP.Scoring.Awards.Compute = function(fight)
+		TP.Scoring.Awards.Invalidate(fight)
+		return realCompute(fight)
+	end
+end
+
 local failures = 0
 local function check(cond, label)
 	if cond then
@@ -566,7 +577,21 @@ local bullets = TP.Scoring.Bullets.ForResult(bulletResult, { "Kick King" })
 check(#bullets == 5, ("5 bullets: award + 3 metrics + penalty (%d)"):format(#bullets))
 check(bullets[1].kind == "award" and bullets[1].text == "Kick King", "award bullet first, gold")
 check(bullets[2].text == "Excellent damage" and bullets[2].symbol == "+", "biggest weight first, human phrase, green +")
-check(bullets[3].text == "Good interrupting" and bullets[3].symbol == "+", "good tier at 60")
+check(bullets[3].text == "Too few interrupts" and bullets[3].symbol == "-",
+	"count metrics tier statically: 1 kick is grey regardless of smoothed score")
+bulletResult.breakdown.interrupts.value = 3
+local threeKick
+for _, b in ipairs(TP.Scoring.Bullets.ForResult(bulletResult, nil)) do
+	if b.key == "interrupts" then threeKick = b end
+end
+check(threeKick.text == "Good interrupting" and threeKick.symbol == "+", "3 kicks is blue")
+bulletResult.breakdown.interrupts.value = 5
+local fiveKick
+for _, b in ipairs(TP.Scoring.Bullets.ForResult(bulletResult, nil)) do
+	if b.key == "interrupts" then fiveKick = b end
+end
+check(fiveKick.text == "Godly interrupting", "5+ kicks is godly")
+bulletResult.breakdown.interrupts.value = 1
 check(bullets[4].text == "Little off-healing" and bullets[4].symbol == "-", "weak DPS healing phrased as off-healing")
 check(bullets[5].kind == "penalty" and bullets[5].text == "Died", "penalty bullet human")
 bulletResult.breakdown.interrupts.normalized = 0
@@ -1073,6 +1098,7 @@ TP.Percentiles.encounters["Comma, Boss"] = { ["3x10"] = {
 	dps = { [63] = { n = 500, curve = { { 99, 1000 }, { 95, 900 }, { 90, 800 }, { 75, 650 }, { 50, 500 }, { 25, 380 }, { 10, 300 } } } },
 	hps = {},
 } }
+TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles) -- runtime never mutates encounters; tests do
 local commaFight = {
 	name = "(!) Comma Boss", isBoss = true, duration = 100, difficultyID = 3,
 	players = {

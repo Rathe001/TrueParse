@@ -19,6 +19,8 @@
 -- real dungeon before anything is built on them. VERDICT: pending.
 local _, TP = ...
 
+local tankScratch = {} -- reused per sampler tick; never escapes
+
 local Threat = {}
 TP.Threat = Threat
 
@@ -47,10 +49,11 @@ local function sample()
 
 	-- No living tank: aggro is nobody's job right now (all-DPS groups,
 	-- tank death mid-wipe). Attribute nothing this tick.
+	wipe(tankScratch)
 	local tanks
 	for guid, info in pairs(TP.Roster.players) do
 		if info.role == "TANK" and UnitExists(info.unit) and not UnitIsDeadOrGhost(info.unit) then
-			tanks = tanks or {}
+			tanks = tankScratch
 			tanks[#tanks + 1] = guid
 		end
 	end

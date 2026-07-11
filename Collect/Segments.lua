@@ -106,9 +106,11 @@ function Segments:EndFight()
 	seg.duration = math.max(seg.endTime - seg.startTime, 1)
 	self.current = nil
 
+	-- Raw segments are only read as history[1] (fight browsing uses
+	-- FightHistory.fights, which AddFromSegment fills below). Keeping 200
+	-- of them pinned ~80k live tables on a raid night for nothing.
 	table.insert(self.history, 1, seg)
-	local maxFights = TP.Addon.db.profile.history.maxFights
-	for i = #self.history, maxFights + 1, -1 do
+	for i = #self.history, 4, -1 do
 		table.remove(self.history, i)
 	end
 
@@ -172,7 +174,9 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 	self:StartFight(encounterName)
 	if self.current then
 		self.current.encounterID = encounterID
-		self.current.name = encounterName
+		if encounterName then -- secret name: keep StartFight's fallback label
+			self.current.name = encounterName
+		end
 		captureBossGUIDs(self.current)
 		local seg = self.current
 		C_Timer.After(3, function()

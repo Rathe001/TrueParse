@@ -276,6 +276,23 @@ local function hideRowsFrom(i)
 end
 
 
+local INFO_HELP -- built on first use (TP.Compat is load-order-safe then)
+local function infoHelp()
+	if not INFO_HELP then
+		INFO_HELP = {
+			adds = "Share of this player's damage that went into non-boss targets. Whether that's right depends on the fight - context, not a judgment.",
+			tankFocus = "Share of this healer's output that landed on tanks.",
+			defensives = TP.Compat.IS_RETAIL
+				and "Major defensive cooldowns used this fight, reported by the player's own TrueParse. Informational only - not scored."
+				or "Major defensive cooldowns used this fight, read from the combat log. Informational only - not scored.",
+			consumables = "Long-duration buffs (flask, food, rune) detected on this player at pull start, self-reported by their TrueParse. Informational only - not scored.",
+			deathReady = "At the moment they died, this many major defensive cooldowns were available and unused. Self-reported by their TrueParse. Informational only - not scored.",
+			lust = "Offensive cooldowns and DPS potions cast inside the 40s Bloodlust/Heroism window, read from the combat log. Stacking them there is free extra output. Informational only - not scored.",
+		}
+	end
+	return INFO_HELP
+end
+
 local PENALTY_HELP = {
 	avoidable = "Took more than an equal share of the group's avoidable damage (fire, swirls, void zones). A mechanic everyone eats equally penalizes nobody. Capped at -15.",
 	deaths = "Deaths subtract up to -20. Dying late in a fight costs much less than dying early.",
@@ -367,18 +384,8 @@ function Panel:ShowFor(fight, result)
 		elseif bullet.kind == "penalty" then
 			row.tooltipData = { title = bullet.text, lines = { { PENALTY_HELP[bullet.key] or "", 0.95, 0.5, 0.5 } } }
 		elseif bullet.kind == "info" then
-			local INFO_HELP = {
-				adds = "Share of this player's damage that went into non-boss targets. Whether that's right depends on the fight - context, not a judgment.",
-				tankFocus = "Share of this healer's output that landed on tanks.",
-				defensives = TP.Compat.IS_RETAIL
-					and "Major defensive cooldowns used this fight, reported by the player's own TrueParse. Informational only - not scored."
-					or "Major defensive cooldowns used this fight, read from the combat log. Informational only - not scored.",
-				consumables = "Long-duration buffs (flask, food, rune) detected on this player at pull start, self-reported by their TrueParse. Informational only - not scored.",
-				deathReady = "At the moment they died, this many major defensive cooldowns were available and unused. Self-reported by their TrueParse. Informational only - not scored.",
-				lust = "Offensive cooldowns and DPS potions cast inside the 40s Bloodlust/Heroism window, read from the combat log. Stacking them there is free extra output. Informational only - not scored.",
-			}
 			row.tooltipData = { title = bullet.text, lines = {
-				{ INFO_HELP[bullet.key] or "Self-reported by this player's TrueParse. Informational only.", 0.8, 0.8, 0.8, true },
+				{ infoHelp()[bullet.key] or "Self-reported by this player's TrueParse. Informational only.", 0.8, 0.8, 0.8, true },
 			} }
 		else
 			row.tooltipData = { title = bullet.text, lines = {

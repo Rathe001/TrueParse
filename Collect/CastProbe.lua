@@ -92,7 +92,12 @@ local function castKey(unit, castGUID, spellID)
 	if castGUID and not IsSecret(castGUID) then
 		return castGUID
 	end
-	return (UnitGUID(unit) or unit) .. "-" .. tostring(spellID)
+	-- hostile GUIDs are secret-prone mid-combat: concatenating one throws
+	local guid = UnitGUID(unit)
+	if guid and IsSecret(guid) then
+		guid = nil
+	end
+	return (guid or unit) .. "-" .. tostring(spellID)
 end
 
 local function readNotInterruptible(unit, isChannel)
