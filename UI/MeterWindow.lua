@@ -458,7 +458,6 @@ function MeterWindow:RenderScorecard(fight)
 	local results, rawAvailable = scoreForDisplay(fight)
 	lastRawAvailable = rawAvailable
 	window.subtitle:SetText(subtitleText(rawAvailable))
-	local awards = TP.Scoring.Awards.Compute(fight)
 	-- effective mode for THIS card: raw only when WCL evidence backs it
 	local isRaw = isRawSetting and rawAvailable
 	if window.modeRaw then
@@ -559,8 +558,9 @@ function MeterWindow:RenderScorecard(fight)
 		row.icon:SetWidth(rowHeight)
 		setSpecIcon(row.icon, player, r.class)
 
-		local myAwards = awards[r.guid]
-		row.name:SetText(myAwards and (r.name .. " " .. TP.STAR) or r.name)
+		-- no award star here: it wrapped long cross-realm names and the
+		-- row already carries a lot (awards live in the breakdown + toasts)
+		row.name:SetText(r.name)
 		row.name:SetTextColor(1, 1, 1)
 		row.playerName = r.name
 
