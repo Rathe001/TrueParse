@@ -1,5 +1,19 @@
 # TrueParse Changelog
 
+## 1.2.3
+
+- Group kill speed: the Raid breakdown shows how fast your kill was
+  against every ranked kill of that boss and bracket on Warcraft Logs,
+  with the population and median kill time on hover.
+- New award: Unbreakable - a non-healer covering 15%+ of the group's
+  healing almost entirely on themselves. Lifesaver now requires healing
+  OTHER people (Classic; retail can't see the split).
+- A low interrupt/dispel count that covered everything the fight offered
+  is credited ("Did their share"), not scolded.
+- /tp help lists every command with the addon version and bug-report
+  link; award stars removed from scorecard rows (they wrapped long
+  names; awards live in the breakdown and toasts).
+
 ## 1.2.2
 
 - Fixed Mythic+ percentile curves: WCL orders dungeon rankings by
