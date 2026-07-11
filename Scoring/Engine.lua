@@ -126,6 +126,35 @@ local WCL_BRACKET = {
 	[14] = "3", [15] = "4", [16] = "5", -- retail Normal/Heroic/Mythic
 }
 
+-- WCL encounter names don't always match in-game ENCOUNTER_START names
+-- ("Chimaerus, the Undreamt God" vs "Chimaerus the Undreamt God" cost a
+-- live boss its curves): fall back to a punctuation-insensitive match.
+local nameIndexCache = setmetatable({}, { __mode = "k" })
+
+local function normalizeName(s)
+	return (s:gsub("[,%.:;!]", ""):gsub("%s+", " "):lower())
+end
+
+local function encounterByName(P, name)
+	local enc = P.encounters[name]
+	if enc then
+		return enc
+	end
+	local key = normalizeName(name)
+	local idx = nameIndexCache[P]
+	if idx and idx[key] then
+		return idx[key]
+	end
+	-- rebuild on any normalized miss (self-healing when the encounters
+	-- table gains entries; genuinely unknown bosses pay ~17 gsubs)
+	idx = {}
+	for k, v in pairs(P.encounters) do
+		idx[normalizeName(k)] = v
+	end
+	nameIndexCache[P] = idx
+	return idx[key]
+end
+
 -- Raid curves key by BOSS name; dungeon curves key by DUNGEON name (WCL
 -- ranks M+ as whole runs) and only apply on difficulties that actually
 -- populate those rankings — a Timewalking healer measured against the M+
@@ -135,7 +164,7 @@ local function encounterCurvesFor(P, fight)
 		return nil
 	end
 	if fight.name then
-		local enc = P.encounters[fight.name:gsub("^%(!%)%s*", "")]
+		local enc = encounterByName(P, fight.name:gsub("^%(!%)%s*", ""))
 		if enc then
 			return enc
 		end

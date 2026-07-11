@@ -1067,6 +1067,25 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(dungeonFight, { mode = "parse", 
 end
 TP.Percentiles.encounters["Pool Dungeon"] = nil
 
+-- 18d2. Punctuation-insensitive encounter matching: WCL says "Chimaerus,
+-- the Undreamt God"; the in-game encounter has no comma
+TP.Percentiles.encounters["Comma, Boss"] = { ["3x10"] = {
+	dps = { [63] = { n = 500, curve = { { 99, 1000 }, { 95, 900 }, { 90, 800 }, { 75, 650 }, { 50, 500 }, { 25, 380 }, { 10, 300 } } } },
+	hps = {},
+} }
+local commaFight = {
+	name = "(!) Comma Boss", isBoss = true, duration = 100, difficultyID = 3,
+	players = {
+		d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 50000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+	},
+}
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(commaFight, { mode = "parse", normalizeIlvl = false })) do
+	check(math.abs(r.breakdown.damage.normalized - 50) < 0.001,
+		("comma-mismatched boss name still finds its curve (%.1f)"):format(r.breakdown.damage.normalized))
+end
+TP.Percentiles.encounters["Comma, Boss"] = nil
+
 -- 18e. Run aggregates score through the percentile ladder too: cohort-
 -- relative run averages handed the best of each role a structural 100
 local runAgg = TP.Scoring.Runs.Aggregate({ pctFight, pctFight }, "Run")

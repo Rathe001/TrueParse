@@ -157,11 +157,31 @@ local function finalizeFight()
 	end
 end
 
+local function startWindow()
+	combatStart = GetTime()
+	defensivesUsed = 0
+	readyAtDeath = -1
+	local ok, count = pcall(countConsumables)
+	consumablesAtPull = ok and count or 0
+	uptimeSeconds = 0
+	trackingUptime = isAugEvoker()
+	if trackingUptime and not uptimeTicker then
+		uptimeTicker = C_Timer.NewTicker(1, function()
+			local okA, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, EBON_MIGHT_SELF)
+			if okA and aura then
+				uptimeSeconds = uptimeSeconds + 1
+			end
+		end)
+	end
+end
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("PLAYER_DEAD")
+frame:RegisterEvent("ENCOUNTER_START")
+frame:RegisterEvent("ENCOUNTER_END")
 frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 	if event == "UNIT_SPELLCAST_SUCCEEDED" then
 		if unit == "player" and combatStart and TP.DEFENSIVES and TP.DEFENSIVES[spellID] then
@@ -174,20 +194,27 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 			stopGrace()
 			return
 		end
-		combatStart = GetTime()
-		defensivesUsed = 0
-		readyAtDeath = -1
-		local ok, count = pcall(countConsumables)
-		consumablesAtPull = ok and count or 0
-		uptimeSeconds = 0
-		trackingUptime = isAugEvoker()
-		if trackingUptime and not uptimeTicker then
-			uptimeTicker = C_Timer.NewTicker(1, function()
-				local okA, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, EBON_MIGHT_SELF)
-				if okA and aura then
-					uptimeSeconds = uptimeSeconds + 1
-				end
-			end)
+		if not combatStart then
+			startWindow()
+		end
+	elseif event == "ENCOUNTER_START" then
+		-- boss pulled while chained from trash combat: the report must
+		-- cover the ENCOUNTER, not the chain
+		if combatStart then
+			finalizeFight()
+		end
+		if UnitAffectingCombat("player") then
+			startWindow()
+		end
+	elseif event == "ENCOUNTER_END" then
+		-- finalize exactly at the encounter boundary so the duration
+		-- fingerprint matches the capture (kills that chained into add
+		-- cleanup or trash merged pulls into one unmatchable report)
+		if combatStart then
+			finalizeFight()
+			if UnitAffectingCombat("player") then
+				startWindow()
+			end
 		end
 	elseif event == "PLAYER_DEAD" then
 		if combatStart then
