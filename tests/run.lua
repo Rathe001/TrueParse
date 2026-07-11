@@ -589,7 +589,15 @@ check(#bullets == 5, ("5 bullets: award + 3 metrics + penalty (%d)"):format(#bul
 check(bullets[1].kind == "award" and bullets[1].text == "Kick King", "award bullet first, gold")
 check(bullets[2].text == "Excellent damage" and bullets[2].symbol == "+", "biggest weight first, human phrase, green +")
 check(bullets[3].text == "Too few interrupts" and bullets[3].symbol == "-",
-	"count metrics tier statically: 1 kick is grey regardless of smoothed score")
+	"count metrics tier statically: 1 kick is grey when plenty happened")
+bulletResult.breakdown.interrupts.normalized = 100
+local shareKick
+for _, b in ipairs(TP.Scoring.Bullets.ForResult(bulletResult, nil)) do
+	if b.key == "interrupts" then shareKick = b end
+end
+check(shareKick.text == "Did their share of kicks" and shareKick.symbol == "+",
+	"1 kick covering the fight's whole demand is credited, not scolded")
+bulletResult.breakdown.interrupts.normalized = 60
 bulletResult.breakdown.interrupts.value = 3
 local threeKick
 for _, b in ipairs(TP.Scoring.Bullets.ForResult(bulletResult, nil)) do

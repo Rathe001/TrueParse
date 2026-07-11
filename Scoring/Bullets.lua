@@ -111,8 +111,17 @@ function Bullets.ForResult(result, awards, extra)
 			else
 				local staticScore = (n >= 5 and 96) or (n == 4 and 80)
 					or (n == 3 and 60) or (n == 2 and 30) or 10
-				local sTier, sSymbol = tierOf(staticScore)
-				text, symbol, color = phrases[sTier], sSymbol, tierColor(staticScore)
+				if staticScore < 60 and (b.normalized or 0) >= 90 then
+					-- a low count on a fight that barely offered any: the
+					-- share score says they covered it ("Too few dispels"
+					-- next to a gauge at 100 scolded the only dispeller)
+					text = (key == "interrupts") and "Did their share of kicks"
+						or "Did their share of dispels"
+					symbol, color = "+", tierColor(45)
+				else
+					local sTier, sSymbol = tierOf(staticScore)
+					text, symbol, color = phrases[sTier], sSymbol, tierColor(staticScore)
+				end
 			end
 		end
 		if b.lowDemand then
