@@ -17,6 +17,7 @@ Core\Utils.lua
 Core\Compat.lua
 Data\Benchmarks_Mists.lua
 Data\Percentiles_Mists.lua
+Data\KillTimes_Mists.lua
 Data\Potions.lua
 Data\Avoidable_Mists.lua
 Data\Lust_Mists.lua

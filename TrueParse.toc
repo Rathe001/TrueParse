@@ -18,6 +18,7 @@ Core\Compat.lua
 Data\Benchmarks.lua
 Data\Percentiles.lua
 Data\Percentiles_Dungeons.lua
+Data\KillTimes.lua
 Data\Potions.lua
 Data\GroupBuffs.lua
 Data\Defensives.lua
