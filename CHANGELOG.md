@@ -1,5 +1,28 @@
 # TrueParse Changelog
 
+## 1.2.2
+
+- Fixed Mythic+ percentile curves: WCL orders dungeon rankings by
+  keystone score, so nearly all shipped M+ curves were scrambled. Data
+  regenerated, and the engine now sanitizes any curve set it loads.
+- Run averages score against real populations (the run column showed a
+  structural ~99 for the best player of each role); multi-fight Aug
+  runs no longer peg Ebon Might uptime at 100.
+- Raw mode is strictly this-encounter evidence; boss names with
+  punctuation differences (Chimaerus) match their curves; a third
+  Midnight Demon Hunter spec is recognized.
+- Interrupt/dispel bullets tier on the actual count: 0 plain, 1 grey,
+  2 green, 3 blue, 4 purple, 5+ orange.
+- Retail stability: fixed errors from Blizzard's secret combat values
+  in partially-locked sessions, roster updates mid-combat, and boss
+  frames; self-report windows bind to encounter boundaries so
+  defensive/consumable data attaches reliably; roles survive
+  late-arriving captures after the group disbands.
+- Group sync hardening: reports must come from the player they claim
+  to be about, and remote spec/ilvl claims are validated.
+- Performance: award computation memoized, hot-path allocations
+  trimmed, memory caps on internal histories and the /tp baddies tally.
+
 ## 1.2.1
 
 - Retail percentile data doubled: damage AND healing curves for all 37
