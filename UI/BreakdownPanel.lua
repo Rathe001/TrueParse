@@ -518,7 +518,31 @@ function Panel:ShowForGroup(fight, results)
 		row.tooltipData = bullet.tooltip
 		row.metricData = nil
 	end
-	hideRowsFrom(#bullets + 1)
+	local total = #bullets
+
+	-- Group-vs-group: kill speed against WCL's ranked kills for this
+	-- encounter+bracket (the one number that compares GROUPS, not players)
+	local speedPct, speedN, speedMedian = TP.Scoring.Engine.KillSpeedPercentile(fight)
+	if speedPct then
+		total = total + 1
+		local row = getRow(total, y)
+		y = y - ROW_HEIGHT
+		local sr, sg, sb = TP.Scoring.Grades.ColorForScore(speedPct)
+		row.symbol:SetText(speedPct >= 50 and "+" or "\194\183")
+		row.symbol:SetTextColor(sr, sg, sb)
+		row.text:SetText(("Killed faster than %d%% of groups"):format(speedPct))
+		row.text:SetTextColor(sr, sg, sb)
+		local function mmss(s)
+			return ("%d:%02d"):format(math.floor(s / 60), s % 60)
+		end
+		row.tooltipData = { title = "Kill speed", lines = {
+			{ ("This kill: %s. Median ranked kill: %s. Population: %s ranked kills on Warcraft Logs."):format(
+				mmss(fight.duration or 0), speedMedian and mmss(speedMedian) or "?",
+				TP.FormatNumber(speedN or 0)), 0.8, 0.8, 0.8, true },
+		} }
+		row.metricData = nil
+	end
+	hideRowsFrom(total + 1)
 
 	local sum = 0
 	for _, r in ipairs(results) do

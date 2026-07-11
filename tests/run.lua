@@ -1131,6 +1131,24 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(commaFight, { mode = "parse", no
 end
 TP.Percentiles.encounters["Comma, Boss"] = nil
 
+-- 18d3. Kill-speed percentile: group duration vs the encounter's ranked
+-- kill-time curve (seconds, ascending from fastest)
+TP.Percentiles.encounters["Percentile Boss"]["3x10"].killTime = {
+	n = 5000, curve = { { 99, 60 }, { 95, 80 }, { 90, 100 }, { 75, 140 }, { 50, 200 }, { 25, 280 }, { 10, 400 } },
+}
+local speedFight = { name = "(!) Percentile Boss", isBoss = true, duration = 200, difficultyID = 3, players = {} }
+local pct, n, median = TP.Scoring.Engine.KillSpeedPercentile(speedFight)
+check(pct and math.abs(pct - 50) < 0.001 and n == 5000 and median == 200,
+	("median-speed kill reads p50 (%s, n=%s)"):format(tostring(pct), tostring(n)))
+speedFight.duration = 55
+check(TP.Scoring.Engine.KillSpeedPercentile(speedFight) == 99, "faster than the fastest sample pins at 99")
+speedFight.duration = 900
+check(TP.Scoring.Engine.KillSpeedPercentile(speedFight) == 0, "slower than 2x the slowest reads 0")
+speedFight.duration = 200
+speedFight.wipe = true
+check(TP.Scoring.Engine.KillSpeedPercentile(speedFight) == nil, "wipes carry no speed percentile")
+TP.Percentiles.encounters["Percentile Boss"]["3x10"].killTime = nil
+
 -- 18e. Run aggregates score through the percentile ladder too: cohort-
 -- relative run averages handed the best of each role a structural 100
 local runAgg = TP.Scoring.Runs.Aggregate({ pctFight, pctFight }, "Run")

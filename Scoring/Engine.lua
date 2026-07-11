@@ -729,6 +729,55 @@ local PARSE_WEIGHTS = {
 Engine.ResolvePercentiles = resolvePercentiles
 Engine.PercentileFor = percentileFor
 
+-- Group kill speed vs WCL's ranked kills for this encounter+bracket.
+-- killTime curves hold durations in seconds, ascending from p99 (fastest)
+-- to p10; smaller is better, so this mirrors percentileFor reversed.
+local function speedPercentile(curve, duration)
+	if duration <= curve[1][2] then
+		return 99
+	end
+	local prev = curve[1]
+	for i = 2, #curve do
+		local pt = curve[i]
+		if duration <= pt[2] then
+			local span = pt[2] - prev[2]
+			if span <= 0 then
+				return pt[1]
+			end
+			return prev[1] - (prev[1] - pt[1]) * (duration - prev[2]) / span
+		end
+		prev = pt
+	end
+	-- slower than the slowest sample: fade to 0 by twice its duration
+	local last = curve[#curve]
+	if last[2] <= 0 or duration >= last[2] * 2 then
+		return 0
+	end
+	return last[1] * (1 - (duration - last[2]) / last[2])
+end
+
+-- Returns pct, populationSize, medianSeconds — or nil (wipe, no data).
+function Engine.KillSpeedPercentile(fight)
+	if fight.wipe or not fight.duration or fight.duration <= 0 then
+		return nil
+	end
+	local P = TP.Percentiles
+	if not P then
+		return nil
+	end
+	local enc = encounterCurvesFor(P, fight)
+	if not enc then
+		return nil
+	end
+	local key = fight.difficultyID and WCL_BRACKET[fight.difficultyID]
+	local bracket = (key and enc[key]) or enc.all
+	local kt = bracket and bracket.killTime
+	if not (kt and kt.curve and #kt.curve > 1) then
+		return nil
+	end
+	return speedPercentile(kt.curve, fight.duration), kt.n, curveP50(kt.curve)
+end
+
 -- fight: a FightHistory record. opts.normalizeIlvl (default true) grades
 -- throughput relative to gear. Returns an array sorted by score desc:
 -- { guid, name, class, role, score, base, penalty, breakdown }, where
