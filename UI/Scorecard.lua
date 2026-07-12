@@ -81,6 +81,18 @@ function Scorecard:Acquire(parent)
 		row.penalty = outlined("GameFontDisableSmall")
 		row.penalty:SetPoint("RIGHT", row.score, "LEFT", -3, 0)
 		row.penalty:SetJustifyH("RIGHT")
+		-- fixed slot: an unconstrained width let truncated names crowd
+		-- right up against the score column
+		row.penalty:SetWidth(22)
+
+		-- hairline between the fight and run score columns (the renderer
+		-- hides it when there's no run column yet)
+		row.sep2 = row:CreateTexture(nil, "BACKGROUND", nil, 0)
+		row.sep2:SetPoint("TOP", 0, 0)
+		row.sep2:SetPoint("BOTTOM", 0, 0)
+		row.sep2:SetPoint("RIGHT", row.runAvg, "LEFT", -2, 0)
+		row.sep2:SetWidth(1)
+		row.sep2:SetColorTexture(1, 1, 1, 0.10)
 
 		-- spec icon (class icon fallback), like Details: flush with the row
 		-- edges, full row height (renderer sets the width to match)
