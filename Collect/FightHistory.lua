@@ -244,6 +244,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 			table.remove(self.fights, i)
 		end
 	end
+	self:StampRunID(fight)
 	table.insert(self.fights, 1, fight)
 	local cap = TP.Addon.db.profile.history.maxFights
 	for i = #self.fights, cap + 1, -1 do
@@ -256,6 +257,68 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	TP.Addon:Debug(("Captured %s: %.0fs, %d players, dmg %s"):format(
 		name, fight.duration, countPlayers(players), TP.FormatNumber(totals.damage or 0)))
 	return true
+end
+
+-- A "run" = one group's visit to one instance at one difficulty. New run
+-- when the zone or difficulty changes, the group mostly turns over (LFR
+-- wing A and last week's guild raid are NOT the same run just because
+-- they share a zone), or an hour passes between captures.
+local function sameRun(prev, fight)
+	if not prev or not prev.runID then
+		return false
+	end
+	if (fight.zone or "?") ~= (prev.zone or "?") then
+		return false
+	end
+	if (fight.difficultyID or 0) ~= (prev.difficultyID or 0) then
+		return false
+	end
+	if (fight.capturedAt or 0) - (prev.capturedAt or 0) > 3600 then
+		return false
+	end
+	local shared, prevN, curN = 0, 0, 0
+	for guid in pairs(prev.players or {}) do
+		prevN = prevN + 1
+		if fight.players and fight.players[guid] then
+			shared = shared + 1
+		end
+	end
+	for _ in pairs(fight.players or {}) do
+		curN = curN + 1
+	end
+	return shared * 2 >= math.min(prevN, curN)
+end
+
+function FightHistory:StampRunID(fight)
+	local prev = self.fights[1]
+	if prev and sameRun(prev, fight) then
+		fight.runID = prev.runID
+	else
+		local char = TP.Addon.db.char
+		char.runCounter = (char.runCounter or 0) + 1
+		fight.runID = char.runCounter
+	end
+end
+
+-- Captures from before run tracking get IDs derived the same way,
+-- oldest to newest
+function FightHistory:BackfillRunIDs()
+	local char = TP.Addon.db.char
+	local counter = char.runCounter or 0
+	local prev
+	for i = #self.fights, 1, -1 do
+		local f = self.fights[i]
+		if not f.runID then
+			if prev and sameRun(prev, f) then
+				f.runID = prev.runID
+			else
+				counter = counter + 1
+				f.runID = counter
+			end
+		end
+		prev = f
+	end
+	char.runCounter = math.max(counter, char.runCounter or 0)
 end
 
 function FightHistory:Sweep()
@@ -490,6 +553,7 @@ function FightHistory:AddFromSegment(seg)
 	-- Enrichment must never block capture
 	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
 	pcall(TP.Sync.AttachReports, TP.Sync, fight)
+	self:StampRunID(fight)
 	table.insert(self.fights, 1, fight)
 	local cap = TP.Addon.db.profile.history.maxFights
 	for i = #self.fights, cap + 1, -1 do
@@ -506,6 +570,7 @@ function FightHistory:OnEnable()
 	self.fights = TP.Addon.db.char.recentFights or {}
 	-- Migrate away the account-wide storage used by earlier builds
 	TP.Addon.db.global.recentFights = nil
+	self:BackfillRunIDs()
 
 	if not TP.BlizzardMeter.available then
 		return -- Classic: fights arrive via AddFromSegment

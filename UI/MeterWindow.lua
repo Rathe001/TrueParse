@@ -227,13 +227,18 @@ local function createWindow()
 			return false
 		end
 		MenuUtil.CreateContextMenu(anchor, function(_, root)
-			root:CreateTitle("Fight history")
-			root:CreateRadio("Last fight · " .. fightLabel(fights[1]),
-				function() return viewOffset == 0 end,
-				function() selectFight(0) end)
-			for i = 2, math.min(#fights, 20) do
+			-- grouped by run: one group's visit to one instance+difficulty
+			local lastRunID
+			for i = 1, math.min(#fights, 25) do
+				local f = fights[i]
+				if f.runID ~= lastRunID then
+					lastRunID = f.runID
+					local diff = f.difficulty and f.difficulty ~= "" and (" · " .. f.difficulty) or ""
+					root:CreateTitle((f.zone or "Unknown") .. diff)
+				end
 				local offset = i - 1
-				root:CreateRadio(fightLabel(fights[i]),
+				local label = (i == 1) and ("Last fight · " .. fightLabel(f)) or fightLabel(f)
+				root:CreateRadio(label,
 					function() return viewOffset == offset end,
 					function() selectFight(offset) end)
 			end

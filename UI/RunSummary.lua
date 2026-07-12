@@ -17,37 +17,26 @@ local function updateInstance()
 	end
 end
 
--- The current run = the contiguous streak of fights in this instance ending
--- at the newest capture (an hour-plus gap separates distinct visits).
--- Deliberately NOT keyed to "time we zoned in": /reload would reset that and
--- orphan everything already captured.
-local MAX_PULL_GAP = 3600
-
--- Returns fights, anchorName. The run anchors to the current instance when
--- inside one, else to the newest capture's zone — post-raid review from a
--- city should still see the run, not watch it evaporate at the exit portal.
+-- The current run = the newest capture's runID streak (FightHistory stamps
+-- one per group+instance+difficulty visit — zone alone mixed LFR wings
+-- with last week's guild raid in the same instance). Post-raid review from
+-- a city still sees the run; inside a DIFFERENT instance it doesn't.
 local function collectRunFights()
-	local anchor = currentInstance and currentInstance.name
-	if not anchor then
-		local newest = TP.FightHistory.fights[1]
-		anchor = newest and newest.zone
-	end
-	if not anchor then
+	local newest = TP.FightHistory.fights[1]
+	if not newest or not newest.runID then
 		return nil
 	end
+	if currentInstance and currentInstance.name ~= newest.zone then
+		return nil -- we're somewhere else now; that run isn't THIS run
+	end
 	local fights = {}
-	local previousAt
 	for _, fight in ipairs(TP.FightHistory.fights) do -- newest first
-		if fight.zone ~= anchor then
-			break -- older fight elsewhere: previous visit boundary
-		end
-		if previousAt and (previousAt - (fight.capturedAt or 0)) > MAX_PULL_GAP then
-			break -- long idle gap: treat as a separate visit
+		if fight.runID ~= newest.runID then
+			break
 		end
 		fights[#fights + 1] = fight
-		previousAt = fight.capturedAt or 0
 	end
-	return fights, anchor
+	return fights, newest.zone
 end
 
 local function groupChannel()
