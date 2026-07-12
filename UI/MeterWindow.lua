@@ -199,8 +199,15 @@ local function createWindow()
 	window.title:SetPoint("TOPLEFT", PADDING, -PADDING)
 	window.title:SetText("TrueParse")
 
+	-- The subtitle IS a dropdown (fight picker): a down arrow at the far
+	-- right makes that legible without a tooltip
+	window.subtitleArrow = window:CreateTexture(nil, "OVERLAY")
+	window.subtitleArrow:SetSize(11, 8)
+	window.subtitleArrow:SetPoint("TOPRIGHT", -PADDING + 1, -(PADDING + 2))
+	window.subtitleArrow:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
+
 	window.subtitle = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	window.subtitle:SetPoint("TOPRIGHT", -PADDING, -PADDING)
+	window.subtitle:SetPoint("TOPRIGHT", -(PADDING + 12), -PADDING)
 	-- Bound by the title so long fight names truncate instead of overlapping
 	window.subtitle:SetPoint("LEFT", window.title, "RIGHT", 6, 0)
 	window.subtitle:SetJustifyH("RIGHT")
@@ -218,13 +225,13 @@ local function createWindow()
 		MeterWindow:ToggleCollapse()
 	end)
 
-	-- Fight browser: the subtitle is a button — click steps to the previous
-	-- (older) fight, right-click back toward the latest. Hidden while
-	-- collapsed (the header click is collapse/expand there).
+	-- Fight browser: the subtitle is a dropdown — click opens the fight
+	-- picker. Hidden while collapsed (the header click is collapse there).
 	window.subtitleButton = CreateFrame("Button", nil, window)
-	window.subtitleButton:SetAllPoints(window.subtitle)
+	window.subtitleButton:SetPoint("TOPLEFT", window.subtitle, "TOPLEFT", 0, 2)
+	window.subtitleButton:SetPoint("BOTTOMRIGHT", window.subtitleArrow, "BOTTOMRIGHT", 2, -2)
 	window.subtitleButton:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
-	window.subtitleButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	window.subtitleButton:RegisterForClicks("LeftButtonUp")
 	window.subtitleButton:RegisterForDrag("LeftButton")
 	window.subtitleButton:SetScript("OnDragStart", startDrag)
 	window.subtitleButton:SetScript("OnDragStop", stopDrag)
@@ -266,24 +273,10 @@ local function createWindow()
 		end)
 		return true
 	end
-	window.subtitleButton:SetScript("OnClick", function(self, button)
-		if button == "RightButton" then
-			MeterWindow:StepFight(1) -- quick-step to the previous (older) fight
-			return
-		end
+	window.subtitleButton:SetScript("OnClick", function(self)
 		if not openFightMenu(self) then
 			MeterWindow:StepFight(1) -- no menu API: old cycling behavior
 		end
-	end)
-	window.subtitleButton:SetScript("OnEnter", function(self)
-		TP.Tooltip:Show(self, "TOP", "Fight history", {
-			{ "Click: choose a fight", 0.8, 0.8, 0.8 },
-			{ "Right-click: previous (older) fight", 0.8, 0.8, 0.8 },
-			{ "New captures snap back to the latest.", 0.5, 0.5, 0.5 },
-		})
-	end)
-	window.subtitleButton:SetScript("OnLeave", function()
-		TP.Tooltip:Hide()
 	end)
 
 	-- Mode strip along the bottom edge: Real = the full contribution score,
@@ -1067,6 +1060,7 @@ local function refreshImpl(self, force)
 			window.subtitle:SetText("")
 		end
 		window.subtitleButton:Hide()
+		window.subtitleArrow:Hide()
 		setModeStripShown(false)
 		if window.colFight then
 			window.colFight:Hide()
@@ -1079,6 +1073,7 @@ local function refreshImpl(self, force)
 	end
 	window.title:SetText(modeTitle)
 	window.subtitleButton:Show()
+	window.subtitleArrow:Show()
 	if window.grip then
 		window.grip:Show()
 	end
