@@ -669,7 +669,6 @@ function MeterWindow:RenderScorecard(fight)
 	local visible = math.min(shown, playerSlots)
 	scrollOffset = math.max(0, math.min(scrollOffset, shown - visible))
 	lastScrollOffset = scrollOffset
-	local hiddenBelow = shown - (scrollOffset + visible)
 	local totalRows = visible + (hasFooter and 1 or 0)
 
 	for i = #activeRows, totalRows + 1, -1 do
@@ -806,8 +805,12 @@ function MeterWindow:RenderScorecard(fight)
 		row.name:SetTextColor(1, 1, 1)
 		row.score:SetText(TP.Scoring.Grades.ScoreLabel(groupScore))
 		row.score:SetTextColor(sr, sg, sb)
-		-- clipped rows below the scroll window: quiet hint in the footer
-		row.penalty:SetText(hiddenBelow > 0 and ("|cffaaaaaa+%d|r"):format(hiddenBelow) or "")
+		-- the group's combined penalties, same shape as player rows
+		local penaltySum = 0
+		for _, r in ipairs(results) do
+			penaltySum = penaltySum + (r.penalty or 0)
+		end
+		row.penalty:SetText(penaltySum > 0 and ("|cffff4444-%.0f|r"):format(penaltySum) or "")
 		if runScore then
 			row.runAvg:SetText(TP.Scoring.Grades.ScoreLabel(runScore))
 			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runScore))

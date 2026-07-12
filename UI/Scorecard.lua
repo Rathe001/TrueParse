@@ -85,6 +85,14 @@ function Scorecard:Acquire(parent)
 		-- right up against the score column
 		row.penalty:SetWidth(22)
 
+		-- hairline between the penalty column and the fight score
+		row.sep3 = row:CreateTexture(nil, "BACKGROUND", nil, 0)
+		row.sep3:SetPoint("TOP", 0, 0)
+		row.sep3:SetPoint("BOTTOM", 0, 0)
+		row.sep3:SetPoint("RIGHT", row.score, "LEFT", -1, 0)
+		row.sep3:SetWidth(1)
+		row.sep3:SetColorTexture(1, 1, 1, 0.10)
+
 		-- hairline between the fight and run score columns (the renderer
 		-- hides it when there's no run column yet)
 		row.sep2 = row:CreateTexture(nil, "BACKGROUND", nil, 0)
