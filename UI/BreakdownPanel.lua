@@ -501,15 +501,26 @@ function Panel:ShowForGroup(fight, results)
 	local label = (#results > 5) and "Raid" or "Group"
 	frame.title:SetText(label)
 	frame.title:SetTextColor(1, 0.82, 0.2)
-	frame.subtitle:SetText(("%s%s · %d players"):format(
-		fight.wipe and "|cffe64d4dwipe|r · " or "", fight.name or "Fight", #results))
-	-- player-view header lines stay out of the group view
-	frame.role:SetText("")
-	frame.scoreLine:SetText("")
-	frame.runLine:SetText("")
+	frame.subtitle:SetText("")
+	frame.bigScore:SetText("")
+	-- same compact header the player card uses
+	frame.role:SetText(("%d players"):format(#results))
+	local groupSum = 0
+	for _, r in ipairs(results) do
+		groupSum = groupSum + r.score
+	end
+	local groupScore = groupSum / #results
+	frame.scoreLine:SetText(("%s vs %s%s"):format(
+		TP.Scoring.Grades.ColoredScore(groupScore),
+		fight.name or "this fight", fight.wipe and " |cffe64d4d(wipe)|r" or ""))
+	if self.groupRunScore then
+		frame.runLine:SetText(TP.Scoring.Grades.ColoredScore(self.groupRunScore) .. " avg this run")
+	else
+		frame.runLine:SetText("")
+	end
 
 	local bullets = TP.Scoring.Bullets.ForGroup(results)
-	local y = FIRST_ROW_Y
+	local y = self.groupRunScore and -50 or -37 -- below the header lines
 	for i, bullet in ipairs(bullets) do
 		local row = getRow(i, y)
 		y = y - ROW_HEIGHT
@@ -564,22 +575,12 @@ function Panel:ShowForGroup(fight, results)
 	end
 	hideRowsFrom(total + 1)
 
-	local sum = 0
-	for _, r in ipairs(results) do
-		sum = sum + r.score
-	end
-	local groupScore = sum / #results
-	local gr, gg, gb = TP.Scoring.Grades.ColorForScore(groupScore)
-	frame.bigScore:SetText(TP.Scoring.Grades.ScoreLabel(groupScore))
-	frame.bigScore:SetTextColor(gr, gg, gb)
-	frame.total:SetText(("Average of %d players"):format(#results))
-	frame.total:SetTextColor(0.6, 0.6, 0.6)
-
-	frame:SetHeight(-y + ROW_HEIGHT + 34)
+	frame.total:SetText("") -- header lines carry the numbers now
+	frame:SetHeight(-y + 8)
 	anchorPanel()
 	frame.close:SetShown(self.pinned)
-	frame.bigScore:ClearAllPoints()
-	frame.bigScore:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -8)
+	frame.role:ClearAllPoints()
+	frame.role:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -10)
 	frame:Show()
 	self.currentGUID = "GROUP"
 end

@@ -657,6 +657,7 @@ function MeterWindow:RenderScorecard(fight)
 	end
 	-- the breakdown panel shows "N avg this run" from the same numbers
 	TP.BreakdownPanel.runScores = runBy
+	TP.BreakdownPanel.groupRunScore = runScore
 
 	-- fit rows to the user-sized window; the wheel scrolls the remainder
 	-- (footer keeps a pinned slot at the bottom)
