@@ -54,6 +54,12 @@ local isSizing = false -- grip drag in progress: layout must not re-anchor
 local scrollOffset = 0 -- first visible player row (mouse wheel)
 local lastScrollOffset = -1
 
+-- Scored-result memos (weak keyed by fight/run record). Declared HERE
+-- because Invalidate wipes them and compiles above their users — a later
+-- declaration makes earlier references nil globals (the blank-window bug).
+local displayCache = setmetatable({}, { __mode = "k" })
+local runScoreCache = setmetatable({}, { __mode = "k" })
+
 -- Re-anchor to a plain TOPLEFT point at the frame's exact current screen
 -- rect. The window's anchor shape varies with history (saved CENTER from
 -- the DB, TOPLEFT after a collapse, whatever StopMovingOrSizing chose) and
@@ -505,10 +511,9 @@ local function rawAvailableFor(fight, parseResults)
 	return avail
 end
 
--- Scored results cached per fight+options: live resize relayouts rows
--- every frame and must not re-run the engine each time
-local displayCache = setmetatable({}, { __mode = "k" })
-
+-- Scored results cached per fight+options (displayCache, declared with
+-- the top-of-file locals): live resize relayouts rows every frame and
+-- must not re-run the engine each time
 local function scoreForDisplay(fight)
 	local opts = TP.GetDisplayScoringOptions()
 	local key = tostring(opts.mode) .. ":" .. tostring(opts.normalizeIlvl)
@@ -534,10 +539,8 @@ local function scoreForDisplay(fight)
 	return results, rawAvailable
 end
 
--- The run row re-scores the aggregate on every render; cache per run table
--- (RunSummary reuses the aggregate between captures)
-local runScoreCache = setmetatable({}, { __mode = "k" })
-
+-- The run row re-scores the aggregate on every render; cached per run
+-- table (RunSummary reuses the aggregate between captures)
 local function scoreRun(run)
 	local opts = TP.GetScoringOptions()
 	local hit = runScoreCache[run]
