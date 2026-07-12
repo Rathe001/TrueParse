@@ -621,6 +621,45 @@ function FightHistory:AddFromSegment(seg)
 	TP.Addon:SendMessage("TrueParse_FIGHT_CAPTURED", fight)
 end
 
+-- Retroactive wipe verdicts for captures saved without one (records from
+-- before wipe hardening, or ENCOUNTER_END that never landed):
+-- 1) RAIDS: a boss re-pulled LATER in the same run can't have been dead —
+--    every earlier same-boss pull in that run was a wipe. Airtight for
+--    lockout content; never applied to resettable dungeons.
+-- 2) Everyone died with no verdict: wipe (the retail heuristic).
+local RAID_DIFficulties = {
+	[3] = true, [4] = true, [5] = true, [6] = true, [7] = true,
+	[14] = true, [15] = true, [16] = true, [17] = true,
+}
+
+function FightHistory:BackfillWipes()
+	local pulledLater = {} -- [runID:name], walking newest -> oldest
+	for i = 1, #self.fights do
+		local f = self.fights[i]
+		if f.isBoss then
+			local key = tostring(f.runID) .. ":" .. (f.name or "")
+			if f.wipe == nil then
+				if pulledLater[key] and RAID_DIFficulties[f.difficultyID or 0] then
+					f.wipe = true
+				else
+					local anyone, allDied = false, true
+					for _, p in pairs(f.players or {}) do
+						anyone = true
+						if ((p.metrics and p.metrics.deaths) or 0) == 0 then
+							allDied = false
+							break
+						end
+					end
+					if anyone and allDied then
+						f.wipe = true
+					end
+				end
+			end
+			pulledLater[key] = true
+		end
+	end
+end
+
 -- Late ENCOUNTER_END verdict (Segments): the segment can close before the
 -- boss resets when everyone dies and releases — flag the matching recent
 -- capture as a wipe after the fact.
@@ -646,6 +685,7 @@ function FightHistory:OnEnable()
 	-- Migrate away the account-wide storage used by earlier builds
 	TP.Addon.db.global.recentFights = nil
 	self:BackfillRunIDs()
+	self:BackfillWipes()
 
 	if not TP.BlizzardMeter.available then
 		return -- Classic: fights arrive via AddFromSegment
