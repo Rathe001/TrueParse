@@ -154,6 +154,19 @@ function Bullets.ForResult(result, awards, extra)
 			text = extra.offensiveCDs == 1 and "Used an offensive cooldown"
 				or ("Used %d offensive cooldowns"):format(extra.offensiveCDs) }
 	end
+	if extra and extra.mitigationPct and result.role == "TANK" then
+		local pct = extra.mitigationPct
+		if pct >= 70 then
+			out[#out + 1] = { kind = "info", key = "mitigation", symbol = "+", color = GOOD,
+				text = ("Active mitigation up %d%%"):format(pct) }
+		elseif pct >= 40 then
+			out[#out + 1] = { kind = "info", key = "mitigation", symbol = MIDDOT, color = MID,
+				text = ("Active mitigation up %d%%"):format(pct) }
+		else
+			out[#out + 1] = { kind = "info", key = "mitigation", symbol = "-", color = BAD,
+				text = ("Active mitigation up %d%%"):format(pct) }
+		end
+	end
 
 	-- Peer-reported facts: informational, never scored
 	if extra and extra.defensives ~= nil then

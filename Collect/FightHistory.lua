@@ -545,6 +545,17 @@ function FightHistory:AddFromSegment(seg)
 		if acc.lust and (acc.lust.totalCasts or 0) > 0 then
 			m.offensiveCDs = acc.lust.totalCasts
 		end
+		-- tank active-mitigation uptime; close a still-open window at the
+		-- fight boundary
+		if acc.mitigation and (seg.duration or 0) > 0 then
+			local up = acc.mitigation.uptime
+			if acc.mitigation.since and seg.endTime then
+				up = up + math.max(0, seg.endTime - acc.mitigation.since)
+			end
+			if up > 0 then
+				m.mitigationPct = math.min(100, math.floor(up / seg.duration * 100 + 0.5))
+			end
+		end
 		local ag = acc.aggro
 		players[guid] = {
 			guid = guid,

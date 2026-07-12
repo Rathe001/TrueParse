@@ -665,6 +665,9 @@ check(infoText({ overhealPct = 24 }, "HEALER", "overheal") == "24% overhealing",
 check(infoText({ overhealPct = 24 }, "DAMAGER", "overheal") == nil, "non-healers skip overheal noise")
 check(infoText({ offensiveCDs = 3 }, "DAMAGER", "offensives") == "Used 3 offensive cooldowns", "offensive CD count shown")
 check(infoText({ offensiveCDs = 3 }, "HEALER", "offensives") == nil, "healers skip offensive CD bullets")
+local mText, mSym = infoText({ mitigationPct = 82 }, "TANK", "mitigation")
+check(mText == "Active mitigation up 82%" and mSym == "+", "tank mitigation uptime credited")
+check(infoText({ mitigationPct = 82 }, "DAMAGER", "mitigation") == nil, "non-tanks skip mitigation bullets")
 
 -- 14a. Every award has a description
 for _, label in pairs(TP.Scoring.Awards.LABELS) do

@@ -21,6 +21,7 @@ Data\KillTimes_Mists.lua
 Data\Potions.lua
 Data\Avoidable_Mists.lua
 Data\Lust_Mists.lua
+Data\Mitigation_Mists.lua
 Data\GroupBuffs.lua
 Data\Defensives.lua
 Collect\Roster.lua
@@ -33,6 +34,7 @@ Metrics\Absorbs.lua
 Metrics\Cooldowns.lua
 Metrics\Lust.lua
 Metrics\Activity.lua
+Metrics\Mitigation.lua
 Collect\Segments.lua
 Collect\CombatLog.lua
 Collect\BlizzardMeter.lua

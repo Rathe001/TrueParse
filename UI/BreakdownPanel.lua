@@ -293,6 +293,7 @@ local function infoHelp()
 			activity = "Share of the fight spent actually doing things (casting, attacking) - the always-be-casting number. A rough proxy: movement-heavy fights read lower for everyone. Informational only - not scored.",
 			overheal = "Share of raw healing that landed on already-full health bars. Some overhealing is normal and safe; big numbers on hard fights suggest snipe-heavy targeting. Informational only - not scored.",
 			offensives = "Major offensive cooldowns cast this fight, read from the combat log. Informational only - not scored.",
+			mitigation = "Share of the fight with an active-mitigation buff up (Shuffle, Shield Block/Barrier, Shield of the Righteous, Savage Defense, Blood Shield). Expected uptime varies by spec - context, not a judgment. Informational only - not scored.",
 		}
 	end
 	return INFO_HELP
@@ -350,6 +351,7 @@ function Panel:ShowFor(fight, result)
 			activityPct = m.activityPct,
 			overhealPct = m.overhealPct,
 			offensiveCDs = m.offensiveCDs,
+			mitigationPct = m.mitigationPct,
 		}
 	end
 	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)
