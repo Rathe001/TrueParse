@@ -191,12 +191,19 @@ end
 function Segments:OnEncounterEnd(encounterID, success)
 	if self.current and self.current.encounterID == encounterID then
 		self.current.encounterWipe = (success == 0) or nil
+		self.current.encounterEnded = true -- explicit verdict arrived
 		self:EndFight()
 		-- Boss can chain straight into trash without leaving combat (M+);
 		-- PLAYER_REGEN_DISABLED won't re-fire, so open a new segment now.
 		if UnitAffectingCombat("player") then
 			self:StartFight()
 		end
+	elseif success == 0 then
+		-- Late wipe verdict: die early, release, and the segment closes
+		-- (everyone dead = combat drops) long before the boss resets and
+		-- ENCOUNTER_END finally fires — the capture was saved without its
+		-- wipe flag (five unmarked Thok "kills" on one lockout, live).
+		TP.FightHistory:AmendWipe(encounterID)
 	end
 end
 

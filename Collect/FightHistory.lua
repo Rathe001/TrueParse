@@ -584,6 +584,9 @@ function FightHistory:AddFromSegment(seg)
 	local fight = {
 		name = seg.name or "Fight",
 		isBoss = seg.encounterID and true or false,
+		encounterID = seg.encounterID,
+		-- explicit verdict, else the retail-style heuristic: a boss pull
+		-- with no ENCOUNTER_END where every participant died is a wipe
 		wipe = seg.encounterWipe,
 		duration = seg.duration or 0,
 		capturedAt = time(),
@@ -595,6 +598,17 @@ function FightHistory:AddFromSegment(seg)
 	-- Enrichment must never block capture
 	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
 	pcall(TP.Sync.AttachReports, TP.Sync, fight)
+	if fight.isBoss and fight.wipe == nil and not seg.encounterEnded then
+		local anyone, allDied = false, true
+		for _, p in pairs(players) do
+			anyone = true
+			if (p.metrics.deaths or 0) == 0 then
+				allDied = false
+				break
+			end
+		end
+		fight.wipe = (anyone and allDied) or nil
+	end
 	self:StampRunID(fight)
 	table.insert(self.fights, 1, fight)
 	local cap = TP.Addon.db.profile.history.maxFights
@@ -605,6 +619,25 @@ function FightHistory:AddFromSegment(seg)
 	TP.Addon:Debug(("Captured %s: %.0fs, dmg %s"):format(
 		fight.name, fight.duration, TP.FormatNumber(totals.damage)))
 	TP.Addon:SendMessage("TrueParse_FIGHT_CAPTURED", fight)
+end
+
+-- Late ENCOUNTER_END verdict (Segments): the segment can close before the
+-- boss resets when everyone dies and releases — flag the matching recent
+-- capture as a wipe after the fact.
+function FightHistory:AmendWipe(encounterID)
+	local now = time()
+	for i = 1, math.min(#self.fights, 5) do
+		local f = self.fights[i]
+		if f.encounterID == encounterID and f.wipe == nil
+			and (now - (f.capturedAt or 0)) < 600 then
+			f.wipe = true
+			self:Persist()
+			if TP.MeterWindow and TP.MeterWindow.Invalidate then
+				TP.MeterWindow:Invalidate()
+			end
+			return
+		end
+	end
 end
 
 function FightHistory:OnEnable()
