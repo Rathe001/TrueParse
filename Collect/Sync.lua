@@ -68,14 +68,28 @@ function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAt
 	end
 end
 
+-- LFR/LFD are INSTANCE groups: plain IsInGroup()/"RAID" never saw them,
+-- so hellos and reports silently went nowhere and everyone rendered "?"
+local function commChannel()
+	if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+		return "INSTANCE_CHAT"
+	elseif IsInRaid() then
+		return "RAID"
+	elseif IsInGroup() then
+		return "PARTY"
+	end
+end
+Sync.CommChannel = commChannel
+
 function Sync:BroadcastFightReport(duration, defensives, consumables, readyAtDeath, buffUptime)
-	if not IsInGroup() then
+	local channel = commChannel()
+	if not channel then
 		return
 	end
 	self:SendCommMessage(PREFIX, ("F:%d:%s:%d:%d:%d:%d:%d"):format(
 		WIRE_VERSION, UnitGUID("player"), math.floor(duration + 0.5),
 		defensives or 0, consumables or 0, readyAtDeath or -1, buffUptime or -1),
-		IsInRaid() and "RAID" or "PARTY")
+		channel)
 end
 
 -- Attach pending peer reports to a freshly captured fight, matching by
@@ -90,7 +104,10 @@ function Sync:AttachReports(fight)
 		if p.hasAddon ~= true then
 			if p.isLocalPlayer or self.users[guid] ~= nil then
 				p.hasAddon = true
-			elseif self.helloAt and (time() - self.helloAt) > 10 then
+			elseif (self.helloAt and (time() - self.helloAt) > 10)
+				or (self.enabledAt and (time() - self.enabledAt) > 60) then
+				-- the session-age fallback keeps "?" from sticking forever
+				-- when no hello went out (the LFR instance-channel bug)
 				p.hasAddon = false
 			end
 		end
@@ -131,7 +148,8 @@ end
 
 function Sync:SendHello()
 	self.helloTimer = nil
-	if not IsInGroup() then
+	local channel = commChannel()
+	if not channel then
 		return
 	end
 	local myGUID = UnitGUID("player")
@@ -141,9 +159,8 @@ function Sync:SendHello()
 		(me and me.specID) or 0,
 		(me and me.ilvl) or 0,
 		addonVersion())
-	self:SendCommMessage(PREFIX, msg, IsInRaid() and "RAID" or "PARTY")
+	self:SendCommMessage(PREFIX, msg, channel)
 	self.helloAt = time() -- presence stamps stay "unknown" until replies had time
-
 end
 
 -- Roster changes fire in bursts (zoning, joins); send one hello per burst
@@ -230,6 +247,7 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 end
 
 function Sync:OnEnable()
+	self.enabledAt = time()
 	LibStub("AceComm-3.0"):Embed(self)
 	LibStub("AceEvent-3.0"):Embed(self)
 	LibStub("AceTimer-3.0"):Embed(self)

@@ -427,15 +427,17 @@ Emit ""
 foreach ($name in ($encounters.Keys | Sort-Object)) {
     $bracketSets = $encounters[$name]
     if ($bracketSets.Count -eq 0) { continue }
-    Emit ("E[`"{0}`"] = {{" -f ($name -replace '"', '\"'))
+    $luaName = $name -replace '"', '\"'
+    # bracket-level merge: an LFR-only file must ADD its bracket to an
+    # encounter another file already populated, not replace it
+    Emit ("E[`"{0}`"] = E[`"{0}`"] or {{}}" -f $luaName)
     foreach ($bk in ($bracketSets.Keys | Sort-Object)) {
         $set = $bracketSets[$bk]
-        Emit ("`t[`"{0}`"] = {{" -f $bk)
-        Emit-CurveTable "`t`t" "dps" $set.dps
-        Emit-CurveTable "`t`t" "hps" $set.hps
-        Emit "`t},"
+        Emit ("E[`"{0}`"][`"{1}`"] = {{" -f $luaName, $bk)
+        Emit-CurveTable "`t" "dps" $set.dps
+        Emit-CurveTable "`t" "hps" $set.hps
+        Emit "}"
     }
-    Emit "}"
 }
 
 $outPath = Join-Path (Split-Path $PSScriptRoot -Parent) "Data\$OutFile"

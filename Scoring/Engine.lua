@@ -123,7 +123,9 @@ end
 -- low); retail raids are flex-sized so difficulty alone brackets them.
 local WCL_BRACKET = {
 	[3] = "3x10", [4] = "3x25", [5] = "4x10", [6] = "4x25", -- classic 10/25 N/H
+	[7] = "1x25", -- classic LFR
 	[14] = "3", [15] = "4", [16] = "5", -- retail Normal/Heroic/Mythic
+	[17] = "1", -- retail LFR (WCL difficulty 1, ranked like the rest)
 }
 
 -- WCL encounter names don't always match in-game ENCOUNTER_START names
@@ -245,19 +247,22 @@ end
 -- (best-in-group "99 parses" were pure noise).
 local BRACKET_NEIGHBORS = {
 	-- same difficulty first: a 10N raider reads closer to 25N than to 10H
-	["3x10"] = { "3x25", "4x10", "4x25" },
-	["3x25"] = { "3x10", "4x25", "4x10" },
-	["4x10"] = { "4x25", "3x10", "3x25" },
-	["4x25"] = { "4x10", "3x25", "3x10" },
-	["3"] = { "4", "5" },
-	["4"] = { "3", "5" },
-	["5"] = { "4", "3" },
+	["1x25"] = { "3x25", "3x10", "4x25", "4x10" },
+	["3x10"] = { "3x25", "4x10", "4x25", "1x25" },
+	["3x25"] = { "3x10", "4x25", "4x10", "1x25" },
+	["4x10"] = { "4x25", "3x10", "3x25", "1x25" },
+	["4x25"] = { "4x10", "3x25", "3x10", "1x25" },
+	["1"] = { "3", "4", "5" },
+	["3"] = { "4", "5", "1" },
+	["4"] = { "3", "5", "1" },
+	["5"] = { "4", "3", "1" },
 }
 local BRACKET_LABELS = {
 	["3x10"] = "10N", ["3x25"] = "25N", ["4x10"] = "10H", ["4x25"] = "25H",
-	["3"] = "Normal", ["4"] = "Heroic", ["5"] = "Mythic",
+	["1x25"] = "LFR",
+	["1"] = "LFR", ["3"] = "Normal", ["4"] = "Heroic", ["5"] = "Mythic",
 }
-local ALL_BRACKETS = { "3x10", "3x25", "4x10", "4x25", "3", "4", "5" }
+local ALL_BRACKETS = { "1x25", "3x10", "3x25", "4x10", "4x25", "1", "3", "4", "5" }
 
 local function bracketSearchOrder(bracketKey)
 	local order = {}

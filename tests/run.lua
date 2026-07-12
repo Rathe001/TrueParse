@@ -1131,6 +1131,24 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(commaFight, { mode = "parse", no
 end
 TP.Percentiles.encounters["Comma, Boss"] = nil
 
+-- 18d2b. LFR brackets map: retail difficultyID 17 -> "1", MoP 7 -> "1x25"
+TP.Percentiles.encounters["Percentile Boss"]["1"] = {
+	dps = { [63] = { n = 700, curve = { { 99, 500 }, { 95, 450 }, { 90, 400 }, { 75, 320 }, { 50, 250 }, { 25, 190 }, { 10, 150 } } } },
+	hps = {},
+}
+local lfrFight = {
+	name = "(!) Percentile Boss", isBoss = true, duration = 100, difficultyID = 17,
+	players = {
+		d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 25000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } }, -- 250/s = LFR p50
+	},
+}
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(lfrFight, { mode = "parse", normalizeIlvl = false })) do
+	check(math.abs(r.breakdown.damage.normalized - 50) < 0.001 and r.breakdown.damage.curveFrom == nil,
+		("LFR fight parses against the LFR bracket exactly (%.1f)"):format(r.breakdown.damage.normalized))
+end
+TP.Percentiles.encounters["Percentile Boss"]["1"] = nil
+
 -- 18d3. Kill-speed percentile: group duration vs the encounter's ranked
 -- kill-time curve (seconds, ascending from fastest)
 TP.Percentiles.encounters["Percentile Boss"]["3x10"].killTime = {
