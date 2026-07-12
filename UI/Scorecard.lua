@@ -37,14 +37,24 @@ function Scorecard:Acquire(parent)
 		end)
 
 		-- Details-style bar: dark track, class-colored fill whose WIDTH is
-		-- the score (a 45 bar fills 45% of the row), mouseover brightening
+		-- the score (a 45 bar fills 45% of the bar area), mouseover
+		-- brightening. The bar spans the NAME area only — the renderer
+		-- sets the track width so scores sit on clean backdrop.
 		row.track = row:CreateTexture(nil, "BACKGROUND", nil, -1)
-		row.track:SetAllPoints()
+		row.track:SetPoint("TOPLEFT")
+		row.track:SetPoint("BOTTOMLEFT")
+		row.track:SetWidth(100)
 		row.track:SetColorTexture(0, 0, 0, 0.55)
 		row.bg = row:CreateTexture(nil, "BACKGROUND")
 		row.bg:SetPoint("TOPLEFT")
 		row.bg:SetPoint("BOTTOMLEFT")
 		row.bg:SetWidth(1)
+		-- subtle column border where the bar area ends
+		row.sep = row:CreateTexture(nil, "BACKGROUND", nil, 0)
+		row.sep:SetPoint("TOPLEFT", row.track, "TOPRIGHT", 0, 0)
+		row.sep:SetPoint("BOTTOMLEFT", row.track, "BOTTOMRIGHT", 0, 0)
+		row.sep:SetWidth(1)
+		row.sep:SetColorTexture(1, 1, 1, 0.10)
 		local highlight = row:CreateTexture(nil, "HIGHLIGHT")
 		highlight:SetAllPoints()
 		highlight:SetColorTexture(1, 1, 1, 0.15)

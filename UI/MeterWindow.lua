@@ -9,6 +9,7 @@ TP.MeterWindow = MeterWindow
 
 local HEADER_HEIGHT = 22
 local COLHEAD_HEIGHT = 11 -- thin "fight / run" column labels (scorecard only)
+local COL_RESERVE = 76 -- right-side score columns the class bar never enters
 local MODE_HEIGHT = 16 -- bottom strip: Mode: (*)Real ( )Raw
 local PADDING = 6
 local SCORECARD_ROW_HEIGHT = 14
@@ -727,7 +728,9 @@ function MeterWindow:RenderScorecard(fight)
 			cb = cb * 0.4 + 0.22
 		end
 		row.bg:SetColorTexture(cr, cg, cb, 0.95)
-		row.bg:SetWidth(math.max(8, width * math.min(math.max(r.score, 0), 100) / 100))
+		local barArea = math.max(40, width - COL_RESERVE)
+		row.track:SetWidth(barArea)
+		row.bg:SetWidth(math.max(8, barArea * math.min(math.max(r.score, 0), 100) / 100))
 		row.icon:SetWidth(rowHeight)
 		setSpecIcon(row.icon, player, r.class)
 
@@ -813,7 +816,9 @@ function MeterWindow:RenderScorecard(fight)
 			row.runAvg:SetWidth(1)
 		end
 		row.bg:SetColorTexture(0.60, 0.48, 0.10, 0.95)
-		row.bg:SetWidth(math.max(8, width * math.min(math.max(groupScore, 0), 100) / 100))
+		local barArea = math.max(40, width - COL_RESERVE)
+		row.track:SetWidth(barArea)
+		row.bg:SetWidth(math.max(8, barArea * math.min(math.max(groupScore, 0), 100) / 100))
 		row.icon:Hide()
 		row.addonMark:Hide()
 		row.playerName = label
