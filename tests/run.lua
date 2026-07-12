@@ -1185,6 +1185,41 @@ speedFight.wipe = true
 check(TP.Scoring.Engine.KillSpeedPercentile(speedFight) == nil, "wipes carry no speed percentile")
 TP.Percentiles.encounters["Percentile Boss"]["3x10"].killTime = nil
 
+-- 18d4. Demand cap: you can't heal damage that never went out. A healer
+-- on a trivial fight (per-healer incoming damage below the spec's median
+-- output) who covered their share floors at 75 instead of parsing p5
+-- against raid-boss healing volumes.
+local calmZoom = {
+	name = "(!) Tiny Boss", isBoss = true, duration = 100, difficultyID = 3,
+	players = {
+		h = { guid = "h", name = "Heals", class = "PRIEST", role = "HEALER", specID = 257,
+			metrics = { damage = 0, healing = 4500, damageTaken = 2500, interrupts = 0, dispels = 0, deaths = 0 } },
+		d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 50000, healing = 0, damageTaken = 2500, interrupts = 0, dispels = 0, deaths = 0 } },
+	},
+}
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(calmZoom, { normalizeIlvl = false })) do
+	if r.name == "Heals" then
+		check(r.breakdown.healing.lowDemand and r.breakdown.healing.normalized == 75,
+			("trivial-demand healer floors at 75 (%.0f, lowDemand=%s)"):format(
+				r.breakdown.healing.normalized, tostring(r.breakdown.healing.lowDemand)))
+	end
+end
+calmZoom.players.h.metrics.healing = 1000 -- covered under 70% of their share
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(calmZoom, { normalizeIlvl = false })) do
+	if r.name == "Heals" then
+		check(not r.breakdown.healing.lowDemand,
+			"a healer who did NOT cover the little demand gets no floor")
+	end
+end
+calmZoom.players.h.metrics.healing = 4500
+calmZoom.players.d.metrics.deaths = 1
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(calmZoom, { normalizeIlvl = false })) do
+	if r.name == "Heals" then
+		check(not r.breakdown.healing.lowDemand, "a death disables the demand cap")
+	end
+end
+
 -- 18e. Run aggregates score through the percentile ladder too: cohort-
 -- relative run averages handed the best of each role a structural 100
 local runAgg = TP.Scoring.Runs.Aggregate({ pctFight, pctFight }, "Run")

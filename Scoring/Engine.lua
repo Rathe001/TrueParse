@@ -863,7 +863,8 @@ function Engine.ScoreFight(fight, opts)
 		for _, p in ipairs(players) do
 			deaths = deaths + (p.metrics.deaths or 0)
 		end
-		if deaths == 0 then
+		ctx.noDeaths = deaths == 0
+		if ctx.noDeaths then
 			local sampled, worst = 0, 1
 			for _, p in ipairs(players) do
 				if p.minHealthPct then
@@ -916,16 +917,34 @@ function Engine.ScoreFight(fight, opts)
 		local activeWeight = 0
 		for key, weight in pairs(weights) do
 			local normalized, applicable, absolute, relative, specMedian, pctile, rolePooled, curveFrom = normalizeMetric(p, role, key, ctx)
-			-- Trivial-demand floor: only for share-based healer healing (a
-			-- WCL absolute already prices the fight's real demand), and only
-			-- outside parse mode (a raw parse SHOULD read low on a fight
-			-- with nothing to heal)
+			-- Trivial-demand floors, True mode only (a raw parse SHOULD
+			-- read low on a fight with nothing to heal):
+			-- 1) share-based healing when nobody dipped (Classic vitals);
+			-- 2) demand cap: you can't heal damage that never went out.
+			--    When the fight's per-healer incoming damage is below the
+			--    spec's own median output AND this healer covered most of
+			--    their share of it, a low percentile is physics, not
+			--    performance. Exact-encounter curves price demand
+			--    (their population healed the same fight) — ZOOMED pools
+			--    don't (a dungeon healer measured against raid volumes).
 			local lowDemand
 			if key == "healing" and role == "HEALER" and applicable
-				and not absolute and not ctx.parseMode
-				and ctx.lowHealingDemand and normalized < 75 then
-				normalized = 75
-				lowDemand = true
+				and not ctx.parseMode and normalized < 75 then
+				if not absolute and ctx.lowHealingDemand then
+					normalized = 75
+					lowDemand = true
+				elseif (not absolute or curveFrom ~= nil)
+					and ctx.noDeaths and specMedian
+					and ctx.duration and ctx.duration > 0 then
+					local healerN = math.max(1, #(ctx.cohorts.HEALER or {}))
+					local demandShare = (ctx.totals.damageTaken or 0) / ctx.duration / healerN
+					local healed = metricValue(p, key)
+					if demandShare < specMedian
+						and healed >= demandShare * ctx.duration * 0.7 then
+						normalized = 75
+						lowDemand = true
+					end
+				end
 			end
 			breakdown[key] = {
 				weight = weight,

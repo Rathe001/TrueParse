@@ -264,8 +264,11 @@ function Bullets.ForGroup(results)
 	for _, r in ipairs(results) do
 		for key, b in pairs(r.breakdown) do
 			if b.applicable and GROUP_PHRASES[key] then
-				-- same percentile-first basis as the individual bullets
-				sums[key] = (sums[key] or 0) + (b.pctile or b.normalized or 0)
+				-- same percentile-first basis as the individual bullets;
+				-- demand-floored healing counts at its floor ("Healing
+				-- struggled" on a fight with nothing to heal was noise)
+				sums[key] = (sums[key] or 0)
+					+ ((b.lowDemand and b.normalized) or b.pctile or b.normalized or 0)
 				counts[key] = (counts[key] or 0) + 1
 				totals[key] = (totals[key] or 0) + (b.value or 0)
 			end
