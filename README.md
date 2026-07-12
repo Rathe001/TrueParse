@@ -95,28 +95,25 @@ fight. The scoring engine is pure Lua with a headless test suite.
 
 Bug reports and requests: [GitHub issues](https://github.com/Rathe001/TrueParse/issues).
 
-## Maintenance: refreshing spec benchmarks
+## Where the data comes from
 
-Grading uses per-fight spec expectations generated from Warcraft Logs
-statistics (`Data/Benchmarks*.lua`). **These are point-in-time snapshots**
-— a scheduled GitHub Action refreshes them weekly (secret: `WCL_API_KEY`),
-and the addon nags in-game once the shipped data is 60+ days old. Manual
-refresh:
-
-```powershell
-# Retail (current raid + M+ season):
-powershell -File scripts\fetch-benchmarks.ps1
-
-# MoP Classic (SoO + ToT + Challenge Modes):
-powershell -File scripts\fetch-benchmarks.ps1 -GameBase https://classic.warcraftlogs.com `
-    -RaidZoneIds 1054,1046 -DungeonZone 1039 -MinSamples 6 -OutFile Benchmarks_Mists.lua
-```
-
-Requires a free WCL V1 API key in `scripts\wcl-key.local.txt` (gitignored).
-Zone IDs change each season — list current ones via the `/v1/zones`
-endpoint and update `.github/workflows/benchmarks.yml` to match.
+All Warcraft Logs statistics (percentile curves, kill times, spec
+benchmarks in `Data/*.lua`) **ship inside the addon** — users never fetch
+anything, and every addon update carries refreshed data. The addon nags
+in-game once shipped data is 60+ days old, which just means it's time to
+update.
 
 ## Development
+
+**Maintainer data refresh** (never needed by users): the `scripts/`
+crawlers regenerate the `Data/` files from the Warcraft Logs API —
+`fetch-percentiles-v2.ps1` (percentile curves, V2 client credentials in
+`scripts\wcl-v2-client.local.txt`), `fetch-killtimes.ps1` (kill-speed
+curves), and `fetch-benchmarks.ps1` (spec factors, V1 key in
+`scripts\wcl-key.local.txt`; both files gitignored). Zone IDs change each
+season — list them via the API and update
+`.github/workflows/benchmarks.yml` to match. Run one crawler at a time:
+WCL V2 tokens are single-active.
 
 1. Clone anywhere; run `scripts\link-addon.ps1` to junction the repo into
    `_retail_\Interface\AddOns` (repeat with your Classic path if wanted).
