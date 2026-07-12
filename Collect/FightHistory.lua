@@ -147,6 +147,26 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		end
 	end
 
+	-- Deaths must never under-count: a secret value falls back to 0, which
+	-- turned a multi-death LFR kill into a false "flawless" (Not on My
+	-- Watch for a healer who died herself). deathTimeSeconds is a separate
+	-- per-source value and often readable when the count isn't; and the
+	-- per-player sums floor every session total for the same reason.
+	for _, p in pairs(players) do
+		if (p.deathTime or 0) > 0 and (p.metrics.deaths or 0) == 0 then
+			p.metrics.deaths = 1
+		end
+	end
+	for _, m in ipairs(metrics) do
+		local sum = 0
+		for _, p in pairs(players) do
+			sum = sum + (p.metrics[m.key] or 0)
+		end
+		if sum > (totals[m.key] or 0) then
+			totals[m.key] = sum
+		end
+	end
+
 	local name = descriptor and descriptor.name
 	if not name or IsSecret(name) or name == "" then
 		name = ("Fight #%d"):format(sessionID)

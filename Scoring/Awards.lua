@@ -149,7 +149,9 @@ function Awards.Compute(fight)
 			end
 		end
 	end
-	local noDeaths = (fight.totals.deaths or 0) == 0
+	-- nil means the deaths data never arrived (secret or missing session):
+	-- unknown is not the same as flawless
+	local noDeaths = fight.totals.deaths == 0
 
 	if fight.isBoss and noDeaths then
 		grantHealers("notOnMyWatch")
