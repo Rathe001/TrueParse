@@ -15,23 +15,16 @@ local PADDING = 6
 local SCORECARD_ROW_HEIGHT = 14
 
 local window
-local activeBars = {}
 local activeRows = {}
-local sortScratch = {}
-local lastDrawnRevision = -1
 local lastRenderedFight
 local autoCollapsed = false -- runtime combat collapse, separate from the saved toggle
-local viewOffset = 0 -- fight-history browsing: 0 = latest capture
+-- Fight selection: nil = "Current" (follows new captures and the waiting
+-- state). An explicit dropdown pick pins a fight BY REFERENCE, so a new
+-- capture inserting at the top never shifts what's on screen.
+local pinnedFight
 
 local function db()
 	return TP.Addon.db.profile
-end
-
-local function releaseAllBars()
-	for i = #activeBars, 1, -1 do
-		TP.Bars:Release(activeBars[i])
-		activeBars[i] = nil
-	end
 end
 
 local function releaseAllRows()
@@ -258,17 +251,19 @@ local function createWindow()
 	window.fightDrop:RegisterForDrag("LeftButton")
 	window.fightDrop:SetScript("OnDragStart", startDrag)
 	window.fightDrop:SetScript("OnDragStop", stopDrag)
-	-- Fight picker: click the subtitle for a dropdown of recent captures
-	-- ("Last fight" follows new kills). Falls back to click-cycling on any
-	-- client without the modern menu API.
+	-- Fight picker: click the subtitle for a dropdown of recent captures.
+	-- "Current" follows whatever is happening (the newest capture, or the
+	-- waiting card inside unrecorded content); every capture — the newest
+	-- included — is its own pinnable entry. Falls back to click-cycling on
+	-- any client without the modern menu API.
 	local function fightLabel(fight)
 		local name = (fight.name or "Fight"):gsub("^%(!%)%s*", "")
 		local d = fight.duration or 0
 		return ("%s · %d:%02d%s"):format(name, math.floor(d / 60), d % 60,
 			fight.wipe and " |cffe64d4d(wipe)|r" or "")
 	end
-	local function selectFight(offset)
-		viewOffset = offset
+	local function selectFight(f)
+		pinnedFight = f -- nil = back to Current
 		scrollOffset = 0
 		MeterWindow:Invalidate()
 	end
@@ -278,6 +273,9 @@ local function createWindow()
 			return false
 		end
 		MenuUtil.CreateContextMenu(anchor, function(_, root)
+			root:CreateRadio("Current · follows new fights",
+				function() return pinnedFight == nil end,
+				function() selectFight(nil) end)
 			-- grouped by run: one group's visit to one instance+difficulty
 			local lastRunID
 			for i = 1, math.min(#fights, 25) do
@@ -287,11 +285,9 @@ local function createWindow()
 					local diff = f.difficulty and f.difficulty ~= "" and (" · " .. f.difficulty) or ""
 					root:CreateTitle((f.zone or "Unknown") .. diff)
 				end
-				local offset = i - 1
-				local label = (i == 1) and ("Last fight · " .. fightLabel(f)) or fightLabel(f)
-				root:CreateRadio(label,
-					function() return viewOffset == offset end,
-					function() selectFight(offset) end)
+				root:CreateRadio(fightLabel(f),
+					function() return pinnedFight == f end,
+					function() selectFight(f) end)
 			end
 		end)
 		return true
@@ -421,13 +417,24 @@ function MeterWindow:Invalidate()
 	self:Refresh(true)
 end
 
--- Step through captured fights: positive = older, negative = toward latest
+-- Step through captured fights: positive = older, negative = toward latest.
+-- Menu-less fallback only; stepping always pins (Current is treated as the
+-- newest capture and there is no step back into follow mode).
 function MeterWindow:StepFight(delta)
-	local count = #TP.FightHistory.fights
-	if count == 0 then
+	local fights = TP.FightHistory.fights
+	if #fights == 0 then
 		return
 	end
-	viewOffset = math.max(0, math.min(count - 1, viewOffset + delta))
+	local idx = 1
+	if pinnedFight then
+		for i = 1, #fights do
+			if fights[i] == pinnedFight then
+				idx = i
+				break
+			end
+		end
+	end
+	pinnedFight = fights[math.max(1, math.min(#fights, idx + delta))]
 	scrollOffset = 0 -- a different fight starts back at the top
 	self:Invalidate()
 end
@@ -459,9 +466,9 @@ function MeterWindow:OnEnable()
 	end
 
 	TP.Addon:RegisterMessage("TrueParse_SEGMENT_CHANGED", function()
-		-- Retail shows no live data mid-fight, so give the screen back;
-		-- Classic keeps its live bars.
-		if TP.Segments.current and db().window.autoCollapse and TP.BlizzardMeter.available then
+		-- No live view on any client — when a fight starts, give the
+		-- screen back
+		if TP.Segments.current and db().window.autoCollapse then
 			autoCollapsed = true
 			TP.BreakdownPanel:HideAll()
 		end
@@ -469,8 +476,22 @@ function MeterWindow:OnEnable()
 	end)
 	TP.Addon:RegisterMessage("TrueParse_FIGHT_CAPTURED", function()
 		autoCollapsed = false
-		viewOffset = 0 -- a fresh capture always snaps the view to the latest
-		scrollOffset = 0
+		-- "Current" picks up the new capture on its own; an explicit pin
+		-- holds. A pin whose fight aged out of history falls back to Current.
+		if pinnedFight then
+			local found = false
+			for _, f in ipairs(TP.FightHistory.fights) do
+				if f == pinnedFight then
+					found = true
+					break
+				end
+			end
+			if not found then
+				pinnedFight = nil
+			end
+		else
+			scrollOffset = 0
+		end
 		MeterWindow:Refresh(true)
 	end)
 	TP.Addon:ScheduleRepeatingTimer(function()
@@ -645,8 +666,14 @@ function MeterWindow:RenderScorecard(fight)
 	local function subtitleText(rawAvail)
 		local duration = fight.duration or 0
 		local label = ("%s · %d:%02d"):format(fight.name or "Fight", math.floor(duration / 60), duration % 60)
-		if viewOffset > 0 then
-			label = ("|cffaaaaaa%d/%d|r · "):format(viewOffset + 1, #TP.FightHistory.fights) .. label
+		if pinnedFight then
+			local fights = TP.FightHistory.fights
+			for i = 1, #fights do
+				if fights[i] == pinnedFight then
+					label = ("|cffaaaaaa%d/%d|r · "):format(i, #fights) .. label
+					break
+				end
+			end
 		end
 		if isRawSetting and not rawAvail then
 			-- no WCL data for this fight: the card falls back to True scores
@@ -669,7 +696,6 @@ function MeterWindow:RenderScorecard(fight)
 	end
 	lastRenderedFight = fight
 	lastScrollOffset = scrollOffset
-	releaseAllBars()
 
 	local results, rawAvailable = scoreForDisplay(fight)
 	lastRawAvailable = rawAvailable
@@ -905,124 +931,6 @@ function MeterWindow:RenderScorecard(fight)
 	TP.BreakdownPanel:OnFightRendered(fight, results)
 end
 
--- ============== Live damage fallback (no fights captured yet) ==============
-
-local function drawBar(i, name, class, fraction, valueText, barWidth, barHeight)
-	local bar = activeBars[i]
-	if not bar then
-		bar = TP.Bars:Acquire(window)
-		activeBars[i] = bar
-	end
-	bar:SetSize(barWidth, barHeight)
-	bar:ClearAllPoints()
-	bar:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (i - 1) * (barHeight + 1)))
-	bar:SetValue(fraction)
-	local r, g, b = TP.ClassColor(class)
-	bar:SetStatusBarColor(r, g, b)
-	bar.nameText:SetText(name)
-	bar.valueText:SetText(valueText)
-end
-
-local function finishBars(shown, barHeight)
-	for i = #activeBars, shown + 1, -1 do
-		TP.Bars:Release(activeBars[i])
-		activeBars[i] = nil
-	end
-	if window.scrollUp then
-		window.scrollUp:Hide()
-		window.scrollDown:Hide()
-	end
-	setWindowHeight(false)
-end
-
-local function sortByTotal(a, b)
-	return a.totalAmount > b.totalAmount
-end
-
-function MeterWindow:RefreshFromBlizzardMeter()
-	local Meter = TP.BlizzardMeter
-	local session = Meter:GetSession(Enum.DamageMeterType.DamageDone)
-	local conf = db().bars
-	releaseAllRows()
-	lastRenderedFight = nil
-
-	-- locking is per-VALUE: IsLocked's first-source heuristic can pass
-	-- while later sources are still secret (own row readable, others not)
-	local IsSecret = TP.Compat.IsSecret
-	if Meter:IsLocked(session) or IsSecret(session.durationSeconds) then
-		window.subtitle:SetText("|cffff8888in combat · live data locked|r")
-		finishBars(0, conf.height)
-		return
-	end
-
-	local duration = math.max(session.durationSeconds or 0, 1)
-	window.subtitle:SetText(("Damage · %d:%02d"):format(math.floor(duration / 60), duration % 60))
-
-	wipe(sortScratch)
-	local sources = session.combatSources
-	for i = 1, #sources do
-		local src = sources[i]
-		if not IsSecret(src.totalAmount) and not IsSecret(src.name)
-			and (src.totalAmount or 0) > 0 then
-			sortScratch[#sortScratch + 1] = src
-		end
-	end
-	table.sort(sortScratch, sortByTotal)
-
-	local shown = math.min(#sortScratch, conf.max, contentSlots(conf.height, false))
-	local top = shown > 0 and sortScratch[1].totalAmount or 1
-	local barWidth = db().window.width - PADDING * 2
-
-	for i = 1, shown do
-		local src = sortScratch[i]
-		drawBar(i, src.name, src.classFilename, src.totalAmount / top,
-			("%s (%s)"):format(TP.FormatNumber(src.totalAmount), TP.FormatNumber(src.totalAmount / duration)),
-			barWidth, conf.height)
-	end
-	finishBars(shown, conf.height)
-end
-
--- ================== Classic path: CLEU segment damage ==================
-
-local function sortByDamage(a, b)
-	return a.damage.total > b.damage.total
-end
-
-function MeterWindow:RefreshFromSegments(force)
-	local Segments = TP.Segments
-	if not force and not Segments.current and Segments.revision == lastDrawnRevision then
-		return
-	end
-	lastDrawnRevision = Segments.revision
-	releaseAllRows()
-	lastRenderedFight = nil
-
-	local seg = Segments:GetDisplaySegment()
-	local duration = Segments:GetDuration(seg)
-	window.subtitle:SetText(("%s · %d:%02d"):format(seg.name or "", math.floor(duration / 60), duration % 60))
-
-	wipe(sortScratch)
-	for _, acc in pairs(seg.players) do
-		if acc.damage.total > 0 then
-			sortScratch[#sortScratch + 1] = acc
-		end
-	end
-	table.sort(sortScratch, sortByDamage)
-
-	local conf = db().bars
-	local shown = math.min(#sortScratch, conf.max, contentSlots(conf.height, false))
-	local top = shown > 0 and sortScratch[1].damage.total or 1
-	local barWidth = db().window.width - PADDING * 2
-
-	for i = 1, shown do
-		local acc = sortScratch[i]
-		drawBar(i, acc.name, acc.class, acc.damage.total / top,
-			("%s (%s)"):format(TP.FormatNumber(acc.damage.total), TP.FormatNumber(acc.damage.total / duration)),
-			barWidth, conf.height)
-	end
-	finishBars(shown, conf.height)
-end
-
 -- ============================== Dispatch ==============================
 
 function MeterWindow:ToggleCollapse()
@@ -1076,13 +984,9 @@ end
 
 -- Waiting condition: inside instanced content (dungeon/raid/scenario,
 -- delves included) with nothing captured from THIS place -> returns the
--- zone name and instance type; nil otherwise. Combat only bypasses this
--- on Classic, where live damage bars actually render — on retail combat
--- was resurrecting a stale card from another raid.
+-- zone name and instance type; nil otherwise. Combat never bypasses this:
+-- there is no live view, so mid-fight the waiting card simply stays put.
 local function waitingHere()
-	if not TP.Compat.IS_RETAIL and UnitAffectingCombat("player") then
-		return nil
-	end
 	local inInst, instType = IsInInstance()
 	if not (inInst and (instType == "party" or instType == "raid" or instType == "scenario")) then
 		return nil
@@ -1102,7 +1006,6 @@ local function refreshImpl(self, force)
 	local modeTitle = (db().scoring.mode == "parse") and "Raw" or "TrueParse"
 	if db().window.collapsed or autoCollapsed then
 		releaseAllRows()
-		releaseAllBars()
 		lastRenderedFight = nil
 		if window.grip then
 			window.grip:Hide()
@@ -1112,8 +1015,12 @@ local function refreshImpl(self, force)
 			window.scrollDown:Hide()
 		end
 		window.title:SetText(modeTitle .. " (+)")
-		local waitingZone, waitingType = waitingHere()
-		local latest = TP.FightHistory.fights[1]
+		-- a pinned fight is explicit: its summary wins over the waiting state
+		local waitingZone, waitingType
+		if not pinnedFight then
+			waitingZone, waitingType = waitingHere()
+		end
+		local latest = pinnedFight or TP.FightHistory.fights[1]
 		if waitingZone then
 			-- stale scores must not impersonate a live summary while the
 			-- expanded card would be showing the waiting state
@@ -1150,59 +1057,45 @@ local function refreshImpl(self, force)
 		window.emptyTitle:Hide()
 		window.emptyMsg:Hide()
 	end
-	local fights = TP.FightHistory.fights
-	local fight = fights[1 + viewOffset] or fights[1]
+	local fight = pinnedFight or TP.FightHistory.fights[1]
 
-	-- Recording clarity: inside an instance with nothing captured HERE,
-	-- "Last fight" must not impersonate a live card with stale data —
-	-- show what will and won't record instead. Combat keeps the live
-	-- view; manually browsing history (viewOffset > 0) is explicit.
-	if viewOffset == 0 then
-		local here, hereType = waitingHere()
-		if here then
-			do
-				releaseAllRows()
-				releaseAllBars()
-				lastRenderedFight = nil
-				if hereType == "scenario" then
-					-- delves report as scenarios: unranked, uncaptured
-					window.subtitle:SetText(here .. " · not supported")
-					window.emptyTitle:SetText("This content isn't supported.")
-					window.emptyMsg:SetText("Delves and scenarios aren't ranked on Warcraft Logs and their fights aren't captured. Dungeon and raid bosses record automatically.")
-				else
-					window.subtitle:SetText(here .. " · waiting")
-					window.emptyTitle:SetText("Nothing recorded here yet.")
-					window.emptyMsg:SetText("Boss fights are captured automatically; trash pulls and most solo content are not. Fights without Warcraft Logs rankings score in TrueParse mode only (no Raw).")
-				end
-				window.emptyTitle:Show()
-				window.emptyMsg:Show()
-				if window.scrollUp then
-					window.scrollUp:Hide()
-					window.scrollDown:Hide()
-				end
-				setWindowHeight(false)
-				return
-			end
+	-- Recording clarity: "Current" inside an instance with nothing captured
+	-- HERE must not impersonate a live card with stale data — show what
+	-- will and won't record instead. A pinned fight is explicit and always
+	-- renders its card.
+	local here, hereType
+	if not pinnedFight then
+		here, hereType = waitingHere()
+	end
+	if here or not fight then
+		releaseAllRows()
+		lastRenderedFight = nil
+		if hereType == "scenario" then
+			-- delves report as scenarios: unranked, uncaptured
+			window.subtitle:SetText(here .. " · not supported")
+			window.emptyTitle:SetText("This content isn't supported.")
+			window.emptyMsg:SetText("Delves and scenarios aren't ranked on Warcraft Logs and their fights aren't captured. Dungeon and raid bosses record automatically.")
+		elseif here then
+			window.subtitle:SetText(here .. " · waiting")
+			window.emptyTitle:SetText("Nothing recorded here yet.")
+			window.emptyMsg:SetText("Boss fights are captured automatically; trash pulls and most solo content are not. Fights without Warcraft Logs rankings score in TrueParse mode only (no Raw).")
+		else
+			-- nothing captured anywhere yet (fresh install, open world)
+			window.subtitle:SetText("no fights yet")
+			window.emptyTitle:SetText("Nothing recorded yet.")
+			window.emptyMsg:SetText("Dungeon and raid bosses are captured and scored automatically. Your scorecard appears after your first boss fight.")
 		end
+		window.emptyTitle:Show()
+		window.emptyMsg:Show()
+		if window.scrollUp then
+			window.scrollUp:Hide()
+			window.scrollDown:Hide()
+		end
+		setWindowHeight(false)
+		return
 	end
 
-	if TP.BlizzardMeter.available then
-		if fight then
-			self:RenderScorecard(fight)
-		else
-			self:RefreshFromBlizzardMeter()
-		end
-	else
-		-- Classic: live damage bars while fighting, scorecard after.
-		-- Gate on the PLAYER's combat state, not segment existence: scenario
-		-- NPCs and groupmates fighting elsewhere can hold a segment open
-		-- forever and would pin the window on an empty live view.
-		if (TP.Segments.current and UnitAffectingCombat("player")) or not fight then
-			self:RefreshFromSegments(force)
-		else
-			self:RenderScorecard(fight)
-		end
-	end
+	self:RenderScorecard(fight)
 end
 
 -- Errors on the 0.5s refresh path die silently without an error addon and
