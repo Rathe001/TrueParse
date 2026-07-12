@@ -187,13 +187,52 @@ local function createWindow()
 	window.subtitleButton:RegisterForDrag("LeftButton")
 	window.subtitleButton:SetScript("OnDragStart", startDrag)
 	window.subtitleButton:SetScript("OnDragStop", stopDrag)
-	window.subtitleButton:SetScript("OnClick", function(_, button)
-		MeterWindow:StepFight(button == "RightButton" and -1 or 1)
+	-- Fight picker: click the subtitle for a dropdown of recent captures
+	-- ("Last fight" follows new kills). Falls back to click-cycling on any
+	-- client without the modern menu API.
+	local function fightLabel(fight)
+		local name = (fight.name or "Fight"):gsub("^%(!%)%s*", "")
+		local d = fight.duration or 0
+		return ("%s · %d:%02d%s"):format(name, math.floor(d / 60), d % 60,
+			fight.wipe and " |cffe64d4d(wipe)|r" or "")
+	end
+	local function selectFight(offset)
+		viewOffset = offset
+		scrollOffset = 0
+		MeterWindow:Invalidate()
+	end
+	local function openFightMenu(anchor)
+		local fights = TP.FightHistory.fights
+		if #fights == 0 or not (MenuUtil and MenuUtil.CreateContextMenu) then
+			return false
+		end
+		MenuUtil.CreateContextMenu(anchor, function(_, root)
+			root:CreateTitle("Fight history")
+			root:CreateRadio("Last fight · " .. fightLabel(fights[1]),
+				function() return viewOffset == 0 end,
+				function() selectFight(0) end)
+			for i = 2, math.min(#fights, 20) do
+				local offset = i - 1
+				root:CreateRadio(fightLabel(fights[i]),
+					function() return viewOffset == offset end,
+					function() selectFight(offset) end)
+			end
+		end)
+		return true
+	end
+	window.subtitleButton:SetScript("OnClick", function(self, button)
+		if button == "RightButton" then
+			MeterWindow:StepFight(1) -- quick-step to the previous (older) fight
+			return
+		end
+		if not openFightMenu(self) then
+			MeterWindow:StepFight(1) -- no menu API: old cycling behavior
+		end
 	end)
 	window.subtitleButton:SetScript("OnEnter", function(self)
 		TP.Tooltip:Show(self, "TOP", "Fight history", {
-			{ "Click: older fight", 0.8, 0.8, 0.8 },
-			{ "Right-click: back toward the latest", 0.8, 0.8, 0.8 },
+			{ "Click: choose a fight", 0.8, 0.8, 0.8 },
+			{ "Right-click: previous (older) fight", 0.8, 0.8, 0.8 },
 			{ "New captures snap back to the latest.", 0.5, 0.5, 0.5 },
 		})
 	end)
