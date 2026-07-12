@@ -107,7 +107,7 @@ function RunSummary:RunFor(fight)
 			fights[#fights + 1] = f
 		end
 	end
-	if #fights < 2 then
+	if #fights == 0 then
 		return nil
 	end
 	if runForCache.runID ~= fight.runID or runForCache.count ~= #fights then

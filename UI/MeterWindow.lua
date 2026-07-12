@@ -723,12 +723,14 @@ function MeterWindow:RenderScorecard(fight)
 	local hasFooter = #results >= 3
 
 	-- Run row: THIS fight's run average (always True — same currency the
-	-- chat reports use), shown once its run has 2+ fights. Browsing an old
-	-- card shows that card's run, not whatever run is live now.
+	-- chat reports use). A one-boss run just mirrors the fight score, but
+	-- the column showing up and disappearing read as a bug — it's always
+	-- there now. Browsing an old card shows that card's run, not whatever
+	-- run is live now.
 	local runFight, runResults, runScore, runBy
 	if TP.RunSummary and TP.RunSummary.RunFor then
 		local run, count = TP.RunSummary:RunFor(fight)
-		if run and count and count >= 2 then
+		if run and count and count >= 1 then
 			local rr = scoreRun(run)
 			if #rr > 0 then
 				local s = 0
