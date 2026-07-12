@@ -1074,6 +1074,24 @@ local function collapsedSummary(fight)
 	return tail
 end
 
+-- Waiting condition: inside instanced content (dungeon/raid/scenario,
+-- delves included) with nothing captured from THIS place and not mid-
+-- combat -> returns the zone name; nil otherwise
+local function waitingHere()
+	if UnitAffectingCombat("player") then
+		return nil
+	end
+	local inInst, instType = IsInInstance()
+	if not (inInst and (instType == "party" or instType == "raid" or instType == "scenario")) then
+		return nil
+	end
+	local here = GetInstanceInfo()
+	local newest = TP.FightHistory.fights[1]
+	if not newest or newest.zone ~= here then
+		return here or "this instance"
+	end
+end
+
 local function refreshImpl(self, force)
 	if not window or not window:IsShown() then
 		return
@@ -1092,8 +1110,13 @@ local function refreshImpl(self, force)
 			window.scrollDown:Hide()
 		end
 		window.title:SetText(modeTitle .. " (+)")
+		local waitingZone = waitingHere()
 		local latest = TP.FightHistory.fights[1]
-		if latest then
+		if waitingZone then
+			-- stale scores must not impersonate a live summary while the
+			-- expanded card would be showing the waiting state
+			window.subtitle:SetText(waitingZone .. " · waiting")
+		elseif latest then
 			window.subtitle:SetText(collapsedSummary(latest))
 		else
 			window.subtitle:SetText("")
@@ -1131,15 +1154,14 @@ local function refreshImpl(self, force)
 	-- "Last fight" must not impersonate a live card with stale data —
 	-- show what will and won't record instead. Combat keeps the live
 	-- view; manually browsing history (viewOffset > 0) is explicit.
-	if viewOffset == 0 and not UnitAffectingCombat("player") then
-		local inInst, instType = IsInInstance()
-		if inInst and (instType == "party" or instType == "raid" or instType == "scenario") then
-			local here = GetInstanceInfo()
-			if not fight or fight.zone ~= here then
+	if viewOffset == 0 then
+		local here = waitingHere()
+		if here then
+			do
 				releaseAllRows()
 				releaseAllBars()
 				lastRenderedFight = nil
-				window.subtitle:SetText(here and (here .. " · waiting") or "waiting")
+				window.subtitle:SetText(here .. " · waiting")
 				window.emptyTitle:Show()
 				window.emptyMsg:SetText("Boss fights are captured automatically; trash pulls and most solo content are not. Fights without Warcraft Logs rankings score in TrueParse mode only (no Raw).")
 				window.emptyMsg:Show()
