@@ -1075,10 +1075,12 @@ local function collapsedSummary(fight)
 end
 
 -- Waiting condition: inside instanced content (dungeon/raid/scenario,
--- delves included) with nothing captured from THIS place and not mid-
--- combat -> returns the zone name; nil otherwise
+-- delves included) with nothing captured from THIS place -> returns the
+-- zone name and instance type; nil otherwise. Combat only bypasses this
+-- on Classic, where live damage bars actually render — on retail combat
+-- was resurrecting a stale card from another raid.
 local function waitingHere()
-	if UnitAffectingCombat("player") then
+	if not TP.Compat.IS_RETAIL and UnitAffectingCombat("player") then
 		return nil
 	end
 	local inInst, instType = IsInInstance()
@@ -1088,7 +1090,7 @@ local function waitingHere()
 	local here = GetInstanceInfo()
 	local newest = TP.FightHistory.fights[1]
 	if not newest or newest.zone ~= here then
-		return here or "this instance"
+		return here or "this instance", instType
 	end
 end
 
@@ -1110,12 +1112,13 @@ local function refreshImpl(self, force)
 			window.scrollDown:Hide()
 		end
 		window.title:SetText(modeTitle .. " (+)")
-		local waitingZone = waitingHere()
+		local waitingZone, waitingType = waitingHere()
 		local latest = TP.FightHistory.fights[1]
 		if waitingZone then
 			-- stale scores must not impersonate a live summary while the
 			-- expanded card would be showing the waiting state
-			window.subtitle:SetText(waitingZone .. " · waiting")
+			window.subtitle:SetText(waitingZone
+				.. (waitingType == "scenario" and " · not supported" or " · waiting"))
 		elseif latest then
 			window.subtitle:SetText(collapsedSummary(latest))
 		else
@@ -1155,15 +1158,23 @@ local function refreshImpl(self, force)
 	-- show what will and won't record instead. Combat keeps the live
 	-- view; manually browsing history (viewOffset > 0) is explicit.
 	if viewOffset == 0 then
-		local here = waitingHere()
+		local here, hereType = waitingHere()
 		if here then
 			do
 				releaseAllRows()
 				releaseAllBars()
 				lastRenderedFight = nil
-				window.subtitle:SetText(here .. " · waiting")
+				if hereType == "scenario" then
+					-- delves report as scenarios: unranked, uncaptured
+					window.subtitle:SetText(here .. " · not supported")
+					window.emptyTitle:SetText("This content isn't supported.")
+					window.emptyMsg:SetText("Delves and scenarios aren't ranked on Warcraft Logs and their fights aren't captured. Dungeon and raid bosses record automatically.")
+				else
+					window.subtitle:SetText(here .. " · waiting")
+					window.emptyTitle:SetText("Nothing recorded here yet.")
+					window.emptyMsg:SetText("Boss fights are captured automatically; trash pulls and most solo content are not. Fights without Warcraft Logs rankings score in TrueParse mode only (no Raw).")
+				end
 				window.emptyTitle:Show()
-				window.emptyMsg:SetText("Boss fights are captured automatically; trash pulls and most solo content are not. Fights without Warcraft Logs rankings score in TrueParse mode only (no Raw).")
 				window.emptyMsg:Show()
 				if window.scrollUp then
 					window.scrollUp:Hide()
