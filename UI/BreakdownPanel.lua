@@ -81,16 +81,18 @@ local function showMetricTip(anchor, data)
 	local b, key, duration = data.b, data.key, data.duration
 	metricTip.title:SetText(TP.METRIC_LABELS[key] or key)
 
-	local valueText
-	if COUNT_METRICS[key] then
-		valueText = ("%d this fight"):format(b.value or 0)
-	elseif PERCENT_METRICS[key] then
-		valueText = ("Up %d%% of the fight"):format((b.value or 0) * 100 + 0.5)
-	elseif duration and duration > 0 then
-		valueText = ("%s · %s per second"):format(
-			TP.FormatNumber(b.value or 0), TP.FormatNumber((b.value or 0) / duration))
-	else
-		valueText = TP.FormatNumber(b.value or 0)
+	local valueText = data.valueText
+	if not valueText then
+		if COUNT_METRICS[key] then
+			valueText = ("%d this fight"):format(b.value or 0)
+		elseif PERCENT_METRICS[key] then
+			valueText = ("Up %d%% of the fight"):format((b.value or 0) * 100 + 0.5)
+		elseif duration and duration > 0 then
+			valueText = ("%s · %s per second"):format(
+				TP.FormatNumber(b.value or 0), TP.FormatNumber((b.value or 0) / duration))
+		else
+			valueText = TP.FormatNumber(b.value or 0)
+		end
 	end
 	metricTip.value:SetText(valueText)
 
@@ -116,7 +118,7 @@ local function showMetricTip(anchor, data)
 	metricTip.markerText:SetPoint("BOTTOM", metricTip.marker, "TOP", 0, 1)
 	metricTip.markerText:SetText(b.pctile and ("p%.0f"):format(b.pctile) or ("%.0f"):format(pos))
 
-	metricTip.footer:SetText(("score %d · worth %d%% of the grade"):format(
+	metricTip.footer:SetText(data.footerText or ("score %d · worth %d%% of the grade"):format(
 		b.normalized or 0, (b.effectiveWeight or 0) * 100))
 
 	metricTip:ClearAllPoints()
@@ -515,8 +517,21 @@ function Panel:ShowForGroup(fight, results)
 		row.symbol:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
 		row.text:SetText(bullet.text)
 		row.text:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
-		row.tooltipData = bullet.tooltip
-		row.metricData = nil
+		if bullet.kind == "metric" and bullet.avg then
+			-- same gauge the player bullets get: marker at the group
+			-- average, value line from the group total
+			row.tooltipData = nil
+			row.metricData = {
+				b = { value = bullet.total, normalized = bullet.avg },
+				key = bullet.key,
+				duration = fight.duration,
+				footerText = ("group average %d · %d players"):format(
+					bullet.avg, bullet.players or #results),
+			}
+		else
+			row.tooltipData = bullet.tooltip
+			row.metricData = nil
+		end
 	end
 	local total = #bullets
 
@@ -535,12 +550,17 @@ function Panel:ShowForGroup(fight, results)
 		local function mmss(s)
 			return ("%d:%02d"):format(math.floor(s / 60), s % 60)
 		end
-		row.tooltipData = { title = "Kill speed", lines = {
-			{ ("This kill: %s. Median ranked kill: %s. Population: %s ranked kills on Warcraft Logs."):format(
-				mmss(fight.duration or 0), speedMedian and mmss(speedMedian) or "?",
-				TP.FormatNumber(speedN or 0)), 0.8, 0.8, 0.8, true },
-		} }
-		row.metricData = nil
+		-- gauge with the marker at the speed percentile
+		row.tooltipData = nil
+		row.metricData = {
+			b = { value = fight.duration or 0, normalized = speedPct, pctile = speedPct },
+			key = "Kill speed",
+			duration = fight.duration,
+			valueText = ("Killed in %s · median ranked kill %s"):format(
+				mmss(fight.duration or 0), speedMedian and mmss(speedMedian) or "?"),
+			footerText = ("faster than %d%% of %s ranked kills"):format(
+				speedPct, TP.FormatNumber(speedN or 0)),
+		}
 	end
 	hideRowsFrom(total + 1)
 

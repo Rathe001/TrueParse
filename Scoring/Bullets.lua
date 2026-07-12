@@ -253,6 +253,9 @@ function Bullets.ForGroup(results)
 			end
 			out[#out + 1] = {
 				kind = "metric", key = key, symbol = symbol, color = color, text = text,
+				-- gauge fuel for the group tooltip: marker at the group
+				-- average, value line from the group total
+				avg = avg, total = totals[key] or 0, players = counts[key],
 				tooltip = {
 					title = TP.METRIC_LABELS[key] or key,
 					lines = {
