@@ -199,19 +199,45 @@ local function createWindow()
 	window.title:SetPoint("TOPLEFT", PADDING, -PADDING)
 	window.title:SetText("TrueParse")
 
-	-- The subtitle IS a dropdown (fight picker): a down arrow at the far
-	-- right makes that legible without a tooltip
-	window.subtitleArrow = window:CreateTexture(nil, "OVERLAY")
-	window.subtitleArrow:SetSize(11, 8)
-	window.subtitleArrow:SetPoint("TOPRIGHT", -PADDING + 1, -(PADDING + 2))
-	window.subtitleArrow:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
+	-- The fight picker looks like a real dropdown: bordered inset box with
+	-- the classic round arrow button, sized into the header
+	window.fightDrop = CreateFrame("Button", nil, window, "BackdropTemplate")
+	window.fightDrop:SetBackdrop({
+		bgFile = "Interface\\Buttons\\WHITE8X8",
+		edgeFile = "Interface\\Buttons\\WHITE8X8",
+		edgeSize = 1,
+	})
+	window.fightDrop:SetBackdropColor(0, 0, 0, 0.55)
+	window.fightDrop:SetBackdropBorderColor(0.38, 0.38, 0.38, 0.9)
+	window.fightDrop:SetHeight(16)
+	window.fightDrop:SetPoint("TOPRIGHT", -PADDING, -3)
+	window.fightDrop:SetPoint("TOPLEFT", 74, -3) -- clears the mode title
+	window.fightDrop.arrowTex = window.fightDrop:CreateTexture(nil, "OVERLAY")
+	window.fightDrop.arrowTex:SetSize(16, 16)
+	window.fightDrop.arrowTex:SetPoint("RIGHT", 0, 0)
+	window.fightDrop.arrowTex:SetTexture("Interface\\Buttons\\UI-ScrollBar-ScrollDownButton-Up")
+	window.fightDrop:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
+	window.fightDrop:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
 
 	window.subtitle = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	window.subtitle:SetPoint("TOPRIGHT", -(PADDING + 12), -PADDING)
-	-- Bound by the title so long fight names truncate instead of overlapping
-	window.subtitle:SetPoint("LEFT", window.title, "RIGHT", 6, 0)
-	window.subtitle:SetJustifyH("RIGHT")
 	window.subtitle:SetWordWrap(false)
+
+	-- the subtitle lives INSIDE the dropdown box normally, but spans the
+	-- header when collapsed (the box hides there)
+	local function layoutSubtitle(collapsed)
+		window.subtitle:ClearAllPoints()
+		if collapsed then
+			window.subtitle:SetPoint("TOPRIGHT", -PADDING, -PADDING)
+			window.subtitle:SetPoint("LEFT", window.title, "RIGHT", 6, 0)
+			window.subtitle:SetJustifyH("RIGHT")
+		else
+			window.subtitle:SetPoint("LEFT", window.fightDrop, "LEFT", 6, 0)
+			window.subtitle:SetPoint("RIGHT", window.fightDrop.arrowTex, "LEFT", -2, 0)
+			window.subtitle:SetJustifyH("LEFT")
+		end
+	end
+	window.LayoutSubtitle = layoutSubtitle
+	layoutSubtitle(false)
 
 	-- Title bar: click toggles collapse, drag moves (rows eat mouse below)
 	window.headerButton = CreateFrame("Button", nil, window)
@@ -225,16 +251,13 @@ local function createWindow()
 		MeterWindow:ToggleCollapse()
 	end)
 
-	-- Fight browser: the subtitle is a dropdown — click opens the fight
-	-- picker. Hidden while collapsed (the header click is collapse there).
-	window.subtitleButton = CreateFrame("Button", nil, window)
-	window.subtitleButton:SetPoint("TOPLEFT", window.subtitle, "TOPLEFT", 0, 2)
-	window.subtitleButton:SetPoint("BOTTOMRIGHT", window.subtitleArrow, "BOTTOMRIGHT", 2, -2)
-	window.subtitleButton:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
-	window.subtitleButton:RegisterForClicks("LeftButtonUp")
-	window.subtitleButton:RegisterForDrag("LeftButton")
-	window.subtitleButton:SetScript("OnDragStart", startDrag)
-	window.subtitleButton:SetScript("OnDragStop", stopDrag)
+	-- Fight browser: the dropdown box opens the fight picker. Hidden while
+	-- collapsed (the header click is collapse there).
+	window.fightDrop:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
+	window.fightDrop:RegisterForClicks("LeftButtonUp")
+	window.fightDrop:RegisterForDrag("LeftButton")
+	window.fightDrop:SetScript("OnDragStart", startDrag)
+	window.fightDrop:SetScript("OnDragStop", stopDrag)
 	-- Fight picker: click the subtitle for a dropdown of recent captures
 	-- ("Last fight" follows new kills). Falls back to click-cycling on any
 	-- client without the modern menu API.
@@ -273,7 +296,7 @@ local function createWindow()
 		end)
 		return true
 	end
-	window.subtitleButton:SetScript("OnClick", function(self)
+	window.fightDrop:SetScript("OnClick", function(self)
 		if not openFightMenu(self) then
 			MeterWindow:StepFight(1) -- no menu API: old cycling behavior
 		end
@@ -342,9 +365,15 @@ local function createWindow()
 
 	-- empty-state message for instances with nothing recorded yet:
 	-- makes "recording vs not" explicit instead of showing a stale card
+	window.emptyTitle = window:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	window.emptyTitle:SetPoint("TOPLEFT", PADDING + 6, -(HEADER_HEIGHT + 14))
+	window.emptyTitle:SetPoint("TOPRIGHT", -(PADDING + 6), -(HEADER_HEIGHT + 14))
+	window.emptyTitle:SetJustifyH("LEFT")
+	window.emptyTitle:SetText("Nothing recorded here yet.")
+	window.emptyTitle:Hide()
 	window.emptyMsg = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	window.emptyMsg:SetPoint("TOPLEFT", PADDING + 6, -(HEADER_HEIGHT + 16))
-	window.emptyMsg:SetPoint("TOPRIGHT", -(PADDING + 6), -(HEADER_HEIGHT + 16))
+	window.emptyMsg:SetPoint("TOPLEFT", window.emptyTitle, "BOTTOMLEFT", 0, -6)
+	window.emptyMsg:SetPoint("TOPRIGHT", window.emptyTitle, "BOTTOMRIGHT", 0, -6)
 	window.emptyMsg:SetJustifyH("LEFT")
 	window.emptyMsg:SetWordWrap(true)
 	window.emptyMsg:SetSpacing(3)
@@ -1069,8 +1098,12 @@ local function refreshImpl(self, force)
 		else
 			window.subtitle:SetText("")
 		end
-		window.subtitleButton:Hide()
-		window.subtitleArrow:Hide()
+		window.fightDrop:Hide()
+		window.LayoutSubtitle(true)
+		if window.emptyTitle then
+			window.emptyTitle:Hide()
+			window.emptyMsg:Hide()
+		end
 		setModeStripShown(false)
 		if window.colFight then
 			window.colFight:Hide()
@@ -1082,12 +1115,13 @@ local function refreshImpl(self, force)
 		return
 	end
 	window.title:SetText(modeTitle)
-	window.subtitleButton:Show()
-	window.subtitleArrow:Show()
+	window.fightDrop:Show()
+	window.LayoutSubtitle(false)
 	if window.grip then
 		window.grip:Show()
 	end
 	if window.emptyMsg then
+		window.emptyTitle:Hide()
 		window.emptyMsg:Hide()
 	end
 	local fights = TP.FightHistory.fights
@@ -1106,7 +1140,8 @@ local function refreshImpl(self, force)
 				releaseAllBars()
 				lastRenderedFight = nil
 				window.subtitle:SetText(here and (here .. " · waiting") or "waiting")
-				window.emptyMsg:SetText("Nothing recorded here yet. Boss fights are captured automatically; trash pulls and most solo content are not. Fights without Warcraft Logs rankings score in TrueParse mode only (no Raw).")
+				window.emptyTitle:Show()
+				window.emptyMsg:SetText("Boss fights are captured automatically; trash pulls and most solo content are not. Fights without Warcraft Logs rankings score in TrueParse mode only (no Raw).")
 				window.emptyMsg:Show()
 				if window.scrollUp then
 					window.scrollUp:Hide()
