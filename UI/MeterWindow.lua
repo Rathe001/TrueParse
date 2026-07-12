@@ -162,14 +162,21 @@ local function createWindow()
 	end)
 
 	-- thin scroll hints above/below the row list (textures, not the
-	-- Unicode triangles: Classic fonts tofu'd the award star the same way)
+	-- Unicode triangles: Classic fonts tofu'd the award star the same
+	-- way). A dark backing pill keeps them visible on bright class bars.
 	local function mkArrow(tex)
-		local t = window:CreateTexture(nil, "OVERLAY")
-		t:SetSize(12, 9)
+		local f = CreateFrame("Frame", nil, window)
+		f:SetSize(26, 11)
+		f:SetFrameLevel(window:GetFrameLevel() + 10)
+		local bgTex = f:CreateTexture(nil, "BACKGROUND")
+		bgTex:SetAllPoints()
+		bgTex:SetColorTexture(0, 0, 0, 0.75)
+		local t = f:CreateTexture(nil, "OVERLAY")
+		t:SetSize(14, 10)
+		t:SetPoint("CENTER", 0, 0)
 		t:SetTexture(tex)
-		t:SetAlpha(0.65)
-		t:Hide()
-		return t
+		f:Hide()
+		return f
 	end
 	window.scrollUp = mkArrow("Interface\\Buttons\\Arrow-Up-Up")
 	window.scrollDown = mkArrow("Interface\\Buttons\\Arrow-Down-Up")
