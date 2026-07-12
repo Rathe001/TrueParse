@@ -1033,7 +1033,9 @@ local function refreshImpl(self, force)
 			-- stale scores must not impersonate a live summary while the
 			-- expanded card would be showing the waiting state
 			window.subtitle:SetText(waitingZone
-				.. (waitingUnsupported and " · not supported" or " · waiting"))
+				.. (waitingUnsupported and " · not supported"
+					or TP.FightHistory.pending and " · unlocking..."
+					or " · waiting"))
 		elseif latest then
 			window.subtitle:SetText(collapsedSummary(latest))
 		else
@@ -1084,6 +1086,12 @@ local function refreshImpl(self, force)
 			window.subtitle:SetText(here .. " · not supported")
 			window.emptyTitle:SetText("This content isn't supported.")
 			window.emptyMsg:SetText("Delves, scenarios, and follower content aren't ranked on Warcraft Logs, so fights here aren't captured. Dungeon and raid bosses record automatically.")
+		elseif here and TP.FightHistory.pending then
+			-- a session exists but its values are still secret-locked:
+			-- "nothing recorded" would be a lie that reads as a bug
+			window.subtitle:SetText(here .. " · unlocking...")
+			window.emptyTitle:SetText("Fight recorded - numbers still locked.")
+			window.emptyMsg:SetText("Blizzard keeps combat data locked for a while after an encounter (longest in raids). Scores fill in automatically - no reload needed.")
 		elseif here then
 			window.subtitle:SetText(here .. " · waiting")
 			window.emptyTitle:SetText("Nothing recorded here yet.")

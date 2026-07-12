@@ -166,8 +166,9 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 
 	local fight = {
 		sessionID = sessionID,
-		name = name,
-		-- Blizzard prefixes encounter sessions with "(!) "
+		-- Blizzard prefixes encounter sessions with "(!) ": keep the flag,
+		-- store the name clean so no label downstream has to strip it
+		name = name:gsub("^%(!%)%s*", ""),
 		isBoss = name:find("^%(!%)") ~= nil,
 		duration = duration or 0,
 		capturedAt = time(),
@@ -182,8 +183,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- Kill or wipe? Prefer the recorded ENCOUNTER_END outcome; fall back to
 	-- "every player died" when the encounter event never matched.
 	if fight.isBoss then
-		local plainName = name:gsub("^%(!%)%s*", "")
-		local outcome = encounterResults[plainName]
+		local outcome = encounterResults[fight.name]
 		if outcome then
 			fight.wipe = outcome.wipe
 		else
@@ -372,6 +372,10 @@ function FightHistory:Sweep()
 			end
 		end
 	end
+
+	-- the window's waiting card reads this: "recorded, still locked" is a
+	-- different story than "nothing happened" (LFR bulk unlocks run late)
+	self.pending = anyPending or nil
 
 	if anyPending then
 		if not retryTicker then
@@ -704,6 +708,9 @@ function FightHistory:OnEnable()
 		if not f.isBoss or f.instanceType == "scenario"
 			or TP.UNSUPPORTED_DIFFICULTY[f.difficultyID or 0] then
 			table.remove(self.fights, i)
+		elseif f.name then
+			-- older captures stored Blizzard's "(!) " prefix in the name
+			f.name = f.name:gsub("^%(!%)%s*", "")
 		end
 	end
 	self:BackfillRunIDs()
