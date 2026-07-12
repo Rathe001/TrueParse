@@ -41,7 +41,6 @@ Collect\FightHistory.lua
 Collect\Sync.lua
 Collect\SelfCasts.lua
 Collect\Readiness.lua
-Collect\CastProbe.lua
 Collect\Threat.lua
 Collect\Vitals.lua
 Scoring\Capabilities.lua

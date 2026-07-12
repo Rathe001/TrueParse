@@ -116,104 +116,18 @@ local function startTicker()
 	end)
 end
 
--- ================================ Retail: EXPERIMENT 3 probe ==============
-
-local counts = {
-	selfReads = 0, selfNil = 0, selfSecret = 0,
-	groupReads = 0, groupNil = 0, groupSecret = 0,
-	detailedReads = 0, detailedSecret = 0,
-}
-local probeTicker
-
-local function probeEnabled()
-	return TP.Addon.db and TP.Addon.db.profile.probe
-end
-
-local function probeSample()
-	if not probeEnabled() then
-		return
-	end
-	local IsSecret = TP.Compat.IsSecret
-
-	local ok, status = pcall(UnitThreatSituation, "player")
-	if ok then
-		counts.selfReads = counts.selfReads + 1
-		if status == nil then
-			counts.selfNil = counts.selfNil + 1
-		elseif IsSecret(status) then
-			counts.selfSecret = counts.selfSecret + 1
-		end
-	end
-
-	if UnitExists("target") and UnitCanAttack("player", "target") then
-		local okd, isTanking, st, pct = pcall(UnitDetailedThreatSituation, "player", "target")
-		if okd then
-			counts.detailedReads = counts.detailedReads + 1
-			if IsSecret(isTanking) or IsSecret(st) or IsSecret(pct) then
-				counts.detailedSecret = counts.detailedSecret + 1
-			end
-		end
-	end
-
-	for _, info in pairs(TP.Roster.players) do
-		if UnitExists(info.unit) and not UnitIsUnit(info.unit, "player") then
-			local okg, s = pcall(UnitThreatSituation, info.unit)
-			if okg then
-				counts.groupReads = counts.groupReads + 1
-				if s == nil then
-					counts.groupNil = counts.groupNil + 1
-				elseif IsSecret(s) then
-					counts.groupSecret = counts.groupSecret + 1
-				end
-			end
-		end
-	end
-end
-
--- Same print-and-persist shape as the cast probes, so verdicts survive the
--- session in db.global.probeLog
-local function emit(line)
-	TP.Addon:Print(line)
-	local db = TP.Addon.db.global
-	db.probeLog = db.probeLog or {}
-	table.insert(db.probeLog, 1, ("%s %s"):format(date("%m-%d %H:%M"), line))
-	for i = #db.probeLog, 31, -1 do
-		table.remove(db.probeLog, i)
-	end
-end
-
-local function probeReport()
-	if counts.selfReads + counts.groupReads + counts.detailedReads == 0 then
-		return
-	end
-	emit(("Threat probe: you %d reads (%d nil, %d secret) · group %d reads (%d nil, %d secret) · detailed-vs-target %d reads (%d secret)"):format(
-		counts.selfReads, counts.selfNil, counts.selfSecret,
-		counts.groupReads, counts.groupNil, counts.groupSecret,
-		counts.detailedReads, counts.detailedSecret))
-	for k in pairs(counts) do
-		counts[k] = 0
-	end
-end
+-- EXPERIMENT 3 (probe removed 2026-07-12) VERDICT: retail group threat is
+-- READABLE mid-combat — UnitThreatSituation returned 0 secrets for self,
+-- group, and detailed-vs-target in live dungeon combat. Retail threat
+-- discipline (5-man scoring like Classic's) is therefore buildable when
+-- wanted; nothing is built on it yet.
 
 -- ================================ Wiring ==================================
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
-eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-eventFrame:SetScript("OnEvent", function(_, event)
-	if TP.Compat.IS_RETAIL then
-		if event == "PLAYER_REGEN_DISABLED" then
-			if probeEnabled() and not probeTicker then
-				probeTicker = C_Timer.NewTicker(2, probeSample)
-			end
-		else
-			if probeTicker then
-				probeTicker:Cancel()
-				probeTicker = nil
-			end
-			probeReport()
-		end
-	elseif event == "PLAYER_REGEN_DISABLED" then
+eventFrame:SetScript("OnEvent", function()
+	if not TP.Compat.IS_RETAIL then
 		startTicker()
 	end
 end)

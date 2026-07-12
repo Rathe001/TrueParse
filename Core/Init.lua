@@ -38,7 +38,6 @@ local defaults = {
 			mode = "contribution",
 		},
 		debug = false,
-		probe = false,
 	},
 }
 
@@ -46,6 +45,8 @@ function Addon:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("TrueParseDB", defaults, true)
 	self:RegisterChatCommand("trueparse", "HandleSlash")
 	self:RegisterChatCommand("tp", "HandleSlash")
+	-- probes retired 2026-07-12 (all experiments concluded); clear the log
+	self.db.global.probeLog = nil
 	-- /tp baddies curation data survives reloads (account-wide, resettable).
 	-- Prune at login so months of raiding can't bloat SavedVariables: keep
 	-- the 200 biggest totals (the curation-relevant tail).
@@ -93,7 +94,6 @@ function Addon:OnEnable()
 	TP.Segments:OnEnable()
 	TP.EnableCombatLog()
 	TP.FightHistory:OnEnable()
-	TP.CastProbe:OnEnable()
 	TP.CoachLine:OnEnable()
 	TP.Career:OnEnable()
 	TP.AwardToast:OnEnable()
@@ -233,13 +233,6 @@ function Addon:HandleSlash(input)
 				self:Print(("  %d. %s %s [%s]%s"):format(
 					i, TP.Scoring.Grades.ColoredScore(r.score), r.name, r.role, penaltyText))
 			end
-		end
-	elseif cmd == "probe" then
-		if rest == "status" then
-			TP.CastProbe:Report(true)
-		else
-			self.db.profile.probe = not self.db.profile.probe
-			self:Print("Cast probe " .. (self.db.profile.probe and "on." or "off."))
 		end
 	else
 		-- /tp help, and the landing spot for any unknown command
