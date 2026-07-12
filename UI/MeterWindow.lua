@@ -50,6 +50,9 @@ end
 -- flag stays accurate (applyWindowHeight must never re-anchor mid-drag —
 -- it would snap the frame away from the cursor)
 local isDragging = false
+local isSizing = false -- grip drag in progress: layout must not re-anchor
+local scrollOffset = 0 -- first visible player row (mouse wheel)
+local lastScrollOffset = -1
 
 -- Re-anchor to a plain TOPLEFT point at the frame's exact current screen
 -- rect. The window's anchor shape varies with history (saved CENTER from
@@ -98,6 +101,58 @@ local function createWindow()
 	window:RegisterForDrag("LeftButton")
 	window:SetScript("OnDragStart", startDrag)
 	window:SetScript("OnDragStop", stopDrag)
+
+	-- Resizable: the grip owns width AND height; rows render into whatever
+	-- fits and the wheel scrolls the rest
+	window:SetResizable(true)
+	if window.SetResizeBounds then
+		window:SetResizeBounds(180, 110, 640, 1000)
+	elseif window.SetMinResize then
+		window:SetMinResize(180, 110)
+		window:SetMaxResize(640, 1000)
+	end
+	local grip = CreateFrame("Button", nil, window)
+	grip:SetSize(16, 16)
+	grip:SetPoint("BOTTOMRIGHT", -1, 1)
+	grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+	grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+	grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+	grip:SetScript("OnMouseDown", function()
+		if db().window.locked or db().window.collapsed or autoCollapsed then
+			return
+		end
+		isSizing = true
+		normalizeAnchor()
+		window:StartSizing("BOTTOMRIGHT")
+	end)
+	grip:SetScript("OnMouseUp", function()
+		if not isSizing then
+			return
+		end
+		isSizing = false
+		window:StopMovingOrSizing()
+		normalizeAnchor()
+		local w = db().window
+		w.width = math.floor(window:GetWidth() + 0.5)
+		w.height = math.floor(window:GetHeight() + 0.5)
+		savePosition()
+		MeterWindow:Invalidate()
+	end)
+	window.grip = grip
+
+	window:EnableMouseWheel(true)
+	window:SetScript("OnMouseWheel", function(_, delta)
+		if db().window.collapsed or autoCollapsed then
+			return
+		end
+		-- wheel up = toward the top of the list; upper clamp happens in
+		-- RenderScorecard where the visible count is known
+		local newOffset = math.max(0, scrollOffset - delta)
+		if newOffset ~= scrollOffset then
+			scrollOffset = newOffset
+			MeterWindow:Refresh(true)
+		end
+	end)
 
 	window.title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	window.title:SetPoint("TOPLEFT", PADDING, -PADDING)
@@ -201,8 +256,9 @@ local function createWindow()
 	window.modeRaw = makeRadio("Raw", "parse",
 		"Straight comparison to Warcraft Logs parses for your spec on this fight: damage for DPS and tanks, healing for healers.")
 	-- right-aligned in the footer: ... Mode:  (*)True  ( )Raw]
+	-- 16px of clearance on the right for the resize grip
 	window.modeRaw:SetPoint("BOTTOMRIGHT",
-		-(PADDING + 2 + window.modeRaw.label:GetStringWidth() + 2), 6)
+		-(PADDING + 14 + window.modeRaw.label:GetStringWidth() + 2), 6)
 	window.modeReal:SetPoint("RIGHT", window.modeRaw, "LEFT",
 		-(window.modeReal.label:GetStringWidth() + 10), 0)
 
@@ -251,6 +307,7 @@ function MeterWindow:StepFight(delta)
 		return
 	end
 	viewOffset = math.max(0, math.min(count - 1, viewOffset + delta))
+	scrollOffset = 0 -- a different fight starts back at the top
 	self:Invalidate()
 end
 
@@ -292,6 +349,7 @@ function MeterWindow:OnEnable()
 	TP.Addon:RegisterMessage("TrueParse_FIGHT_CAPTURED", function()
 		autoCollapsed = false
 		viewOffset = 0 -- a fresh capture always snaps the view to the latest
+		scrollOffset = 0
 		MeterWindow:Refresh(true)
 	end)
 	TP.Addon:ScheduleRepeatingTimer(function()
@@ -309,6 +367,9 @@ local function applyWindowHeight(newHeight, pinTop)
 	-- No-op when nothing changes (the 0.5s refresh calls this constantly),
 	-- and never re-anchor mid-drag — SetPoint during StartMoving snaps the
 	-- frame away from the cursor.
+	if isSizing then
+		return -- the grip owns the frame right now
+	end
 	if isDragging or math.abs(window:GetHeight() - newHeight) < 0.5 then
 		window:SetHeight(newHeight)
 		return
@@ -328,7 +389,15 @@ local function applyWindowHeight(newHeight, pinTop)
 	end
 end
 
-local function setWindowHeight(shown, rowHeight, withColHead)
+-- The window height is USER-set (resize grip); rows render into whatever
+-- fits. How many row slots the current height offers:
+local function contentSlots(rowHeight, withColHead)
+	local chrome = HEADER_HEIGHT + (withColHead and COLHEAD_HEIGHT or 0)
+		+ MODE_HEIGHT + PADDING * 2
+	return math.max(1, math.floor((db().window.height - chrome) / (rowHeight + 1)))
+end
+
+local function setWindowHeight(withColHead)
 	setModeStripShown(true)
 	if window.colFight then
 		window.colFight:SetShown(withColHead and true or false)
@@ -339,8 +408,7 @@ local function setWindowHeight(shown, rowHeight, withColHead)
 	if window.footnote then
 		window.footnote:SetShown(withColHead and true or false)
 	end
-	applyWindowHeight(HEADER_HEIGHT + (withColHead and COLHEAD_HEIGHT or 0)
-		+ math.max(shown, 1) * (rowHeight + 1) + MODE_HEIGHT + PADDING * 2)
+	applyWindowHeight(db().window.height)
 end
 
 -- ========================= Scorecard (primary) =========================
@@ -447,12 +515,13 @@ function MeterWindow:RenderScorecard(fight)
 		return label
 	end
 
-	if lastRenderedFight == fight then
+	if lastRenderedFight == fight and lastScrollOffset == scrollOffset then
 		-- scores are static once captured; only the subtitle changes
 		window.subtitle:SetText(subtitleText(lastRawAvailable))
 		return
 	end
 	lastRenderedFight = fight
+	lastScrollOffset = scrollOffset
 	releaseAllBars()
 
 	local results, rawAvailable = scoreForDisplay(fight)
@@ -496,15 +565,24 @@ function MeterWindow:RenderScorecard(fight)
 	end
 	-- the breakdown panel shows "N avg this run" from the same numbers
 	TP.BreakdownPanel.runScores = runBy
-	local totalRows = shown + (hasFooter and 1 or 0)
+
+	-- fit rows to the user-sized window; the wheel scrolls the remainder
+	-- (footer keeps a pinned slot at the bottom)
+	local slots = contentSlots(rowHeight, true)
+	local playerSlots = math.max(1, slots - (hasFooter and 1 or 0))
+	local visible = math.min(shown, playerSlots)
+	scrollOffset = math.max(0, math.min(scrollOffset, shown - visible))
+	lastScrollOffset = scrollOffset
+	local hiddenBelow = shown - (scrollOffset + visible)
+	local totalRows = visible + (hasFooter and 1 or 0)
 
 	for i = #activeRows, totalRows + 1, -1 do
 		TP.Scorecard:Release(activeRows[i])
 		activeRows[i] = nil
 	end
 
-	for i = 1, shown do
-		local r = results[i]
+	for i = 1, visible do
+		local r = results[i + scrollOffset]
 		local row = activeRows[i]
 		if not row then
 			row = TP.Scorecard:Acquire(window)
@@ -603,7 +681,7 @@ function MeterWindow:RenderScorecard(fight)
 	-- same two-number shape as player rows). Left-click = fight breakdown,
 	-- right-click = run breakdown.
 	if hasFooter then
-		local index = shown + 1
+		local index = visible + 1
 		local row = activeRows[index]
 		if not row then
 			row = TP.Scorecard:Acquire(window)
@@ -629,7 +707,8 @@ function MeterWindow:RenderScorecard(fight)
 		row.name:SetTextColor(1, 1, 1)
 		row.score:SetText(TP.Scoring.Grades.ScoreLabel(groupScore))
 		row.score:SetTextColor(sr, sg, sb)
-		row.penalty:SetText("")
+		-- clipped rows below the scroll window: quiet hint in the footer
+		row.penalty:SetText(hiddenBelow > 0 and ("|cffaaaaaa+%d|r"):format(hiddenBelow) or "")
 		if runScore then
 			row.runAvg:SetText(TP.Scoring.Grades.ScoreLabel(runScore))
 			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runScore))
@@ -649,7 +728,7 @@ function MeterWindow:RenderScorecard(fight)
 		row.runGroup = runResults and { fight = runFight, results = runResults } or nil
 	end
 
-	setWindowHeight(totalRows, rowHeight, true)
+	setWindowHeight(true)
 	window.colRun:SetShown(runBy ~= nil) -- no run yet: no misleading label
 	TP.BreakdownPanel:OnFightRendered(fight, results)
 end
@@ -677,7 +756,7 @@ local function finishBars(shown, barHeight)
 		TP.Bars:Release(activeBars[i])
 		activeBars[i] = nil
 	end
-	setWindowHeight(shown, barHeight)
+	setWindowHeight(false)
 end
 
 local function sortByTotal(a, b)
@@ -714,7 +793,7 @@ function MeterWindow:RefreshFromBlizzardMeter()
 	end
 	table.sort(sortScratch, sortByTotal)
 
-	local shown = math.min(#sortScratch, conf.max)
+	local shown = math.min(#sortScratch, conf.max, contentSlots(conf.height, false))
 	local top = shown > 0 and sortScratch[1].totalAmount or 1
 	local barWidth = db().window.width - PADDING * 2
 
@@ -755,7 +834,7 @@ function MeterWindow:RefreshFromSegments(force)
 	table.sort(sortScratch, sortByDamage)
 
 	local conf = db().bars
-	local shown = math.min(#sortScratch, conf.max)
+	local shown = math.min(#sortScratch, conf.max, contentSlots(conf.height, false))
 	local top = shown > 0 and sortScratch[1].damage.total or 1
 	local barWidth = db().window.width - PADDING * 2
 
@@ -829,6 +908,9 @@ local function refreshImpl(self, force)
 		releaseAllRows()
 		releaseAllBars()
 		lastRenderedFight = nil
+		if window.grip then
+			window.grip:Hide()
+		end
 		window.title:SetText(modeTitle .. " (+)")
 		local latest = TP.FightHistory.fights[1]
 		if latest then
@@ -849,6 +931,9 @@ local function refreshImpl(self, force)
 	end
 	window.title:SetText(modeTitle)
 	window.subtitleButton:Show()
+	if window.grip then
+		window.grip:Show()
+	end
 	local fights = TP.FightHistory.fights
 	local fight = fights[1 + viewOffset] or fights[1]
 	if TP.BlizzardMeter.available then
