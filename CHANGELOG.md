@@ -1,5 +1,17 @@
 # TrueParse Changelog
 
+## 1.2.5
+
+- Fixed fight scores rendering in the run column for players outside
+  the current run (empty run cells collapsed and let the score slide
+  over).
+- Browsing an old fight shows THAT fight's run averages, not whatever
+  run is live now.
+- Scroll indicators: arrows on dark pills above/below the list when
+  more rows exist in that direction.
+- Note: updating adds new data files - a full game restart (not
+  /reload) is needed once after installing.
+
 ## 1.2.4
 
 - LFR works: Raid Finder groups are instance groups, which the addon
