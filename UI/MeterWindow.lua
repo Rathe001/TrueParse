@@ -161,6 +161,19 @@ local function createWindow()
 		MeterWindow:Refresh(true)
 	end)
 
+	-- thin scroll hints above/below the row list (textures, not the
+	-- Unicode triangles: Classic fonts tofu'd the award star the same way)
+	local function mkArrow(tex)
+		local t = window:CreateTexture(nil, "OVERLAY")
+		t:SetSize(12, 9)
+		t:SetTexture(tex)
+		t:SetAlpha(0.65)
+		t:Hide()
+		return t
+	end
+	window.scrollUp = mkArrow("Interface\\Buttons\\Arrow-Up-Up")
+	window.scrollDown = mkArrow("Interface\\Buttons\\Arrow-Down-Up")
+
 	window:EnableMouseWheel(true)
 	window:SetScript("OnMouseWheel", function(_, delta)
 		if db().window.collapsed or autoCollapsed then
@@ -835,6 +848,19 @@ function MeterWindow:RenderScorecard(fight)
 		row.runGroup = runResults and { fight = runFight, results = runResults } or nil
 	end
 
+	-- scroll hints: a thin arrow over the top/bottom row edge when more
+	-- rows exist in that direction
+	if window.scrollUp then
+		window.scrollUp:ClearAllPoints()
+		window.scrollUp:SetPoint("TOP", 0, -(HEADER_HEIGHT + COLHEAD_HEIGHT - 3))
+		window.scrollUp:SetShown(scrollOffset > 0)
+		local hiddenBelow = shown - (scrollOffset + visible)
+		window.scrollDown:ClearAllPoints()
+		window.scrollDown:SetPoint("TOP", 0,
+			-(HEADER_HEIGHT + COLHEAD_HEIGHT + visible * (rowHeight + 1) - 4))
+		window.scrollDown:SetShown(hiddenBelow > 0)
+	end
+
 	setWindowHeight(true)
 	window.colRun:SetShown(runBy ~= nil) -- no run yet: no misleading label
 	TP.BreakdownPanel:OnFightRendered(fight, results)
@@ -862,6 +888,10 @@ local function finishBars(shown, barHeight)
 	for i = #activeBars, shown + 1, -1 do
 		TP.Bars:Release(activeBars[i])
 		activeBars[i] = nil
+	end
+	if window.scrollUp then
+		window.scrollUp:Hide()
+		window.scrollDown:Hide()
 	end
 	setWindowHeight(false)
 end
@@ -1017,6 +1047,10 @@ local function refreshImpl(self, force)
 		lastRenderedFight = nil
 		if window.grip then
 			window.grip:Hide()
+		end
+		if window.scrollUp then
+			window.scrollUp:Hide()
+			window.scrollDown:Hide()
 		end
 		window.title:SetText(modeTitle .. " (+)")
 		local latest = TP.FightHistory.fights[1]
