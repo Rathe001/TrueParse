@@ -340,6 +340,16 @@ local function createWindow()
 	window.modeReal:SetPoint("RIGHT", window.modeRaw, "LEFT",
 		-(window.modeReal.label:GetStringWidth() + 10), 0)
 
+	-- empty-state message for instances with nothing recorded yet:
+	-- makes "recording vs not" explicit instead of showing a stale card
+	window.emptyMsg = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	window.emptyMsg:SetPoint("TOPLEFT", PADDING + 6, -(HEADER_HEIGHT + 16))
+	window.emptyMsg:SetPoint("TOPRIGHT", -(PADDING + 6), -(HEADER_HEIGHT + 16))
+	window.emptyMsg:SetJustifyH("LEFT")
+	window.emptyMsg:SetWordWrap(true)
+	window.emptyMsg:SetSpacing(3)
+	window.emptyMsg:Hide()
+
 	-- presence-mark legend, sharing the bottom line with the radios
 	window.footnote = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	local footPath = window.footnote:GetFont()
@@ -1077,8 +1087,37 @@ local function refreshImpl(self, force)
 	if window.grip then
 		window.grip:Show()
 	end
+	if window.emptyMsg then
+		window.emptyMsg:Hide()
+	end
 	local fights = TP.FightHistory.fights
 	local fight = fights[1 + viewOffset] or fights[1]
+
+	-- Recording clarity: inside an instance with nothing captured HERE,
+	-- "Last fight" must not impersonate a live card with stale data —
+	-- show what will and won't record instead. Combat keeps the live
+	-- view; manually browsing history (viewOffset > 0) is explicit.
+	if viewOffset == 0 and not UnitAffectingCombat("player") then
+		local inInst, instType = IsInInstance()
+		if inInst and (instType == "party" or instType == "raid" or instType == "scenario") then
+			local here = GetInstanceInfo()
+			if not fight or fight.zone ~= here then
+				releaseAllRows()
+				releaseAllBars()
+				lastRenderedFight = nil
+				window.subtitle:SetText(here and (here .. " · waiting") or "waiting")
+				window.emptyMsg:SetText("Nothing recorded here yet. Boss fights are captured automatically; trash pulls and most solo content are not. Fights without Warcraft Logs rankings score in TrueParse mode only (no Raw).")
+				window.emptyMsg:Show()
+				if window.scrollUp then
+					window.scrollUp:Hide()
+					window.scrollDown:Hide()
+				end
+				setWindowHeight(false)
+				return
+			end
+		end
+	end
+
 	if TP.BlizzardMeter.available then
 		if fight then
 			self:RenderScorecard(fight)
