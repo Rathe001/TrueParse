@@ -140,6 +140,20 @@ local function createWindow()
 	end)
 	window.grip = grip
 
+	-- Live relayout while the grip drags: rows re-flow every size tick
+	-- using CACHED scores (scoreForDisplay/scoreRun memoize), so this is
+	-- pure layout work, not engine work
+	window:SetScript("OnSizeChanged", function(_, w, h)
+		if not isSizing then
+			return
+		end
+		local win = db().window
+		win.width = math.floor(w + 0.5)
+		win.height = math.floor(h + 0.5)
+		lastRenderedFight = nil
+		MeterWindow:Refresh(true)
+	end)
+
 	window:EnableMouseWheel(true)
 	window:SetScript("OnMouseWheel", function(_, delta)
 		if db().window.collapsed or autoCollapsed then
@@ -336,6 +350,8 @@ end
 -- Force the next refresh to re-render (e.g. after a scoring option change)
 function MeterWindow:Invalidate()
 	lastRenderedFight = nil
+	wipe(displayCache)
+	wipe(runScoreCache)
 	self:Refresh(true)
 end
 
@@ -489,19 +505,48 @@ local function rawAvailableFor(fight, parseResults)
 	return avail
 end
 
+-- Scored results cached per fight+options: live resize relayouts rows
+-- every frame and must not re-run the engine each time
+local displayCache = setmetatable({}, { __mode = "k" })
+
 local function scoreForDisplay(fight)
 	local opts = TP.GetDisplayScoringOptions()
+	local key = tostring(opts.mode) .. ":" .. tostring(opts.normalizeIlvl)
+	local hit = displayCache[fight]
+	if hit and hit.key == key then
+		return hit.results, hit.rawAvailable
+	end
+	local results, rawAvailable
 	if opts.mode == "parse" then
 		if rawAvailCache[fight] == false then
-			return TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions()), false
+			results, rawAvailable = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions()), false
+		else
+			results = TP.Scoring.Engine.ScoreFight(fight, opts)
+			rawAvailable = rawAvailableFor(fight, results)
+			if not rawAvailable then
+				results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
+			end
 		end
-		local results = TP.Scoring.Engine.ScoreFight(fight, opts)
-		if rawAvailableFor(fight, results) then
-			return results, true
-		end
-		return TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions()), false
+	else
+		results, rawAvailable = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions()), rawAvailableFor(fight)
 	end
-	return TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions()), rawAvailableFor(fight)
+	displayCache[fight] = { key = key, results = results, rawAvailable = rawAvailable }
+	return results, rawAvailable
+end
+
+-- The run row re-scores the aggregate on every render; cache per run table
+-- (RunSummary reuses the aggregate between captures)
+local runScoreCache = setmetatable({}, { __mode = "k" })
+
+local function scoreRun(run)
+	local opts = TP.GetScoringOptions()
+	local hit = runScoreCache[run]
+	if hit and hit.ilvl == opts.normalizeIlvl then
+		return hit.rr
+	end
+	local rr = TP.Scoring.Engine.ScoreFight(run, opts)
+	runScoreCache[run] = { ilvl = opts.normalizeIlvl, rr = rr }
+	return rr
 end
 
 -- Spec icon for a row: the capture's own specIconID (retail sessions carry
@@ -590,7 +635,7 @@ function MeterWindow:RenderScorecard(fight)
 	if TP.RunSummary and TP.RunSummary.CurrentRun then
 		local run, count = TP.RunSummary:CurrentRun()
 		if run and count and count >= 2 then
-			local rr = TP.Scoring.Engine.ScoreFight(run, TP.GetScoringOptions())
+			local rr = scoreRun(run)
 			if #rr > 0 then
 				local s = 0
 				runBy = {}
