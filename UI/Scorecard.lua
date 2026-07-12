@@ -89,6 +89,9 @@ function Scorecard:Acquire(parent)
 		row.name:SetPoint("LEFT", row.addonMark, "RIGHT", 2, 0)
 		row.name:SetPoint("RIGHT", row.penalty, "LEFT", -4, 0)
 		row.name:SetJustifyH("LEFT")
+		-- narrow windows truncate long cross-realm names, never wrap
+		row.name:SetWordWrap(false)
+		row.name:SetMaxLines(1)
 	end
 	row:SetParent(parent)
 	row:Show()

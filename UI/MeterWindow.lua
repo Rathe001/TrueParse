@@ -331,7 +331,9 @@ local function createWindow()
 	local footPath = window.footnote:GetFont()
 	window.footnote:SetFont(footPath, 9, "")
 	window.footnote:SetPoint("BOTTOMLEFT", PADDING + 2, 8)
+	window.footnote:SetPoint("RIGHT", window.modeReal, "LEFT", -6, 0)
 	window.footnote:SetJustifyH("LEFT")
+	window.footnote:SetWordWrap(false) -- truncate at the radios, never wrap
 	window.footnote:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:8:8|t = Addon installed")
 	MeterWindow:UpdateModeButtons()
 end
