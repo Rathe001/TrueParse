@@ -227,11 +227,11 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 			fight.difficulty = difficultyName
 		end
 	end
-	-- Boss encounters only inside instanced content (raids, dungeons,
-	-- scenarios) — trash pulls are noise in history. Open-world fights
-	-- still capture (world bosses, target-dummy testing).
+	-- Encounter sessions only, everywhere: instance trash AND open-world
+	-- quest mobs are noise in history (a 36s Scavenging Hyena got a 92).
+	-- World bosses still capture — they fire real (!) encounter sessions.
 	local itype = fight.instanceType
-	if not fight.isBoss and (itype == "raid" or itype == "party" or itype == "scenario") then
+	if not fight.isBoss then
 		self.snapshotted[sessionID] = true
 		return true
 	end
@@ -488,13 +488,13 @@ function FightHistory:AddFromSegment(seg)
 	if TP.BlizzardMeter.available then
 		return
 	end
-	-- Boss encounters only inside instanced content; open world still counts
-	local _, itype = GetInstanceInfo()
+	-- Encounter fights only: instance trash and open-world quest mobs are
+	-- noise in history (world bosses still fire ENCOUNTER events)
 	if not seg.encounterID then
-		if itype == "raid" or itype == "party" or itype == "scenario" then
-			return
-		end
-	elseif itype == "scenario" then
+		return
+	end
+	local _, itype = GetInstanceInfo()
+	if itype == "scenario" then
 		return -- scenario "bosses" (MoP scenarios): unranked, never captured
 	end
 	local totals = {
@@ -696,11 +696,12 @@ function FightHistory:OnEnable()
 	self.fights = TP.Addon.db.char.recentFights or {}
 	-- Migrate away the account-wide storage used by earlier builds
 	TP.Addon.db.global.recentFights = nil
-	-- Sweep captures from before companion content was declared
-	-- unsupported: an NPC bodyguard's scorecard has no business persisting
+	-- Sweep captures from before companion content and non-encounter
+	-- fights were declared unsupported: an NPC bodyguard's scorecard and
+	-- a quest mob's 92 have no business persisting
 	for i = #self.fights, 1, -1 do
 		local f = self.fights[i]
-		if f.instanceType == "scenario"
+		if not f.isBoss or f.instanceType == "scenario"
 			or TP.UNSUPPORTED_DIFFICULTY[f.difficultyID or 0] then
 			table.remove(self.fights, i)
 		end
