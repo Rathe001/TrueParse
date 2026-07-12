@@ -959,6 +959,10 @@ function Engine.ScoreFight(fight, opts)
 				curveFrom = curveFrom, -- comparison population when zoomed out
 				value = metricValue(p, key),
 			}
+			if key == "interrupts" or key == "dispels" then
+				-- the tooltip phrases these as "Kicked 2 of the group's 7"
+				breakdown[key].groupTotal = ctx.totals[key] > 0 and ctx.totals[key] or nil
+			end
 			if applicable then
 				activeWeight = activeWeight + weight
 			end

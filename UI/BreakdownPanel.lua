@@ -81,10 +81,21 @@ local function showMetricTip(anchor, data)
 	local b, key, duration = data.b, data.key, data.duration
 	metricTip.title:SetText(TP.METRIC_LABELS[key] or key)
 
+	-- The parse-bracket gauge implies a ranked population behind the
+	-- number: show it only for WCL-backed comparisons. Share-scored
+	-- metrics (kicks, dispels, tank soak) get words instead.
+	local wclBacked = b.wclBacked or b.pctile ~= nil or (b.absolute and true) or false
+
 	local valueText = data.valueText
 	if not valueText then
 		if COUNT_METRICS[key] then
-			valueText = ("%d this fight"):format(b.value or 0)
+			if b.groupTotal and not wclBacked then
+				valueText = ("%s %d of the group's %d"):format(
+					key == "interrupts" and "Kicked" or "Dispelled",
+					b.value or 0, b.groupTotal)
+			else
+				valueText = ("%d this fight"):format(b.value or 0)
+			end
 		elseif PERCENT_METRICS[key] then
 			valueText = ("Up %d%% of the fight"):format((b.value or 0) * 100 + 0.5)
 		elseif duration and duration > 0 then
@@ -103,6 +114,8 @@ local function showMetricTip(anchor, data)
 			b.curveFrom or (b.rolePooled and "role" or "spec"), TP.FormatNumber(b.specMedian)))
 	elseif b.lowDemand then
 		metricTip.median:SetText("barely anything to heal - scored neutral")
+	elseif COUNT_METRICS[key] and b.groupTotal and not wclBacked then
+		metricTip.median:SetText("scored against an even share of the group's total")
 	elseif b.relative and not b.absolute then
 		metricTip.median:SetText("no WCL population data - vs group share")
 	else
@@ -110,13 +123,18 @@ local function showMetricTip(anchor, data)
 	end
 
 	-- tick at your percentile when known, else at the normalized score
-	local pos = b.pctile or b.normalized or 0
-	local frac = math.max(0, math.min(99, pos)) / 100
-	metricTip.marker:ClearAllPoints()
-	metricTip.marker:SetPoint("CENTER", metricTip.gauge, "LEFT", frac * GAUGE_W, 0)
-	metricTip.markerText:ClearAllPoints()
-	metricTip.markerText:SetPoint("BOTTOM", metricTip.marker, "TOP", 0, 1)
-	metricTip.markerText:SetText(b.pctile and ("p%.0f"):format(b.pctile) or ("%.0f"):format(pos))
+	metricTip.gauge:SetShown(wclBacked)
+	metricTip.markerText:SetShown(wclBacked)
+	if wclBacked then
+		local pos = b.pctile or b.normalized or 0
+		local frac = math.max(0, math.min(99, pos)) / 100
+		metricTip.marker:ClearAllPoints()
+		metricTip.marker:SetPoint("CENTER", metricTip.gauge, "LEFT", frac * GAUGE_W, 0)
+		metricTip.markerText:ClearAllPoints()
+		metricTip.markerText:SetPoint("BOTTOM", metricTip.marker, "TOP", 0, 1)
+		metricTip.markerText:SetText(b.pctile and ("p%.0f"):format(b.pctile) or ("%.0f"):format(pos))
+	end
+	metricTip:SetHeight(wclBacked and 108 or 76)
 
 	metricTip.footer:SetText(data.footerText or ("score %d · worth %d%% of the grade"):format(
 		b.normalized or 0, (b.effectiveWeight or 0) * 100))
@@ -539,10 +557,20 @@ function Panel:ShowForGroup(fight, results)
 		row.text:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
 		if bullet.kind == "metric" and bullet.avg then
 			-- same gauge the player bullets get: marker at the group
-			-- average, value line from the group total
+			-- average, value line from the group total. Gauge only when
+			-- the players' own numbers were WCL-scored — a share-scored
+			-- metric averaged across the group still isn't a parse.
+			local anyWcl
+			for _, r in ipairs(results) do
+				local pb = r.breakdown[bullet.key]
+				if pb and (pb.pctile or pb.absolute) then
+					anyWcl = true
+					break
+				end
+			end
 			row.tooltipData = nil
 			row.metricData = {
-				b = { value = bullet.total, normalized = bullet.avg },
+				b = { value = bullet.total, normalized = bullet.avg, wclBacked = anyWcl },
 				key = bullet.key,
 				duration = fight.duration,
 				footerText = ("group average %d · %d players"):format(
