@@ -17,6 +17,15 @@ TP.SEGMENT = {
 -- lack the glyph and render a tofu box.
 TP.STAR = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_1:0|t"
 
+-- Companion-driven difficulties that never rank on Warcraft Logs and pad
+-- the party with NPCs (an NPC bodyguard must never get a scorecard row).
+-- Captures skip these and the window explains why.
+TP.UNSUPPORTED_DIFFICULTY = {
+	[205] = true, -- Follower Dungeon
+	[208] = true, -- Delve
+	[220] = true, -- Story Raid
+}
+
 -- Display names for scored metrics (breakdown panel, coach line)
 TP.METRIC_LABELS = {
 	damage = "Damage",

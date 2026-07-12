@@ -236,6 +236,15 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		return true
 	end
 
+	-- Companion content (delves, follower dungeons, story raids) fires real
+	-- encounter sessions but never ranks, and its "party" is padded with
+	-- NPC bodyguards — the not-supported card promises these are never
+	-- captured, so keep that promise even for boss sessions.
+	if itype == "scenario" or TP.UNSUPPORTED_DIFFICULTY[fight.difficultyID or 0] then
+		self.snapshotted[sessionID] = true
+		return true
+	end
+
 	if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
 		local ok, keystoneLevel = pcall(C_ChallengeMode.GetActiveKeystoneInfo)
 		if ok and keystoneLevel and not IsSecret(keystoneLevel) and keystoneLevel > 0 then
@@ -480,11 +489,13 @@ function FightHistory:AddFromSegment(seg)
 		return
 	end
 	-- Boss encounters only inside instanced content; open world still counts
+	local _, itype = GetInstanceInfo()
 	if not seg.encounterID then
-		local _, itype = GetInstanceInfo()
 		if itype == "raid" or itype == "party" or itype == "scenario" then
 			return
 		end
+	elseif itype == "scenario" then
+		return -- scenario "bosses" (MoP scenarios): unranked, never captured
 	end
 	local totals = {
 		damage = 0, damageToBoss = 0, healing = 0, selfHealing = 0,
@@ -685,6 +696,15 @@ function FightHistory:OnEnable()
 	self.fights = TP.Addon.db.char.recentFights or {}
 	-- Migrate away the account-wide storage used by earlier builds
 	TP.Addon.db.global.recentFights = nil
+	-- Sweep captures from before companion content was declared
+	-- unsupported: an NPC bodyguard's scorecard has no business persisting
+	for i = #self.fights, 1, -1 do
+		local f = self.fights[i]
+		if f.instanceType == "scenario"
+			or TP.UNSUPPORTED_DIFFICULTY[f.difficultyID or 0] then
+			table.remove(self.fights, i)
+		end
+	end
 	self:BackfillRunIDs()
 	self:BackfillWipes()
 

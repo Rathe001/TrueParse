@@ -984,17 +984,21 @@ end
 
 -- Waiting condition: inside instanced content (dungeon/raid/scenario,
 -- delves included) with nothing captured from THIS place -> returns the
--- zone name and instance type; nil otherwise. Combat never bypasses this:
--- there is no live view, so mid-fight the waiting card simply stays put.
+-- zone name and whether the content is unsupported (delves/scenarios and
+-- companion difficulties, which are never captured); nil otherwise.
+-- Combat never bypasses this: there is no live view, so mid-fight the
+-- waiting card simply stays put.
 local function waitingHere()
 	local inInst, instType = IsInInstance()
 	if not (inInst and (instType == "party" or instType == "raid" or instType == "scenario")) then
 		return nil
 	end
-	local here = GetInstanceInfo()
+	local here, _, difficultyID = GetInstanceInfo()
+	local unsupported = instType == "scenario"
+		or TP.UNSUPPORTED_DIFFICULTY[difficultyID or 0] or false
 	local newest = TP.FightHistory.fights[1]
-	if not newest or newest.zone ~= here then
-		return here or "this instance", instType
+	if unsupported or not newest or newest.zone ~= here then
+		return here or "this instance", unsupported
 	end
 end
 
@@ -1016,16 +1020,16 @@ local function refreshImpl(self, force)
 		end
 		window.title:SetText(modeTitle .. " (+)")
 		-- a pinned fight is explicit: its summary wins over the waiting state
-		local waitingZone, waitingType
+		local waitingZone, waitingUnsupported
 		if not pinnedFight then
-			waitingZone, waitingType = waitingHere()
+			waitingZone, waitingUnsupported = waitingHere()
 		end
 		local latest = pinnedFight or TP.FightHistory.fights[1]
 		if waitingZone then
 			-- stale scores must not impersonate a live summary while the
 			-- expanded card would be showing the waiting state
 			window.subtitle:SetText(waitingZone
-				.. (waitingType == "scenario" and " · not supported" or " · waiting"))
+				.. (waitingUnsupported and " · not supported" or " · waiting"))
 		elseif latest then
 			window.subtitle:SetText(collapsedSummary(latest))
 		else
@@ -1063,18 +1067,17 @@ local function refreshImpl(self, force)
 	-- HERE must not impersonate a live card with stale data — show what
 	-- will and won't record instead. A pinned fight is explicit and always
 	-- renders its card.
-	local here, hereType
+	local here, hereUnsupported
 	if not pinnedFight then
-		here, hereType = waitingHere()
+		here, hereUnsupported = waitingHere()
 	end
 	if here or not fight then
 		releaseAllRows()
 		lastRenderedFight = nil
-		if hereType == "scenario" then
-			-- delves report as scenarios: unranked, uncaptured
+		if hereUnsupported then
 			window.subtitle:SetText(here .. " · not supported")
 			window.emptyTitle:SetText("This content isn't supported.")
-			window.emptyMsg:SetText("Delves and scenarios aren't ranked on Warcraft Logs and their fights aren't captured. Dungeon and raid bosses record automatically.")
+			window.emptyMsg:SetText("Delves, scenarios, and follower content aren't ranked on Warcraft Logs, so fights here aren't captured. Dungeon and raid bosses record automatically.")
 		elseif here then
 			window.subtitle:SetText(here .. " · waiting")
 			window.emptyTitle:SetText("Nothing recorded here yet.")
