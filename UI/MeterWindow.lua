@@ -220,7 +220,8 @@ local function createWindow()
 	local function layoutSubtitle(collapsed)
 		window.subtitle:ClearAllPoints()
 		if collapsed then
-			window.subtitle:SetPoint("TOPRIGHT", -PADDING, -PADDING)
+			-- centered like the title (the collapsed bar is one text line)
+			window.subtitle:SetPoint("RIGHT", -PADDING, 0)
 			window.subtitle:SetPoint("LEFT", window.title, "RIGHT", 6, 0)
 			window.subtitle:SetJustifyH("RIGHT")
 		else
@@ -1019,6 +1020,10 @@ local function refreshImpl(self, force)
 			window.scrollDown:Hide()
 		end
 		window.title:SetText(modeTitle .. " (+)")
+		-- the title hugs the top edge for the expanded card; centered
+		-- vertically it reads as a proper one-line bar
+		window.title:ClearAllPoints()
+		window.title:SetPoint("LEFT", PADDING, 0)
 		-- a pinned fight is explicit: its summary wins over the waiting state
 		local waitingZone, waitingUnsupported
 		if not pinnedFight then
@@ -1052,6 +1057,8 @@ local function refreshImpl(self, force)
 		return
 	end
 	window.title:SetText(modeTitle)
+	window.title:ClearAllPoints()
+	window.title:SetPoint("TOPLEFT", PADDING, -PADDING)
 	window.fightDrop:Show()
 	window.LayoutSubtitle(false)
 	if window.grip then
