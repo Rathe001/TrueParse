@@ -7,7 +7,7 @@ local _, TP = ...
 local MeterWindow = {}
 TP.MeterWindow = MeterWindow
 
-local HEADER_HEIGHT = 22
+local HEADER_HEIGHT = 26
 local COLHEAD_HEIGHT = 11 -- thin "fight / run" column labels (scorecard only)
 local COL_RESERVE = 78 -- right-side score columns the class bar never enters
 local MODE_HEIGHT = 16 -- bottom strip: Mode: (*)Real ( )Raw
@@ -189,7 +189,9 @@ local function createWindow()
 	end)
 
 	window.title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	window.title:SetPoint("TOPLEFT", PADDING, -PADDING)
+	-- centered in the header band, which is also the whole collapsed bar:
+	-- the title must not move when the window toggles
+	window.title:SetPoint("LEFT", window, "TOPLEFT", PADDING, -HEADER_HEIGHT / 2)
 	window.title:SetText("TrueParse")
 
 	-- The fight picker looks like a real dropdown: bordered inset box with
@@ -203,8 +205,9 @@ local function createWindow()
 	window.fightDrop:SetBackdropColor(0, 0, 0, 0.55)
 	window.fightDrop:SetBackdropBorderColor(0.38, 0.38, 0.38, 0.9)
 	window.fightDrop:SetHeight(16)
-	window.fightDrop:SetPoint("TOPRIGHT", -PADDING, -3)
-	window.fightDrop:SetPoint("TOPLEFT", 74, -3) -- clears the mode title
+	local dropInset = (HEADER_HEIGHT - 16) / 2 -- even air above and below
+	window.fightDrop:SetPoint("TOPRIGHT", -PADDING, -dropInset)
+	window.fightDrop:SetPoint("TOPLEFT", 74, -dropInset) -- clears the mode title
 	window.fightDrop.arrowTex = window.fightDrop:CreateTexture(nil, "OVERLAY")
 	window.fightDrop.arrowTex:SetSize(16, 16)
 	window.fightDrop.arrowTex:SetPoint("RIGHT", 0, 0)
@@ -1020,10 +1023,6 @@ local function refreshImpl(self, force)
 			window.scrollDown:Hide()
 		end
 		window.title:SetText(modeTitle .. " (+)")
-		-- the title hugs the top edge for the expanded card; centered
-		-- vertically it reads as a proper one-line bar
-		window.title:ClearAllPoints()
-		window.title:SetPoint("LEFT", PADDING, 0)
 		-- a pinned fight is explicit: its summary wins over the waiting state
 		local waitingZone, waitingUnsupported
 		if not pinnedFight then
@@ -1052,13 +1051,13 @@ local function refreshImpl(self, force)
 			window.colRun:Hide()
 		end
 		-- screen-half pinning (no pinTop): top half keeps the title bar in
-		-- place, bottom half collapses DOWN to the window's bottom edge
-		applyWindowHeight(HEADER_HEIGHT + PADDING)
+		-- place, bottom half collapses DOWN to the window's bottom edge.
+		-- Exactly one header tall: the centered title doesn't move between
+		-- the collapsed bar and the expanded card's header band.
+		applyWindowHeight(HEADER_HEIGHT)
 		return
 	end
 	window.title:SetText(modeTitle)
-	window.title:ClearAllPoints()
-	window.title:SetPoint("TOPLEFT", PADDING, -PADDING)
 	window.fightDrop:Show()
 	window.LayoutSubtitle(false)
 	if window.grip then
