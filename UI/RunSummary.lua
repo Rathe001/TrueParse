@@ -94,6 +94,29 @@ function RunSummary:CurrentRun()
 	return runCache.run, #fights
 end
 
+-- The run a SPECIFIC fight belongs to, for browsing history: an old LFR
+-- card should show ITS run's averages, not whatever run is live now.
+local runForCache = {}
+function RunSummary:RunFor(fight)
+	if not fight or not fight.runID then
+		return nil
+	end
+	local fights = {}
+	for _, f in ipairs(TP.FightHistory.fights) do
+		if f.runID == fight.runID then
+			fights[#fights + 1] = f
+		end
+	end
+	if #fights < 2 then
+		return nil
+	end
+	if runForCache.runID ~= fight.runID or runForCache.count ~= #fights then
+		runForCache.runID, runForCache.count = fight.runID, #fights
+		runForCache.run = TP.Scoring.Runs.Aggregate(fights, fights[1].zone or "Run")
+	end
+	return runForCache.run, #fights
+end
+
 -- announce=true (auto triggers only) additionally posts to group chat per
 -- the /tp announce (MVP line) and announce-summary settings. Manual /tp run
 -- never announces; /tp share posts the summary on demand.

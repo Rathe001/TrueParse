@@ -640,11 +640,12 @@ function MeterWindow:RenderScorecard(fight)
 	local width = db().window.width - PADDING * 2
 	local hasFooter = #results >= 3
 
-	-- Run row: the cumulative run average (always True — same currency the
-	-- chat reports use), shown once the run has 2+ fights
+	-- Run row: THIS fight's run average (always True — same currency the
+	-- chat reports use), shown once its run has 2+ fights. Browsing an old
+	-- card shows that card's run, not whatever run is live now.
 	local runFight, runResults, runScore, runBy
-	if TP.RunSummary and TP.RunSummary.CurrentRun then
-		local run, count = TP.RunSummary:CurrentRun()
+	if TP.RunSummary and TP.RunSummary.RunFor then
+		local run, count = TP.RunSummary:RunFor(fight)
 		if run and count and count >= 2 then
 			local rr = scoreRun(run)
 			if #rr > 0 then
@@ -757,14 +758,15 @@ function MeterWindow:RenderScorecard(fight)
 
 		-- cumulative True run average, dimmed, far right (True currency in
 		-- both modes: the distinct dimmed column carries the distinction)
+		-- the cell keeps its width whenever the COLUMN exists: a 1px cell
+		-- let the fight score slide into the run column's position
 		local runR = runBy and runBy[r.guid]
+		row.runAvg:SetWidth(runBy and 20 or 1)
 		if runR then
 			row.runAvg:SetText(TP.Scoring.Grades.ScoreLabel(runR.score))
 			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runR.score))
-			row.runAvg:SetWidth(20)
 		else
 			row.runAvg:SetText("")
-			row.runAvg:SetWidth(1)
 		end
 		row.sep2:SetShown(runBy ~= nil)
 
