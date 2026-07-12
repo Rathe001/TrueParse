@@ -246,6 +246,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- Enrichment must never block capture
 	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
 	pcall(TP.Sync.AttachReports, TP.Sync, fight)
+	pcall(TP.Threat.AttachRetail, TP.Threat, fight)
 
 	-- Replace an earlier capture of the same session (resume case)
 	for i = #self.fights, 1, -1 do

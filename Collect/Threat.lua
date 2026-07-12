@@ -116,18 +116,172 @@ local function startTicker()
 	end)
 end
 
--- EXPERIMENT 3 (probe removed 2026-07-12) VERDICT: retail group threat is
--- READABLE mid-combat — UnitThreatSituation returned 0 secrets for self,
--- group, and detailed-vs-target in live dungeon combat. Retail threat
--- discipline (5-man scoring like Classic's) is therefore buildable when
--- wanted; nothing is built on it yet.
+-- ================================ Retail: scored group tracking ===========
+-- EXPERIMENT 3 verdict (2026-07-12): retail group threat is READABLE
+-- mid-combat (zero secrets live), so the same discipline tracking runs on
+-- retail. Captures arrive in late bulk unlocks, so samples accumulate in
+-- standalone combat windows and attach to fights by duration fingerprint
+-- (the SelfCasts report pattern). Sampling skips groups larger than 5:
+-- the engine never scores raid threat anyway (fixates make it noise).
+
+local retailWindow -- { startedAt, tankOpened, players = { [guid] = aggro } }
+local retailRecent = {} -- finalized windows awaiting capture match
+local retailTicker
+
+local function retailAggro(guid)
+	local a = retailWindow.players[guid]
+	if not a then
+		a = { time = 0, rips = 0, pulled = false, lost = 0, has = false, pullTicks = 0 }
+		retailWindow.players[guid] = a
+	end
+	return a
+end
+
+local function retailStatus(unit)
+	local ok, s = pcall(UnitThreatSituation, unit)
+	if not ok or TP.Compat.IsSecret(s) then
+		return nil
+	end
+	return s
+end
+
+local function retailSample()
+	if not retailWindow then
+		return
+	end
+	local elapsed = GetTime() - retailWindow.startedAt
+
+	wipe(tankScratch)
+	local tanks
+	for guid, info in pairs(TP.Roster.players) do
+		if info.role == "TANK" and UnitExists(info.unit) and not UnitIsDeadOrGhost(info.unit) then
+			tanks = tankScratch
+			tanks[#tanks + 1] = guid
+		end
+	end
+	if not tanks then
+		return
+	end
+
+	local nonTankHasAggro = false
+	for guid, info in pairs(TP.Roster.players) do
+		if info.role ~= "TANK" and UnitExists(info.unit) then
+			local status = retailStatus(info.unit)
+			local has = (status or 0) >= 2
+			local a = retailAggro(guid)
+			if has then
+				nonTankHasAggro = true
+				a.time = a.time + INTERVAL
+				if elapsed <= PULL_WINDOW and not retailWindow.tankOpened then
+					a.pullTicks = a.pullTicks + 1
+					if a.pullTicks >= 2 then
+						a.pulled = true
+					end
+				elseif not a.has then
+					a.rips = a.rips + 1
+				end
+			end
+			a.has = has
+		end
+	end
+
+	for _, guid in ipairs(tanks) do
+		local info = TP.Roster.players[guid]
+		if (retailStatus(info.unit) or 0) >= 2 then
+			retailWindow.tankOpened = true
+		end
+		if nonTankHasAggro then
+			retailAggro(guid).lost = retailAggro(guid).lost + INTERVAL
+		end
+	end
+end
+
+local function retailFinalize()
+	if retailTicker then
+		retailTicker:Cancel()
+		retailTicker = nil
+	end
+	local window = retailWindow
+	retailWindow = nil
+	if not window then
+		return
+	end
+	local meaningful = false
+	for _, a in pairs(window.players) do
+		if a.pulled or a.rips > 0 or a.time > 0 or a.lost > 0 then
+			meaningful = true
+			break
+		end
+	end
+	if not meaningful then
+		return
+	end
+	table.insert(retailRecent, 1, {
+		duration = GetTime() - window.startedAt,
+		at = GetTime(),
+		players = window.players,
+	})
+	-- keep only fresh windows: captures land within minutes
+	for i = #retailRecent, 1, -1 do
+		if #retailRecent > 10 or (GetTime() - retailRecent[i].at) > 900 then
+			table.remove(retailRecent, i)
+		end
+	end
+end
+
+local function retailStart()
+	if GetNumGroupMembers() > 5 then
+		return -- raids/LFR: never scored, don't sample
+	end
+	retailWindow = { startedAt = GetTime(), tankOpened = false, players = {} }
+	if not retailTicker then
+		retailTicker = C_Timer.NewTicker(INTERVAL, retailSample)
+	end
+end
+
+-- Called by FightHistory:TrySnapshot — stamp the duration-matched window's
+-- discipline facts onto the captured fight (same fields AddFromSegment
+-- writes on Classic, so the engine and bullets need no changes).
+function Threat:AttachRetail(fight)
+	if not TP.Compat.IS_RETAIL or #retailRecent == 0 then
+		return
+	end
+	local tolerance = math.max(8, (fight.duration or 0) * 0.2)
+	local best, bestDiff
+	for i, w in ipairs(retailRecent) do
+		local diff = math.abs((w.duration or 0) - (fight.duration or 0))
+		if diff <= tolerance and (not bestDiff or diff < bestDiff) then
+			best, bestDiff = i, diff
+		end
+	end
+	if not best then
+		return
+	end
+	local window = table.remove(retailRecent, best)
+	for guid, p in pairs(fight.players) do
+		local a = window.players[guid]
+		if a and p.aggroTime == nil and p.aggroRips == nil then
+			p.aggroPulled = a.pulled or nil
+			p.aggroRips = a.rips > 0 and a.rips or nil
+			p.aggroTime = a.time > 0 and a.time or nil
+			p.aggroLostTime = a.lost > 0 and a.lost or nil
+		end
+	end
+end
 
 -- ================================ Wiring ==================================
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
-eventFrame:SetScript("OnEvent", function()
-	if not TP.Compat.IS_RETAIL then
+eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+eventFrame:SetScript("OnEvent", function(_, event)
+	if TP.Compat.IS_RETAIL then
+		if event == "PLAYER_REGEN_DISABLED" then
+			retailStart()
+		else
+			retailFinalize()
+		end
+	elseif event == "PLAYER_REGEN_DISABLED" then
 		startTicker()
 	end
 end)
