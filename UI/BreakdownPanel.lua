@@ -290,6 +290,9 @@ local function infoHelp()
 			consumables = "Long-duration buffs (flask, food, rune) detected on this player at pull start, self-reported by their TrueParse. Informational only - not scored.",
 			deathReady = "At the moment they died, this many major defensive cooldowns were available and unused. Self-reported by their TrueParse. Informational only - not scored.",
 			lust = "Offensive cooldowns and DPS potions cast inside the 40s Bloodlust/Heroism window, read from the combat log. Stacking them there is free extra output. Informational only - not scored.",
+			activity = "Share of the fight spent actually doing things (casting, attacking) - the always-be-casting number. A rough proxy: movement-heavy fights read lower for everyone. Informational only - not scored.",
+			overheal = "Share of raw healing that landed on already-full health bars. Some overhealing is normal and safe; big numbers on hard fights suggest snipe-heavy targeting. Informational only - not scored.",
+			offensives = "Major offensive cooldowns cast this fight, read from the combat log. Informational only - not scored.",
 		}
 	end
 	return INFO_HELP
@@ -343,6 +346,10 @@ function Panel:ShowFor(fight, result)
 			-- Bloodlust-window usage (CLEU; nil when no lust this fight)
 			lustCasts = m.lustCasts,
 			lustPotion = m.lustPotion,
+			-- WoWAnalyzer-style basics
+			activityPct = m.activityPct,
+			overhealPct = m.overhealPct,
+			offensiveCDs = m.offensiveCDs,
 		}
 	end
 	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)

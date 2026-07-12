@@ -11,6 +11,11 @@ local combatStart
 local defensivesUsed = 0
 local consumablesAtPull = 0
 local readyAtDeath = -1 -- -1 = didn't die this fight
+-- own active-time proxy (retail can't read other players' casts, so each
+-- TrueParse donates its own, like defensives)
+local activeSecs = 0
+local lastCastAt
+local ACTIVITY_CAP = 1.6
 
 -- Augmentation buff uptime: group auras are secret on Midnight, but Ebon
 -- Might keeps a personal aura on the Evoker for exactly as long as it runs
@@ -151,9 +156,13 @@ local function finalizeFight()
 	if trackingUptime and duration > 0 then
 		uptimePct = math.min(100, math.floor(uptimeSeconds / duration * 100 + 0.5))
 	end
+	local activityPct = -1
+	if duration > 0 and activeSecs > 0 then
+		activityPct = math.min(100, math.floor(activeSecs / duration * 100 + 0.5))
+	end
 	if duration >= 10 and TP.Sync.RecordFightReport then
-		TP.Sync:RecordFightReport(UnitGUID("player"), duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct)
-		TP.Sync:BroadcastFightReport(duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct)
+		TP.Sync:RecordFightReport(UnitGUID("player"), duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct, activityPct)
+		TP.Sync:BroadcastFightReport(duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct, activityPct)
 	end
 end
 
@@ -161,6 +170,8 @@ local function startWindow()
 	combatStart = GetTime()
 	defensivesUsed = 0
 	readyAtDeath = -1
+	activeSecs = 0
+	lastCastAt = nil
 	local ok, count = pcall(countConsumables)
 	consumablesAtPull = ok and count or 0
 	uptimeSeconds = 0
@@ -186,8 +197,13 @@ frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 	if event == "UNIT_SPELLCAST_SUCCEEDED" then
-		if unit == "player" and combatStart and TP.DEFENSIVES and TP.DEFENSIVES[spellID] then
-			defensivesUsed = defensivesUsed + 1
+		if unit == "player" and combatStart then
+			if TP.DEFENSIVES and TP.DEFENSIVES[spellID] then
+				defensivesUsed = defensivesUsed + 1
+			end
+			local t = GetTime()
+			activeSecs = activeSecs + (lastCastAt and math.min(t - lastCastAt, ACTIVITY_CAP) or ACTIVITY_CAP)
+			lastCastAt = t
 		end
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		if graceTicker then

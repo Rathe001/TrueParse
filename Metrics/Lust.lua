@@ -27,23 +27,25 @@ tracker.subevents.SPELL_AURA_APPLIED = function(seg, srcGUID, dstGUID, srcFlags,
 end
 
 tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
-	if not a1 or not seg.lustUntil or GetTime() >= seg.lustUntil then
-		return
-	end
-	if not (TP.OFFENSIVE_CDS and TP.OFFENSIVE_CDS[a1]) then
+	if not a1 or not (TP.OFFENSIVE_CDS and TP.OFFENSIVE_CDS[a1]) then
 		return
 	end
 	local acc = seg.players[srcGUID] -- players only; pet casts don't count
-	if acc and acc.lust then
+	if not (acc and acc.lust) then
+		return
+	end
+	acc.lust.totalCasts = acc.lust.totalCasts + 1
+	if seg.lustUntil and GetTime() < seg.lustUntil then
 		acc.lust.casts = acc.lust.casts + 1
 	end
 end
 
 tracker.InitPlayer = function(acc)
-	acc.lust = { casts = 0, potion = false }
+	acc.lust = { casts = 0, totalCasts = 0, potion = false }
 end
 tracker.MergePlayer = function(dst, src)
 	dst.lust.casts = dst.lust.casts + (src.lust and src.lust.casts or 0)
+	dst.lust.totalCasts = (dst.lust.totalCasts or 0) + (src.lust and src.lust.totalCasts or 0)
 	dst.lust.potion = dst.lust.potion or (src.lust and src.lust.potion) or false
 end
 

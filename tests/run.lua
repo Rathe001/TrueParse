@@ -650,6 +650,21 @@ check(lustText({ lustCasts = 0, lustPotion = 0 }) == "Wasted Bloodlust - no cool
 	"lust with nothing used is called out")
 check(lustText({}) == nil, "no lust this fight, no bullet")
 check(lustText({ lustCasts = 0 }, "HEALER") == nil, "healers never get lust bullets")
+-- WoWAnalyzer-style basics: activity tiers, healer overheal, DPS offensives
+local function infoText(extra, role, wantKey)
+	lustResult.role = role or "DAMAGER"
+	for _, b in ipairs(TP.Scoring.Bullets.ForResult(lustResult, nil, extra)) do
+		if b.key == wantKey then return b.text, b.symbol end
+	end
+end
+local aText, aSym = infoText({ activityPct = 93 }, "DAMAGER", "activity")
+check(aText == "Active 93% of the fight" and aSym == "+", "high activity credited")
+local _, aSym2 = infoText({ activityPct = 61 }, "DAMAGER", "activity")
+check(aSym2 == "-", "low activity flagged")
+check(infoText({ overhealPct = 24 }, "HEALER", "overheal") == "24% overhealing", "healer overheal shown")
+check(infoText({ overhealPct = 24 }, "DAMAGER", "overheal") == nil, "non-healers skip overheal noise")
+check(infoText({ offensiveCDs = 3 }, "DAMAGER", "offensives") == "Used 3 offensive cooldowns", "offensive CD count shown")
+check(infoText({ offensiveCDs = 3 }, "HEALER", "offensives") == nil, "healers skip offensive CD bullets")
 
 -- 14a. Every award has a description
 for _, label in pairs(TP.Scoring.Awards.LABELS) do

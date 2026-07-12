@@ -131,6 +131,30 @@ function Bullets.ForResult(result, awards, extra)
 		out[#out + 1] = { kind = "metric", key = key, symbol = symbol, color = color, text = text }
 	end
 
+	-- WoWAnalyzer-style basics: informational, never scored
+	if extra and extra.activityPct then
+		local pct = extra.activityPct
+		if pct >= 90 then
+			out[#out + 1] = { kind = "info", key = "activity", symbol = "+", color = GOOD,
+				text = ("Active %d%% of the fight"):format(pct) }
+		elseif pct >= 75 then
+			out[#out + 1] = { kind = "info", key = "activity", symbol = MIDDOT, color = MID,
+				text = ("Active %d%% of the fight"):format(pct) }
+		else
+			out[#out + 1] = { kind = "info", key = "activity", symbol = "-", color = BAD,
+				text = ("Active %d%% of the fight"):format(pct) }
+		end
+	end
+	if extra and extra.overhealPct and result.role == "HEALER" then
+		out[#out + 1] = { kind = "info", key = "overheal", symbol = MIDDOT, color = MID,
+			text = ("%d%% overhealing"):format(extra.overhealPct) }
+	end
+	if extra and extra.offensiveCDs and result.role ~= "HEALER" and result.role ~= "TANK" then
+		out[#out + 1] = { kind = "info", key = "offensives", symbol = "+", color = GOOD,
+			text = extra.offensiveCDs == 1 and "Used an offensive cooldown"
+				or ("Used %d offensive cooldowns"):format(extra.offensiveCDs) }
+	end
+
 	-- Peer-reported facts: informational, never scored
 	if extra and extra.defensives ~= nil then
 		if extra.defensives > 0 then

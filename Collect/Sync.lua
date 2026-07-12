@@ -47,7 +47,8 @@ local REPORT_TTL = 7200
 
 -- readyAtDeath: -1/nil = didn't die; 0+ = defensives off cooldown at death
 -- buffUptime: -1/nil = not a support spec; 0-100 = Ebon Might uptime %
-function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAtDeath, buffUptime)
+-- activity: -1/nil = unknown; 0-100 = own active-time percent
+function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAtDeath, buffUptime, activity)
 	local list = self.reports[guid]
 	if not list then
 		list = {}
@@ -58,6 +59,7 @@ function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAt
 		consumables = consumables,
 		readyAtDeath = (readyAtDeath and readyAtDeath >= 0) and readyAtDeath or nil,
 		buffUptime = (buffUptime and buffUptime >= 0) and math.min(buffUptime, 100) or nil,
+		activity = (activity and activity >= 0) and math.min(activity, 100) or nil,
 		at = time(),
 	}
 	-- prune stale
@@ -81,14 +83,15 @@ local function commChannel()
 end
 Sync.CommChannel = commChannel
 
-function Sync:BroadcastFightReport(duration, defensives, consumables, readyAtDeath, buffUptime)
+function Sync:BroadcastFightReport(duration, defensives, consumables, readyAtDeath, buffUptime, activity)
 	local channel = commChannel()
 	if not channel then
 		return
 	end
-	self:SendCommMessage(PREFIX, ("F:%d:%s:%d:%d:%d:%d:%d"):format(
+	self:SendCommMessage(PREFIX, ("F:%d:%s:%d:%d:%d:%d:%d:%d"):format(
 		WIRE_VERSION, UnitGUID("player"), math.floor(duration + 0.5),
-		defensives or 0, consumables or 0, readyAtDeath or -1, buffUptime or -1),
+		defensives or 0, consumables or 0, readyAtDeath or -1, buffUptime or -1,
+		activity or -1),
 		channel)
 end
 
@@ -135,6 +138,11 @@ function Sync:AttachReports(fight)
 				-- fraction, feeding the SUPPORT role's buffUptime metric
 				if report.buffUptime then
 					p.metrics.buffUptime = report.buffUptime / 100
+				end
+				-- CLEU fills this for everyone on Classic; self-reports
+				-- cover retail
+				if p.metrics.activityPct == nil and report.activity then
+					p.metrics.activityPct = report.activity
 				end
 				table.remove(list, bestIdx)
 				-- award inputs changed (Iron Wall reads defensives)
@@ -216,8 +224,13 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		return
 	end
 
-	local fVersion, fGuid, duration, defensives, consumables, readyAtDeath, buffUptime =
-		message:match("^F:(%d+):([^:]+):(%d+):(%d+):(%d+):(%-?%d+):(%-?%d+)$")
+	local fVersion, fGuid, duration, defensives, consumables, readyAtDeath, buffUptime, activity =
+		message:match("^F:(%d+):([^:]+):(%d+):(%d+):(%d+):(%-?%d+):(%-?%d+):(%-?%d+)$")
+	if not fVersion then
+		-- 7-field format (no activity)
+		fVersion, fGuid, duration, defensives, consumables, readyAtDeath, buffUptime =
+			message:match("^F:(%d+):([^:]+):(%d+):(%d+):(%d+):(%-?%d+):(%-?%d+)$")
+	end
 	if not fVersion then
 		-- 6-field format from earlier builds (no buff uptime)
 		fVersion, fGuid, duration, defensives, consumables, readyAtDeath =
@@ -242,7 +255,8 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 			math.min(tonumber(defensives) or 0, 50),
 			math.min(tonumber(consumables) or 0, 5),
 			ready and math.min(ready, 9) or nil,
-			tonumber(buffUptime))
+			tonumber(buffUptime),
+			tonumber(activity))
 	end
 end
 

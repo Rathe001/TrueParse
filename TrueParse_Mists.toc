@@ -32,6 +32,7 @@ Metrics\Utility.lua
 Metrics\Absorbs.lua
 Metrics\Cooldowns.lua
 Metrics\Lust.lua
+Metrics\Activity.lua
 Collect\Segments.lua
 Collect\CombatLog.lua
 Collect\BlizzardMeter.lua

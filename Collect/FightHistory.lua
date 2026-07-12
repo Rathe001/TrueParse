@@ -531,6 +531,20 @@ function FightHistory:AddFromSegment(seg)
 			m.lustCasts = acc.lust.casts
 			m.lustPotion = acc.lust.potion and 1 or 0
 		end
+		-- WoWAnalyzer-style basics (post-totals: ratios/counts, not sums)
+		if acc.activity and (seg.duration or 0) > 0 then
+			m.activityPct = math.min(100, math.floor(acc.activity.active / seg.duration * 100 + 0.5))
+		end
+		if acc.healing then
+			local over = acc.healing.overheal or 0
+			local raw = (acc.healing.effective or 0) + over
+			if raw > 0 then
+				m.overhealPct = math.floor(over / raw * 100 + 0.5)
+			end
+		end
+		if acc.lust and (acc.lust.totalCasts or 0) > 0 then
+			m.offensiveCDs = acc.lust.totalCasts
+		end
 		local ag = acc.aggro
 		players[guid] = {
 			guid = guid,

@@ -18,6 +18,7 @@ local function heal(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a
 	end
 	local effective = a4 - (a5 or 0)
 	acc.healing.effective = acc.healing.effective + effective
+	acc.healing.overheal = acc.healing.overheal + (a5 or 0)
 	-- self vs others: "Great off-healing" and "Great self-sustain" are
 	-- different compliments (pet heals landing on the owner count as self)
 	local dstPlayer = TP.Roster:ResolveGUID(dstGUID)
@@ -39,13 +40,14 @@ tracker.subevents.SPELL_HEAL = heal
 tracker.subevents.SPELL_PERIODIC_HEAL = heal
 
 tracker.InitPlayer = function(acc)
-	acc.healing = { effective = 0, selfPart = 0, toTanks = 0 }
+	acc.healing = { effective = 0, selfPart = 0, toTanks = 0, overheal = 0 }
 	acc.potions = { healing = 0 }
 end
 tracker.MergePlayer = function(dst, src)
 	dst.healing.effective = dst.healing.effective + src.healing.effective
 	dst.healing.selfPart = dst.healing.selfPart + (src.healing.selfPart or 0)
 	dst.healing.toTanks = dst.healing.toTanks + (src.healing.toTanks or 0)
+	dst.healing.overheal = (dst.healing.overheal or 0) + (src.healing.overheal or 0)
 	dst.potions.healing = dst.potions.healing + src.potions.healing
 end
 
