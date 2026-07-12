@@ -1,5 +1,35 @@
 # TrueParse Changelog
 
+## 1.2.4
+
+- LFR works: Raid Finder groups are instance groups, which the addon
+  sync never reached - presence marks and peer data were dead there.
+  Raw mode now has real LFR percentile curves for every raid boss, and
+  the outdoor Sporefall raid (Rotmire) has its own curves and kill
+  times across all difficulties.
+- Resizable window: drag the corner grip; rows re-flow live, the mouse
+  wheel scrolls when the list doesn't fit, and the Raid row stays
+  pinned (now showing the group's combined penalties).
+- Fight picker: click the subtitle for a dropdown of recent captures,
+  grouped by run - one group's visit to one instance at one difficulty.
+  Run averages follow the same boundary, so LFR wings no longer blend
+  with last week's guild raid.
+- Healing demand cap: you can't heal damage that never went out. On
+  fights whose incoming damage couldn't demand a median healer's
+  output, healers who covered their share floor at neutral instead of
+  parsing single digits against raid populations.
+- Wipe detection hardened: late boss resets and full group deaths both
+  register, and raid bosses re-pulled later in a run retroactively mark
+  the earlier pulls as wipes.
+- New info bullets: active time (always-be-casting), healer
+  overhealing %, offensive cooldown counts, tank active-mitigation
+  uptime (MoP). Group tooltips render gauges; the group card matches
+  the player card layout.
+- New award: Unbreakable. Lifesaver now requires healing other people.
+- Column polish: class bars span the name column with hairline column
+  separators, names truncate instead of wrapping, outdoor captures
+  record their real zone.
+
 ## 1.2.3
 
 - Group kill speed: the Raid breakdown shows how fast your kill was
