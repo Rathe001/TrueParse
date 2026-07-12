@@ -201,6 +201,15 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 
 	local live = sessionContext[sessionID]
 	local zone, instanceType, difficultyID, difficultyName = GetInstanceInfo()
+	if instanceType == "none" then
+		-- outdoors GetInstanceInfo names the CONTINENT map ("Eastern
+		-- Kingdoms"); the actual zone tells outdoor raids and world
+		-- content apart
+		local zt = GetZoneText()
+		if zt and zt ~= "" and not IsSecret(zt) then
+			zone = zt
+		end
+	end
 	if live then
 		fight.zone, fight.instanceType, fight.difficulty = live.zone, live.instanceType, live.difficulty
 		fight.difficultyID = live.difficultyID
@@ -397,6 +406,14 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 		end
 		if not sessionContext[sessionId] then
 			local zone, instanceType, difficultyID, difficultyName = GetInstanceInfo()
+			if instanceType == "none" then
+				-- outdoors the "instance" is the continent map; the real
+				-- zone separates outdoor raids from world content
+				local zt = GetZoneText()
+				if zt and zt ~= "" and not IsSecret(zt) then
+					zone = zt
+				end
+			end
 			sessionContext[sessionId] = {
 				zone = (not IsSecret(zone)) and zone or nil,
 				instanceType = (not IsSecret(instanceType)) and instanceType or nil,
