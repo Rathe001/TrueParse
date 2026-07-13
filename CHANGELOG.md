@@ -1,5 +1,31 @@
 # TrueParse Changelog
 
+## 1.2.6
+
+- Fight picker: a "Current" entry follows whatever is happening (the
+  newest capture, or the waiting card in unrecorded content); every
+  capture is its own pinnable entry, and a pinned fight no longer
+  shifts when a new boss dies.
+- Recording clarity: only real boss encounters are ever captured -
+  delves, follower dungeons, story raids, scenarios, open-world quest
+  mobs, and instance trash are all out, and the window says "not
+  supported" where nothing will record. Old junk captures (NPC
+  bodyguard cards, quest mobs) are pruned at login.
+- After a kill the card says "unlocking..." while Blizzard still has
+  the numbers secret-locked (LFR unlocks late) instead of claiming
+  nothing was recorded.
+- Deaths can no longer silently read as zero: a healer no longer earns
+  "Not on My Watch" on a kill where people (or she herself) died.
+- The parse-bracket gauge only shows for numbers with a real WCL
+  population behind them; kicks and dispels read as words ("Dispelled
+  1 of the group's 5").
+- Live damage bars removed on both clients - TrueParse is a scorecard,
+  not a damage race. Auto-collapse now applies on MoP too.
+- The run column always shows, from the first boss of a run.
+- Polish: collapsed bar text centers and no longer jumps on toggle,
+  the encounter dropdown has even padding, less dead space under the
+  Raid row, and Blizzard's "(!)" prefix no longer leaks into labels.
+
 ## 1.2.5
 
 - Fixed fight scores rendering in the run column for players outside
