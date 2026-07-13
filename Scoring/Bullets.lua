@@ -152,18 +152,19 @@ function Bullets.ForResult(result, awards, extra)
 			-- floored: the fight barely needed healing, don't scold or gush
 			text, symbol, color = "Little healing needed - group stayed topped", MIDDOT, MID
 		end
-		out[#out + 1] = { kind = "metric", key = key, symbol = symbol, color = color, text = text }
+		out[#out + 1] = { kind = "metric", key = key, symbol = symbol, color = color,
+			text = text, points = b.adjust }
 	end
 
 	-- Staying clean earned points: say so (the negative twin lives in the
 	-- penalty bullets as "Stood in bad")
 	if (ad.avoidable or 0) > 0 then
 		out[#out + 1] = { kind = "info", key = "avoidable", symbol = "+", color = GOOD,
-			text = "Stayed out of the bad" .. pts(ad.avoidable) }
+			text = "Stayed out of the bad" .. pts(ad.avoidable), points = ad.avoidable }
 	end
 	if (ad.rez or 0) > 0 then
 		out[#out + 1] = { kind = "info", key = "rez", symbol = "+", color = GOOD,
-			text = "Combat-rezzed an ally" .. pts(ad.rez) }
+			text = "Combat-rezzed an ally" .. pts(ad.rez), points = ad.rez }
 	end
 
 	-- WoWAnalyzer-style basics (addon-reported; they nudge the score now)
@@ -306,10 +307,40 @@ function Bullets.ForResult(result, awards, extra)
 		local amount = pd[def.key] or 0
 		if amount > 0 then
 			out[#out + 1] = { kind = "penalty", key = def.key, symbol = "-", color = BAD,
-				text = def.label .. pts(-amount) }
+				text = def.label .. pts(-amount), points = -amount }
 		end
 	end
 
+	return Bullets.SortBestFirst(out)
+end
+
+-- Best to worst: awards, then positives (largest point gain first),
+-- neutrals, negatives (worst last). Stable within a band so related
+-- lines keep their narrative order. Points parse from the "(+3)"
+-- suffix every adjusting bullet already carries.
+local SYMBOL_BAND = { ["+"] = 1, [MIDDOT] = 2, ["-"] = 3 }
+local function pointsOf(b)
+	return b.points or tonumber((b.text or ""):match("%(([%+%-]%d+)%)$")) or 0
+end
+function Bullets.SortBestFirst(out)
+	for i, b in ipairs(out) do
+		b._i = i
+	end
+	table.sort(out, function(a, b)
+		local ba = (a.kind == "award") and 0 or (SYMBOL_BAND[a.symbol] or 2)
+		local bb = (b.kind == "award") and 0 or (SYMBOL_BAND[b.symbol] or 2)
+		if ba ~= bb then
+			return ba < bb
+		end
+		local pa, pb = pointsOf(a), pointsOf(b)
+		if pa ~= pb then
+			return pa > pb
+		end
+		return a._i < b._i
+	end)
+	for _, b in ipairs(out) do
+		b._i = nil
+	end
 	return out
 end
 
@@ -463,5 +494,5 @@ function Bullets.ForGroup(results, fight)
 			text = "Raid buffs missing at the pull" }
 	end
 
-	return out
+	return Bullets.SortBestFirst(out)
 end
