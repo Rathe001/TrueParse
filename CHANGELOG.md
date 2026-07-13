@@ -1,5 +1,16 @@
 # TrueParse Changelog
 
+## 1.2.8
+
+- Awards are rare again: one per player per fight (rarest wins), and
+  winning must be earned - Untouchable goes only to a sole dodger
+  while the rest of the group got hit, Giant Slayer needs a 25%+
+  margin over second place, Not on My Watch needs a real fight (90s+),
+  Lifesaver goes to the top off-healer only, and kick/dispel/defensive
+  minimums rise to 3.
+- The fight picker scrolls past ~16 rows instead of drawing one
+  screen-tall column after a night of dungeon hopping.
+
 ## 1.2.7
 
 - MoP Classic clients on 5.5.4 no longer flag the addon "out of date"
