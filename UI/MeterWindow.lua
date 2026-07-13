@@ -204,9 +204,22 @@ local function createWindow()
 	})
 	window.fightDrop:SetBackdropColor(0, 0, 0, 0.55)
 	window.fightDrop:SetBackdropBorderColor(0.38, 0.38, 0.38, 0.9)
+	-- options cog at the header's right edge; the dropdown yields the room
+	window.cog = CreateFrame("Button", nil, window)
+	window.cog:SetSize(14, 14)
+	window.cog:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
+	window.cog:SetHighlightTexture("Interface\\Buttons\\UI-OptionsButton")
+	window.cog:GetHighlightTexture():SetAlpha(0.4)
+	window.cog:SetScript("OnClick", function()
+		if TP.Options and TP.Options.Open then
+			TP.Options.Open()
+		end
+	end)
+
 	window.fightDrop:SetHeight(16)
 	local dropInset = (HEADER_HEIGHT - 16) / 2 -- even air above and below
-	window.fightDrop:SetPoint("TOPRIGHT", -PADDING, -dropInset)
+	window.cog:SetPoint("TOPRIGHT", -PADDING, -(dropInset + 1))
+	window.fightDrop:SetPoint("TOPRIGHT", -(PADDING + 18), -dropInset)
 	window.fightDrop:SetPoint("TOPLEFT", 74, -dropInset) -- clears the mode title
 	window.fightDrop.arrowTex = window.fightDrop:CreateTexture(nil, "OVERLAY")
 	window.fightDrop.arrowTex:SetSize(16, 16)
@@ -1093,6 +1106,7 @@ local function refreshImpl(self, force)
 			window.subtitle:SetText("")
 		end
 		window.fightDrop:Hide()
+		window.cog:Hide()
 		window.LayoutSubtitle(true)
 		if window.emptyTitle then
 			window.emptyTitle:Hide()
@@ -1112,6 +1126,7 @@ local function refreshImpl(self, force)
 	end
 	window.title:SetText(modeTitle)
 	window.fightDrop:Show()
+	window.cog:Show()
 	window.LayoutSubtitle(false)
 	if window.grip then
 		window.grip:Show()
