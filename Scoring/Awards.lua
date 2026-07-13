@@ -28,19 +28,28 @@ Awards.LABELS = {
 
 -- Why each award is given, keyed by its display label (what the UI has)
 Awards.DESCRIPTIONS = {
-	[Awards.LABELS.kickKing] = "Most interrupts this fight (at least 2, no tie).",
-	[Awards.LABELS.cleanser] = "Most dispels this fight (at least 2, no tie).",
-	[Awards.LABELS.untouchable] = "Avoidable damage went out and you dodged every bit of it.",
-	[Awards.LABELS.lifesaver] = "A non-healer who covered 15%+ of the group's healing - on other people.",
-	[Awards.LABELS.unbreakable] = "A non-healer who covered 15%+ of the group's healing by keeping themselves alive. Nobody heals this one.",
+	[Awards.LABELS.kickKing] = "Most interrupts this fight (at least 3, no tie).",
+	[Awards.LABELS.cleanser] = "Most dispels this fight (at least 3, no tie).",
+	[Awards.LABELS.untouchable] = "Avoidable damage hit the rest of the group - one player dodged every bit of it.",
+	[Awards.LABELS.lifesaver] = "The top non-healer healer: covered 15%+ of the group's healing - on other people.",
+	[Awards.LABELS.unbreakable] = "The top non-healer healer: covered 15%+ of the group's healing by keeping themselves alive. Nobody heals this one.",
 	[Awards.LABELS.survivalist] = "Most self-rescue healing (potion or Healthstone) - and lived to tell about it.",
-	[Awards.LABELS.ironWall] = "Most defensive cooldowns used (reported by their own TrueParse).",
-	[Awards.LABELS.notOnMyWatch] = "Healer award: the boss went down and nobody died.",
+	[Awards.LABELS.ironWall] = "Most defensive cooldowns used (reported by their own TrueParse, at least 3).",
+	[Awards.LABELS.notOnMyWatch] = "Healer award: a real boss fight (90s+) ended with nobody dying.",
 	[Awards.LABELS.toppedOff] = "Healer award: nobody dropped below half health for the entire boss fight.",
 	[Awards.LABELS.healedStupid] = "Healer award: the group ate a pile of avoidable damage and nobody died. You know what you did.",
-	[Awards.LABELS.giantSlayer] = "Top damage on a boss fight (no tie).",
-	[Awards.LABELS.lawnmower] = "Top damage on a trash pull (no tie).",
+	[Awards.LABELS.giantSlayer] = "Top damage on a boss fight, and it wasn't close (25%+ over second place).",
+	[Awards.LABELS.lawnmower] = "Top damage on a trash pull, and it wasn't close (25%+ over second place).",
 	[Awards.LABELS.virtuoso] = "Top-10% of their spec in the category that ISN'T their job: a healer parsing like a DPS, a tank out-healing expectations.",
+}
+
+-- One award per player, rarest first: a card where everyone wears two
+-- ribbons makes ribbons worthless (Josh, 2026-07-12). Lower = rarer.
+local PRIORITY = {
+	virtuoso = 1, toppedOff = 2, healedStupid = 3, untouchable = 4,
+	lifesaver = 5, unbreakable = 6, notOnMyWatch = 7, survivalist = 8,
+	ironWall = 9, kickKing = 10, cleanser = 11,
+	giantSlayer = 12, lawnmower = 13,
 }
 
 -- Sole top performer for a metric, requiring a minimum and no tie.
@@ -75,33 +84,41 @@ function Awards.Compute(fight)
 	if cached then
 		return cached
 	end
-	local byGuid = {}
+	local byGuid = {} -- [guid] = { key, ... } until the priority pass
 	local function grant(guid, key)
 		byGuid[guid] = byGuid[guid] or {}
-		byGuid[guid][#byGuid[guid] + 1] = Awards.LABELS[key]
+		byGuid[guid][#byGuid[guid] + 1] = key
 	end
 
-	local kicker = topUnique(fight, "interrupts", 2)
+	local kicker = topUnique(fight, "interrupts", 3)
 	if kicker then
 		grant(kicker, "kickKing")
 	end
 
-	local cleanser = topUnique(fight, "dispels", 2)
+	local cleanser = topUnique(fight, "dispels", 3)
 	if cleanser then
 		grant(cleanser, "cleanser")
 	end
 
-	-- Avoidable damage went out and you dodged all of it
+	-- Untouchable: avoidable damage hit the group and exactly ONE player
+	-- dodged every bit of it. Dodging what nobody else managed is an
+	-- award; standing in nothing on a clean fight is Tuesday.
 	if (fight.totals.avoidableTaken or 0) > 0 then
+		local clean, cleanGuid, total = 0, nil, 0
 		for guid, p in pairs(fight.players) do
+			total = total + 1
 			if (p.metrics.avoidableTaken or 0) == 0 then
-				grant(guid, "untouchable")
+				clean = clean + 1
+				cleanGuid = guid
 			end
+		end
+		if clean == 1 and total >= 3 then
+			grant(cleanGuid, "untouchable")
 		end
 	end
 
 	-- Most peer-reported defensive cooldowns (TrueParse users only)
-	local wall = topUnique(fight, "defensives", 2)
+	local wall = topUnique(fight, "defensives", 3)
 	if wall then
 		grant(wall, "ironWall")
 	end
@@ -119,26 +136,42 @@ function Awards.Compute(fight)
 	-- without it the healing is assumed outward).
 	local totalHeal = (fight.totals.healing or 0) + (fight.totals.absorbs or 0)
 	if totalHeal > 0 then
+		-- only the TOP qualifying off-healer: three DPS each over the bar
+		-- used to mean three ribbons
+		local bestGuid, bestShare
 		for guid, p in pairs(fight.players) do
 			if TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID) ~= "HEALER" then
-				local heal = (p.metrics.healing or 0) + (p.metrics.absorbs or 0)
-				if heal / totalHeal >= 0.15 then
-					local selfShare = (p.metrics.selfHealing and (p.metrics.healing or 0) > 0)
-						and (p.metrics.selfHealing / p.metrics.healing) or nil
-					if selfShare and selfShare >= 0.8 then
-						grant(guid, "unbreakable")
-					else
-						grant(guid, "lifesaver")
-					end
+				local share = ((p.metrics.healing or 0) + (p.metrics.absorbs or 0)) / totalHeal
+				if share >= 0.15 and (not bestShare or share > bestShare) then
+					bestGuid, bestShare = guid, share
 				end
 			end
 		end
+		if bestGuid then
+			local p = fight.players[bestGuid]
+			local selfShare = (p.metrics.selfHealing and (p.metrics.healing or 0) > 0)
+				and (p.metrics.selfHealing / p.metrics.healing) or nil
+			grant(bestGuid, (selfShare and selfShare >= 0.8) and "unbreakable" or "lifesaver")
+		end
 	end
 
-	-- Top damage, flavored by what died to it (no trophy for a wipe)
-	local damageKing = (not fight.wipe) and topUnique(fight, "damage", 1) or nil
-	if damageKing then
-		grant(damageKing, fight.isBoss and "giantSlayer" or "lawnmower")
+	-- Top damage, flavored by what died to it — but only a DOMINANT top:
+	-- somebody always wins the meter, and that's already the score's job.
+	-- No trophy for a wipe.
+	if not fight.wipe then
+		local best, second = 0, 0
+		local bestGuid
+		for guid, p in pairs(fight.players) do
+			local v = p.metrics.damage or 0
+			if v > best then
+				bestGuid, best, second = guid, v, best
+			elseif v > second then
+				second = v
+			end
+		end
+		if bestGuid and best > 0 and best >= second * 1.25 then
+			grant(bestGuid, fight.isBoss and "giantSlayer" or "lawnmower")
+		end
 	end
 
 	-- Healer awards: shared by every healer on the card (usually one)
@@ -153,7 +186,8 @@ function Awards.Compute(fight)
 	-- unknown is not the same as flawless
 	local noDeaths = fight.totals.deaths == 0
 
-	if fight.isBoss and noDeaths then
+	-- 90s+ only: a deathless 20-second heroic steamroll is not a save
+	if fight.isBoss and noDeaths and (fight.duration or 0) >= 90 then
 		grantHealers("notOnMyWatch")
 
 		-- Nobody under 50% the whole boss: needs the Classic health sampler's
@@ -203,6 +237,17 @@ function Awards.Compute(fight)
 				grant(guid, "virtuoso")
 			end
 		end
+	end
+
+	-- The scarcity rule: one award per player, rarest wins
+	for guid, keys in pairs(byGuid) do
+		local best = keys[1]
+		for i = 2, #keys do
+			if PRIORITY[keys[i]] < PRIORITY[best] then
+				best = keys[i]
+			end
+		end
+		byGuid[guid] = { Awards.LABELS[best] }
 	end
 
 	computeCache[fight] = byGuid

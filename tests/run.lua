@@ -461,7 +461,16 @@ for guid, list in pairs(awards) do
 		end
 	end
 end
-check(untouchableCount == 3, ("everyone who dodged all avoidable damage is Untouchable (%d)"):format(untouchableCount))
+check(untouchableCount == 0, ("no Untouchable when several players dodged (%d)"):format(untouchableCount))
+-- exactly one clean player: the sole dodger earns it, and it outranks
+-- the Cleanser they also qualified for (one award per player)
+awardFight.players.t.metrics.avoidableTaken = 30000
+awardFight.players.d2.metrics.avoidableTaken = 40000
+local soloDodge = TP.Scoring.Awards.Compute(awardFight)
+check(soloDodge.h ~= nil and #soloDodge.h == 1 and soloDodge.h[1] == "Untouchable",
+	"the sole dodger earns Untouchable, absorbing lesser awards")
+awardFight.players.t.metrics.avoidableTaken = 0
+awardFight.players.d2.metrics.avoidableTaken = 0
 
 -- 9. Coach
 local coachResults = TP.Scoring.Engine.ScoreFight(fight) -- the original synthetic fight
@@ -815,9 +824,9 @@ local function hasAward(guid, label)
 	end
 	return false
 end
-check(hasAward("h1", "Not on My Watch"), "deathless boss grants the healer Not on My Watch")
-check(hasAward("h1", "Topped Off"), "nobody under 50% grants Topped Off")
-check(hasAward("h1", "Healed Through Stupid"), "heavy avoidable + no deaths grants Healed Through Stupid")
+check(hasAward("h1", "Topped Off"), "healer's one award is the rarest earned (Topped Off)")
+check(#(roleAwards.h1 or {}) == 1, "one award per player, rarest wins")
+check(not hasAward("h1", "Not on My Watch"), "lesser awards absorbed by the rarer one")
 check(not hasAward("d1", "Not on My Watch"), "DPS never get healer awards")
 check(hasAward("d1", "Giant Slayer"), "top damage on a boss is Giant Slayer")
 check(not hasAward("d1", "Lawnmower"), "boss top damage is not Lawnmower")
@@ -831,7 +840,7 @@ check(not hasAward("h1", "Not on My Watch"), "trash pulls never grant Not on My 
 roleFight.isBoss = true
 roleAwards = TP.Scoring.Awards.Compute(roleFight)
 check(not hasAward("h1", "Topped Off"), "a sub-50% dip kills Topped Off")
-check(hasAward("h1", "Not on My Watch"), "the dip still leaves Not on My Watch")
+check(hasAward("h1", "Healed Through Stupid"), "the dip falls back to the next-rarest award")
 roleFight.players.t1.minHealthPct = nil -- retail: no health data at all
 roleAwards = TP.Scoring.Awards.Compute(roleFight)
 check(not hasAward("h1", "Topped Off"), "missing health data never grants Topped Off")
