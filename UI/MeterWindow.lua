@@ -538,8 +538,10 @@ end
 -- The window height is USER-set (resize grip); rows render into whatever
 -- fits. How many row slots the current height offers:
 local function contentSlots(rowHeight, withColHead)
+	-- bottom reserve is just the mode strip plus a hair of air: doubling
+	-- the padding left a dead band under the pinned Raid row
 	local chrome = HEADER_HEIGHT + (withColHead and COLHEAD_HEIGHT or 0)
-		+ MODE_HEIGHT + PADDING * 2
+		+ MODE_HEIGHT + PADDING
 	return math.max(1, math.floor((db().window.height - chrome) / (rowHeight + 1)))
 end
 
