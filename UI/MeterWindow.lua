@@ -277,6 +277,11 @@ local function createWindow()
 			return false
 		end
 		MenuUtil.CreateContextMenu(anchor, function(_, root)
+			-- a night of dungeon-hopping otherwise renders one screen-tall
+			-- column; cap the height and let the wheel do the rest
+			if root.SetScrollMode then
+				root:SetScrollMode(320)
+			end
 			root:CreateRadio("Current · follows new fights",
 				function() return pinnedFight == nil end,
 				function() selectFight(nil) end)
