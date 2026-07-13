@@ -5,24 +5,31 @@
 *A parse that shows you actually did your job.*
 
 TrueParse is a World of Warcraft group meter that grades players on a
-**Group Contribution Score** — a 0–100 number in the parse colors you
+**Group Contribution Score** — a 0–99 number in the parse colors you
 already know from Warcraft Logs — instead of raw damage or healing.
-Damage, effective healing, damage soaked, interrupts, dispels, avoidable
-damage, deaths, raid buffs, and pull preparation all feed a role-weighted
-score — so a tank or healer can top the card just as easily as a DPS, and
-standing in fire actually costs you.
+The score is a **verifiable WCL base plus visible adjustments**: your
+throughput measured against real Warcraft Logs percentile curves, then
+signed nudges for the rest — kicks earn more on kick-heavy fights,
+staying out of the bad gains points and standing in it costs them, and
+every bullet shows its exact impact ("Excellent interrupting (+5)").
+A tank or healer can top the card just as easily as a DPS.
 
 Supports retail (Midnight) and Mists of Pandaria Classic.
 
 ## What it does
 
-- **Post-fight scorecard**: Details-style rows with per-fight and
-  whole-run scores, a merged Raid/Group summary row, and a check mark for
-  who's running TrueParse. Hover any row for a plain-language breakdown
-  ("Excellent damage", "Did their share of dispels", "Wasted Bloodlust")
-  with percentile gauges showing exactly where you landed against your
-  spec's population — click to pin. Optional **letter grades** (F to S+)
-  via `/tp letters`.
+- **Post-fight scorecard**: Details-style ranked rows with per-fight
+  scores, run averages, the signed adjustment column, and a merged
+  Raid/Group summary row (green dot = running TrueParse). Hover any row
+  for a plain-language breakdown sorted best-to-worst — every line that
+  moved the score says by how much — with percentile gauges wherever a
+  real WCL population backs the number. Personal-best tags on new
+  records. Optional **letter grades** (F to S+) via `/tp letters`.
+- **Deep, honest detail**: interrupt coverage ("Kicked 7 of 9
+  interruptible casts" — the kickable-spell list teaches itself),
+  whether tank and healer cooldowns actually met the fight's damage
+  spikes, a WCL-style death recap on every death, dispel reaction
+  times, healer mana timelines, and Bloodlust usage.
 - **Two lenses**, switchable on the window: **TrueParse** (the full
   contribution score) or **Raw** — your true Warcraft Logs percentile
   for this exact boss, bracket, and spec. If you parse 92 on WCL, Raw
@@ -34,20 +41,25 @@ Supports retail (Midnight) and Mists of Pandaria Classic.
   should. Metrics your spec can't perform redistribute; mechanics that
   force damage onto you never count against you; fights with nothing to
   heal don't scold healers; item level is normalized (toggleable).
-- **Group kill speed**: the Raid breakdown shows how fast your kill was
-  against every ranked kill of that boss on Warcraft Logs.
+- **A real group story**: the Raid card reads like an analysis, not an
+  average — kill speed vs every ranked kill, kick coverage, deaths and
+  avoidable pressure as facts, and an execution-vs-parses verdict when
+  the group killed faster (or slower) than its meters predict.
 - **Coach line**: after bosses, one private chat line with your grade and
   the single change that would have raised it most.
-- **Awards**: Kick King, Cleanser, Untouchable, Lifesaver, Unbreakable,
-  Survivalist, Iron Wall, Giant Slayer, Virtuoso, and healer-only honors
-  like Not on My Watch — with descriptions on hover.
+- **Awards that mean something**: one per player per fight, rarest
+  wins, and winning must be earned — Untouchable goes to a sole dodger,
+  Giant Slayer needs a 25% margin, Not on My Watch needs a real fight.
 - **Career tracking** (`/tp career`), **run report cards** (`/tp run`), and
   opt-in one-line **group chat summaries** (`/tp share` — off by default,
-  be considerate).
+  be considerate). When several TrueParse users have announcements on,
+  they elect ONE announcer over the addon channel — no duplicate lines.
 - **Better together**: TrueParse users share their own combat facts
-  (defensive cooldowns used, consumables at the pull, defensives sitting
-  ready at death) over a hidden addon channel — data Blizzard hides from
-  everyone except the player themselves. Informational only, never scored.
+  (defensive cooldowns, consumables, activity, defensives sitting ready
+  at death) over a hidden addon channel — data Blizzard hides from
+  everyone except the player themselves. These nudge the score a few
+  points at most; a player without the addon still gets an accurate
+  base score, and missing data is always neutral, never a penalty.
 
 ## Install
 
@@ -65,22 +77,27 @@ report · `/tp share` post group summary · `/tp career` · `/tp trends` ·
 
 ## How scoring works (short version)
 
-Throughput grades against **Warcraft Logs percentile curves** sampled from
-the full ranked population for your spec, on that boss, in your bracket
-(10/25-player on Classic; Normal/Heroic/Mythic on retail; whole-run curves
-for M+). True mode maps the percentile through a contribution transform
-and splits the damage/healing weight by your spec's population mix on that
-exact fight; Raw is the percentile itself. When your exact spec+bracket
-has no curve, True zooms out through progressively wider populations
-(neighboring brackets, role pools, the whole tier) rather than comparing
-you against your own group — and the tooltip names the population used.
-Interrupts and dispels score against an equal share among players who can
-perform them, with low-opportunity fights smoothed so one kick isn't a
-coin flip. Penalties subtract for avoidable damage beyond an equal share,
-deaths (late deaths cost less; wipe deaths less still), threat accidents
-(5-mans only), and missing raid buffs at the pull. Inapplicable metrics
-redistribute their weight, so 100 is reachable for every role on every
-fight. The scoring engine is pure Lua with a headless test suite.
+**Score = WCL base + adjustments, capped at 99** (100 doesn't exist,
+same as Warcraft Logs). The base is what's verifiable for every player,
+addon or not: damage and healing measured against **Warcraft Logs
+percentile curves** sampled from the full ranked population for your
+spec, on that boss, in your bracket (10/25-player on Classic;
+Normal/Heroic/Mythic on retail; timed-top-run curves for dungeons),
+split per spec by its own population's damage/healing mix — plus tank
+soak share. When your exact spec+bracket has no curve, the fallback
+ladder was calibrated by measuring six million parses: your spec on
+other bosses first, then ratio-corrected neighboring difficulties,
+then role pools — and the tooltip names the population used.
+
+Everything else is a **signed, context-scaled adjustment on top**:
+kicks swing up to ±6 on a kick-heavy fight and barely register on a
+quiet one; dispels ±4; staying out of avoidable damage earns up to +3
+while eating it costs up to −15; deaths, threat accidents (5-mans),
+and missing raid buffs subtract; cooldowns that meet damage spikes,
+activity, preparation, Bloodlust usage, and combat rezzes nudge. The
+net adjustment caps at ±15, so a score never drifts far from its
+verifiable core, and every bullet shows its exact points. The scoring
+engine is pure Lua with a headless test suite.
 
 ## Known limitations
 
@@ -90,8 +107,12 @@ fight. The scoring engine is pure Lua with a headless test suite.
 - On retail, Blizzard hides other players' casts and mid-combat values
   ("secrets"), so combat-log-based extras (Bloodlust windows, damage-target
   splits, defensives for non-TrueParse players) are MoP-Classic-only.
-- Raw mode needs WCL-ranked content: unranked difficulties (Timewalking,
-  normal dungeons) fall back to True scores by design.
+- Dungeon comparisons on normal/heroic/Timewalking use the dungeon's
+  timed-top-run curves — honestly labeled as such, since WCL doesn't
+  rank those difficulties separately. Delves, follower dungeons, and
+  scenarios aren't captured at all (nothing to compare against).
+- On retail, Blizzard blocks automated chat from addons: run
+  announcements show a one-click Post prompt instead of auto-sending.
 
 Bug reports and requests: [GitHub issues](https://github.com/Rathe001/TrueParse/issues).
 
