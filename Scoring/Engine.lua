@@ -1247,7 +1247,10 @@ function Engine.ScoreFight(fight, opts)
 			name = p.name,
 			class = p.class,
 			role = role,
-			score = math.max(0, math.min(100, base + totalAdj)),
+			-- 99 cap, WCL semantics: 100 doesn't exist. The base already
+			-- tops at 99.3; without the cap the positive adjustments were
+			-- minting routine 100s (and overflowing the run column).
+			score = math.max(0, math.min(99, base + totalAdj)),
 			base = base,
 			adjust = totalAdj, -- net signed adjustment (what the card shows)
 			adjustDetail = adj, -- [key] = signed points
