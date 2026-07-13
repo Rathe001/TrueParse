@@ -1,5 +1,62 @@
 # TrueParse Changelog
 
+## 1.3.0
+
+The biggest scoring release since curves landed. All scores - history
+included - recompute under the new model, so numbers will shift once.
+MoP users: this adds new files, so fully restart the client once.
+
+**Scoring is now: WCL base + adjustments.**
+- The base is what's verifiable for every player, addon or not:
+  damage and healing vs Warcraft Logs percentile curves (split per
+  spec by its population's own mix) plus tank soak share.
+- Everything else adjusts on top, signed and context-scaled: kicks
+  swing up to +-6 on kick-heavy fights and barely register on quiet
+  ones; staying out of the bad earns points, standing in it costs
+  them; deaths, threat, activity, mitigation, consumables, and
+  Bloodlust usage all nudge. Net adjustment caps at +-15, absence of
+  addon data is always neutral, and True now tops at 99 like Raw -
+  100 does not exist.
+- The comparison ladder was rebuilt from a measured audit of 6M+
+  parses: neighbor-difficulty comparisons are ratio-corrected (error
+  down from 20-48 percentile points to 6-15), spec identity outranks
+  encounter identity in fallbacks, and the everyone-pool - wrong by
+  up to 49 points in both directions - is gone.
+- Normal/heroic dungeons now compare against the dungeon's curves,
+  labeled honestly as timed top runs; Raw lights up on seasonals.
+
+**New metrics (Classic combat log; retail where the API allows):**
+- Interrupt opportunities: casts kicked vs casts that got through,
+  with a kickable-spell list that teaches itself from every interrupt
+  anyone lands. "Kicked 7 of 9 interruptible casts."
+- Danger windows: whether tank defensives met their damage spikes and
+  healer cooldowns met the group's. Timing beats totals.
+- Death recap on the death bullet: the last hits, avoidable flagged.
+- Dispel reaction time, healer mana timeline (ran dry at 1:23),
+  combat-rez credit, overkill share, personal-best tags, and an
+  encounter-toughness context line on the group card.
+- The MoP avoidable-damage list has its first curated entries:
+  Stood in bad / Stayed out of the bad now live on Classic.
+
+**The group card tells the whole story:** role-honest verdicts (a DPS
+self-heal percentile can no longer drag "group healing" down),
+demand-aware healing lines, kick coverage, deaths and avoidable
+pressure as facts - plus execution-vs-parses analysis when the kill
+speed and the meters disagree.
+
+**Announcements:** one announcer per group (elected over the addon
+channel - no more duplicate lines when several users have it on), the
+summary line leads with the whole-group finding, the MVP line says
+why, and retail posts via a click prompt (Blizzard now blocks
+automated chat).
+
+**UI:** Details-style rows and typography, presence dots (green =
+addon, gray = not), rank-numbered names, an options cog on the
+window, click-through-in-combat option, window height that never
+exceeds its content, footer-click collapse, bullets sorted best to
+worst, cards that widen instead of truncating, and window position
+that finally survives reloads in every state.
+
 ## 1.2.8
 
 - Awards are rare again: one per player per fight (rarest wins), and
