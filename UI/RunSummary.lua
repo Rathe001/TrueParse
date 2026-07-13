@@ -179,6 +179,7 @@ function RunSummary:Report(announce)
 		if TP.Sync and TP.Sync.ShouldAnnounce and not TP.Sync:ShouldAnnounce() then
 			return
 		end
+		local lines = {}
 		if TP.Addon.db.profile.announce then
 			local mvp = results[1]
 			-- name the thing that made them MVP, not just the number
@@ -190,16 +191,77 @@ function RunSummary:Report(announce)
 					why = (TP.METRIC_LABELS[key] or key):lower()
 				end
 			end
-			SendChatMessage(("TrueParse MVP: %s %d/100%s. Group: %d/100."):format(
+			lines[#lines + 1] = ("TrueParse MVP: %s %d/100%s. Group: %d/100."):format(
 				mvp.name, math.floor(mvp.score + 0.5),
 				why and (" (%s p%d)"):format(why, bestPct + 0.5) or "",
-				math.floor(groupScore + 0.5)), groupChannel())
+				math.floor(groupScore + 0.5))
 		end
 		if TP.Addon.db.profile.announceSummary then
-			SendChatMessage(composeSummary(run, fights, results,
-				math.floor(groupScore + 0.5)), groupChannel())
+			lines[#lines + 1] = composeSummary(run, fights, results,
+				math.floor(groupScore + 0.5))
+		end
+		if #lines == 0 then
+			return
+		end
+		if TP.Compat.IS_RETAIL then
+			-- Midnight blocks SendChatMessage from addon-driven code
+			-- ("Interface action failed because of an AddOn"): posting
+			-- needs a hardware event, so offer a click instead
+			self:PromptPost(lines)
+		else
+			for _, line in ipairs(lines) do
+				SendChatMessage(line, groupChannel())
+			end
 		end
 	end
+end
+
+-- Retail post prompt: a small click-through so the send happens on a
+-- hardware event (the only path Midnight allows). Auto-dismisses.
+local prompt
+function RunSummary:PromptPost(lines)
+	if not prompt then
+		prompt = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+		prompt:SetBackdrop({
+			bgFile = "Interface\\Buttons\\WHITE8X8",
+			edgeFile = "Interface\\Buttons\\WHITE8X8",
+			edgeSize = 1,
+		})
+		prompt:SetBackdropColor(0.04, 0.04, 0.05, 1)
+		prompt:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
+		prompt:SetSize(260, 54)
+		prompt:SetPoint("TOP", UIParent, "TOP", 0, -140)
+		prompt:SetFrameStrata("DIALOG")
+		prompt.text = prompt:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		prompt.text:SetPoint("TOP", 0, -8)
+		prompt.text:SetText("Post the TrueParse run summary to group chat?")
+		local function makeBtn(label, x)
+			local b = CreateFrame("Button", nil, prompt, "UIPanelButtonTemplate")
+			b:SetSize(90, 20)
+			b:SetPoint("BOTTOM", x, 7)
+			b:SetText(label)
+			return b
+		end
+		prompt.post = makeBtn("Post", -50)
+		prompt.dismiss = makeBtn("Dismiss", 50)
+		prompt.dismiss:SetScript("OnClick", function()
+			prompt:Hide()
+		end)
+		prompt.post:SetScript("OnClick", function()
+			-- the click IS the hardware event; sending here is allowed
+			for _, line in ipairs(prompt.lines or {}) do
+				SendChatMessage(line, groupChannel())
+			end
+			prompt:Hide()
+		end)
+	end
+	prompt.lines = lines
+	prompt:Show()
+	C_Timer.After(45, function()
+		if prompt and prompt.lines == lines then
+			prompt:Hide()
+		end
+	end)
 end
 
 -- Manual share: post ONLY the one-line group summary, on demand.
