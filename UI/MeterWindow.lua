@@ -12,7 +12,7 @@ local COLHEAD_HEIGHT = 11 -- thin "fight / run" column labels (scorecard only)
 local COL_RESERVE = 78 -- right-side score columns the class bar never enters
 local MODE_HEIGHT = 16 -- bottom strip: Mode: (*)Real ( )Raw
 local PADDING = 6
-local SCORECARD_ROW_HEIGHT = 14
+local SCORECARD_ROW_HEIGHT = 20 -- Details-proportioned rows: icon = row height
 
 local window
 local activeRows = {}

@@ -61,24 +61,26 @@ function Scorecard:Acquire(parent)
 
 		-- Name ....... penalty score runAvg (white outlined name; scores in
 		-- parse-bracket colors; runAvg = dimmer cumulative True run average)
-		local function outlined(template)
+		-- Details-proportioned type: names carry the row, numbers stay
+		-- legible at a glance
+		local function outlined(template, size)
 			local fs = row:CreateFontString(nil, "OVERLAY", template)
-			local path, size = fs:GetFont()
-			fs:SetFont(path, size, "OUTLINE")
+			local path, defaultSize = fs:GetFont()
+			fs:SetFont(path, size or defaultSize, "OUTLINE")
 			return fs
 		end
-		row.runAvg = outlined("GameFontDisableSmall")
+		row.runAvg = outlined("GameFontDisableSmall", 11)
 		row.runAvg:SetPoint("RIGHT", -3, 0)
 		row.runAvg:SetWidth(20)
 		row.runAvg:SetJustifyH("RIGHT")
 		row.runAvg:SetAlpha(0.75)
 
-		row.score = outlined("GameFontNormalSmall")
+		row.score = outlined("GameFontNormalSmall", 12)
 		row.score:SetPoint("RIGHT", row.runAvg, "LEFT", -4, 0)
 		row.score:SetWidth(26)
 		row.score:SetJustifyH("RIGHT")
 
-		row.penalty = outlined("GameFontDisableSmall")
+		row.penalty = outlined("GameFontDisableSmall", 10)
 		row.penalty:SetPoint("RIGHT", row.score, "LEFT", -3, 0)
 		row.penalty:SetJustifyH("RIGHT")
 		-- fixed slot: an unconstrained width let truncated names crowd
@@ -115,10 +117,10 @@ function Scorecard:Acquire(parent)
 		-- corner, users only. Non-users are already told by the muted bar
 		-- color — marking the common case just filled the card with X's.
 		row.addonMark = row:CreateTexture(nil, "OVERLAY")
-		row.addonMark:SetSize(7, 7)
-		row.addonMark:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 1, -1)
+		row.addonMark:SetSize(10, 10)
+		row.addonMark:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 2, -2)
 
-		row.name = outlined("GameFontHighlightSmall")
+		row.name = outlined("GameFontHighlightSmall", 12)
 		row.name:SetPoint("LEFT", row.icon, "RIGHT", 3, 0)
 		row.name:SetPoint("RIGHT", row.penalty, "LEFT", -4, 0)
 		row.name:SetJustifyH("LEFT")
