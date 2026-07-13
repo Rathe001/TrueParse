@@ -977,8 +977,10 @@ function MeterWindow:RenderScorecard(fight)
 		window.scrollUp:SetShown(scrollOffset > 0)
 		local hiddenBelow = shown - (scrollOffset + visible)
 		window.scrollDown:ClearAllPoints()
+		-- hug the bottom of the whole row area (the pinned Group row
+		-- included) the same way the up arrow hugs the top
 		window.scrollDown:SetPoint("TOP", 0,
-			-(HEADER_HEIGHT + COLHEAD_HEIGHT + visible * (rowHeight + 1) - 4))
+			-(HEADER_HEIGHT + COLHEAD_HEIGHT + totalRows * (rowHeight + 1) - 4))
 		window.scrollDown:SetShown(hiddenBelow > 0)
 	end
 
