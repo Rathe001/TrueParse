@@ -14,6 +14,7 @@ local defaults = {
 			-- padding 6 + 11 row slots (10 players + the Raid row) x 21
 			width = 260, height = 290,
 			locked = false, shown = true, collapsed = false, autoCollapse = true,
+			clickThroughCombat = false,
 		},
 		coach = true,
 		toasts = true, -- on-screen flash when you earn an award

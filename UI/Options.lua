@@ -23,6 +23,12 @@ local optionsTable = {
 					get = function() return profile().window.locked end,
 					set = function(_, v) profile().window.locked = v end,
 				},
+				clickThrough = {
+					type = "toggle", order = 3, name = "Click-through in combat",
+					desc = "While fighting, mouse clicks pass through the window to the world behind it. Interaction returns when combat ends.",
+					get = function() return profile().window.clickThroughCombat end,
+					set = function(_, v) profile().window.clickThroughCombat = v end,
+				},
 				autoCollapse = {
 					type = "toggle", order = 2, name = "Auto-collapse in combat",
 					desc = TP.Compat.IS_RETAIL

@@ -66,6 +66,28 @@ local function normalizeAnchor()
 	end
 end
 
+-- Combat click-through: the window (and everything on it) stops eating
+-- mouse events so clicks land on the world behind it. EnableMouse is
+-- not a protected call, so combat toggling is safe.
+local clickThrough = false
+local function applyClickThrough(on)
+	clickThrough = on
+	if not window then
+		return
+	end
+	window:EnableMouse(not on)
+	window:EnableMouseWheel(not on)
+	for _, f in ipairs({ window.headerButton, window.fightDrop, window.cog,
+		window.footerButton, window.grip, window.modeReal, window.modeRaw }) do
+		if f then
+			f:EnableMouse(not on)
+		end
+	end
+	for _, row in ipairs(activeRows) do
+		row:EnableMouse(not on)
+	end
+end
+
 local function startDrag()
 	if not db().window.locked then
 		isDragging = true
@@ -504,6 +526,21 @@ function MeterWindow:OnEnable()
 		window:Hide()
 	end
 
+	-- own frame: AceEvent allows one handler per event per object, and
+	-- other modules already listen to the regen events on TP.Addon
+	local ctFrame = CreateFrame("Frame")
+	ctFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+	ctFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+	ctFrame:SetScript("OnEvent", function(_, event)
+		if event == "PLAYER_REGEN_DISABLED" then
+			if db().window.clickThroughCombat then
+				applyClickThrough(true)
+			end
+		else
+			applyClickThrough(false)
+		end
+	end)
+
 	TP.Addon:RegisterMessage("TrueParse_SEGMENT_CHANGED", function()
 		-- No live view on any client — when a fight starts, give the
 		-- screen back
@@ -809,6 +846,7 @@ function MeterWindow:RenderScorecard(fight)
 			row = TP.Scorecard:Acquire(window)
 			activeRows[i] = row
 		end
+		row:EnableMouse(not clickThrough)
 		row:SetSize(width, rowHeight)
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + COLHEAD_HEIGHT + (i - 1) * (rowHeight + 1)))
