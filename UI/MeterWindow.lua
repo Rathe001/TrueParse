@@ -389,8 +389,19 @@ local function createWindow()
 		fs:SetText(text)
 		return fs
 	end
-	window.colRun = colLabel("run", -(PADDING + 3), 15)
-	window.colFight = colLabel("fight", -(PADDING + 3 + 15 + 4), 30)
+	-- three-letter headers fit the content-sized columns: adjustment,
+	-- current fight, run average — plus a left-aligned name label
+	window.colRun = colLabel("avg", -(PADDING + 3), 18)
+	window.colFight = colLabel("cur", -(PADDING + 3 + 15 + 4), 18)
+	window.colAdj = colLabel("adj", -(PADDING + 3 + 15 + 4 + 17 + 6), 18)
+	window.colName = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	do
+		local path = window.colName:GetFont()
+		window.colName:SetFont(path, 9, "")
+		window.colName:SetPoint("TOPLEFT", PADDING + 2, -(HEADER_HEIGHT - 1))
+		window.colName:SetTextColor(0.55, 0.55, 0.55)
+		window.colName:SetText("name")
+	end
 
 	window.modeReal = makeRadio("TrueParse", "contribution",
 		"Considers damage, healing, damage taken, interrupts, and much more compared to others of your same spec and role.")
@@ -622,6 +633,8 @@ local function setWindowHeight(withColHead, maxHeight)
 	if window.colFight then
 		window.colFight:SetShown(withColHead and true or false)
 		window.colRun:SetShown(withColHead and true or false)
+		window.colAdj:SetShown(withColHead and true or false)
+		window.colName:SetShown(withColHead and true or false)
 	end
 	-- presence-mark legend only makes sense on the scorecard; it shares
 	-- the bottom line with the radios, so no extra height
@@ -1156,6 +1169,8 @@ local function refreshImpl(self, force)
 		if window.colFight then
 			window.colFight:Hide()
 			window.colRun:Hide()
+			window.colAdj:Hide()
+			window.colName:Hide()
 		end
 		-- screen-half pinning (no pinTop): top half keeps the title bar in
 		-- place, bottom half collapses DOWN to the window's bottom edge.
