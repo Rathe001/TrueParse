@@ -1,5 +1,12 @@
 # TrueParse Changelog
 
+## 1.2.7
+
+- MoP Classic clients on 5.5.4 no longer flag the addon "out of date"
+  (which silently blocks loading unless "Load out of date AddOns" is
+  checked - if TrueParse seems missing after install, that checkbox in
+  the AddOns list is the workaround).
+
 ## 1.2.6
 
 - Fight picker: a "Current" entry follows whatever is happening (the
