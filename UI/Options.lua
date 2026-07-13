@@ -46,46 +46,11 @@ local optionsTable = {
 					get = function() return profile().toasts end,
 					set = function(_, v) profile().toasts = v end,
 				},
-				maxRows = {
-					type = "range", order = 3, name = "Max rows",
-					desc = "How many players the scorecard shows.",
-					min = 5, max = 25, step = 1,
-					get = function() return profile().bars.max end,
-					set = function(_, v)
-						profile().bars.max = v
-						TP.MeterWindow:Invalidate()
-					end,
-				},
 			},
 		},
-		scoring = {
-			type = "group", inline = true, name = "Scoring", order = 2,
-			args = {
-				mode = {
-					type = "select", order = 0, name = "Score mode", width = "double",
-					desc = "TrueParse: the full score - damage, healing, kicks, dispels, soaking, minus penalties. Raw: pure damage (healing for healers) measured against Warcraft Logs parses for your spec on this fight. Career, coach, and run reports always use TrueParse. Also switchable on the window itself.",
-					values = {
-						contribution = "TrueParse (everything counts)",
-						parse = "Raw (throughput vs Warcraft Logs)",
-					},
-					get = function() return profile().scoring.mode end,
-					set = function(_, v)
-						profile().scoring.mode = v
-						TP.MeterWindow:UpdateModeButtons()
-						TP.MeterWindow:Invalidate()
-					end,
-				},
-				ilvl = {
-					type = "toggle", order = 1, name = "Normalize by item level", width = "full",
-					desc = "Grade throughput relative to gear: a low-ilvl player doing the same output as a high-ilvl one grades higher. Off compares absolute output.",
-					get = function() return profile().scoring.normalizeIlvl end,
-					set = function(_, v)
-						profile().scoring.normalizeIlvl = v
-						TP.MeterWindow:Invalidate()
-					end,
-				},
-			},
-		},
+		-- (Scoring section removed 2026-07-13: the window's own radios
+		-- switch the lens, ilvl normalization is simply how scoring works,
+		-- and the resizable window replaced the max-rows cap.)
 		chat = {
 			type = "group", inline = true, name = "Chat", order = 3,
 			args = {

@@ -280,7 +280,8 @@ function RunSummary:Share()
 	for _, r in ipairs(results) do
 		sum = sum + r.score
 	end
-	local line = composeSummary(run, #fights, results, math.floor(sum / #results + 0.5))
+	-- user-initiated (button/slash = hardware event): direct send is fine
+	local line = composeSummary(run, fights, results, math.floor(sum / #results + 0.5))
 	if IsInGroup() then
 		SendChatMessage(line, groupChannel())
 	else

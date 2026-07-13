@@ -743,9 +743,10 @@ function MeterWindow:RenderScorecard(fight)
 			window.modeRaw:Disable()
 		end
 	end
-	local conf = db().bars
 	local rowHeight = SCORECARD_ROW_HEIGHT
-	local shown = math.min(#results, conf.max)
+	-- no artificial row cap: window height decides what fits, the wheel
+	-- scrolls the rest (the old Max-rows option is gone)
+	local shown = #results
 	local width = db().window.width - PADDING * 2
 	local hasFooter = #results >= 3
 
