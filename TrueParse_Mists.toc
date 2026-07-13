@@ -1,4 +1,4 @@
-## Interface: 50500, 50504
+## Interface: 50504
 ## Title: TrueParse
 ## Notes: A parse that shows you actually did your job. Group contribution meter.
 ## Author: Josh
