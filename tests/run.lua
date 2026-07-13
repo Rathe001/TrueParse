@@ -621,7 +621,7 @@ end
 check(fiveKick.text == "Godly interrupting", "5+ kicks is godly")
 bulletResult.breakdown.interrupts.value = 1
 check(bullets[4].text == "Little off-healing" and bullets[4].symbol == "-", "weak DPS healing phrased as off-healing")
-check(bullets[5].kind == "penalty" and bullets[5].text == "Died", "penalty bullet human")
+check(bullets[5].kind == "penalty" and bullets[5].text:find("^Died"), "penalty bullet human (now with points)")
 bulletResult.breakdown.interrupts.normalized = 0
 bulletResult.breakdown.interrupts.value = 0
 local zeroBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil)
@@ -691,14 +691,24 @@ for _, b in ipairs(defBullets) do
 	if b.kind == "info" then defText = b.text end
 end
 check(defText == "Used 3 defensive cooldowns", ("defensive info bullet (%s)"):format(tostring(defText)))
+-- zero defensives is the MEDIAN player's fight (2026-07-13 audit): only
+-- worth a line when the player died, and neutral even then
 local zeroDefBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { defensives = 0 })
-local zeroDefOk = false
+local zeroDefShown = false
 for _, b in ipairs(zeroDefBullets) do
+	if b.key == "defensives" then
+		zeroDefShown = true
+	end
+end
+check(not zeroDefShown, "zero defensives says nothing when the player lived")
+local diedDefBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { defensives = 0, died = true })
+local zeroDefOk = false
+for _, b in ipairs(diedDefBullets) do
 	if b.kind == "info" and b.text == "No defensive cooldowns used" and b.symbol ~= "-" then
 		zeroDefOk = true
 	end
 end
-check(zeroDefOk, "zero defensives is neutral, not red")
+check(zeroDefOk, "zero defensives is neutral (not red) when they died")
 local noDefBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, nil)
 for _, b in ipairs(noDefBullets) do
 	check(b.kind ~= "info", "no report -> no defensives bullet")
@@ -790,8 +800,8 @@ check(byName.Ripper.penaltyDetail.aggroLoss == 0, "DPS never pay the tank-loss p
 local threatBullets = TP.Scoring.Bullets.ForResult(byName.Ripper, nil)
 local sawPull, sawRip = false, false
 for _, b in ipairs(threatBullets) do
-	if b.kind == "penalty" and b.key == "pull" then sawPull = (b.text == "Pulled before the tank") end
-	if b.kind == "penalty" and b.key == "aggro" then sawRip = (b.text == "Ripped aggro off the tank") end
+	if b.kind == "penalty" and b.key == "pull" then sawPull = (b.text:find("^Pulled before the tank") ~= nil) end
+	if b.kind == "penalty" and b.key == "aggro" then sawRip = (b.text:find("^Ripped aggro off the tank") ~= nil) end
 end
 check(sawPull, "pull penalty bullet phrased")
 check(sawRip, "rip penalty bullet phrased")
@@ -1493,7 +1503,7 @@ adjFight.players.k.metrics.lustCasts = nil
 adjFight.players.k.metrics.lustPotion = nil
 adjFight.players.k.role = "TANK"
 adjFight.players.k.specID = 73 -- spec outranks assigned role: must be a tank spec
-adjFight.players.k.metrics.spikeCdCoverage = 1.0
+adjFight.players.k.metrics.spikeCovered = 3
 adjFight.players.k.metrics.spikeWindows = 3
 for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { normalizeIlvl = false })) do
 	if r.name == "Kicker" then
@@ -1509,7 +1519,7 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { normalizeIlvl = fals
 end
 adjFight.players.k.role = "DAMAGER"
 adjFight.players.k.specID = 63
-adjFight.players.k.metrics.spikeCdCoverage = nil
+adjFight.players.k.metrics.spikeCovered = nil
 adjFight.players.k.metrics.spikeWindows = nil
 
 -- Raw mode: pure percentile, zero adjustments, no count metrics

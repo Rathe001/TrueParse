@@ -1197,15 +1197,15 @@ function Engine.ScoreFight(fight, opts)
 			if (m.deaths or 0) > 0 and (p.deathReadyDefensives or 0) >= 2 then
 				put("deathReady", -(A.readyAtDeathPenalty or 0))
 			end
-			-- cooldown timing: fraction of danger windows covered (Classic
-			-- CLEU computes it for everyone; retail players self-report).
+			-- cooldown timing: share of danger windows a cooldown covered
+			-- (Classic CLEU computes it for everyone; retail self-reports).
 			-- Needs 2+ windows: one window is a coin flip, not a pattern.
-			if role == "TANK" and m.spikeCdCoverage and (m.spikeWindows or 0) >= 2 then
-				put("cdTiming", ramp(m.spikeCdCoverage, A.cdTimingLow or 0.25,
-					A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
-			elseif role == "HEALER" and m.groupSpikeCdCoverage and (m.groupSpikeWindows or 0) >= 2 then
-				put("cdTiming", ramp(m.groupSpikeCdCoverage, A.cdTimingLow or 0.25,
-					A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
+			if role == "TANK" and (m.spikeWindows or 0) >= 2 then
+				put("cdTiming", ramp((m.spikeCovered or 0) / m.spikeWindows,
+					A.cdTimingLow or 0.25, A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
+			elseif role == "HEALER" and (m.groupSpikeWindows or 0) >= 2 then
+				put("cdTiming", ramp((m.groupSpikeCovered or 0) / m.groupSpikeWindows,
+					A.cdTimingLow or 0.25, A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
 			end
 			-- lust alignment (DPS): windows happened and we saw their casts
 			if role == "DAMAGER" and m.lustCasts ~= nil then

@@ -136,7 +136,16 @@ local function showMetricTip(anchor, data)
 	end
 	metricTip:SetHeight(wclBacked and 108 or 76)
 
-	metricTip.footer:SetText(data.footerText or ("score %d · worth %d%% of the grade"):format(
+	local footer = data.footerText
+	if not footer and COUNT_METRICS[key] and (b.weight or 0) == 0 then
+		-- count metrics adjust the score instead of weighting into it
+		if b.adjust then
+			footer = ("%+.0f points · scaled by the fight's volume"):format(b.adjust)
+		else
+			footer = "no score impact this fight"
+		end
+	end
+	metricTip.footer:SetText(footer or ("score %d · worth %d%% of the grade"):format(
 		b.normalized or 0, (b.effectiveWeight or 0) * 100))
 
 	metricTip:ClearAllPoints()
@@ -303,15 +312,17 @@ local function infoHelp()
 			adds = "Share of this player's damage that went into non-boss targets. Whether that's right depends on the fight - context, not a judgment.",
 			tankFocus = "Share of this healer's output that landed on tanks.",
 			defensives = TP.Compat.IS_RETAIL
-				and "Major defensive cooldowns used this fight, reported by the player's own TrueParse. Informational only - not scored."
-				or "Major defensive cooldowns used this fight, read from the combat log. Informational only - not scored.",
-			consumables = "Long-duration buffs (flask, food, rune) detected on this player at pull start, self-reported by their TrueParse. Informational only - not scored.",
-			deathReady = "At the moment they died, this many major defensive cooldowns were available and unused. Self-reported by their TrueParse. Informational only - not scored.",
-			lust = "Offensive cooldowns and DPS potions cast inside the 40s Bloodlust/Heroism window, read from the combat log. Stacking them there is free extra output. Informational only - not scored.",
-			activity = "Share of the fight spent actually doing things (casting, attacking) - the always-be-casting number. A rough proxy: movement-heavy fights read lower for everyone. Informational only - not scored.",
+				and "Major defensive cooldowns used this fight, reported by the player's own TrueParse. Using 2+ adds a couple of points on top of the base score."
+				or "Major defensive cooldowns used this fight, read from the combat log. Using 2+ adds a couple of points on top of the base score.",
+			consumables = "Long-duration buffs (flask, food, rune) detected on this player at pull start, self-reported by their TrueParse. Full preparation adds a point.",
+			deathReady = "At the moment they died, this many major defensive cooldowns were available and unused. Self-reported by their TrueParse. Dying with 2+ ready costs a few points.",
+			lust = "Offensive cooldowns and DPS potions cast inside the 40s Bloodlust/Heroism window. Stacking them there is free extra output - it adds or costs a few points.",
+			activity = "Share of the fight spent actually doing things (casting, attacking) - the always-be-casting number. Nudges the score a few points either way; movement-heavy fights read lower for everyone.",
 			overheal = "Share of raw healing that landed on already-full health bars. Some overhealing is normal and safe; big numbers on hard fights suggest snipe-heavy targeting. Informational only - not scored.",
 			offensives = "Major offensive cooldowns cast this fight, read from the combat log. Informational only - not scored.",
-			mitigation = "Share of the fight with an active-mitigation buff up (Shuffle, Shield Block/Barrier, Shield of the Righteous, Savage Defense, Blood Shield). Expected uptime varies by spec - context, not a judgment. Informational only - not scored.",
+			mitigation = "Share of the fight with an active-mitigation buff up (Shuffle, Shield Block/Barrier, Shield of the Righteous, Savage Defense, Blood Shield). Nudges a tank's score a few points either way.",
+			avoidable = "Took at most an even share of the group's avoidable damage while it was actually going out. Clean play earns a few points on top of the base.",
+			cdTiming = "Danger windows are the fight's damage spikes; this counts how many had a defensive or healing cooldown active inside them. Timing beats total usage - it adjusts the score a few points either way.",
 		}
 	end
 	return INFO_HELP
@@ -370,6 +381,12 @@ function Panel:ShowFor(fight, result)
 			overhealPct = m.overhealPct,
 			offensiveCDs = m.offensiveCDs,
 			mitigationPct = m.mitigationPct,
+			-- cooldown timing vs danger windows + death context
+			spikeWindows = m.spikeWindows,
+			spikeCovered = m.spikeCovered,
+			groupSpikeWindows = m.groupSpikeWindows,
+			groupSpikeCovered = m.groupSpikeCovered,
+			died = (m.deaths or 0) > 0,
 		}
 	end
 	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)

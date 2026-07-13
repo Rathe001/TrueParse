@@ -55,12 +55,23 @@ local PENALTY_DEFS = {
 	{ key = "buffs", label = "Raid buff missing at the pull" },
 }
 
+-- Signed point tag for bullets whose metric adjusts the score
+-- (2026-07-13 redesign): cause and effect on the same line.
+local function pts(points)
+	if not points or math.abs(points) < 0.5 then
+		return ""
+	end
+	local n = points >= 0 and math.floor(points + 0.5) or -math.floor(-points + 0.5)
+	return (" (%+d)"):format(n)
+end
+
 -- result: one engine score row; awards: array of award names (optional);
 -- extra: optional { defensives = n } peer-reported data (unscored info).
 -- Returns array of { kind = "metric"|"penalty"|"award"|"info", key, symbol,
 -- color = {r,g,b}, text }
 function Bullets.ForResult(result, awards, extra)
 	local out = {}
+	local ad = result.adjustDetail or {}
 
 	-- Trophies first
 	for _, award in ipairs(awards or {}) do
@@ -109,8 +120,18 @@ function Bullets.ForResult(result, awards, extra)
 			if n == 0 then
 				text, symbol, color = phrases.zero, MIDDOT, MID
 			else
-				local staticScore = (n >= 5 and 96) or (n == 4 and 80)
-					or (n == 3 and 60) or (n == 2 and 30) or 10
+				-- tier scales are quantile-anchored per metric (2026-07-13
+				-- fight-history audit): kick tiers 1/2/3/4/5+ already match
+				-- real kicker quantiles; dispels come in volleys (median
+				-- dispeller does 4, p90 does 10) and need their own scale
+				local staticScore
+				if key == "interrupts" then
+					staticScore = (n >= 5 and 96) or (n == 4 and 80)
+						or (n == 3 and 60) or (n == 2 and 30) or 10
+				else
+					staticScore = (n >= 13 and 96) or (n >= 10 and 80)
+						or (n >= 7 and 60) or (n >= 4 and 30) or 10
+				end
 				if staticScore < 60 and (b.normalized or 0) >= 90 then
 					-- a low count on a fight that barely offered any: the
 					-- share score says they covered it ("Too few dispels"
@@ -123,6 +144,9 @@ function Bullets.ForResult(result, awards, extra)
 					text, symbol, color = phrases[sTier], sSymbol, tierColor(staticScore)
 				end
 			end
+			-- the score impact rides the same line, scaled by how much of
+			-- this mechanic the fight actually had
+			text = text .. pts(b.adjust)
 		end
 		if b.lowDemand then
 			-- floored: the fight barely needed healing, don't scold or gush
@@ -131,18 +155,26 @@ function Bullets.ForResult(result, awards, extra)
 		out[#out + 1] = { kind = "metric", key = key, symbol = symbol, color = color, text = text }
 	end
 
-	-- WoWAnalyzer-style basics: informational, never scored
+	-- Staying clean earned points: say so (the negative twin lives in the
+	-- penalty bullets as "Stood in bad")
+	if (ad.avoidable or 0) > 0 then
+		out[#out + 1] = { kind = "info", key = "avoidable", symbol = "+", color = GOOD,
+			text = "Stayed out of the bad" .. pts(ad.avoidable) }
+	end
+
+	-- WoWAnalyzer-style basics (addon-reported; they nudge the score now)
 	if extra and extra.activityPct then
 		local pct = extra.activityPct
+		local tag = pts(ad.activity)
 		if pct >= 90 then
 			out[#out + 1] = { kind = "info", key = "activity", symbol = "+", color = GOOD,
-				text = ("Active %d%% of the fight"):format(pct) }
+				text = ("Active %d%% of the fight"):format(pct) .. tag }
 		elseif pct >= 75 then
 			out[#out + 1] = { kind = "info", key = "activity", symbol = MIDDOT, color = MID,
-				text = ("Active %d%% of the fight"):format(pct) }
+				text = ("Active %d%% of the fight"):format(pct) .. tag }
 		else
 			out[#out + 1] = { kind = "info", key = "activity", symbol = "-", color = BAD,
-				text = ("Active %d%% of the fight"):format(pct) }
+				text = ("Active %d%% of the fight"):format(pct) .. tag }
 		end
 	end
 	if extra and extra.overhealPct and result.role == "HEALER" then
@@ -156,24 +188,55 @@ function Bullets.ForResult(result, awards, extra)
 	end
 	if extra and extra.mitigationPct and result.role == "TANK" then
 		local pct = extra.mitigationPct
+		local tag = pts(ad.mitigation)
 		if pct >= 70 then
 			out[#out + 1] = { kind = "info", key = "mitigation", symbol = "+", color = GOOD,
-				text = ("Active mitigation up %d%%"):format(pct) }
+				text = ("Active mitigation up %d%%"):format(pct) .. tag }
 		elseif pct >= 40 then
 			out[#out + 1] = { kind = "info", key = "mitigation", symbol = MIDDOT, color = MID,
-				text = ("Active mitigation up %d%%"):format(pct) }
+				text = ("Active mitigation up %d%%"):format(pct) .. tag }
 		else
 			out[#out + 1] = { kind = "info", key = "mitigation", symbol = "-", color = BAD,
-				text = ("Active mitigation up %d%%"):format(pct) }
+				text = ("Active mitigation up %d%%"):format(pct) .. tag }
 		end
 	end
 
-	-- Peer-reported facts: informational, never scored
+	-- Cooldown timing vs the fight's danger windows (Classic CLEU sees
+	-- everyone; retail players self-report their own)
+	if extra and (extra.spikeWindows or 0) >= 2 and result.role == "TANK" then
+		local covered = extra.spikeCovered or 0
+		local a = ad.cdTiming or 0
+		local sym, col = MIDDOT, MID
+		if a > 0 then
+			sym, col = "+", GOOD
+		elseif a < 0 then
+			sym, col = "-", BAD
+		end
+		out[#out + 1] = { kind = "info", key = "cdTiming", symbol = sym, color = col,
+			text = ("Cooldowns met %d of %d damage spikes"):format(covered, extra.spikeWindows) .. pts(a) }
+	end
+	if extra and (extra.groupSpikeWindows or 0) >= 2 and result.role == "HEALER" then
+		local covered = extra.groupSpikeCovered or 0
+		local a = ad.cdTiming or 0
+		local sym, col = MIDDOT, MID
+		if a > 0 then
+			sym, col = "+", GOOD
+		elseif a < 0 then
+			sym, col = "-", BAD
+		end
+		out[#out + 1] = { kind = "info", key = "cdTiming", symbol = sym, color = col,
+			text = ("Cooldowns met %d of %d raid-damage spikes"):format(covered, extra.groupSpikeWindows) .. pts(a) }
+	end
+
+	-- Peer-reported facts
 	if extra and extra.defensives ~= nil then
 		if extra.defensives > 0 then
 			out[#out + 1] = { kind = "info", key = "defensives", symbol = "+", color = GOOD,
-				text = extra.defensives == 1 and "Used a defensive cooldown" or ("Used %d defensive cooldowns"):format(extra.defensives) }
-		else
+				text = (extra.defensives == 1 and "Used a defensive cooldown"
+					or ("Used %d defensive cooldowns"):format(extra.defensives)) .. pts(ad.defensives) }
+		elseif extra.died then
+			-- zero is the MEDIAN player's night (2026-07-13 audit) — only
+			-- worth a line when it plausibly mattered
 			out[#out + 1] = { kind = "info", key = "defensives", symbol = MIDDOT, color = MID,
 				text = "No defensive cooldowns used" }
 		end
@@ -182,7 +245,7 @@ function Bullets.ForResult(result, awards, extra)
 		if extra.consumables >= 2 then
 			-- being prepared is praiseworthy for anyone, anywhere
 			out[#out + 1] = { kind = "info", key = "consumables", symbol = "+", color = GOOD,
-				text = "Came prepared (flask/food up)" }
+				text = "Came prepared (flask/food up)" .. pts(ad.prepared) }
 		elseif not extra.isRetail
 			and (result.role == "DAMAGER" or result.role == "SUPPORT") then
 			-- ...but the EXPECTATION is Classic DPS culture only: tanks and
@@ -203,13 +266,13 @@ function Bullets.ForResult(result, awards, extra)
 	if extra and extra.lustCasts ~= nil and result.role == "DAMAGER" then
 		if extra.lustCasts > 0 and (extra.lustPotion or 0) > 0 then
 			out[#out + 1] = { kind = "info", key = "lust", symbol = "+", color = GOOD,
-				text = "Made the most of Bloodlust (cooldowns + potion)" }
+				text = "Made the most of Bloodlust (cooldowns + potion)" .. pts(ad.lust) }
 		elseif extra.lustCasts > 0 then
 			out[#out + 1] = { kind = "info", key = "lust", symbol = "+", color = GOOD,
-				text = "Used cooldowns during Bloodlust" }
+				text = "Used cooldowns during Bloodlust" .. pts(ad.lust) }
 		else
 			out[#out + 1] = { kind = "info", key = "lust", symbol = "-", color = BAD,
-				text = "Wasted Bloodlust - no cooldowns used" }
+				text = "Wasted Bloodlust - no cooldowns used" .. pts(ad.lust) }
 		end
 	end
 	-- Target-split facts (CLEU, Classic): neutral context, not judgments —
@@ -226,8 +289,8 @@ function Bullets.ForResult(result, awards, extra)
 	if extra and extra.deathReady ~= nil then
 		if extra.deathReady > 0 then
 			out[#out + 1] = { kind = "info", key = "deathReady", symbol = "-", color = BAD,
-				text = extra.deathReady == 1 and "Died with a defensive ready"
-					or ("Died with %d defensives ready"):format(extra.deathReady) }
+				text = (extra.deathReady == 1 and "Died with a defensive ready"
+					or ("Died with %d defensives ready"):format(extra.deathReady)) .. pts(ad.deathReady) }
 		else
 			out[#out + 1] = { kind = "info", key = "deathReady", symbol = MIDDOT, color = MID,
 				text = "Died with everything on cooldown" }
@@ -238,7 +301,8 @@ function Bullets.ForResult(result, awards, extra)
 	for _, def in ipairs(PENALTY_DEFS) do
 		local amount = pd[def.key] or 0
 		if amount > 0 then
-			out[#out + 1] = { kind = "penalty", key = def.key, symbol = "-", color = BAD, text = def.label }
+			out[#out + 1] = { kind = "penalty", key = def.key, symbol = "-", color = BAD,
+				text = def.label .. pts(-amount) }
 		end
 	end
 

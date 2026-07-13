@@ -845,7 +845,15 @@ function MeterWindow:RenderScorecard(fight)
 		end
 		row.score:SetText((approx and "~" or "") .. TP.Scoring.Grades.ScoreLabel(r.score))
 		row.score:SetTextColor(gcr, gcg, gcb)
-		row.penalty:SetText(r.penalty > 0 and ("|cffff4444-%.0f|r"):format(r.penalty) or "")
+		-- signed net adjustment on top of the WCL base: green earns, red costs
+		local netAdj = r.adjust or -(r.penalty or 0)
+		if netAdj >= 0.5 then
+			row.penalty:SetText(("|cff44cc44+%.0f|r"):format(netAdj))
+		elseif netAdj <= -0.5 then
+			row.penalty:SetText(("|cffff4444-%.0f|r"):format(-netAdj))
+		else
+			row.penalty:SetText("")
+		end
 
 		-- cumulative True run average, dimmed, far right (True currency in
 		-- both modes: the distinct dimmed column carries the distinction)
@@ -898,12 +906,18 @@ function MeterWindow:RenderScorecard(fight)
 		row.name:SetTextColor(1, 1, 1)
 		row.score:SetText(TP.Scoring.Grades.ScoreLabel(groupScore))
 		row.score:SetTextColor(sr, sg, sb)
-		-- the group's combined penalties, same shape as player rows
-		local penaltySum = 0
+		-- the group's combined net adjustment, same shape as player rows
+		local adjSum = 0
 		for _, r in ipairs(results) do
-			penaltySum = penaltySum + (r.penalty or 0)
+			adjSum = adjSum + (r.adjust or -(r.penalty or 0))
 		end
-		row.penalty:SetText(penaltySum > 0 and ("|cffff4444-%.0f|r"):format(penaltySum) or "")
+		if adjSum >= 0.5 then
+			row.penalty:SetText(("|cff44cc44+%.0f|r"):format(adjSum))
+		elseif adjSum <= -0.5 then
+			row.penalty:SetText(("|cffff4444-%.0f|r"):format(-adjSum))
+		else
+			row.penalty:SetText("")
+		end
 		if runScore then
 			row.runAvg:SetText(TP.Scoring.Grades.ScoreLabel(runScore))
 			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runScore))
