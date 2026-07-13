@@ -14,23 +14,60 @@ TP.Scoring = TP.Scoring or {}
 local Weights = {}
 TP.Scoring.Weights = Weights
 
--- Positive metric weights per role; each row sums to 1.0 (asserted by
--- tests). Metrics a player can't act on (no kicks possible, nothing to
--- dispel, not a tank) go inapplicable and renormalize.
+-- BASE weights per role; each row sums to 1.0 (asserted by tests).
+-- 2026-07-13 redesign: the base holds ONLY evidence available for every
+-- player regardless of the addon — WCL percentile curves for damage and
+-- healing (split per spec by its population's own median mix) and the
+-- meter's damage-taken share for tanks. Kicks, dispels, and every
+-- addon-reported metric moved to Weights.adjustments: signed nudges on
+-- top of the base, so a player without the addon still grades
+-- accurately on what we can verify. Ratios preserve the old
+-- damage:healing:taken proportions per role.
 Weights.roleWeights = {
-	TANK    = { damage = 0.25, healing = 0.10, damageTaken = 0.35, interrupts = 0.20, dispels = 0.10 },
-	HEALER  = { damage = 0.15, healing = 0.55, interrupts = 0.15, dispels = 0.15 },
-	-- healing 0.15 -> 0.10 (2026-07-07 field data: 47% of DPS log zero
-	-- off-healing, dragging DPS ~18 pts below healers; the incentive stays,
-	-- the drag shrinks). interrupts 0.25 -> 0.18 (2026-07-09 audit: DPS
-	-- averaged 30/100 on kicks - a noisy winner-take-all metric was a
-	-- quarter of their grade and the main reason DPS trailed other roles).
-	DAMAGER = { damage = 0.60, healing = 0.10, interrupts = 0.18, dispels = 0.12 },
+	TANK    = { damage = 0.36, healing = 0.14, damageTaken = 0.50 },
+	HEALER  = { damage = 0.21, healing = 0.79 },
+	DAMAGER = { damage = 0.86, healing = 0.14 },
 	-- Augmentation & friends: personal damage is a small, expected slice
-	-- (their real output lives in allies' numbers). Their defining metric is
-	-- buff uptime, self-reported over Sync when the Aug runs TrueParse; when
-	-- absent it redistributes to roughly the old utility-heavy split.
-	SUPPORT = { damage = 0.25, healing = 0.10, buffUptime = 0.35, interrupts = 0.20, dispels = 0.10 },
+	-- (their real output lives in allies' numbers). Their defining metric
+	-- is buff uptime, self-reported over Sync when the Aug runs
+	-- TrueParse; when absent it redistributes.
+	SUPPORT = { damage = 0.36, healing = 0.14, buffUptime = 0.50 },
+}
+
+-- Signed adjustments on TOP of the base. Bounded so a score never
+-- drifts far from its verifiable core, and context-scaled: kicks on a
+-- 12-kick fight swing the full range, on a 1-kick fight they barely
+-- move. Reference intensities and ramps come from the 2026-07-13
+-- fight-history distributions (123 real boss fights).
+Weights.adjustments = {
+	totalCap = 15, -- |net adjustment| ceiling
+	-- count metrics (meter data, everyone): share-vs-even-share lean,
+	-- scaled by the fight's own volume of that mechanic
+	kicksMax = 6,
+	kicksFullIntensity = 6, -- group kicks at which a fight is "kick-heavy" (p90)
+	dispelsMax = 4,
+	dispelsFullIntensity = 8,
+	shareCenter = 55, -- smoothed share score that reads as "did your part"
+	-- avoidable damage (meter data, everyone): clean play earns a little,
+	-- standing in bad costs up to the old penalty cap
+	avoidableCleanBonus = 3,
+	avoidablePressureRef = 0.10, -- avoidable/taken share = full pressure (p95)
+	-- addon-reported extras (absence is neutral, never a penalty)
+	activityMax = 4,
+	activityLow = 70, -- real p25
+	activityHigh = 89, -- real p75
+	mitigationMax = 4,
+	mitigationLow = 40,
+	mitigationHigh = 70,
+	preparedBonus = 1, -- flask + food at the pull
+	defensivesBonus = 2, -- used 2+ defensives (real p90 behavior)
+	readyAtDeathPenalty = 3, -- died with 2+ defensives sitting unused
+	-- cooldown timing (Classic CLEU for everyone; retail self-reports):
+	-- fraction of danger windows a cooldown actually covered
+	cdTimingMax = 5,
+	cdTimingLow = 0.25,
+	cdTimingHigh = 0.75,
+	lustMax = 3, -- DPS cooldown+potion alignment inside lust windows
 }
 
 -- Buff uptime that earns a SUPPORT player 100 points: elite Augs hold Ebon

@@ -212,8 +212,8 @@ for _, r in ipairs(upResults) do
 end
 check(upAug.breakdown.buffUptime.applicable, "reported uptime is scored")
 check(upAug.breakdown.buffUptime.normalized == 100, "60% uptime hits the anchor: 100")
-check(math.abs(upAug.breakdown.buffUptime.effectiveWeight - 0.35) < 1e-9,
-	"uptime is the biggest SUPPORT weight (35%)")
+check(math.abs(upAug.breakdown.buffUptime.effectiveWeight - 0.50) < 1e-9,
+	"uptime is the biggest SUPPORT weight (50% of the base)")
 check(upAug.score > augByName.Auggy.score, "a high-uptime aug outscores the no-data version")
 augFight.players.aug.metrics.buffUptime = 0.30
 local halfResults = TP.Scoring.Engine.ScoreFight(augFight)
@@ -1309,13 +1309,14 @@ end
 TP.Percentiles.encounters["Percentile Boss"]["3x10"].hps[63] =
 	{ n = 1000, curve = { { 99, 60 }, { 95, 55 }, { 90, 50 }, { 75, 40 }, { 50, 25 }, { 25, 15 }, { 10, 10 } } }
 -- mage 63: dps p50 = 500, hps p50 = 25 -> mix = 25/525 ~ 4.76% of the
--- DAMAGER budget (.60 + .10 = .70): healing ~ .0333, damage ~ .6667
+-- DAMAGER budget (now the FULL base: .86 + .14 = 1.0 since count metrics
+-- moved to adjustments): healing ~ .0476, damage ~ .9524
 local profiled = TP.Scoring.Engine.ScoreFight(pctFight, { normalizeIlvl = false })
 for _, r in ipairs(profiled) do
 	if r.name == "Deeps" then
-		check(math.abs(r.breakdown.damage.weight - 0.6667) < 0.001,
+		check(math.abs(r.breakdown.damage.weight - 0.9524) < 0.001,
 			("spec profile: damage weight from median mix (%.4f)"):format(r.breakdown.damage.weight))
-		check(math.abs(r.breakdown.healing.weight - 0.0333) < 0.001,
+		check(math.abs(r.breakdown.healing.weight - 0.0476) < 0.001,
 			("spec profile: healing weight ~5%% of budget (%.4f)"):format(r.breakdown.healing.weight))
 	end
 end
@@ -1424,6 +1425,97 @@ if svPath then
 			end
 		end
 	end
+end
+
+-- 20. Base + adjustments (2026-07-13 redesign): the base is the WCL
+-- story; everything else nudges it — signed, context-scaled, capped.
+local adjFight = {
+	name = "(!) Adjust Boss", isBoss = true, duration = 120,
+	players = {
+		k = { guid = "k", name = "Kicker", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 50000, healing = 0, interrupts = 6, dispels = 0, deaths = 0,
+				avoidableTaken = 0, damageTaken = 10000 } },
+		s = { guid = "s", name = "Slacker", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 50000, healing = 0, interrupts = 0, dispels = 0, deaths = 0,
+				avoidableTaken = 30000, damageTaken = 40000 } },
+	},
+}
+local adjByName = {}
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { normalizeIlvl = false })) do
+	adjByName[r.name] = r
+end
+check(math.abs((adjByName.Kicker.adjustDetail.kicks or 0) - 6) < 0.1,
+	("kick-heavy fight, every kick: full +6 (%.1f)"):format(adjByName.Kicker.adjustDetail.kicks or 0))
+check(math.abs((adjByName.Kicker.adjustDetail.avoidable or 0) - 3) < 0.1,
+	("clean under heavy avoidable pressure: +3 (%.1f)"):format(adjByName.Kicker.adjustDetail.avoidable or 0))
+check((adjByName.Slacker.adjustDetail.kicks or 0) < -3,
+	("kick-capable non-kicker on a kick-heavy fight loses points (%.1f)"):format(adjByName.Slacker.adjustDetail.kicks or 0))
+check(math.abs((adjByName.Slacker.adjustDetail.avoidable or 0) + 15) < 0.1,
+	("ate the whole group's avoidable: old cap applies (%.1f)"):format(adjByName.Slacker.adjustDetail.avoidable or 0))
+check(adjByName.Slacker.adjust == -15, "net adjustment clamps at the total cap")
+check(adjByName.Slacker.penaltyDetail.avoidable == 15, "legacy penaltyDetail mirrors the negative side")
+check(math.abs(adjByName.Kicker.score - math.min(100, adjByName.Kicker.base + adjByName.Kicker.adjust)) < 0.001,
+	"score = clamp(base + net adjustment)")
+
+-- a 1-kick fight barely moves the needle (Josh: interrupt-heavy fights
+-- should swing more; low-kick fights shouldn't)
+adjFight.players.k.metrics.interrupts = 1
+adjFight.players.s.metrics.avoidableTaken = 0
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { normalizeIlvl = false })) do
+	if r.name == "Kicker" then
+		check(math.abs(r.adjustDetail.kicks or 0) <= 1.01,
+			("1-kick fight: the kick adjustment stays tiny (%.1f)"):format(r.adjustDetail.kicks or 0))
+	end
+end
+adjFight.players.k.metrics.interrupts = 6
+adjFight.players.s.metrics.avoidableTaken = 30000
+
+-- addon-reported extras: present nudges, absent stays neutral
+adjFight.players.k.metrics.activityPct = 95
+adjFight.players.k.metrics.lustCasts = 2
+adjFight.players.k.metrics.lustPotion = 1
+adjFight.players.s.metrics.lustCasts = 0
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { normalizeIlvl = false })) do
+	if r.name == "Kicker" then
+		check(math.abs((r.adjustDetail.activity or 0) - 4) < 0.1,
+			("p95 activity: +4 (%.1f)"):format(r.adjustDetail.activity or 0))
+		check(math.abs((r.adjustDetail.lust or 0) - 3) < 0.1,
+			("cooldowns + potion in lust: +3 (%.1f)"):format(r.adjustDetail.lust or 0))
+	elseif r.name == "Slacker" then
+		check(r.adjustDetail.activity == nil, "no report = neutral, never a penalty")
+		check(math.abs((r.adjustDetail.lust or 0) + 3) < 0.1,
+			("wasted lust: -3 (%.1f)"):format(r.adjustDetail.lust or 0))
+	end
+end
+
+-- cooldown timing consumes the collector fields when present
+adjFight.players.k.metrics.lustCasts = nil
+adjFight.players.k.metrics.lustPotion = nil
+adjFight.players.k.role = "TANK"
+adjFight.players.k.specID = 73 -- spec outranks assigned role: must be a tank spec
+adjFight.players.k.metrics.spikeCdCoverage = 1.0
+adjFight.players.k.metrics.spikeWindows = 3
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { normalizeIlvl = false })) do
+	if r.name == "Kicker" then
+		check(math.abs((r.adjustDetail.cdTiming or 0) - 5) < 0.1,
+			("tank covered every spike window: +5 (%.1f)"):format(r.adjustDetail.cdTiming or 0))
+	end
+end
+adjFight.players.k.metrics.spikeWindows = 1
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { normalizeIlvl = false })) do
+	if r.name == "Kicker" then
+		check(r.adjustDetail.cdTiming == nil, "one window is a coin flip, not a pattern: no adjustment")
+	end
+end
+adjFight.players.k.role = "DAMAGER"
+adjFight.players.k.specID = 63
+adjFight.players.k.metrics.spikeCdCoverage = nil
+adjFight.players.k.metrics.spikeWindows = nil
+
+-- Raw mode: pure percentile, zero adjustments, no count metrics
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { mode = "parse", normalizeIlvl = false })) do
+	check(r.adjust == 0 and next(r.adjustDetail) == nil, "parse mode takes no adjustments")
+	check(r.breakdown.interrupts == nil, "parse breakdown carries no count metrics")
 end
 
 print("")

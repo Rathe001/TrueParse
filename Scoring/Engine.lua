@@ -1060,76 +1060,199 @@ function Engine.ScoreFight(fight, opts)
 			end
 		end
 
-		local m = p.metrics
-		local penaltyAvoidable = 0
-		if not ctx.parseMode and ctx.totals.avoidable > 0 then
-			local share = (m.avoidableTaken or 0) / ctx.totals.avoidable
-			local excess = share - (1 / ctx.playerCount)
-			if excess > 0 then
-				penaltyAvoidable = math.min(W.penalties.avoidableCap, excess * W.penalties.avoidablePerExcessShare)
-			end
-		end
-		local penaltyDeaths = 0
-		local deathCount = m.deaths or 0
-		if not ctx.parseMode and deathCount > 0 then
-			local lastDeathCost = W.penalties.perDeath
-			if p.deathTime and ctx.duration and ctx.duration > 0 then
-				local fraction = math.max(0, math.min(1, p.deathTime / ctx.duration))
-				lastDeathCost = W.penalties.perDeath * (1 - (W.penalties.deathTimingRelief or 0) * fraction)
-			end
-			penaltyDeaths = math.min(W.penalties.deathsCap,
-				(deathCount - 1) * W.penalties.perDeath + lastDeathCost)
-			if fight.wipe then
-				penaltyDeaths = penaltyDeaths * (W.penalties.wipeDeathScale or 1)
-			end
-		end
-		local penaltyBuffs = 0
-		local buffFloor = W.penalties.buffCoverageFloor or 1
-		if not ctx.parseMode and p.buffCoverage and p.buffCoverage < buffFloor then
-			penaltyBuffs = ((buffFloor - p.buffCoverage) / buffFloor) * (W.penalties.missingBuffMax or 0)
-		end
-
-		-- Threat discipline (fields only present on Classic captures).
-		-- Tanks pulling is their job; everyone else pays for it. Tanks pay
-		-- for the time mobs spent on someone who isn't a tank.
-		local penaltyPull, penaltyAggro, penaltyAggroLoss = 0, 0, 0
-		if ctx.parseMode
-			or ctx.playerCount > (W.penalties.threatMaxPlayers or math.huge) then
-			-- raids: fixates and forced target swaps make threat data
-			-- mechanics-noise; it stays visible in bullets, never scored
-		elseif role == "TANK" then
-			if (p.aggroLostTime or 0) > 0 then
-				penaltyAggroLoss = math.min(W.penalties.aggroLossCap or 0,
-					p.aggroLostTime * (W.penalties.aggroLossPerSecond or 0))
-			end
-		else
-			if p.aggroPulled then
-				penaltyPull = W.penalties.pulledPack or 0
-			end
-			if (p.aggroRips or 0) > 0 then
-				local perRip = W.penalties.perAggroRip or 0
-				if role == "HEALER" then
-					-- healing aggro chasing a slacking tank isn't the
-					-- healer's crime; charge it at half price
-					perRip = perRip * (W.penalties.healerRipScale or 1)
+		-- Count metrics live OUTSIDE the base (2026-07-13 redesign): the
+		-- breakdown still carries them for bullets and tooltips, at zero
+		-- weight; their influence flows through the adjustments below.
+		-- Raw is throughput-only and never carries them.
+		if not ctx.parseMode then
+			for _, key in ipairs({ "interrupts", "dispels" }) do
+				if not breakdown[key] then
+					local normalized, applicable = normalizeMetric(p, role, key, ctx)
+					breakdown[key] = {
+						weight = 0, effectiveWeight = 0, contribution = 0,
+						normalized = normalized, applicable = applicable,
+						value = metricValue(p, key),
+						groupTotal = ctx.totals[key] > 0 and ctx.totals[key] or nil,
+					}
 				end
-				penaltyAggro = math.min(W.penalties.aggroRipsCap or 0, p.aggroRips * perRip)
 			end
 		end
 
-		local penalty = math.min(W.penalties.totalCap, penaltyAvoidable + penaltyDeaths + penaltyBuffs
-			+ penaltyPull + penaltyAggro + penaltyAggroLoss)
+		-- ============ signed adjustments on top of the base ============
+		-- The base is the WCL-verifiable story; everything else nudges it.
+		-- Positive and negative, context-scaled, absence always neutral,
+		-- net clamped so a score never drifts far from its evidence.
+		local m = p.metrics
+		local A = W.adjustments or {}
+		local adj = {}
+		local function put(key, pts)
+			if pts and math.abs(pts) >= 0.5 then
+				adj[key] = pts
+			end
+		end
+		-- linear ramp: lo -> -maxPts, midpoint -> 0, hi -> +maxPts
+		local function ramp(v, lo, hi, maxPts)
+			local half = (hi - lo) / 2
+			if half <= 0 then
+				return 0
+			end
+			local t = (v - (lo + half)) / half
+			return math.max(-1, math.min(1, t)) * maxPts
+		end
+
+		if not ctx.parseMode then
+			-- kicks / dispels: lean vs an even share, scaled by how much of
+			-- the mechanic THIS fight had (a kick-heavy fight swings the
+			-- full range; a 1-kick fight barely registers)
+			local function countAdj(key, maxPts, fullIntensity)
+				local b = breakdown[key]
+				if not (b and b.applicable) then
+					return
+				end
+				local intensity = math.min(1, (ctx.totals[key] or 0) / fullIntensity)
+				local center = A.shareCenter or 55
+				local lean = math.max(-1, math.min(1, (b.normalized - center) / (100 - center)))
+				b.intensity = intensity
+				put(key == "interrupts" and "kicks" or key, intensity * maxPts * lean)
+				b.adjust = adj[key == "interrupts" and "kicks" or key]
+			end
+			countAdj("interrupts", A.kicksMax or 6, A.kicksFullIntensity or 6)
+			countAdj("dispels", A.dispelsMax or 4, A.dispelsFullIntensity or 8)
+
+			-- avoidable damage: standing in bad costs (up to the old cap);
+			-- staying clean while bad was actually flying earns a little
+			if ctx.totals.avoidable > 0 then
+				local share = (m.avoidableTaken or 0) / ctx.totals.avoidable
+				local excess = share - (1 / ctx.playerCount)
+				if excess > 0 then
+					put("avoidable", -math.min(W.penalties.avoidableCap,
+						excess * W.penalties.avoidablePerExcessShare))
+				elseif (ctx.totals.damageTaken or 0) > 0 then
+					local pressure = math.min(1, (ctx.totals.avoidable / ctx.totals.damageTaken)
+						/ (A.avoidablePressureRef or 0.10))
+					put("avoidable", (A.avoidableCleanBonus or 0) * pressure)
+				end
+			end
+
+			-- deaths: negative only (staying alive is the base's job)
+			local deathCount = m.deaths or 0
+			if deathCount > 0 then
+				local lastDeathCost = W.penalties.perDeath
+				if p.deathTime and ctx.duration and ctx.duration > 0 then
+					local fraction = math.max(0, math.min(1, p.deathTime / ctx.duration))
+					lastDeathCost = W.penalties.perDeath * (1 - (W.penalties.deathTimingRelief or 0) * fraction)
+				end
+				local pts = math.min(W.penalties.deathsCap,
+					(deathCount - 1) * W.penalties.perDeath + lastDeathCost)
+				if fight.wipe then
+					pts = pts * (W.penalties.wipeDeathScale or 1)
+				end
+				put("deaths", -pts)
+			end
+
+			-- pre-pull raid buff coverage (providers only)
+			local buffFloor = W.penalties.buffCoverageFloor or 1
+			if p.buffCoverage and p.buffCoverage < buffFloor then
+				put("buffs", -((buffFloor - p.buffCoverage) / buffFloor) * (W.penalties.missingBuffMax or 0))
+			end
+
+			-- threat discipline (5-mans; raids are fixate noise)
+			if ctx.playerCount <= (W.penalties.threatMaxPlayers or math.huge) then
+				if role == "TANK" then
+					if (p.aggroLostTime or 0) > 0 then
+						put("aggroLoss", -math.min(W.penalties.aggroLossCap or 0,
+							p.aggroLostTime * (W.penalties.aggroLossPerSecond or 0)))
+					end
+				else
+					if p.aggroPulled then
+						put("pull", -(W.penalties.pulledPack or 0))
+					end
+					if (p.aggroRips or 0) > 0 then
+						local perRip = W.penalties.perAggroRip or 0
+						if role == "HEALER" then
+							-- healing aggro chasing a slacking tank isn't
+							-- the healer's crime; charge it at half price
+							perRip = perRip * (W.penalties.healerRipScale or 1)
+						end
+						put("aggro", -math.min(W.penalties.aggroRipsCap or 0, p.aggroRips * perRip))
+					end
+				end
+			end
+
+			-- ---- addon-reported extras: absence is always neutral ----
+			if m.activityPct then
+				put("activity", ramp(m.activityPct, A.activityLow or 70, A.activityHigh or 89,
+					A.activityMax or 4))
+			end
+			if role == "TANK" and m.mitigationPct then
+				put("mitigation", ramp(m.mitigationPct, A.mitigationLow or 40, A.mitigationHigh or 70,
+					A.mitigationMax or 4))
+			end
+			if (m.consumables or 0) >= 2 then
+				put("prepared", A.preparedBonus or 0)
+			end
+			if (m.defensives or 0) >= 2 then
+				put("defensives", A.defensivesBonus or 0)
+			end
+			if (m.deaths or 0) > 0 and (p.deathReadyDefensives or 0) >= 2 then
+				put("deathReady", -(A.readyAtDeathPenalty or 0))
+			end
+			-- cooldown timing: fraction of danger windows covered (Classic
+			-- CLEU computes it for everyone; retail players self-report).
+			-- Needs 2+ windows: one window is a coin flip, not a pattern.
+			if role == "TANK" and m.spikeCdCoverage and (m.spikeWindows or 0) >= 2 then
+				put("cdTiming", ramp(m.spikeCdCoverage, A.cdTimingLow or 0.25,
+					A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
+			elseif role == "HEALER" and m.groupSpikeCdCoverage and (m.groupSpikeWindows or 0) >= 2 then
+				put("cdTiming", ramp(m.groupSpikeCdCoverage, A.cdTimingLow or 0.25,
+					A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
+			end
+			-- lust alignment (DPS): windows happened and we saw their casts
+			if role == "DAMAGER" and m.lustCasts ~= nil then
+				if m.lustCasts > 0 and (m.lustPotion or 0) > 0 then
+					put("lust", A.lustMax or 3)
+				elseif m.lustCasts > 0 then
+					put("lust", (A.lustMax or 3) * 0.5)
+				else
+					put("lust", -(A.lustMax or 3))
+				end
+			end
+		end
+
+		local totalAdj = 0
+		for _, v in pairs(adj) do
+			totalAdj = totalAdj + v
+		end
+		local cap = A.totalCap or 15
+		totalAdj = math.max(-cap, math.min(cap, totalAdj))
+		-- legacy "penalty" = the classic did-something-wrong categories
+		-- only (UI columns and bullets read the signed adjust instead)
+		local negSum = 0
+		for _, key in ipairs({ "avoidable", "deaths", "buffs", "pull", "aggro", "aggroLoss" }) do
+			if (adj[key] or 0) < 0 then
+				negSum = negSum - adj[key]
+			end
+		end
 
 		results[#results + 1] = {
 			guid = p.guid,
 			name = p.name,
 			class = p.class,
 			role = role,
-			score = math.max(0, math.min(100, base - penalty)),
+			score = math.max(0, math.min(100, base + totalAdj)),
 			base = base,
-			penalty = penalty,
-			penaltyDetail = { avoidable = penaltyAvoidable, deaths = penaltyDeaths, buffs = penaltyBuffs,
-				pull = penaltyPull, aggro = penaltyAggro, aggroLoss = penaltyAggroLoss },
+			adjust = totalAdj, -- net signed adjustment (what the card shows)
+			adjustDetail = adj, -- [key] = signed points
+			-- legacy consumers (penalty column math, penalty bullets)
+			penalty = negSum,
+			penaltyDetail = {
+				avoidable = math.max(0, -(adj.avoidable or 0)),
+				deaths = math.max(0, -(adj.deaths or 0)),
+				buffs = math.max(0, -(adj.buffs or 0)),
+				pull = math.max(0, -(adj.pull or 0)),
+				aggro = math.max(0, -(adj.aggro or 0)),
+				aggroLoss = math.max(0, -(adj.aggroLoss or 0)),
+			},
 			breakdown = breakdown,
 		}
 	end
