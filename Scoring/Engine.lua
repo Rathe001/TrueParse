@@ -871,6 +871,39 @@ function Engine.KillSpeedPercentile(fight)
 	return speedPercentile(kt.curve, fight.duration), kt.n, curveP50(kt.curve)
 end
 
+-- Where this encounter's median kill time ranks among the tier's bosses
+-- (same data file, same bracket): 0 = the tier's fastest-killed boss,
+-- 1 = the slowest. Group-card context, so a rough score on a rough boss
+-- reads fairly. Returns rank, bossesCompared — nil without enough peers.
+function Engine.EncounterToughness(fight)
+	local P = TP.Percentiles
+	if not (P and P.encounters and fight.isBoss) then
+		return nil
+	end
+	local enc = encounterCurvesFor(P, fight)
+	local key = fight.difficultyID and WCL_BRACKET[fight.difficultyID]
+	local kt = enc and key and enc[key] and enc[key].killTime
+	local mine = kt and kt.curve and curveP50(kt.curve)
+	if not mine then
+		return nil
+	end
+	local atOrBelow, total = 0, 0
+	for _, e in pairs(P.encounters) do
+		local okt = type(e) == "table" and e[key] and e[key].killTime
+		local med = okt and okt.curve and curveP50(okt.curve)
+		if med then
+			total = total + 1
+			if med <= mine then
+				atOrBelow = atOrBelow + 1
+			end
+		end
+	end
+	if total < 4 then
+		return nil
+	end
+	return atOrBelow / total, total
+end
+
 -- fight: a FightHistory record. opts.normalizeIlvl (default true) grades
 -- throughput relative to gear. Returns an array sorted by score desc:
 -- { guid, name, class, role, score, base, penalty, breakdown }, where
@@ -1084,6 +1117,23 @@ function Engine.ScoreFight(fight, opts)
 					}
 				end
 			end
+			-- tooltip depth (UX rule: new data deepens existing lines, it
+			-- never adds new ones)
+			local pm = p.metrics
+			if breakdown.interrupts and fight.totals and fight.totals.kickOpportunities then
+				breakdown.interrupts.opportunities = fight.totals.kickOpportunities
+				breakdown.interrupts.landed = fight.totals.kicksLanded
+			end
+			if breakdown.dispels and pm.dispelReactAvg then
+				breakdown.dispels.reactAvg = pm.dispelReactAvg
+			end
+			if breakdown.damage and pm.overkillPct then
+				breakdown.damage.overkillPct = pm.overkillPct
+			end
+			if breakdown.healing and pm.manaMinPct then
+				breakdown.healing.manaMinPct = pm.manaMinPct
+				breakdown.healing.dryAt = pm.dryAt
+			end
 		end
 
 		-- ============ signed adjustments on top of the base ============
@@ -1112,19 +1162,24 @@ function Engine.ScoreFight(fight, opts)
 			-- kicks / dispels: lean vs an even share, scaled by how much of
 			-- the mechanic THIS fight had (a kick-heavy fight swings the
 			-- full range; a 1-kick fight barely registers)
-			local function countAdj(key, maxPts, fullIntensity)
+			local function countAdj(key, maxPts, fullIntensity, volume)
 				local b = breakdown[key]
 				if not (b and b.applicable) then
 					return
 				end
-				local intensity = math.min(1, (ctx.totals[key] or 0) / fullIntensity)
+				local intensity = math.min(1, (volume or ctx.totals[key] or 0) / fullIntensity)
 				local center = A.shareCenter or 55
 				local lean = math.max(-1, math.min(1, (b.normalized - center) / (100 - center)))
 				b.intensity = intensity
 				put(key == "interrupts" and "kicks" or key, intensity * maxPts * lean)
 				b.adjust = adj[key == "interrupts" and "kicks" or key]
 			end
-			countAdj("interrupts", A.kicksMax or 6, A.kicksFullIntensity or 6)
+			-- kick intensity prefers TRUE opportunities (kicked + known-
+			-- kickable casts that got through) over the landed count: a
+			-- fight where 6 casts got away is exactly as kick-heavy as one
+			-- where all 6 were stopped
+			countAdj("interrupts", A.kicksMax or 6, A.kicksFullIntensity or 6,
+				fight.totals and fight.totals.kickOpportunities)
 			countAdj("dispels", A.dispelsMax or 4, A.dispelsFullIntensity or 8)
 
 			-- avoidable damage: standing in bad costs (up to the old cap);
@@ -1214,6 +1269,10 @@ function Engine.ScoreFight(fight, opts)
 			elseif role == "HEALER" and (m.groupSpikeWindows or 0) >= 2 then
 				put("cdTiming", ramp((m.groupSpikeCovered or 0) / m.groupSpikeWindows,
 					A.cdTimingLow or 0.25, A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
+			end
+			-- combat rezzes: casting one is group contribution, full stop
+			if (m.combatRezzes or 0) > 0 then
+				put("rez", math.min(A.rezCap or 4, m.combatRezzes * (A.rezBonus or 2)))
 			end
 			-- lust alignment (DPS): windows happened and we saw their casts
 			if role == "DAMAGER" and m.lustCasts ~= nil then

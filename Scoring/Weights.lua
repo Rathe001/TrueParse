@@ -68,6 +68,8 @@ Weights.adjustments = {
 	cdTimingLow = 0.25,
 	cdTimingHigh = 0.75,
 	lustMax = 3, -- DPS cooldown+potion alignment inside lust windows
+	rezBonus = 2, -- per combat rez cast
+	rezCap = 4,
 }
 
 -- Buff uptime that earns a SUPPORT player 100 points: elite Augs hold Ebon

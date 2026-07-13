@@ -32,6 +32,21 @@ local function sample()
 				if pct and (not acc.minHealthPct or pct < acc.minHealthPct) then
 					acc.minHealthPct = pct
 				end
+				-- healer mana timeline: the lowest the tank's lifeline got.
+				-- Distinguishes a pacing problem (dry at 30% boss HP) from a
+				-- throughput problem (plenty left on a wipe).
+				if info.role == "HEALER" and not UnitIsDeadOrGhost(info.unit) then
+					local maxMana = UnitPowerMax(info.unit, 0)
+					if maxMana and maxMana > 0 then
+						local mp = UnitPower(info.unit, 0) / maxMana
+						if not acc.minManaPct or mp < acc.minManaPct then
+							acc.minManaPct = mp
+							if mp < 0.08 and not acc.dryAt and seg.startTime then
+								acc.dryAt = GetTime() - seg.startTime
+							end
+						end
+					end
+				end
 			end
 		end
 	end

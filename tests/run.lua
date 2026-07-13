@@ -1527,6 +1527,30 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { normalizeIlvl = fals
 	end
 end
 
+-- interrupt OPPORTUNITIES drive intensity when known: one landed kick
+-- plus five casts that got through is a kick-heavy fight, and the
+-- non-kicker pays accordingly
+adjFight.players.k.metrics.interrupts = 1
+adjFight.totals = { kickOpportunities = 6, kicksLanded = 1, kicksThrough = 5 }
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { normalizeIlvl = false })) do
+	if r.name == "Kicker" then
+		check(math.abs(r.adjustDetail.kicks or 0) > 1.01,
+			("opportunity data makes a 1-kick fight kick-heavy (%.1f)"):format(r.adjustDetail.kicks or 0))
+	end
+end
+adjFight.totals = nil
+adjFight.players.k.metrics.interrupts = 6
+
+-- combat rezzes earn points
+adjFight.players.k.metrics.combatRezzes = 1
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { normalizeIlvl = false })) do
+	if r.name == "Kicker" then
+		check(math.abs((r.adjustDetail.rez or 0) - 2) < 0.1,
+			("a combat rez is worth +2 (%.1f)"):format(r.adjustDetail.rez or 0))
+	end
+end
+adjFight.players.k.metrics.combatRezzes = nil
+
 -- cooldown timing consumes the collector fields when present
 adjFight.players.k.metrics.lustCasts = nil
 adjFight.players.k.metrics.lustPotion = nil

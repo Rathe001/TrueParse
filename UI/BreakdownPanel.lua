@@ -89,12 +89,19 @@ local function showMetricTip(anchor, data)
 	local valueText = data.valueText
 	if not valueText then
 		if COUNT_METRICS[key] then
-			if b.groupTotal and not wclBacked then
+			if key == "interrupts" and b.opportunities then
+				-- opportunity data beats share phrasing when we have it
+				valueText = ("Kicked %d · group got %d of %d casts"):format(
+					b.value or 0, b.landed or 0, b.opportunities)
+			elseif b.groupTotal and not wclBacked then
 				valueText = ("%s %d of the group's %d"):format(
 					key == "interrupts" and "Kicked" or "Dispelled",
 					b.value or 0, b.groupTotal)
 			else
 				valueText = ("%d this fight"):format(b.value or 0)
+			end
+			if key == "dispels" and b.reactAvg then
+				valueText = valueText .. (" · %.1fs avg response"):format(b.reactAvg)
 			end
 		elseif PERCENT_METRICS[key] then
 			valueText = ("Up %d%% of the fight"):format((b.value or 0) * 100 + 0.5)
@@ -103,6 +110,18 @@ local function showMetricTip(anchor, data)
 				TP.FormatNumber(b.value or 0), TP.FormatNumber((b.value or 0) / duration))
 		else
 			valueText = TP.FormatNumber(b.value or 0)
+		end
+		-- depth riders on the same line, never new card lines
+		if key == "damage" and b.overkillPct and b.overkillPct >= 5 then
+			valueText = valueText .. (" · %d%% overkill"):format(b.overkillPct)
+		end
+		if key == "healing" and b.manaMinPct then
+			if b.dryAt then
+				valueText = valueText .. (" · ran dry at %d:%02d"):format(
+					math.floor(b.dryAt / 60), b.dryAt % 60)
+			else
+				valueText = valueText .. (" · lowest mana %d%%"):format(b.manaMinPct)
+			end
 		end
 	end
 	metricTip.value:SetText(valueText)
@@ -404,9 +423,19 @@ function Panel:ShowFor(fight, result)
 			end
 		end
 	end
-	frame.scoreLine:SetText(("%s%s vs %s%s"):format(
+	-- personal-best tag: strictly better than every prior kill of this
+	-- boss at this difficulty (needs at least one prior to compare)
+	local pbTag = ""
+	if fight.isBoss and not fight.wipe and not fight.isRun
+		and TP.FightHistory and TP.FightHistory.PersonalBest then
+		local prior = TP.FightHistory:PersonalBest(fight, result.guid)
+		if prior and result.score > prior then
+			pbTag = " |cffe8b923· personal best|r"
+		end
+	end
+	frame.scoreLine:SetText(("%s%s vs %s%s%s"):format(
 		approx and "~" or "", TP.Scoring.Grades.ColoredScore(result.score),
-		fight.name or "this fight", fight.wipe and " |cffe64d4d(wipe)|r" or ""))
+		fight.name or "this fight", fight.wipe and " |cffe64d4d(wipe)|r" or "", pbTag))
 	local runR = self.runScores and self.runScores[result.guid]
 	if runR then
 		frame.runLine:SetText(TP.Scoring.Grades.ColoredScore(runR.score) .. " avg this run")
@@ -428,7 +457,23 @@ function Panel:ShowFor(fight, result)
 			row.tooltipData = nil
 			row.metricData = { b = result.breakdown[bullet.key], key = bullet.key, duration = fight.duration }
 		elseif bullet.kind == "penalty" then
-			row.tooltipData = { title = bullet.text, lines = { { PENALTY_HELP[bullet.key] or "", 0.95, 0.5, 0.5 } } }
+			if bullet.key == "deaths" and player and player.deathRecap then
+				-- WCL-style death recap: the last hits, right on the bullet
+				local lines = { { "The last hits before the death:", 0.8, 0.8, 0.8 } }
+				for _, hit in ipairs(player.deathRecap) do
+					lines[#lines + 1] = {
+						("%d:%02d  %s  %s%s"):format(
+							math.floor((hit.t or 0) / 60), (hit.t or 0) % 60,
+							hit.spell or "?", TP.FormatNumber(hit.amount or 0),
+							hit.avoidable and "  (avoidable)" or ""),
+						hit.avoidable and 0.95 or 0.75,
+						hit.avoidable and 0.45 or 0.75,
+						hit.avoidable and 0.45 or 0.75 }
+				end
+				row.tooltipData = { title = bullet.text, lines = lines }
+			else
+				row.tooltipData = { title = bullet.text, lines = { { PENALTY_HELP[bullet.key] or "", 0.95, 0.5, 0.5 } } }
+			end
 		elseif bullet.kind == "info" then
 			row.tooltipData = { title = bullet.text, lines = {
 				{ infoHelp()[bullet.key] or "Self-reported by this player's TrueParse. Informational only.", 0.8, 0.8, 0.8, true },
@@ -618,6 +663,27 @@ function Panel:ShowForGroup(fight, results)
 			footerText = ("faster than %d%% of %s ranked kills"):format(
 				speedPct, TP.FormatNumber(speedN or 0)),
 		}
+	end
+
+	-- encounter toughness context: a rough night on a rough boss should
+	-- read that way (kill-time medians ranked across the tier)
+	local toughness, bosses = nil, nil
+	if TP.Scoring.Engine.EncounterToughness then
+		toughness, bosses = TP.Scoring.Engine.EncounterToughness(fight)
+	end
+	if toughness and toughness >= 0.7 then
+		total = total + 1
+		local row = getRow(total, y)
+		y = y - ROW_HEIGHT
+		row.symbol:SetText("\194\183")
+		row.symbol:SetTextColor(0.8, 0.8, 0.55)
+		row.text:SetText(("One of the tier's tougher bosses (top %d%% by kill time)"):format(
+			(1 - toughness) * 100 + 1))
+		row.text:SetTextColor(0.8, 0.8, 0.55)
+		row.metricData = nil
+		row.tooltipData = { title = "Encounter toughness", lines = {
+			{ ("This boss's median ranked kill is among the longest of the %d bosses with kill-time data at this difficulty. Context, not a judgment."):format(bosses or 0), 0.8, 0.8, 0.8, true },
+		} }
 	end
 	hideRowsFrom(total + 1)
 

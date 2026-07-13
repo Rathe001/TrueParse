@@ -161,6 +161,10 @@ function Bullets.ForResult(result, awards, extra)
 		out[#out + 1] = { kind = "info", key = "avoidable", symbol = "+", color = GOOD,
 			text = "Stayed out of the bad" .. pts(ad.avoidable) }
 	end
+	if (ad.rez or 0) > 0 then
+		out[#out + 1] = { kind = "info", key = "rez", symbol = "+", color = GOOD,
+			text = "Combat-rezzed an ally" .. pts(ad.rez) }
+	end
 
 	-- WoWAnalyzer-style basics (addon-reported; they nudge the score now)
 	if extra and extra.activityPct then
@@ -396,9 +400,23 @@ function Bullets.ForGroup(results, fight)
 			}
 		end
 	end
-	-- count metrics: state the volume; coverage judgments need
-	-- opportunity data (interrupt-opportunity tracking supplies it)
-	if kicks > 0 then
+	-- count metrics: coverage when opportunity data exists (self-curating
+	-- kickable list), plain volume otherwise
+	local opps = fight and fight.totals and fight.totals.kickOpportunities
+	if opps and opps > 0 then
+		local landed = fight.totals.kicksLanded or 0
+		local coverage = landed / opps
+		local sym, col = MIDDOT, MID
+		if coverage >= 0.9 then
+			sym, col = "+", GOOD
+		elseif coverage < 0.6 then
+			sym, col = "-", BAD
+		end
+		out[#out + 1] = { kind = "metric", key = "interrupts", symbol = sym, color = col,
+			text = ("Kicked %d of %d interruptible casts"):format(landed, opps),
+			tooltip = { title = TP.METRIC_LABELS.interrupts,
+				lines = { { "Opportunities = casts of spells this addon has ever seen interrupted (the list teaches itself). Casts that got through hit somebody.", 1, 1, 1 } } } }
+	elseif kicks > 0 then
 		local heavy = kicks >= (A.kicksFullIntensity or 6)
 		out[#out + 1] = { kind = "metric", key = "interrupts",
 			symbol = heavy and "+" or MIDDOT, color = heavy and GOOD or MID,

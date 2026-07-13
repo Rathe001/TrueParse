@@ -426,6 +426,42 @@ function FightHistory:Persist()
 	TP.Addon.db.char.recentFights = self.fights
 end
 
+-- Best PRIOR score for this player on this encounter+difficulty — the
+-- personal-best tag. Scores prior kills through the engine on demand,
+-- memoized; the history-count in the key self-invalidates on capture.
+local pbCache, pbCacheN = {}, 0
+function FightHistory:PersonalBest(fight, guid)
+	if not (fight.isBoss and fight.name and guid) then
+		return nil
+	end
+	local key = fight.name .. "|" .. tostring(fight.difficultyID) .. "|" .. guid .. "|" .. #self.fights
+	local hit = pbCache[key]
+	if hit ~= nil then
+		return hit or nil
+	end
+	local best
+	local opts = TP.GetScoringOptions and TP.GetScoringOptions() or {}
+	for _, f in ipairs(self.fights) do
+		if f ~= fight and f.name == fight.name and f.difficultyID == fight.difficultyID
+			and not f.wipe and f.players and f.players[guid] then
+			local ok, results = pcall(TP.Scoring.Engine.ScoreFight, f, opts)
+			if ok then
+				for _, r in ipairs(results) do
+					if r.guid == guid and (not best or r.score > best) then
+						best = r.score
+					end
+				end
+			end
+		end
+	end
+	if pbCacheN > 300 then
+		pbCache, pbCacheN = {}, 0
+	end
+	pbCache[key] = best or false
+	pbCacheN = pbCacheN + 1
+	return best
+end
+
 local eventFrame = CreateFrame("Frame")
 eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 	if event == "ENCOUNTER_END" then
@@ -606,6 +642,26 @@ function FightHistory:AddFromSegment(seg)
 			m.spikeWindows, m.spikeCovered = sd.spikeWindows, sd.spikeCovered
 			m.groupSpikeWindows, m.groupSpikeCovered = sd.groupSpikeWindows, sd.groupSpikeCovered
 		end
+		-- dispel reaction time (avg seconds a dispelled debuff sat there)
+		if acc.dispels and (acc.dispels.reactN or 0) > 0 then
+			m.dispelReactAvg = acc.dispels.reactSum / acc.dispels.reactN
+		end
+		-- combat rezzes cast (group contribution, adjustment-worthy)
+		if acc.utility and (acc.utility.rezzes or 0) > 0 then
+			m.combatRezzes = acc.utility.rezzes
+		end
+		-- overkill share of total damage (padding context, tooltip-only)
+		if acc.damage and (acc.damage.total or 0) > 0 then
+			local waste = acc.damage.total - (acc.damage.useful or acc.damage.total)
+			if waste > 0 then
+				m.overkillPct = math.floor(waste / acc.damage.total * 100 + 0.5)
+			end
+		end
+		-- healer mana timeline (Vitals sampler)
+		if acc.minManaPct then
+			m.manaMinPct = math.floor(acc.minManaPct * 100 + 0.5)
+			m.dryAt = acc.dryAt
+		end
 		local ag = acc.aggro
 		players[guid] = {
 			guid = guid,
@@ -623,6 +679,8 @@ function FightHistory:AddFromSegment(seg)
 			aggroLostTime = (ag and ag.lost or 0) > 0 and ag.lost or nil,
 			-- Lowest health seen (Collect/Vitals.lua sampler; Classic only)
 			minHealthPct = acc.minHealthPct,
+			-- the last hits before their death (death-bullet tooltip)
+			deathRecap = acc.deaths and acc.deaths.recap or nil,
 			metrics = m,
 		}
 		end
@@ -645,6 +703,13 @@ function FightHistory:AddFromSegment(seg)
 		players = players,
 		totals = totals,
 	}
+	-- group interrupt coverage (opportunities from the self-curating
+	-- kickable list; feeds the kick adjustment's intensity)
+	if seg.group and (seg.group.kickOpps or 0) > 0 then
+		totals.kickOpportunities = seg.group.kickOpps
+		totals.kicksLanded = seg.group.kicksLanded or 0
+		totals.kicksThrough = seg.group.kicksThrough or 0
+	end
 	-- Enrichment must never block capture
 	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
 	pcall(TP.Sync.AttachReports, TP.Sync, fight)
