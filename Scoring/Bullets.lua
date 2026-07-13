@@ -152,8 +152,11 @@ function Bullets.ForResult(result, awards, extra)
 			-- floored: the fight barely needed healing, don't scold or gush
 			text, symbol, color = "Little healing needed - group stayed topped", MIDDOT, MID
 		end
+		-- sort weight: count metrics use their real adjustment points;
+		-- base throughput uses its percentile distance from the middle —
+		-- a godly parse IS the score and outranks any +4 nudge
 		out[#out + 1] = { kind = "metric", key = key, symbol = symbol, color = color,
-			text = text, points = b.adjust }
+			text = text, points = b.adjust or ((b.pctile or b.normalized or 50) - 50) / 5 }
 	end
 
 	-- Staying clean earned points: say so (the negative twin lives in the
