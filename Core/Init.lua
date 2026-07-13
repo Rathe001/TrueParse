@@ -10,9 +10,9 @@ local defaults = {
 	profile = {
 		window = {
 			point = "CENTER", relPoint = "CENTER", x = 0, y = 0,
-			-- height = header 22 + column labels 11 + mode strip 16 +
-			-- padding 12 + 11 row slots (10 players + the Raid row) x 15
-			width = 240, height = 226,
+			-- height = header 26 + column labels 11 + mode strip 16 +
+			-- padding 6 + 11 row slots (10 players + the Raid row) x 21
+			width = 260, height = 290,
 			locked = false, shown = true, collapsed = false, autoCollapse = true,
 		},
 		coach = true,
