@@ -563,7 +563,7 @@ function Panel:ShowForGroup(fight, results)
 		frame.runLine:SetText("")
 	end
 
-	local bullets = TP.Scoring.Bullets.ForGroup(results)
+	local bullets = TP.Scoring.Bullets.ForGroup(results, fight)
 	local y = self.groupRunScore and -50 or -37 -- below the header lines
 	for i, bullet in ipairs(bullets) do
 		local row = getRow(i, y)
@@ -574,20 +574,12 @@ function Panel:ShowForGroup(fight, results)
 		row.text:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
 		if bullet.kind == "metric" and bullet.avg then
 			-- same gauge the player bullets get: marker at the group
-			-- average, value line from the group total. Gauge only when
-			-- the players' own numbers were WCL-scored — a share-scored
-			-- metric averaged across the group still isn't a parse.
-			local anyWcl
-			for _, r in ipairs(results) do
-				local pb = r.breakdown[bullet.key]
-				if pb and (pb.pctile or pb.absolute) then
-					anyWcl = true
-					break
-				end
-			end
+			-- average, value line from the group total. ForGroup already
+			-- says whether the average is WCL-backed (role-filtered,
+			-- own-spec percentiles) — share-scored rows carry no gauge.
 			row.tooltipData = nil
 			row.metricData = {
-				b = { value = bullet.total, normalized = bullet.avg, wclBacked = anyWcl },
+				b = { value = bullet.total, normalized = bullet.avg, wclBacked = bullet.wclBacked },
 				key = bullet.key,
 				duration = fight.duration,
 				footerText = ("group average %d · %d players"):format(

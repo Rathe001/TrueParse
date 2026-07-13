@@ -765,7 +765,15 @@ local groupBullets = TP.Scoring.Bullets.ForGroup({
 		penaltyDetail = { deaths = 10 } },
 })
 check(groupBullets[1].text == "Excellent group damage", "group damage phrase")
-check(groupBullets[2].text == "Nobody interrupted", "group zero-kick phrase")
+-- zero kicks state nothing: without opportunity data we can't know if
+-- there was anything to kick, and a scold would misrepresent
+local sawKickLine = false
+for _, b in ipairs(groupBullets) do
+	if b.key == "interrupts" then
+		sawKickLine = true
+	end
+end
+check(not sawKickLine, "zero group kicks say nothing (no opportunity data)")
 local deathsBullet
 for _, b in ipairs(groupBullets) do
 	if b.kind == "penalty" and b.key == "deaths" then deathsBullet = b.text end
@@ -1412,7 +1420,26 @@ for _, b in ipairs(TP.Scoring.Bullets.ForResult(sustainResult, nil, { selfShare 
 	if b.key == "healing" then offText = b.text end
 end
 check(offText == "Excellent off-healing", ("outward healing keeps off-healing phrase (%s)"):format(tostring(offText)))
-check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 players") ~= nil, "group tooltip carries the numbers")
+check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 damage%-role players") ~= nil, "group tooltip carries the numbers")
+
+-- group healing follows the same rules as the healer's own row: the
+-- demand cap holds, and a DPS's self-heal percentile never drags the
+-- group verdict (real bug: card said Healing struggled at avg 17 while
+-- the healer's row said group stayed topped)
+local demandGroup = TP.Scoring.Bullets.ForGroup({
+	{ role = "HEALER", penaltyDetail = {}, breakdown = {
+		healing = { applicable = true, normalized = 75, lowDemand = true, value = 5000 } } },
+	{ role = "DAMAGER", penaltyDetail = {}, breakdown = {
+		damage = { applicable = true, pctile = 80, normalized = 86, value = 90000 },
+		healing = { applicable = true, pctile = 2, normalized = 31, value = 800 } } },
+})
+local healLine
+for _, b in ipairs(demandGroup) do
+	if b.key == "healing" then healLine = b end
+end
+check(healLine and healLine.text == "Little healing needed - group stayed topped",
+	("group healing respects the demand cap (%s)"):format(tostring(healLine and healLine.text)))
+check(healLine.avg == nil, "demand-capped group healing carries no gauge")
 
 -- Optional: smoke-test against real captured fights from a SavedVariables file
 local svPath = arg and arg[1]

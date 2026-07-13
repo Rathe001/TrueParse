@@ -311,32 +311,51 @@ end
 
 local GROUP_PHRASES = {
 	damage = { godly = "Godly group damage", excellent = "Excellent group damage", good = "Good group damage", average = "Average group damage", low = "Low group damage" },
-	healing = { godly = "Godly group healing", excellent = "Excellent group healing", good = "Good group healing", average = "Average group healing", low = "Healing struggled" },
-	interrupts = { godly = "Godly kick coverage", excellent = "Kicks were covered", good = "Good interrupting", average = "Interrupts were spotty", low = "Not enough interrupting", zero = "Nobody interrupted" },
-	dispels = { godly = "Godly dispel coverage", excellent = "Dispels were handled", good = "Good dispelling", average = "Dispels were spotty", low = "Too few dispels", zero = "Nobody dispelled" },
+	healing = { godly = "Godly healing", excellent = "Excellent healing", good = "Solid healing", average = "Average healing", low = "Healing struggled" },
 }
-local GROUP_ORDER = { "damage", "healing", "interrupts", "dispels" }
 
--- Group-level bullets from a full results array. Each carries its own
--- tooltip = { title, lines } since the caller has no per-player breakdown.
-function Bullets.ForGroup(results)
+-- Group-level overview from a full results array: WHAT HAPPENED, under
+-- the same rules the player rows follow (2026-07-13). Throughput
+-- verdicts are role-filtered — a DPS's self-heal percentile must not
+-- drag "group healing" to 17 — and demand-aware: a fight with nothing
+-- to heal reads as that, not as "healing struggled". Count metrics
+-- state facts (volume), never averaged share scores. Pass the fight
+-- for totals-based lines (deaths, avoidable pressure).
+function Bullets.ForGroup(results, fight)
 	local out = {}
-	local sums, counts, totals = {}, {}, {}
+	local A = TP.Scoring.Weights and TP.Scoring.Weights.adjustments or {}
 	local died, avoidable, buffsMissing = 0, 0, false
 	local aggroed, tankLostAggro = 0, false
 
+	-- damage: every non-healer, each vs their OWN spec's population
+	local dmgSum, dmgN, dmgWcl, dmgTotal = 0, 0, false, 0
+	-- healing: healers only, demand floors respected
+	local healSum, healN, healWcl, healLowDemand, healTotal = 0, 0, false, true, 0
+	local kicks, dispels = 0, 0
+
 	for _, r in ipairs(results) do
-		for key, b in pairs(r.breakdown) do
-			if b.applicable and GROUP_PHRASES[key] then
-				-- same percentile-first basis as the individual bullets;
-				-- demand-floored healing counts at its floor ("Healing
-				-- struggled" on a fight with nothing to heal was noise)
-				sums[key] = (sums[key] or 0)
-					+ ((b.lowDemand and b.normalized) or b.pctile or b.normalized or 0)
-				counts[key] = (counts[key] or 0) + 1
-				totals[key] = (totals[key] or 0) + (b.value or 0)
+		local bd = r.breakdown.damage
+		if bd and bd.applicable and r.role ~= "HEALER" then
+			dmgSum = dmgSum + (bd.pctile or bd.normalized or 0)
+			dmgN = dmgN + 1
+			dmgTotal = dmgTotal + (bd.value or 0)
+			dmgWcl = dmgWcl or (bd.pctile ~= nil) or (bd.absolute and true or false)
+		end
+		local bh = r.breakdown.healing
+		if bh and bh.applicable and r.role == "HEALER" then
+			healSum = healSum + ((bh.lowDemand and bh.normalized) or bh.pctile or bh.normalized or 0)
+			healN = healN + 1
+			healTotal = healTotal + (bh.value or 0)
+			healWcl = healWcl or (bh.pctile ~= nil) or (bh.absolute and true or false)
+			if not bh.lowDemand then
+				healLowDemand = false
 			end
 		end
+		local bi = r.breakdown.interrupts
+		kicks = kicks + ((bi and bi.value) or 0)
+		local bdisp = r.breakdown.dispels
+		dispels = dispels + ((bdisp and bdisp.value) or 0)
+
 		local pd = r.penaltyDetail or {}
 		if (pd.deaths or 0) > 0 then died = died + 1 end
 		if (pd.avoidable or 0) > 0 then avoidable = avoidable + 1 end
@@ -345,38 +364,73 @@ function Bullets.ForGroup(results)
 		if (pd.aggroLoss or 0) > 0 then tankLostAggro = true end
 	end
 
-	for _, key in ipairs(GROUP_ORDER) do
-		if counts[key] and counts[key] > 0 then
-			local avg = sums[key] / counts[key]
-			local tier, symbol = tierOf(avg)
-			local color = tierColor(avg)
-			local phrases = GROUP_PHRASES[key]
-			local text = phrases[tier]
-			if (totals[key] or 0) == 0 and phrases.zero then
-				text = phrases.zero
-			end
+	if dmgN > 0 then
+		local avg = dmgSum / dmgN
+		local tier, symbol = tierOf(avg)
+		out[#out + 1] = {
+			kind = "metric", key = "damage", symbol = symbol, color = tierColor(avg),
+			text = GROUP_PHRASES.damage[tier],
+			avg = avg, total = dmgTotal, players = dmgN, wclBacked = dmgWcl or nil,
+			tooltip = { title = TP.METRIC_LABELS.damage,
+				lines = { { ("Average percentile of the %d damage-role players, each vs their own spec's population."):format(dmgN), 1, 1, 1 } } },
+		}
+	end
+	if healN > 0 then
+		if healLowDemand then
 			out[#out + 1] = {
-				kind = "metric", key = key, symbol = symbol, color = color, text = text,
-				-- gauge fuel for the group tooltip: marker at the group
-				-- average, value line from the group total
-				avg = avg, total = totals[key] or 0, players = counts[key],
-				tooltip = {
-					title = TP.METRIC_LABELS[key] or key,
-					lines = {
-						{ ("Group average %.0f/100 across %d players."):format(avg, counts[key]), 1, 1, 1 },
-					},
-				},
+				kind = "metric", key = "healing", symbol = MIDDOT, color = MID,
+				text = "Little healing needed - group stayed topped",
+				players = healN,
+				tooltip = { title = TP.METRIC_LABELS.healing,
+					lines = { { "Incoming damage never demanded real healing output; healers are not graded on a fight with nothing to heal.", 1, 1, 1 } } },
+			}
+		else
+			local avg = healSum / healN
+			local tier, symbol = tierOf(avg)
+			out[#out + 1] = {
+				kind = "metric", key = "healing", symbol = symbol, color = tierColor(avg),
+				text = GROUP_PHRASES.healing[tier],
+				avg = avg, total = healTotal, players = healN, wclBacked = healWcl or nil,
+				tooltip = { title = TP.METRIC_LABELS.healing,
+					lines = { { ("Average percentile of the %d healer(s), each vs their own spec's population."):format(healN), 1, 1, 1 } } },
 			}
 		end
 	end
+	-- count metrics: state the volume; coverage judgments need
+	-- opportunity data (interrupt-opportunity tracking supplies it)
+	if kicks > 0 then
+		local heavy = kicks >= (A.kicksFullIntensity or 6)
+		out[#out + 1] = { kind = "metric", key = "interrupts",
+			symbol = heavy and "+" or MIDDOT, color = heavy and GOOD or MID,
+			text = kicks == 1 and "1 interrupt landed" or ("%d interrupts landed"):format(kicks),
+			tooltip = { title = TP.METRIC_LABELS.interrupts,
+				lines = { { "Group total. Hover a player's kick bullet for their share.", 1, 1, 1 } } } }
+	end
+	if dispels > 0 then
+		local heavy = dispels >= (A.dispelsFullIntensity or 8)
+		out[#out + 1] = { kind = "metric", key = "dispels",
+			symbol = heavy and "+" or MIDDOT, color = heavy and GOOD or MID,
+			text = dispels == 1 and "1 dispel" or ("%d dispels"):format(dispels),
+			tooltip = { title = TP.METRIC_LABELS.dispels,
+				lines = { { "Group total. Hover a player's dispel bullet for their share.", 1, 1, 1 } } } }
+	end
 
-	if died > 0 then
+	-- what the fight cost, in facts
+	if fight and fight.isBoss and (fight.totals and fight.totals.deaths) == 0 and not fight.wipe then
+		out[#out + 1] = { kind = "info", key = "deaths", symbol = "+", color = GOOD,
+			text = "Nobody died" }
+	elseif died > 0 then
 		out[#out + 1] = { kind = "penalty", key = "deaths", symbol = "-", color = BAD,
 			text = died == 1 and "1 player died" or ("%d players died"):format(died) }
 	end
 	if avoidable > 0 then
+		local pressure = ""
+		if fight and fight.totals and (fight.totals.damageTaken or 0) > 0 then
+			pressure = (" (%d%% of damage taken was avoidable)"):format(
+				(fight.totals.avoidableTaken or 0) / fight.totals.damageTaken * 100 + 0.5)
+		end
 		out[#out + 1] = { kind = "penalty", key = "avoidable", symbol = "-", color = BAD,
-			text = avoidable == 1 and "1 player stood in bad" or ("%d players stood in bad"):format(avoidable) }
+			text = (avoidable == 1 and "1 player stood in bad" or ("%d players stood in bad"):format(avoidable)) .. pressure }
 	end
 	if aggroed > 0 then
 		out[#out + 1] = { kind = "penalty", key = "aggro", symbol = "-", color = BAD,
