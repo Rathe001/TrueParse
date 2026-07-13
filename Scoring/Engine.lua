@@ -215,9 +215,14 @@ local function encounterCurvesFor(P, fight)
 		end
 	end
 	-- difficultyID 8 = Mythic Keystone on any locale; the localized-name
-	-- check keeps working for English and MoP Challenge Modes
+	-- check keeps working for English and MoP Challenge Modes. Normal and
+	-- heroic dungeons (2026-07-13, Josh's call) also compare against the
+	-- dungeon's curves — a labeled comparison vs timed top runs beats
+	-- falling back to cross-encounter RAID pools, and Raw lights up on
+	-- seasonal heroics. The "timed top runs" label carries the caveat.
 	if fight.zone and (fight.difficultyID == 8
-		or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or fight.keystoneLevel) then
+		or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or fight.keystoneLevel
+		or fight.instanceType == "party") then
 		local enc = P.encounters[fight.zone]
 		return enc and sanitizeEncounter(enc) or nil
 	end

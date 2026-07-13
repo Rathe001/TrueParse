@@ -61,12 +61,13 @@ function Scorecard:Acquire(parent)
 
 		-- Name ....... penalty score runAvg (white outlined name; scores in
 		-- parse-bracket colors; runAvg = dimmer cumulative True run average)
-		-- Details-proportioned type: names carry the row, numbers stay
-		-- legible at a glance
+		-- Details-style type: Arial Narrow with a hard drop shadow, no
+		-- outline — the look meter users already read all day
 		local function outlined(template, size)
 			local fs = row:CreateFontString(nil, "OVERLAY", template)
-			local path, defaultSize = fs:GetFont()
-			fs:SetFont(path, size or defaultSize, "OUTLINE")
+			fs:SetFont("Fonts\\ARIALN.TTF", size or 12, "")
+			fs:SetShadowColor(0, 0, 0, 1)
+			fs:SetShadowOffset(1, -1)
 			return fs
 		end
 		row.runAvg = outlined("GameFontDisableSmall", 11)
@@ -113,12 +114,14 @@ function Scorecard:Acquire(parent)
 		row.icon:SetPoint("BOTTOMLEFT")
 		row.icon:SetWidth(14)
 
-		-- TrueParse presence: a small check BADGE on the spec icon's
-		-- corner, users only. Non-users are already told by the muted bar
-		-- color — marking the common case just filled the card with X's.
+		-- TrueParse presence: a green dot on the spec icon's corner, users
+		-- only. A solid indicator dot reads at small sizes where the
+		-- ready-check swoosh vanished into the icon art. Non-users are
+		-- already told by the muted bar color.
 		row.addonMark = row:CreateTexture(nil, "OVERLAY")
-		row.addonMark:SetSize(10, 10)
-		row.addonMark:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 2, -2)
+		row.addonMark:SetSize(9, 9)
+		row.addonMark:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 3, -3)
+		row.addonMark:SetTexture("Interface\\COMMON\\Indicator-Green")
 
 		row.name = outlined("GameFontHighlightSmall", 12)
 		row.name:SetPoint("LEFT", row.icon, "RIGHT", 3, 0)

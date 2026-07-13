@@ -1157,10 +1157,15 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(dungeonFight, { mode = "parse", 
 end
 dungeonFight.difficulty = "Timewalking"
 dungeonFight.keystoneLevel = nil
+dungeonFight.instanceType = "party"
 for _, r in ipairs(TP.Scoring.Engine.ScoreFight(dungeonFight, { mode = "parse", normalizeIlvl = false })) do
 	if r.name == "Deeps" then
-		check(r.breakdown.damage.absolute == nil,
-			"unranked dungeon difficulty gets no parse from M+ curves")
+		-- 2026-07-13: normal/heroic/TW dungeons DO parse against the
+		-- dungeon curves now, labeled as timed top runs
+		check(r.breakdown.damage.absolute ~= nil
+			and r.breakdown.damage.curveFrom == "timed top runs",
+			("unranked dungeon difficulties parse vs timed top runs (%s)"):format(
+				tostring(r.breakdown.damage.curveFrom)))
 	end
 end
 TP.Percentiles.encounters["Pool Dungeon"] = nil

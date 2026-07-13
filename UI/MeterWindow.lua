@@ -392,7 +392,7 @@ local function createWindow()
 	window.footnote:SetPoint("RIGHT", window.modeReal, "LEFT", -6, 0)
 	window.footnote:SetJustifyH("LEFT")
 	window.footnote:SetWordWrap(false) -- truncate at the radios, never wrap
-	window.footnote:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:8:8|t = Addon installed")
+	window.footnote:SetText("|TInterface\\COMMON\\Indicator-Green:9:9|t = Addon installed")
 
 	-- the footer collapses the window like the header does — everywhere
 	-- except the mode radios (which keep their own clicks) and the grip
@@ -815,13 +815,7 @@ function MeterWindow:RenderScorecard(fight)
 		row.runAvg:SetJustifyH(letterAlign)
 		row.icon:SetAlpha(hasAddon and 1 or 0.7)
 		-- users only: the badge marks the exception, not the crowd
-		if hasAddon then
-			row.addonMark:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
-			row.addonMark:SetTexCoord(0, 1, 0, 1)
-			row.addonMark:Show()
-		else
-			row.addonMark:Hide()
-		end
+		row.addonMark:SetShown(hasAddon)
 
 		-- Details-style: the row IS a solid class-colored bar with a white
 		-- outlined name. Non-addon players get the color MUTED (washed
