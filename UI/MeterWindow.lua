@@ -974,8 +974,11 @@ function MeterWindow:RenderScorecard(fight)
 	end
 
 	-- the content is the ceiling: never render (or let the grip drag)
-	-- empty space below the last row
-	local contentH = HEADER_HEIGHT + COLHEAD_HEIGHT + totalRows * (rowHeight + 1)
+	-- empty space below the last row. FULL content, not the visible
+	-- subset — deriving the ceiling from what currently fits made the
+	-- ceiling follow every shrink down (couldn't resize back up).
+	local contentH = HEADER_HEIGHT + COLHEAD_HEIGHT
+		+ (shown + (hasFooter and 1 or 0)) * (rowHeight + 1)
 		+ MODE_HEIGHT + PADDING
 	if window.SetResizeBounds then
 		window:SetResizeBounds(180, 110, 640, math.max(110, contentH))
