@@ -21,6 +21,8 @@ loadModule("Scoring/Coach.lua", TP)
 loadModule("Scoring/Runs.lua", TP)
 loadModule("Scoring/Insights.lua", TP)
 loadModule("Scoring/Bullets.lua", TP)
+loadModule("Metrics/Registry.lua", TP)
+loadModule("Metrics/Spikes.lua", TP) -- FindWindows/Compute are pure at capture time
 
 -- Awards memoize per fight record; production fights never mutate after
 -- capture (late reports invalidate explicitly), but test fixtures do —
@@ -1526,6 +1528,20 @@ adjFight.players.k.metrics.spikeWindows = nil
 for _, r in ipairs(TP.Scoring.Engine.ScoreFight(adjFight, { mode = "parse", normalizeIlvl = false })) do
 	check(r.adjust == 0 and next(r.adjustDetail) == nil, "parse mode takes no adjustments")
 	check(r.breakdown.interrupts == nil, "parse breakdown carries no count metrics")
+end
+
+-- 21. Danger-window detection (Metrics/Spikes.lua pure math)
+if TP.Spikes and TP.Spikes.FindWindows then
+	-- 100k HP tank, threshold 45k over 3s: two clear spikes, quiet middle
+	local buckets = { [10] = 30000, [11] = 25000, [40] = 20000, [41] = 20000, [42] = 15000 }
+	local w = TP.Spikes.FindWindows(buckets, 60, 45000)
+	check(#w == 2, ("two separated spikes make two windows (%d)"):format(#w))
+	check(w[1][1] <= 10 and w[1][2] >= 11, "first window brackets the burst seconds")
+	-- adjacent bursts merge into one sustained window
+	local merged = TP.Spikes.FindWindows({ [5] = 50000, [7] = 50000, [9] = 50000 }, 20, 45000)
+	check(#merged == 1, ("bursts within the merge gap read as one window (%d)"):format(#merged))
+	-- below threshold: nothing
+	check(#TP.Spikes.FindWindows({ [5] = 10000 }, 20, 45000) == 0, "quiet fights have no windows")
 end
 
 print("")

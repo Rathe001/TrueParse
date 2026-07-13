@@ -529,6 +529,13 @@ function FightHistory:AddFromSegment(seg)
 	}
 	local players = {}
 	local playerGUID = UnitGUID("player")
+	-- danger-window math runs once for the whole segment (group windows
+	-- are shared); enrichment must never block capture
+	local spikeData
+	if TP.Spikes and TP.Spikes.Compute then
+		local ok, data = pcall(TP.Spikes.Compute, seg, seg.duration)
+		spikeData = ok and data or nil
+	end
 	for guid, acc in pairs(seg.players) do
 		-- Roster members who never participated (offline, cross-zone, out of
 		-- combat-log range the whole fight) don't belong on the card
@@ -591,6 +598,13 @@ function FightHistory:AddFromSegment(seg)
 			if up > 0 then
 				m.mitigationPct = math.min(100, math.floor(up / seg.duration * 100 + 0.5))
 			end
+		end
+		-- danger-window cooldown timing (Metrics/Spikes.lua; the engine
+		-- gates tank fields to tanks, group fields to healers)
+		if spikeData and spikeData[guid] then
+			local sd = spikeData[guid]
+			m.spikeWindows, m.spikeCovered = sd.spikeWindows, sd.spikeCovered
+			m.groupSpikeWindows, m.groupSpikeCovered = sd.groupSpikeWindows, sd.groupSpikeCovered
 		end
 		local ag = acc.aggro
 		players[guid] = {

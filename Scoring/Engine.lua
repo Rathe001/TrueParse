@@ -520,8 +520,16 @@ local function findCurve(ctx, kind, specID, role, specOnly, encounterOnly)
 		local tbl = enc and enc[bk] and enc[bk][kind]
 		local entry = tbl and tbl[specID]
 		if usable(entry) then
-			return entry, (i > 1) and ("spec · " .. (BRACKET_LABELS[bk] or bk)) or nil,
-				nil, scaleFor(i, bk)
+			-- dungeon curves ("all") sample WCL's score-ordered top runs,
+			-- not a population (2026-07-13 audit: p99/p50 = 1.26 vs 2.09 in
+			-- raids) — name the comparison honestly
+			local label
+			if bk == "all" then
+				label = "timed top runs"
+			elseif i > 1 then
+				label = "spec · " .. (BRACKET_LABELS[bk] or bk)
+			end
+			return entry, label, nil, scaleFor(i, bk)
 		end
 	end
 	local function specPool(i, bk)
