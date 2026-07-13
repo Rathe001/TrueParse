@@ -9,7 +9,7 @@ TP.MeterWindow = MeterWindow
 
 local HEADER_HEIGHT = 26
 local COLHEAD_HEIGHT = 11 -- thin "fight / run" column labels (scorecard only)
-local COL_RESERVE = 78 -- right-side score columns the class bar never enters
+local COL_RESERVE = 91 -- right-side columns (mark + scores) the class bar never enters
 local MODE_HEIGHT = 16 -- bottom strip: Mode: (*)Real ( )Raw
 local PADDING = 6
 local SCORECARD_ROW_HEIGHT = 14
@@ -847,7 +847,8 @@ function MeterWindow:RenderScorecard(fight)
 
 		-- no award star here: it wrapped long cross-realm names and the
 		-- row already carries a lot (awards live in the breakdown + toasts)
-		row.name:SetText(r.name)
+		-- Details-style rank prefix: position in THIS fight's standings
+		row.name:SetText(("%d. %s"):format(i + scrollOffset, r.name))
 		row.name:SetTextColor(1, 1, 1)
 		row.playerName = r.name
 

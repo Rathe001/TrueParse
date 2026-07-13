@@ -109,15 +109,15 @@ function Scorecard:Acquire(parent)
 		row.icon:SetPoint("BOTTOMLEFT")
 		row.icon:SetWidth(14)
 
-		-- TrueParse presence, just before the name: green check (running
-		-- it), red X (not detected), question mark (unknown yet)
+		-- TrueParse presence in its OWN column right of the name area:
+		-- green check (running it), red X (not detected), ? (unknown yet)
 		row.addonMark = row:CreateTexture(nil, "ARTWORK")
 		row.addonMark:SetSize(9, 9)
-		row.addonMark:SetPoint("LEFT", row.icon, "RIGHT", 2, 0)
+		row.addonMark:SetPoint("RIGHT", row.penalty, "LEFT", -4, 0)
 
 		row.name = outlined("GameFontHighlightSmall")
-		row.name:SetPoint("LEFT", row.addonMark, "RIGHT", 2, 0)
-		row.name:SetPoint("RIGHT", row.penalty, "LEFT", -4, 0)
+		row.name:SetPoint("LEFT", row.icon, "RIGHT", 3, 0)
+		row.name:SetPoint("RIGHT", row.addonMark, "LEFT", -4, 0)
 		row.name:SetJustifyH("LEFT")
 		-- narrow windows truncate long cross-realm names, never wrap
 		row.name:SetWordWrap(false)
