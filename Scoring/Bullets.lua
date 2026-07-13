@@ -444,7 +444,7 @@ function Bullets.ForGroup(results, fight)
 	if avoidable > 0 then
 		local pressure = ""
 		if fight and fight.totals and (fight.totals.damageTaken or 0) > 0 then
-			pressure = (" (%d%% of damage taken was avoidable)"):format(
+			pressure = (" (%d%% avoidable)"):format(
 				(fight.totals.avoidableTaken or 0) / fight.totals.damageTaken * 100 + 0.5)
 		end
 		out[#out + 1] = { kind = "penalty", key = "avoidable", symbol = "-", color = BAD,

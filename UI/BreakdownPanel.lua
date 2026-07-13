@@ -323,6 +323,25 @@ local function hideRowsFrom(i)
 	end
 end
 
+-- Important lines never truncate: widen the card to its longest bullet
+-- (within reason), then keep every row tracking the frame width.
+local MAX_WIDTH = 430
+local function fitWidth(rowCount)
+	local needed = WIDTH
+	for i = 1, math.min(rowCount, #rows) do
+		-- GetStringWidth measures the FULL text, not the clipped render
+		local w = rows[i].text:GetStringWidth() + 28 + 8 + 12
+		if w > needed then
+			needed = w
+		end
+	end
+	needed = math.min(needed, MAX_WIDTH)
+	frame:SetWidth(needed)
+	for i = 1, #rows do
+		rows[i]:SetWidth(needed - 12)
+	end
+end
+
 
 local INFO_HELP -- built on first use (TP.Compat is load-order-safe then)
 local function infoHelp()
@@ -488,6 +507,7 @@ function Panel:ShowFor(fight, result)
 	-- (players without TrueParse are flagged by the red X on their
 	-- scorecard row, not an extra bullet here)
 	hideRowsFrom(#bullets + 1)
+	fitWidth(#bullets)
 
 	frame.total:SetText("") -- footer text is group-view only
 	-- y already sits at the last row's bottom edge; +8 mirrors the top pad
@@ -710,6 +730,7 @@ function Panel:ShowForGroup(fight, results)
 		} }
 	end
 	hideRowsFrom(total + 1)
+	fitWidth(total)
 
 	frame.total:SetText("") -- header lines carry the numbers now
 	frame:SetHeight(-y + 8)
