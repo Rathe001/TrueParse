@@ -616,6 +616,10 @@ local function applyWindowHeight(newHeight, pinTop)
 	else
 		window:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
 	end
+	-- persist the re-anchor: collapse moves the frame's visual position
+	-- (bottom-pinning), and restoring the stale expanded-era point after
+	-- a reload teleported the bar somewhere else entirely
+	savePosition()
 end
 
 -- The window height is USER-set (resize grip); rows render into whatever
