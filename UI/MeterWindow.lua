@@ -53,6 +53,7 @@ local lastScrollOffset = -1
 -- declaration makes earlier references nil globals (the blank-window bug).
 local displayCache = setmetatable({}, { __mode = "k" })
 local runScoreCache = setmetatable({}, { __mode = "k" })
+local trueScoreCache = setmetatable({}, { __mode = "k" }) -- run-mean inputs
 
 -- Re-anchor to a plain TOPLEFT point at the frame's exact current screen
 -- rect. The window's anchor shape varies with history (saved CENTER from
@@ -464,6 +465,7 @@ function MeterWindow:Invalidate()
 	lastRenderedFight = nil
 	wipe(displayCache)
 	wipe(runScoreCache)
+	wipe(trueScoreCache)
 	self:Refresh(true)
 end
 
@@ -703,6 +705,19 @@ local function scoreRun(run)
 	return rr
 end
 
+-- True-mode scores for one FIGHT (run means are always True currency,
+-- whatever lens the window shows); memoized like the display cache
+local function scoreTrue(f)
+	local opts = TP.GetScoringOptions()
+	local hit = trueScoreCache[f]
+	if hit and hit.ilvl == opts.normalizeIlvl then
+		return hit.rr
+	end
+	local rr = TP.Scoring.Engine.ScoreFight(f, opts)
+	trueScoreCache[f] = { ilvl = opts.normalizeIlvl, rr = rr }
+	return rr
+end
+
 -- Spec icon for a row: the capture's own specIconID (retail sessions carry
 -- it), then the inspected/synced specID's icon, then the class crest.
 local ICON_CROP = 0.07
@@ -796,17 +811,35 @@ function MeterWindow:RenderScorecard(fight)
 	-- run is live now.
 	local runFight, runResults, runScore, runBy
 	if TP.RunSummary and TP.RunSummary.RunFor then
-		local run, count = TP.RunSummary:RunFor(fight)
+		local run, count, runFights = TP.RunSummary:RunFor(fight)
 		if run and count and count >= 1 then
-			local rr = scoreRun(run)
-			if #rr > 0 then
-				local s = 0
-				runBy = {}
-				for _, r in ipairs(rr) do
-					s = s + r.score
-					runBy[r.guid] = r
+			-- the avg column is a TRUE AVERAGE of the player's per-fight
+			-- scores (each already base+adjust). Scoring the summed
+			-- aggregate instead let run-long adjustment totals saturate:
+			-- fights of 94/98/73 read as a 99 (2026-07-13).
+			local sums, counts = {}, {}
+			for _, f in ipairs(runFights or {}) do
+				for _, r in ipairs(scoreTrue(f)) do
+					sums[r.guid] = (sums[r.guid] or 0) + r.score
+					counts[r.guid] = (counts[r.guid] or 0) + 1
 				end
-				runFight, runResults, runScore = run, rr, s / #rr
+			end
+			runBy = {}
+			local total, n = 0, 0
+			for guid, s in pairs(sums) do
+				local entry = { guid = guid, score = s / counts[guid] }
+				runBy[guid] = entry
+				total = total + entry.score
+				n = n + 1
+			end
+			if n > 0 then
+				runScore = total / n
+				runFight = run
+				-- the right-click run breakdown still analyzes the
+				-- aggregate (bullets over the whole run's data)
+				runResults = scoreRun(run)
+			else
+				runBy = nil
 			end
 		end
 	end

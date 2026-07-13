@@ -134,7 +134,7 @@ function RunSummary:RunFor(fight)
 		runForCache.runID, runForCache.count = fight.runID, #fights
 		runForCache.run = TP.Scoring.Runs.Aggregate(fights, fights[1].zone or "Run")
 	end
-	return runForCache.run, #fights
+	return runForCache.run, #fights, fights
 end
 
 -- announce=true (auto triggers only) additionally posts to group chat per
