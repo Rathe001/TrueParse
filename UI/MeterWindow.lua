@@ -8,7 +8,7 @@ local MeterWindow = {}
 TP.MeterWindow = MeterWindow
 
 local HEADER_HEIGHT = 26
-local COLHEAD_HEIGHT = 11 -- thin "fight / run" column labels (scorecard only)
+local COLHEAD_HEIGHT = 0 -- header labels removed: tooltips explain the columns
 local COL_RESERVE = 66 -- right-side score columns the class bar never enters
 local MODE_HEIGHT = 16 -- bottom strip: Mode: (*)Real ( )Raw
 local PADDING = 6
@@ -116,7 +116,10 @@ local function createWindow()
 	})
 	window:SetBackdropColor(0.04, 0.04, 0.05, 1)
 	window:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
-	window:SetSize(db().window.width, 100)
+	-- REAL saved height from the start: a placeholder height let the
+	-- first layout derive (and persist) the screen-half pin from a
+	-- transient rect — the window walked on every reload
+	window:SetSize(db().window.width, db().window.height)
 	window:SetClampedToScreen(true)
 	window:SetMovable(true)
 	window:EnableMouse(true)
@@ -378,31 +381,6 @@ local function createWindow()
 		return btn
 	end
 	-- Column labels over the two number columns, aligned to their edges
-	local function colLabel(text, rightOffset)
-		local fs = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-		local path = fs:GetFont()
-		fs:SetFont(path, 9, "")
-		-- right-anchored, NO width constraint: the label sizes to its
-		-- text and grows leftward, so headers can never truncate
-		fs:SetPoint("TOPRIGHT", rightOffset, -(HEADER_HEIGHT - 1))
-		fs:SetTextColor(0.55, 0.55, 0.55)
-		fs:SetText(text)
-		return fs
-	end
-	-- three-letter headers over the content-sized columns: adjustment,
-	-- current fight, run average — plus a left-aligned name label
-	window.colRun = colLabel("avg", -(PADDING + 3))
-	window.colFight = colLabel("cur", -(PADDING + 3 + 15 + 4))
-	window.colAdj = colLabel("adj", -(PADDING + 3 + 15 + 4 + 17 + 6))
-	window.colName = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	do
-		local path = window.colName:GetFont()
-		window.colName:SetFont(path, 9, "")
-		window.colName:SetPoint("TOPLEFT", PADDING + 2, -(HEADER_HEIGHT - 1))
-		window.colName:SetTextColor(0.55, 0.55, 0.55)
-		window.colName:SetText("name")
-	end
-
 	window.modeReal = makeRadio("TrueParse", "contribution",
 		"Considers damage, healing, damage taken, interrupts, and much more compared to others of your same spec and role.")
 	window.modeRaw = makeRadio("Raw", "parse",
@@ -634,12 +612,6 @@ end
 
 local function setWindowHeight(withColHead, maxHeight)
 	setModeStripShown(true)
-	if window.colFight then
-		window.colFight:SetShown(withColHead and true or false)
-		window.colRun:SetShown(withColHead and true or false)
-		window.colAdj:SetShown(withColHead and true or false)
-		window.colName:SetShown(withColHead and true or false)
-	end
 	-- presence-mark legend only makes sense on the scorecard; it shares
 	-- the bottom line with the radios, so no extra height
 	if window.footnote then
@@ -1052,7 +1024,6 @@ function MeterWindow:RenderScorecard(fight)
 		window:SetMaxResize(640, math.max(110, contentH))
 	end
 	setWindowHeight(true, contentH)
-	window.colRun:SetShown(runBy ~= nil) -- no run yet: no misleading label
 	TP.BreakdownPanel:OnFightRendered(fight, results)
 end
 
@@ -1170,12 +1141,6 @@ local function refreshImpl(self, force)
 			window.emptyMsg:Hide()
 		end
 		setModeStripShown(false)
-		if window.colFight then
-			window.colFight:Hide()
-			window.colRun:Hide()
-			window.colAdj:Hide()
-			window.colName:Hide()
-		end
 		-- screen-half pinning (no pinTop): top half keeps the title bar in
 		-- place, bottom half collapses DOWN to the window's bottom edge.
 		-- Exactly one header tall: the centered title doesn't move between
