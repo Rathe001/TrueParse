@@ -1466,8 +1466,8 @@ check(math.abs((adjByName.Slacker.adjustDetail.avoidable or 0) + 15) < 0.1,
 	("ate the whole group's avoidable: old cap applies (%.1f)"):format(adjByName.Slacker.adjustDetail.avoidable or 0))
 check(adjByName.Slacker.adjust == -15, "net adjustment clamps at the total cap")
 check(adjByName.Slacker.penaltyDetail.avoidable == 15, "legacy penaltyDetail mirrors the negative side")
-check(math.abs(adjByName.Kicker.score - math.min(100, adjByName.Kicker.base + adjByName.Kicker.adjust)) < 0.001,
-	"score = clamp(base + net adjustment)")
+check(math.abs(adjByName.Kicker.score - math.min(99, adjByName.Kicker.base + adjByName.Kicker.adjust)) < 0.001,
+	"score = clamp(base + net adjustment), 99 ceiling")
 
 -- a 1-kick fight barely moves the needle (Josh: interrupt-heavy fights
 -- should swing more; low-kick fights shouldn't)
