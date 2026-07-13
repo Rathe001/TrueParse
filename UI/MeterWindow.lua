@@ -378,22 +378,22 @@ local function createWindow()
 		return btn
 	end
 	-- Column labels over the two number columns, aligned to their edges
-	local function colLabel(text, rightOffset, colWidth)
+	local function colLabel(text, rightOffset)
 		local fs = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 		local path = fs:GetFont()
 		fs:SetFont(path, 9, "")
+		-- right-anchored, NO width constraint: the label sizes to its
+		-- text and grows leftward, so headers can never truncate
 		fs:SetPoint("TOPRIGHT", rightOffset, -(HEADER_HEIGHT - 1))
-		fs:SetWidth(colWidth)
-		fs:SetJustifyH("RIGHT")
 		fs:SetTextColor(0.55, 0.55, 0.55)
 		fs:SetText(text)
 		return fs
 	end
-	-- three-letter headers fit the content-sized columns: adjustment,
+	-- three-letter headers over the content-sized columns: adjustment,
 	-- current fight, run average — plus a left-aligned name label
-	window.colRun = colLabel("avg", -(PADDING + 3), 18)
-	window.colFight = colLabel("cur", -(PADDING + 3 + 15 + 4), 18)
-	window.colAdj = colLabel("adj", -(PADDING + 3 + 15 + 4 + 17 + 6), 18)
+	window.colRun = colLabel("avg", -(PADDING + 3))
+	window.colFight = colLabel("cur", -(PADDING + 3 + 15 + 4))
+	window.colAdj = colLabel("adj", -(PADDING + 3 + 15 + 4 + 17 + 6))
 	window.colName = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	do
 		local path = window.colName:GetFont()
