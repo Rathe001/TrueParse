@@ -819,10 +819,19 @@ local groupThreatBullets = TP.Scoring.Bullets.ForGroup(threatResults)
 local sawGroupAggro, sawGroupLoss = false, false
 for _, b in ipairs(groupThreatBullets) do
 	if b.key == "aggro" then sawGroupAggro = (b.text == "2 players pulled aggro") end
-	if b.key == "aggroLoss" then sawGroupLoss = (b.text == "Aggro slipped off the tank") end
+	if b.key == "aggroLoss" then sawGroupLoss = true end
 end
 check(sawGroupAggro, "group aggro phrase counts offenders")
-check(sawGroupLoss, "group tank-loss phrase present")
+-- one story, not two: the culprit line supersedes the tank-side line
+check(not sawGroupLoss, "tank-loss line yields when culprits are named")
+local lossOnly = TP.Scoring.Bullets.ForGroup({
+	{ role = "TANK", breakdown = {}, penaltyDetail = { aggroLoss = 4 } },
+})
+local lossLine = false
+for _, b in ipairs(lossOnly) do
+	if b.key == "aggroLoss" then lossLine = true end
+end
+check(lossLine, "tank-loss line shows when nobody specific got charged")
 
 -- 16. Role- and fight-type-specific awards
 local roleFight = {

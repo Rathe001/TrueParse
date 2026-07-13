@@ -484,11 +484,13 @@ function Bullets.ForGroup(results, fight)
 		out[#out + 1] = { kind = "penalty", key = "avoidable", symbol = "-", color = BAD,
 			text = (avoidable == 1 and "1 player stood in bad" or ("%d players stood in bad"):format(avoidable)) .. pressure }
 	end
+	-- one story, not two: a non-tank holding aggro IS the tank losing
+	-- it. Prefer the line that names culprits; the tank-side line only
+	-- shows when nobody specific got charged
 	if aggroed > 0 then
 		out[#out + 1] = { kind = "penalty", key = "aggro", symbol = "-", color = BAD,
 			text = aggroed == 1 and "1 player pulled aggro" or ("%d players pulled aggro"):format(aggroed) }
-	end
-	if tankLostAggro then
+	elseif tankLostAggro then
 		out[#out + 1] = { kind = "penalty", key = "aggroLoss", symbol = "-", color = BAD,
 			text = "Aggro slipped off the tank" }
 	end
