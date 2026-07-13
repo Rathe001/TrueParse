@@ -815,8 +815,10 @@ function MeterWindow:RenderScorecard(fight)
 		row.score:SetJustifyH(letterAlign)
 		row.runAvg:SetJustifyH(letterAlign)
 		row.icon:SetAlpha(hasAddon and 1 or 0.7)
-		-- users only: the badge marks the exception, not the crowd
-		row.addonMark:SetShown(hasAddon)
+		row.addonMark:SetTexture(hasAddon
+			and "Interface\\COMMON\\Indicator-Green"
+			or "Interface\\COMMON\\Indicator-Gray")
+		row.addonMark:Show()
 
 		-- Details-style: the row IS a solid class-colored bar with a white
 		-- outlined name. Non-addon players get the color MUTED (washed

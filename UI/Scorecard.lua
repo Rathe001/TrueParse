@@ -114,14 +114,12 @@ function Scorecard:Acquire(parent)
 		row.icon:SetPoint("BOTTOMLEFT")
 		row.icon:SetWidth(14)
 
-		-- TrueParse presence: a green dot on the spec icon's corner, users
-		-- only. A solid indicator dot reads at small sizes where the
-		-- ready-check swoosh vanished into the icon art. Non-users are
-		-- already told by the muted bar color.
+		-- TrueParse presence: an indicator dot on the spec icon's corner —
+		-- green = running the addon, gray = not. A solid dot reads at
+		-- small sizes where the ready-check swoosh vanished into icon art.
 		row.addonMark = row:CreateTexture(nil, "OVERLAY")
-		row.addonMark:SetSize(9, 9)
-		row.addonMark:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 3, -3)
-		row.addonMark:SetTexture("Interface\\COMMON\\Indicator-Green")
+		row.addonMark:SetSize(12, 12)
+		row.addonMark:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 4, -4)
 
 		row.name = outlined("GameFontHighlightSmall", 12)
 		row.name:SetPoint("LEFT", row.icon, "RIGHT", 3, 0)
