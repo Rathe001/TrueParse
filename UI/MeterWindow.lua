@@ -393,6 +393,19 @@ local function createWindow()
 	window.footnote:SetJustifyH("LEFT")
 	window.footnote:SetWordWrap(false) -- truncate at the radios, never wrap
 	window.footnote:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:8:8|t = Addon installed")
+
+	-- the footer collapses the window like the header does — everywhere
+	-- except the mode radios (which keep their own clicks) and the grip
+	window.footerButton = CreateFrame("Button", nil, window)
+	window.footerButton:SetPoint("BOTTOMLEFT", 0, 0)
+	window.footerButton:SetPoint("BOTTOMRIGHT", window.modeReal, "BOTTOMLEFT", -12, -6)
+	window.footerButton:SetHeight(MODE_HEIGHT)
+	window.footerButton:RegisterForDrag("LeftButton")
+	window.footerButton:SetScript("OnDragStart", startDrag)
+	window.footerButton:SetScript("OnDragStop", stopDrag)
+	window.footerButton:SetScript("OnClick", function()
+		MeterWindow:ToggleCollapse()
+	end)
 	MeterWindow:UpdateModeButtons()
 end
 
@@ -415,6 +428,10 @@ local function setModeStripShown(shown)
 	window.modeRaw.label:SetShown(shown)
 	if not shown and window.footnote then
 		window.footnote:Hide()
+	end
+	-- collapsed, the footer button would overlap the title bar
+	if window.footerButton then
+		window.footerButton:SetShown(shown)
 	end
 end
 
@@ -550,7 +567,7 @@ local function contentSlots(rowHeight, withColHead)
 	return math.max(1, math.floor((db().window.height - chrome) / (rowHeight + 1)))
 end
 
-local function setWindowHeight(withColHead)
+local function setWindowHeight(withColHead, maxHeight)
 	setModeStripShown(true)
 	if window.colFight then
 		window.colFight:SetShown(withColHead and true or false)
@@ -561,7 +578,10 @@ local function setWindowHeight(withColHead)
 	if window.footnote then
 		window.footnote:SetShown(withColHead and true or false)
 	end
-	applyWindowHeight(db().window.height)
+	-- the saved height is the user's intent; the DISPLAYED height never
+	-- exceeds the content (no empty space below the last row). A bigger
+	-- group later grows back into the saved height automatically.
+	applyWindowHeight(math.min(db().window.height, maxHeight or math.huge))
 end
 
 -- ========================= Scorecard (primary) =========================
@@ -953,7 +973,16 @@ function MeterWindow:RenderScorecard(fight)
 		window.scrollDown:SetShown(hiddenBelow > 0)
 	end
 
-	setWindowHeight(true)
+	-- the content is the ceiling: never render (or let the grip drag)
+	-- empty space below the last row
+	local contentH = HEADER_HEIGHT + COLHEAD_HEIGHT + totalRows * (rowHeight + 1)
+		+ MODE_HEIGHT + PADDING
+	if window.SetResizeBounds then
+		window:SetResizeBounds(180, 110, 640, math.max(110, contentH))
+	elseif window.SetMaxResize then
+		window:SetMaxResize(640, math.max(110, contentH))
+	end
+	setWindowHeight(true, contentH)
 	window.colRun:SetShown(runBy ~= nil) -- no run yet: no misleading label
 	TP.BreakdownPanel:OnFightRendered(fight, results)
 end
