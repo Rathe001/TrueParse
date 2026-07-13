@@ -9,10 +9,10 @@ TP.MeterWindow = MeterWindow
 
 local HEADER_HEIGHT = 26
 local COLHEAD_HEIGHT = 11 -- thin "fight / run" column labels (scorecard only)
-local COL_RESERVE = 78 -- right-side score columns the class bar never enters
+local COL_RESERVE = 66 -- right-side score columns the class bar never enters
 local MODE_HEIGHT = 16 -- bottom strip: Mode: (*)Real ( )Raw
 local PADDING = 6
-local SCORECARD_ROW_HEIGHT = 20 -- Details-proportioned rows: icon = row height
+local SCORECARD_ROW_HEIGHT = 18 -- Details-proportioned rows: icon = row height
 
 local window
 local activeRows = {}
@@ -354,8 +354,8 @@ local function createWindow()
 		fs:SetText(text)
 		return fs
 	end
-	window.colRun = colLabel("run", -(PADDING + 3), 20)
-	window.colFight = colLabel("fight", -(PADDING + 3 + 20 + 4), 30)
+	window.colRun = colLabel("run", -(PADDING + 3), 15)
+	window.colFight = colLabel("fight", -(PADDING + 3 + 15 + 4), 30)
 
 	window.modeReal = makeRadio("TrueParse", "contribution",
 		"Considers damage, healing, damage taken, interrupts, and much more compared to others of your same spec and role.")
@@ -873,7 +873,7 @@ function MeterWindow:RenderScorecard(fight)
 		-- the cell keeps its width whenever the COLUMN exists: a 1px cell
 		-- let the fight score slide into the run column's position
 		local runR = runBy and runBy[r.guid]
-		row.runAvg:SetWidth(runBy and 20 or 1)
+		row.runAvg:SetWidth(runBy and 15 or 1)
 		if runR then
 			row.runAvg:SetText(TP.Scoring.Grades.ScoreLabel(runR.score))
 			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runR.score))
@@ -937,7 +937,7 @@ function MeterWindow:RenderScorecard(fight)
 		if runScore then
 			row.runAvg:SetText(TP.Scoring.Grades.ScoreLabel(runScore))
 			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runScore))
-			row.runAvg:SetWidth(20)
+			row.runAvg:SetWidth(15)
 		else
 			row.runAvg:SetText("")
 			row.runAvg:SetWidth(1)

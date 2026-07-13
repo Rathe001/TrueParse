@@ -49,12 +49,6 @@ function Scorecard:Acquire(parent)
 		row.bg:SetPoint("TOPLEFT")
 		row.bg:SetPoint("BOTTOMLEFT")
 		row.bg:SetWidth(1)
-		-- subtle column border where the bar area ends
-		row.sep = row:CreateTexture(nil, "BACKGROUND", nil, 0)
-		row.sep:SetPoint("TOPLEFT", row.track, "TOPRIGHT", 0, 0)
-		row.sep:SetPoint("BOTTOMLEFT", row.track, "BOTTOMRIGHT", 0, 0)
-		row.sep:SetWidth(1)
-		row.sep:SetColorTexture(1, 1, 1, 0.10)
 		local highlight = row:CreateTexture(nil, "HIGHLIGHT")
 		highlight:SetAllPoints()
 		highlight:SetColorTexture(1, 1, 1, 0.15)
@@ -70,23 +64,24 @@ function Scorecard:Acquire(parent)
 			fs:SetShadowOffset(1, -1)
 			return fs
 		end
+		-- columns sized to their max content: scores cap at 99 (two
+		-- digits), adjustments at three characters (-15)
 		row.runAvg = outlined("GameFontDisableSmall", 11)
 		row.runAvg:SetPoint("RIGHT", -3, 0)
-		row.runAvg:SetWidth(20)
+		row.runAvg:SetWidth(15)
 		row.runAvg:SetJustifyH("RIGHT")
 		row.runAvg:SetAlpha(0.75)
 
 		row.score = outlined("GameFontNormalSmall", 12)
 		row.score:SetPoint("RIGHT", row.runAvg, "LEFT", -4, 0)
-		row.score:SetWidth(26)
+		row.score:SetWidth(17)
 		row.score:SetJustifyH("RIGHT")
 
 		row.penalty = outlined("GameFontDisableSmall", 10)
-		row.penalty:SetPoint("RIGHT", row.score, "LEFT", -3, 0)
+		-- breathing room between the adjustment and the fight score
+		row.penalty:SetPoint("RIGHT", row.score, "LEFT", -6, 0)
 		row.penalty:SetJustifyH("RIGHT")
-		-- fixed slot: an unconstrained width let truncated names crowd
-		-- right up against the score column. One line, always.
-		row.penalty:SetWidth(22)
+		row.penalty:SetWidth(19)
 		row.penalty:SetWordWrap(false)
 		row.penalty:SetMaxLines(1)
 
