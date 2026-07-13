@@ -1086,11 +1086,18 @@ check(mystByName.Deeps.breakdown.damage.curveFrom == "spec \194\183 all bosses"
 check(mystByName.OffMeta.breakdown.healing.curveFrom == "role \194\183 all bosses"
 	and mystByName.OffMeta.breakdown.healing.rolePooled,
 	("spec with no hps curve anywhere pools the role (%s)"):format(tostring(mystByName.OffMeta.breakdown.healing.curveFrom)))
-check(mystByName.Wall.breakdown.damage.curveFrom == "all players",
-	("role with no curves at all compares vs everyone (%s)"):format(tostring(mystByName.Wall.breakdown.damage.curveFrom)))
-check(mystByName.Deeps.breakdown.damage.absolute and mystByName.OffMeta.breakdown.healing.absolute
-	and mystByName.Wall.breakdown.damage.absolute,
-	"True never falls back to a group comparison while data is loaded")
+-- The "everyone" rung is DELETED (2026-07-13 audit: ±29-49 points of
+-- systematic error in both directions — a median healer's hps read p99
+-- against it). A role absent from the whole data file now falls back to
+-- the honest group comparison, and the tooltip says so.
+check(mystByName.Wall.breakdown.damage.curveFrom == nil
+	and mystByName.Wall.breakdown.damage.absolute == nil,
+	("role with no curves anywhere never gets the everyone pool (%s)"):format(
+		tostring(mystByName.Wall.breakdown.damage.curveFrom)))
+check(mystByName.Wall.breakdown.damage.relative ~= nil,
+	"curve-less role falls back to the group comparison, flagged as such")
+check(mystByName.Deeps.breakdown.damage.absolute and mystByName.OffMeta.breakdown.healing.absolute,
+	"specs with any pool evidence stay on WCL comparisons")
 -- ...but the everyone-pool is PRIMARY-metric only: a healer's damage vs a
 -- mostly-DPS population reads p2 where WCL says 92
 check(mystByName.OffMeta.breakdown.damage.absolute == nil
@@ -1230,7 +1237,10 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(calmZoom, { normalizeIlvl = fals
 end
 
 -- 18e. Run aggregates score through the percentile ladder too: cohort-
--- relative run averages handed the best of each role a structural 100
+-- relative run averages handed the best of each role a structural 100.
+-- (Restore the bracket first: 18c left pctFight on 10H, and the ladder
+-- now labels neighbor-bracket pools with the borrowed bracket.)
+pctFight.difficultyID = 3
 local runAgg = TP.Scoring.Runs.Aggregate({ pctFight, pctFight }, "Run")
 check(runAgg.isRun and runAgg.difficultyID == pctFight.difficultyID,
 	"run aggregate carries isRun and difficulty context")
@@ -1241,6 +1251,42 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(runAgg, { normalizeIlvl = false 
 			("run average scored vs population pools, not the cohort (%s)"):format(
 				tostring(r.breakdown.damage.curveFrom)))
 	end
+end
+
+-- 18f. Bracket correction: borrowing a neighbor bracket's curve rescales
+-- the player's rate by the measured population shift (median p50 ratio
+-- across specs both brackets cover). Four shared specs at exactly 2x
+-- give ratio 0.5 going Heroic -> Normal; a heroic-median performer read
+-- on the Normal curve must still land at p50.
+do
+	local function mk(p50)
+		return { n = 500, curve = { { 99, p50 * 2 }, { 95, p50 * 1.8 }, { 90, p50 * 1.6 },
+			{ 75, p50 * 1.3 }, { 50, p50 }, { 25, p50 * 0.75 }, { 10, p50 * 0.55 } } }
+	end
+	TP.Percentiles.encounters["Ratio Boss"] = {
+		["3"] = { dps = { [62] = mk(100), [63] = mk(110), [64] = mk(120), [250] = mk(130), [71] = mk(200) }, hps = {} },
+		["4"] = { dps = { [62] = mk(200), [63] = mk(220), [64] = mk(240), [250] = mk(260) }, hps = {} },
+	}
+	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+	local heroicFight = {
+		name = "(!) Ratio Boss", isBoss = true, duration = 100, difficultyID = 15, -- retail Heroic "4"
+		players = {
+			d = { guid = "d", name = "Deeps", class = "WARRIOR", role = "DAMAGER", specID = 71,
+				metrics = { damage = 40000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } }, -- 400/s
+		},
+	}
+	for _, r in ipairs(TP.Scoring.Engine.ScoreFight(heroicFight, { mode = "parse", normalizeIlvl = false })) do
+		-- spec 71 has no Heroic curve; its Normal p50 is 200/s and the
+		-- measured Normal->Heroic shift is 2x, so 400/s ~ heroic median
+		check(r.breakdown.damage.curveFrom == "spec \194\183 Normal",
+			("missing-bracket spec borrows the Normal curve (%s)"):format(tostring(r.breakdown.damage.curveFrom)))
+		check(math.abs((r.breakdown.damage.pctile or 0) - 50) < 0.001,
+			("bracket correction preserves the percentile (p%.1f)"):format(r.breakdown.damage.pctile or -1))
+		check(math.abs((r.breakdown.damage.specMedian or 0) - 400) < 0.001,
+			("shown median converts back into the fight's bracket (%.0f/s)"):format(r.breakdown.damage.specMedian or -1))
+	end
+	TP.Percentiles.encounters["Ratio Boss"] = nil
+	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
 end
 
 -- True mode uses the curve through the contribution transform: p50 -> 65,

@@ -156,10 +156,8 @@ local function encounterByName(P, name)
 	return idx[key]
 end
 
--- Tests mutate the encounters table; runtime never does
-function Engine.InvalidateNameIndex(P)
-	nameIndexCache[P or TP.Percentiles] = nil
-end
+-- Tests mutate the encounters table; runtime never does.
+-- (Defined below findCurve, where every per-file cache is in scope.)
 
 -- WCL orders DUNGEON rankings by keystone score, not by the requested
 -- throughput metric, so sampled curves come back shuffled (583 of the 592
@@ -442,13 +440,66 @@ local function percentileFor(curve, rate)
 	return last[1] * rate / last[2]
 end
 
--- Walk the ladder for one spec+metric. specOnly stops after the spec
--- steps (the throughput-mix profile must not inherit a role's generic
--- mix). encounterOnly stops before the cross-encounter pools: a "parse"
--- must be evidence from THIS fight — a trivial dungeon healer measured
--- against raid-boss populations read F on a fight with nothing to heal.
--- Returns entry, sourceLabel (nil = exact spec+bracket), rolePooledFlag.
--- Never returns a curve with fewer than 2 points.
+-- Cross-bracket correction: difficulty shifts the whole population by a
+-- stable factor (2026-07-13 audit: median p50 ratios run 1.3-3.0x on
+-- retail; applying them cuts neighbor-bracket transfer error from 20-48
+-- percentile points to 6-15). Computed lazily from the shipped curves —
+-- the median over encounter x spec of p50(to)/p50(from) — cached per
+-- data file. Returns nil when the brackets don't overlap enough to
+-- measure (score uncorrected in that case, as before).
+local ratioCache = setmetatable({}, { __mode = "k" })
+
+local function bracketRatio(P, fromBk, toBk, kind)
+	if fromBk == toBk then
+		return 1
+	end
+	local cache = ratioCache[P]
+	if not cache then
+		cache = {}
+		ratioCache[P] = cache
+	end
+	local key = fromBk .. ">" .. toBk .. ":" .. kind
+	local hit = cache[key]
+	if hit ~= nil then
+		return hit or nil
+	end
+	local ratios = {}
+	for _, enc in pairs(P.encounters or {}) do
+		local a, b = enc[fromBk], enc[toBk]
+		if type(a) == "table" and type(b) == "table" and a[kind] and b[kind] then
+			for specID, ea in pairs(a[kind]) do
+				local eb = b[kind][specID]
+				local m5a = ea.curve and curveP50(ea.curve)
+				local m5b = eb and eb.curve and curveP50(eb.curve)
+				if m5a and m5b and m5a > 0 then
+					ratios[#ratios + 1] = m5b / m5a
+				end
+			end
+		end
+	end
+	if #ratios < 4 then
+		cache[key] = false
+		return nil
+	end
+	table.sort(ratios)
+	local mid = (#ratios + 1) / 2
+	local r = (ratios[math.floor(mid)] + ratios[math.ceil(mid)]) / 2
+	cache[key] = r
+	return r
+end
+
+-- Walk the ladder for one spec+metric, in MEASURED-accuracy order
+-- (2026-07-13 audit, median displacement in percentile points):
+--   exact spec+bracket 0 -> spec all-bosses pool 8.6 -> ratio-corrected
+--   neighbor bracket 6-15 -> role pool 13 -> stop.
+-- The old "everyone" rung is gone: +-29-49 points of systematic error in
+-- BOTH directions (a median healer's hps read p99 against it).
+-- specOnly stops after the spec steps (the throughput-mix profile must
+-- not inherit a role's generic mix). encounterOnly stops before the
+-- cross-encounter pools: a "parse" must be evidence from THIS fight.
+-- Returns entry, sourceLabel (nil = exact spec+bracket), rolePooledFlag,
+-- scale (multiply the player's rate by this before interpolating; the
+-- shown median divides by it). Never returns a curve under 2 points.
 local function usable(entry)
 	return entry and entry.curve and #entry.curve > 1
 end
@@ -458,37 +509,59 @@ local function findCurve(ctx, kind, specID, role, specOnly, encounterOnly)
 	if not L then
 		return nil
 	end
-	local enc, order = L.enc, L.order
-	-- 1. this encounter: spec curve, exact bracket then zooming out
-	if enc and specID then
-		for i, bk in ipairs(order) do
-			local tbl = enc[bk] and enc[bk][kind]
-			local entry = tbl and tbl[specID]
-			if usable(entry) then
-				return entry, (i > 1) and ("spec · " .. (BRACKET_LABELS[bk] or bk)) or nil, nil
-			end
+	local enc, order, exact = L.enc, L.order, L.exact
+	local function scaleFor(i, bk)
+		if i == 1 or not exact or bk == exact or bk == "all" then
+			return 1
+		end
+		return bracketRatio(L.P, exact, bk, kind) or 1
+	end
+	local function specEntry(i, bk)
+		local tbl = enc and enc[bk] and enc[bk][kind]
+		local entry = tbl and tbl[specID]
+		if usable(entry) then
+			return entry, (i > 1) and ("spec · " .. (BRACKET_LABELS[bk] or bk)) or nil,
+				nil, scaleFor(i, bk)
 		end
 	end
-	if encounterOnly then
-		-- role pools within the encounter are still real evidence for it
-		if enc then
-			for i, bk in ipairs(order) do
-				local entry = enc[bk] and rolePooledEntry(enc[bk], kind, role)
-				if usable(entry) then
-					return entry, (i > 1) and ("role · " .. (BRACKET_LABELS[bk] or bk)) or "role", true
-				end
-			end
+	local function specPool(i, bk)
+		if bk == "all" then
+			return nil
 		end
-		return nil
+		local e = globalPool(L.P, bk, kind, function(id) return id == specID end,
+			"spec:" .. specID .. ":" .. kind .. ":" .. bk)
+		if usable(e) then
+			-- bracket suffix only when the fight HAS a bracket to differ
+			-- from — without one the bracket picked is arbitrary
+			return e, (i > 1 and exact) and ("spec · all bosses · " .. (BRACKET_LABELS[bk] or bk))
+				or "spec · all bosses", nil, scaleFor(i, bk)
+		end
 	end
-	-- 2. this spec pooled across every boss in the data file
+	-- 1. this encounter, this spec, own bracket
 	if specID then
-		for _, bk in ipairs(order) do
-			if bk ~= "all" then
-				local e = globalPool(L.P, bk, kind, function(id) return id == specID end,
-					"spec:" .. specID .. ":" .. kind .. ":" .. bk)
-				if usable(e) then
-					return e, "spec · all bosses", nil
+		local e, l, rp, s = specEntry(1, order[1])
+		if e then
+			return e, l, rp, s
+		end
+		-- 2. this spec across every boss, own bracket (spec identity
+		-- transfers better than encounter identity)
+		if not encounterOnly then
+			local e2, l2, rp2, s2 = specPool(1, order[1])
+			if e2 then
+				return e2, l2, rp2, s2
+			end
+		end
+		-- 3. neighbor brackets, ratio-corrected: spec curve here, then
+		-- the spec's all-bosses pool there
+		for i = 2, #order do
+			local e3, l3, rp3, s3 = specEntry(i, order[i])
+			if e3 then
+				return e3, l3, rp3, s3
+			end
+			if not encounterOnly then
+				local e4, l4, rp4, s4 = specPool(i, order[i])
+				if e4 then
+					return e4, l4, rp4, s4
 				end
 			end
 		end
@@ -496,39 +569,43 @@ local function findCurve(ctx, kind, specID, role, specOnly, encounterOnly)
 	if specOnly then
 		return nil
 	end
-	-- 3. this encounter: the role's pooled curve, zooming brackets
+	-- 4. this encounter's role pool, own bracket then corrected neighbors
 	if enc then
 		for i, bk in ipairs(order) do
 			local entry = enc[bk] and rolePooledEntry(enc[bk], kind, role)
 			if usable(entry) then
-				return entry, (i > 1) and ("role · " .. (BRACKET_LABELS[bk] or bk)) or "role", true
+				return entry, (i > 1) and ("role · " .. (BRACKET_LABELS[bk] or bk)) or "role",
+					true, scaleFor(i, bk)
 			end
 		end
 	end
-	-- 4. the role across every boss
+	if encounterOnly then
+		return nil
+	end
+	-- 5. the role across every boss
 	local roles = TP.SPEC_ROLES
 	if roles then
-		for _, bk in ipairs(order) do
+		for i, bk in ipairs(order) do
 			if bk ~= "all" then
 				local e = globalPool(L.P, bk, kind, function(id) return roles[id] == role end,
 					"role:" .. role .. ":" .. kind .. ":" .. bk)
 				if usable(e) then
-					return e, "role · all bosses", true
+					return e, "role · all bosses", true, scaleFor(i, bk)
 				end
 			end
 		end
 	end
-	-- 5. simply everyone — but ONLY for the role's primary throughput.
-	-- A healer's damage against a mostly-DPS population reads p2 while
-	-- WCL hands the same log a 92 (healer damage ranks vs healers);
-	-- cross-role zoom misleads worse than no comparison at all.
-	if (kind == "hps") == (role == "HEALER") then
-		local e = globalPool(L.P, nil, kind, nil, "any:" .. kind)
-		if usable(e) then
-			return e, "all players", true
-		end
-	end
 	return nil
+end
+
+-- Tests mutate the encounters table; runtime never does. Every cache
+-- keyed by the data file must drop together or a stale miss poisons
+-- later lookups.
+function Engine.InvalidateNameIndex(P)
+	local key = P or TP.Percentiles
+	nameIndexCache[key] = nil
+	globalPoolCache[key] = nil
+	ratioCache[key] = nil
 end
 
 -- Returns normalizedScore (0-100), applicable, absolute, relative,
@@ -621,17 +698,20 @@ local function normalizeMetric(p, role, key, ctx)
 		-- into Raw's fallback chain (parse curves resolve encounter-local
 		-- in the parse branch below)
 		if kind and not ctx.parseMode then
-			local entry, label, pooled = findCurve(ctx, kind, p.specID, role)
+			local entry, label, pooled, scale = findCurve(ctx, kind, p.specID, role)
 			if entry then
 				rolePooled = pooled
 				curveFrom = label
-				local pct = percentileFor(entry.curve, metricValue(p, key) / ctx.duration)
+				-- scale converts the player's rate INTO the borrowed
+				-- bracket's population before interpolating
+				local pct = percentileFor(entry.curve, (scale or 1) * metricValue(p, key) / ctx.duration)
 				absolute = math.min(100, (W.trueAbsFloor or 0) + (W.trueAbsSlope or 1) * pct)
 				fromCurve = true
 				pctile = pct -- raw percentile, for the tooltip gauge
 				-- surfaced in tooltips: "the median of your spec does Y/s
 				-- here" — answers every 'but I topped the meter?!'
-				specMedian = curveP50(entry.curve)
+				-- (converted back into the fight's own bracket terms)
+				specMedian = curveP50(entry.curve) / (scale or 1)
 			end
 		end
 		if not absolute and ctx.fightFactors then
@@ -689,12 +769,12 @@ local function normalizeMetric(p, role, key, ctx)
 		local kind = (key == "healing") and "hps" or (key == "damage") and "dps"
 		if kind and ctx.duration and ctx.duration > 0 then
 			-- encounterOnly: a parse never borrows other bosses' populations
-			local entry, label, pooled = findCurve(ctx, kind, p.specID, role, false, true)
+			local entry, label, pooled, scale = findCurve(ctx, kind, p.specID, role, false, true)
 			if entry then
 				rolePooled = pooled
 				curveFrom = label
-				local pct = percentileFor(entry.curve, metricValue(p, key) / ctx.duration)
-				specMedian = curveP50(entry.curve)
+				local pct = percentileFor(entry.curve, (scale or 1) * metricValue(p, key) / ctx.duration)
+				specMedian = curveP50(entry.curve) / (scale or 1)
 				return pct, true, pct, nil, specMedian, pct, rolePooled, curveFrom
 			end
 		end
@@ -822,7 +902,7 @@ function Engine.ScoreFight(fight, opts)
 		if P and P.encounters and (fight.isBoss or fight.isRun) then
 			local enc = encounterCurvesFor(P, fight)
 			local bracketKey = fight.difficultyID and WCL_BRACKET[fight.difficultyID]
-			ctx.curves = { P = P, enc = enc, order = bracketSearchOrder(bracketKey) }
+			ctx.curves = { P = P, enc = enc, order = bracketSearchOrder(bracketKey), exact = bracketKey }
 		end
 	end
 
@@ -893,10 +973,10 @@ function Engine.ScoreFight(fight, opts)
 		if not ctx.parseMode and ctx.curves and p.specID and role ~= "SUPPORT" then
 			-- specOnly ladder: the mix may zoom to other brackets or the
 			-- spec's all-boss pool, but never to a role's generic mix
-			local dEntry = findCurve(ctx, "dps", p.specID, role, true)
-			local hEntry = findCurve(ctx, "hps", p.specID, role, true)
-			local d50 = dEntry and curveP50(dEntry.curve)
-			local h50 = hEntry and curveP50(hEntry.curve)
+			local dEntry, _, _, dScale = findCurve(ctx, "dps", p.specID, role, true)
+			local hEntry, _, _, hScale = findCurve(ctx, "hps", p.specID, role, true)
+			local d50 = dEntry and curveP50(dEntry.curve) / (dScale or 1)
+			local h50 = hEntry and curveP50(hEntry.curve) / (hScale or 1)
 			local budget = (weights.damage or 0) + (weights.healing or 0)
 			-- BOTH medians required: a missing curve means "no data", not
 			-- "zero output" — one-sided evidence must not zero a weight
