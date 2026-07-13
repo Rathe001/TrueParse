@@ -9,7 +9,7 @@ TP.MeterWindow = MeterWindow
 
 local HEADER_HEIGHT = 26
 local COLHEAD_HEIGHT = 11 -- thin "fight / run" column labels (scorecard only)
-local COL_RESERVE = 91 -- right-side columns (mark + scores) the class bar never enters
+local COL_RESERVE = 78 -- right-side score columns the class bar never enters
 local MODE_HEIGHT = 16 -- bottom strip: Mode: (*)Real ( )Raw
 local PADDING = 6
 local SCORECARD_ROW_HEIGHT = 14
@@ -814,19 +814,14 @@ function MeterWindow:RenderScorecard(fight)
 		row.score:SetJustifyH(letterAlign)
 		row.runAvg:SetJustifyH(letterAlign)
 		row.icon:SetAlpha(hasAddon and 1 or 0.7)
+		-- users only: the badge marks the exception, not the crowd
 		if hasAddon then
 			row.addonMark:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
 			row.addonMark:SetTexCoord(0, 1, 0, 1)
-		elseif player and player.hasAddon == false then
-			row.addonMark:SetTexture("Interface\\RaidFrame\\ReadyCheck-NotReady")
-			row.addonMark:SetTexCoord(0, 1, 0, 1)
+			row.addonMark:Show()
 		else
-			-- presence not settled yet (hellos still in flight, or an old
-			-- capture from before the three-state stamp)
-			row.addonMark:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-			row.addonMark:SetTexCoord(0.12, 0.88, 0.12, 0.88)
+			row.addonMark:Hide()
 		end
-		row.addonMark:Show()
 
 		-- Details-style: the row IS a solid class-colored bar with a white
 		-- outlined name. Non-addon players get the color MUTED (washed

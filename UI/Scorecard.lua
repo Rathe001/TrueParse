@@ -111,15 +111,16 @@ function Scorecard:Acquire(parent)
 		row.icon:SetPoint("BOTTOMLEFT")
 		row.icon:SetWidth(14)
 
-		-- TrueParse presence in its OWN column right of the name area:
-		-- green check (running it), red X (not detected), ? (unknown yet)
-		row.addonMark = row:CreateTexture(nil, "ARTWORK")
-		row.addonMark:SetSize(9, 9)
-		row.addonMark:SetPoint("RIGHT", row.penalty, "LEFT", -4, 0)
+		-- TrueParse presence: a small check BADGE on the spec icon's
+		-- corner, users only. Non-users are already told by the muted bar
+		-- color — marking the common case just filled the card with X's.
+		row.addonMark = row:CreateTexture(nil, "OVERLAY")
+		row.addonMark:SetSize(7, 7)
+		row.addonMark:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 1, -1)
 
 		row.name = outlined("GameFontHighlightSmall")
 		row.name:SetPoint("LEFT", row.icon, "RIGHT", 3, 0)
-		row.name:SetPoint("RIGHT", row.addonMark, "LEFT", -4, 0)
+		row.name:SetPoint("RIGHT", row.penalty, "LEFT", -4, 0)
 		row.name:SetJustifyH("LEFT")
 		-- narrow windows truncate long cross-realm names, never wrap
 		row.name:SetWordWrap(false)
