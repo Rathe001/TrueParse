@@ -21,3 +21,21 @@ function TP.ClassColor(class)
 	end
 	return 0.6, 0.6, 0.6
 end
+
+
+-- Semantic version compare: 1 when a > b, -1 when a < b, 0 when equal.
+-- "1.2.10" beats "1.2.9" (numeric per segment, not string order).
+function TP.CompareVersions(a, b)
+	local ai = string.gmatch(tostring(a or ""), "%d+")
+	local bi = string.gmatch(tostring(b or ""), "%d+")
+	while true do
+		local x, y = ai(), bi()
+		if not x and not y then
+			return 0
+		end
+		x, y = tonumber(x) or 0, tonumber(y) or 0
+		if x ~= y then
+			return x > y and 1 or -1
+		end
+	end
+end

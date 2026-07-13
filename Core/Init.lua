@@ -198,6 +198,10 @@ function Addon:HandleSlash(input)
 		self.db.profile.announce = not self.db.profile.announce
 		self:Print("Run-MVP group chat announcement "
 			.. (self.db.profile.announce and "ON — one line to group chat when a run completes." or "off."))
+		-- announcer election runs over the hidden channel: tell the group
+		if TP.Sync and TP.Sync.QueueHello then
+			TP.Sync:QueueHello()
+		end
 	elseif cmd == "mode" then
 		local s = self.db.profile.scoring
 		s.mode = (s.mode == "parse") and "contribution" or "parse"

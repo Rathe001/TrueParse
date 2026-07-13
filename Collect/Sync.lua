@@ -162,13 +162,34 @@ function Sync:SendHello()
 	end
 	local myGUID = UnitGUID("player")
 	local me = TP.Roster.players[myGUID]
-	local msg = ("H:%d:%s:%d:%d:%s"):format(
+	local p = TP.Addon.db.profile
+	local msg = ("H:%d:%s:%d:%d:%s:%d"):format(
 		WIRE_VERSION, myGUID,
 		(me and me.specID) or 0,
 		(me and me.ilvl) or 0,
-		addonVersion())
+		addonVersion(),
+		(p.announce or p.announceSummary) and 1 or 0) -- announcer election
 	self:SendCommMessage(PREFIX, msg, channel)
 	self.helloAt = time() -- presence stamps stay "unknown" until replies had time
+end
+
+-- One announcer per group: among TrueParse users with announcements
+-- enabled, the newest addon version wins (its lines are the best ones);
+-- ties break on lowest GUID — deterministic, no negotiation round.
+-- Builds too old to carry the flag can't be suppressed remotely, so
+-- they don't vote.
+function Sync:ShouldAnnounce()
+	local myGUID = UnitGUID("player")
+	local mine = addonVersion()
+	for guid, u in pairs(self.users) do
+		if guid ~= myGUID and u.announces and TP.Roster.players[guid] then
+			local cmp = TP.CompareVersions(u.addonVersion or "0", mine)
+			if cmp > 0 or (cmp == 0 and guid < myGUID) then
+				return false -- they outrank us: stay quiet
+			end
+		end
+	end
+	return true
 end
 
 -- Roster changes fire in bursts (zoning, joins); send one hello per burst
@@ -195,8 +216,12 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		return
 	end
 
-	local version, guid, specID, ilvl, remoteAddonVersion =
-		message:match("^H:(%d+):([^:]+):(%d+):(%d+):([%d%.]+)$")
+	local version, guid, specID, ilvl, remoteAddonVersion, announceFlag =
+		message:match("^H:(%d+):([^:]+):(%d+):(%d+):([%d%.]+):(%d)$")
+	if not version then
+		version, guid, specID, ilvl, remoteAddonVersion =
+			message:match("^H:(%d+):([^:]+):(%d+):(%d+):([%d%.]+)$")
+	end
 	if not version then
 		-- hello from builds that predate the addon-version field
 		version, guid, specID, ilvl = message:match("^H:(%d+):([^:]+):(%d+):(%d+)$")
@@ -209,7 +234,9 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		if guid ~= UnitGUID("player") then
 			checkNewerVersion(remoteAddonVersion)
 		end
-		self.users[guid] = { version = tonumber(version), seen = time() }
+		self.users[guid] = { version = tonumber(version), seen = time(),
+			addonVersion = remoteAddonVersion,
+			announces = announceFlag == "1" or nil }
 		specID = tonumber(specID)
 		ilvl = tonumber(ilvl)
 		-- clamp remote claims: a bogus ilvl of 1e8 turns the gear curve

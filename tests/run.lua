@@ -1595,6 +1595,31 @@ if TP.Spikes and TP.Spikes.FindWindows then
 	check(#TP.Spikes.FindWindows({ [5] = 10000 }, 20, 45000) == 0, "quiet fights have no windows")
 end
 
+-- 22. Version compare (announcer election)
+check(TP.CompareVersions("1.2.10", "1.2.9") == 1, "1.2.10 beats 1.2.9 numerically")
+check(TP.CompareVersions("1.2.8", "1.3.0") == -1, "minor beats patch")
+check(TP.CompareVersions("1.2.8", "1.2.8") == 0, "equal versions tie")
+check(TP.CompareVersions("1.3", "1.2.9") == 1, "short version still compares")
+
+-- 23. Group analysis: the whole vs the sum of the parts
+local gaResults = {
+	{ role = "DAMAGER", breakdown = { damage = { applicable = true, pctile = 40 } } },
+	{ role = "DAMAGER", breakdown = { damage = { applicable = true, pctile = 44 } } },
+	{ role = "HEALER", breakdown = { healing = { applicable = true, pctile = 38 } } },
+}
+local ga = TP.Scoring.Insights.GroupAnalysis(gaResults,
+	{ kickOpps = 9, kicksLanded = 7, deaths = 0 }, 70)
+check(math.abs(ga.outputPct - (40 + 44 + 38) / 3) < 0.01, "output = mean of role-primary percentiles")
+check(ga.executionGap and ga.executionGap > 25, "fast kill + modest parses = positive execution gap")
+check(math.abs(ga.kickCoverage - 7 / 9) < 0.001 and ga.flawless, "coverage and flawless carried")
+-- demand-floored healers are excluded: their 75 isn't a percentile
+local gaLow = TP.Scoring.Insights.GroupAnalysis({
+	{ role = "HEALER", breakdown = { healing = { applicable = true, pctile = 5, normalized = 75, lowDemand = true } } },
+	{ role = "DAMAGER", breakdown = { damage = { applicable = true, pctile = 60 } } },
+}, {}, 65)
+check(gaLow.outputN == 1, "demand-floored healer excluded from the parts")
+check(gaLow.executionGap == nil, "no gap verdict from a single measured player")
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")

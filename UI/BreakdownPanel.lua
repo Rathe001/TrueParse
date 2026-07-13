@@ -665,6 +665,30 @@ function Panel:ShowForGroup(fight, results)
 		}
 	end
 
+	-- the whole vs the parts: when kill speed and the group's own parses
+	-- disagree hard, that gap IS the group-level story
+	if speedPct then
+		local ga = TP.Scoring.Insights.GroupAnalysis(results, {}, speedPct)
+		if ga.executionGap and math.abs(ga.executionGap) >= 20 then
+			total = total + 1
+			local row = getRow(total, y)
+			y = y - ROW_HEIGHT
+			local up = ga.executionGap > 0
+			row.symbol:SetText(up and "+" or "\194\183")
+			local cr2, cg2, cb2 = up and 0.30 or 0.80, up and 0.90 or 0.80, up and 0.40 or 0.55
+			row.symbol:SetTextColor(cr2, cg2, cb2)
+			row.text:SetText(up
+				and ("Execution beat the meters (speed p%d vs output p%d)"):format(ga.killPct + 0.5, ga.outputPct + 0.5)
+				or ("Output outran the kill (output p%d, speed p%d)"):format(ga.outputPct + 0.5, ga.killPct + 0.5))
+			row.text:SetTextColor(cr2, cg2, cb2)
+			row.metricData = nil
+			row.tooltipData = { title = "The whole vs the parts", lines = {
+				{ up and "The group killed faster than its individual parses predict: target discipline, mechanics, and cooldown timing carried beyond raw output."
+					or "Individual parses outran the kill speed: output went somewhere other than winning - time off target, deaths, or damage that didn't matter.", 0.8, 0.8, 0.8, true },
+			} }
+		end
+	end
+
 	-- encounter toughness context: a rough night on a rough boss should
 	-- read that way (kill-time medians ranked across the tier)
 	local toughness, bosses = nil, nil

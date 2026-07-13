@@ -48,33 +48,53 @@ local function groupChannel()
 	return "PARTY"
 end
 
--- One informative, non-spammy line: group score plus the group's biggest
--- strength and up to three things to work on. Plain text (chat can't color).
--- Scope is stated explicitly ("run so far, N fights") because the scorecard
--- window grades the latest single fight — a different number.
-local function composeSummary(run, fightCount, results, groupScore)
+-- One informative, non-spammy line: the WHOLE-group story, not just an
+-- average of the parts (2026-07-13). Kill speed vs the group's own
+-- parses is the lead when they disagree — that gap IS the group-level
+-- finding. Plain text (chat can't color); stays under the 255-char
+-- chat limit by construction.
+local function composeSummary(run, fights, results, groupScore)
+	-- run-level facts the results array can't see
+	local kickOpps, kicksLanded, deaths = 0, 0, 0
+	local killSum, killN = 0, 0
+	for _, f in ipairs(fights) do
+		local t = f.totals or {}
+		kickOpps = kickOpps + (t.kickOpportunities or 0)
+		kicksLanded = kicksLanded + (t.kicksLanded or 0)
+		deaths = deaths + (t.deaths or 0)
+		local pct = TP.Scoring.Engine.KillSpeedPercentile(f)
+		if pct then
+			killSum = killSum + pct
+			killN = killN + 1
+		end
+	end
+	local a = TP.Scoring.Insights.GroupAnalysis(results,
+		{ kickOpps = kickOpps, kicksLanded = kicksLanded, deaths = deaths },
+		killN > 0 and killSum / killN or nil)
+
+	local msg = ("TrueParse: %s — group %d/100 over %d fights."):format(
+		run.name or "run", groupScore, #fights)
+	if a.executionGap and a.executionGap >= 15 then
+		msg = msg .. (" Kills came faster than the parses say — execution carried (speed p%d vs output p%d)."):format(
+			a.killPct + 0.5, a.outputPct + 0.5)
+	elseif a.executionGap and a.executionGap <= -15 then
+		msg = msg .. (" Big parses, slow kills (output p%d, speed p%d) — time on target, not throughput."):format(
+			a.outputPct + 0.5, a.killPct + 0.5)
+	elseif a.killPct then
+		msg = msg .. (" Kill speed: faster than %d%% of ranked groups."):format(a.killPct + 0.5)
+	end
+	if a.kickOpps and a.kickOpps >= 3 then
+		msg = msg .. (" Kicks: %d of %d."):format(a.kicksLanded, a.kickOpps)
+	end
+	if deaths == 0 and #fights > 0 then
+		msg = msg .. " Deathless."
+	elseif deaths > #results then
+		msg = msg .. (" %d deaths."):format(deaths)
+	end
 	local insights = TP.Scoring.Insights.ForResults(results)
-	local msg = ("TrueParse: %s run so far (%d fights) — group score %d/100 (True)."):format(
-		run.name or "instance", fightCount, groupScore)
-	if insights.strength then
-		msg = msg .. (" Strong: %s."):format((TP.METRIC_LABELS[insights.strength] or insights.strength):lower())
-	end
-	local work = {}
 	if insights.weakness then
-		work[#work + 1] = (TP.METRIC_LABELS[insights.weakness] or insights.weakness):lower()
-	end
-	if insights.avoidableHitters >= 2 then
-		work[#work + 1] = "avoidable damage"
-	end
-	local totalDeaths = run.totals and run.totals.deaths or 0
-	if totalDeaths >= math.max(3, #results) then
-		work[#work + 1] = ("deaths (%d)"):format(totalDeaths)
-	end
-	if insights.buffsMissing then
-		work[#work + 1] = "raid buffs at pull"
-	end
-	if #work > 0 then
-		msg = msg .. " Work on: " .. table.concat(work, ", ", 1, math.min(#work, 3)) .. "."
+		msg = msg .. (" Work on: %s."):format(
+			(TP.METRIC_LABELS[insights.weakness] or insights.weakness):lower())
 	end
 	return msg
 end
@@ -154,13 +174,29 @@ function RunSummary:Report(announce)
 	end
 
 	if announce and IsInGroup() then
+		-- one announcer per group: defer to a groupmate whose TrueParse
+		-- is newer (or equal + lower GUID) — no duplicate lines
+		if TP.Sync and TP.Sync.ShouldAnnounce and not TP.Sync:ShouldAnnounce() then
+			return
+		end
 		if TP.Addon.db.profile.announce then
 			local mvp = results[1]
-			SendChatMessage(("TrueParse run MVP: %s (True %d/100). Group score: %d/100"):format(
-				mvp.name, math.floor(mvp.score + 0.5), math.floor(groupScore + 0.5)), groupChannel())
+			-- name the thing that made them MVP, not just the number
+			local why
+			local bestPct = 0
+			for key, b in pairs(mvp.breakdown or {}) do
+				if b.applicable and (b.pctile or 0) > bestPct and (b.effectiveWeight or 0) > 0 then
+					bestPct = b.pctile
+					why = (TP.METRIC_LABELS[key] or key):lower()
+				end
+			end
+			SendChatMessage(("TrueParse MVP: %s %d/100%s. Group: %d/100."):format(
+				mvp.name, math.floor(mvp.score + 0.5),
+				why and (" (%s p%d)"):format(why, bestPct + 0.5) or "",
+				math.floor(groupScore + 0.5)), groupChannel())
 		end
 		if TP.Addon.db.profile.announceSummary then
-			SendChatMessage(composeSummary(run, #fights, results,
+			SendChatMessage(composeSummary(run, fights, results,
 				math.floor(groupScore + 0.5)), groupChannel())
 		end
 	end
