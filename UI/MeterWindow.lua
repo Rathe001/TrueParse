@@ -927,15 +927,18 @@ function MeterWindow:RenderScorecard(fight)
 		row.name:SetTextColor(1, 1, 1)
 		row.score:SetText(TP.Scoring.Grades.ScoreLabel(groupScore))
 		row.score:SetTextColor(sr, sg, sb)
-		-- the group's combined net adjustment, same shape as player rows
+		-- the group's AVERAGE net adjustment: the row's score is an
+		-- average, so its adjustment speaks the same currency (a 26-player
+		-- summed "+80" was meaningless and overflowed the column)
 		local adjSum = 0
 		for _, r in ipairs(results) do
 			adjSum = adjSum + (r.adjust or -(r.penalty or 0))
 		end
-		if adjSum >= 0.5 then
-			row.penalty:SetText(("|cff44cc44+%.0f|r"):format(adjSum))
-		elseif adjSum <= -0.5 then
-			row.penalty:SetText(("|cffff4444-%.0f|r"):format(-adjSum))
+		local adjAvg = adjSum / #results
+		if adjAvg >= 0.5 then
+			row.penalty:SetText(("|cff44cc44+%.0f|r"):format(adjAvg))
+		elseif adjAvg <= -0.5 then
+			row.penalty:SetText(("|cffff4444-%.0f|r"):format(-adjAvg))
 		else
 			row.penalty:SetText("")
 		end

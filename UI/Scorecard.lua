@@ -82,8 +82,10 @@ function Scorecard:Acquire(parent)
 		row.penalty:SetPoint("RIGHT", row.score, "LEFT", -3, 0)
 		row.penalty:SetJustifyH("RIGHT")
 		-- fixed slot: an unconstrained width let truncated names crowd
-		-- right up against the score column
+		-- right up against the score column. One line, always.
 		row.penalty:SetWidth(22)
+		row.penalty:SetWordWrap(false)
+		row.penalty:SetMaxLines(1)
 
 		-- hairline between the penalty column and the fight score
 		row.sep3 = row:CreateTexture(nil, "BACKGROUND", nil, 0)
