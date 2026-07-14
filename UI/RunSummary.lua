@@ -83,7 +83,15 @@ local function composeSummary(run, fights, results, groupScore)
 	elseif a.killPct then
 		msg = msg .. (" Kill speed: faster than %d%% of ranked groups."):format(a.killPct + 0.5)
 	end
-	if a.kickOpps and a.kickOpps >= 3 then
+	-- one SPECIFIC pointer beats "work on: healing" (which scolded the
+	-- healer for the group's off-heal averages, 2026-07-14)
+	local tips = TP.Scoring.Insights.RunAdvice(fights)
+	local tip = tips[1]
+	-- the terse kick stat yields when the pointer already tells the kick
+	-- story with more detail ("Kicks: 4 of 14" next to "10 casts got
+	-- through (4 of 14 kicked)" said it twice)
+	if a.kickOpps and a.kickOpps >= 3
+		and not (tip and tip:find("interruptible casts got through")) then
 		msg = msg .. (" Kicks: %d of %d."):format(a.kicksLanded, a.kickOpps)
 	end
 	if deaths == 0 and #fights > 0 then
@@ -91,12 +99,8 @@ local function composeSummary(run, fights, results, groupScore)
 	elseif deaths > #results then
 		msg = msg .. (" %d deaths."):format(deaths)
 	end
-	-- one SPECIFIC pointer beats "work on: healing" (which scolded the
-	-- healer for the group's off-heal averages, 2026-07-14) — but only
-	-- if it fits the 255-char chat limit
-	local tips = TP.Scoring.Insights.RunAdvice(fights)
-	if tips[1] and #msg + #tips[1] + 1 <= 250 then
-		msg = msg .. " " .. tips[1]
+	if tip and #msg + #tip + 1 <= 250 then
+		msg = msg .. " " .. tip
 	end
 	return msg
 end
@@ -297,7 +301,9 @@ function RunSummary:Share()
 	if IsInGroup() then
 		SendChatMessage(line, groupChannel())
 	else
-		TP.Addon:Print(line)
+		-- AceConsole already prefixes "TrueParse:" — the message's own
+		-- prefix (needed in group chat) would double it locally
+		TP.Addon:Print((line:gsub("^TrueParse: ", "")))
 	end
 end
 
