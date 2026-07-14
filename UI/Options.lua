@@ -66,14 +66,20 @@ local optionsTable = {
 					get = function() return profile().coach end,
 					set = function(_, v) profile().coach = v end,
 				},
+				wipeDebrief = {
+					type = "toggle", order = 2, name = "Post-wipe debrief",
+					desc = "After a wipe: deaths, how many followed avoidable damage, and the pull's top pointers. Only you see this.",
+					get = function() return profile().wipeDebrief end,
+					set = function(_, v) profile().wipeDebrief = v end,
+				},
 				announce = {
-					type = "toggle", order = 2, name = "Announce run MVP to group",
+					type = "toggle", order = 3, name = "Announce run MVP to group",
 					desc = "When a dungeon/key completes, post ONE line to group chat with the run MVP and group grade. Off by default; be considerate.",
 					get = function() return profile().announce end,
 					set = function(_, v) profile().announce = v end,
 				},
 				announceSummary = {
-					type = "toggle", order = 3, name = "Announce group summary",
+					type = "toggle", order = 4, name = "Announce group summary",
 					desc = "When a run completes, post ONE line: group grade plus the group's biggest strength and what to work on. No individual scores.",
 					get = function() return profile().announceSummary end,
 					set = function(_, v) profile().announceSummary = v end,
@@ -94,8 +100,8 @@ local optionsTable = {
 					func = function() TP.Career:PrintSummary() end,
 				},
 				share = {
-					type = "execute", order = 3, name = "Share to group",
-					desc = "Post the one-line group summary (grade + strengths/weaknesses) to group chat right now.",
+					type = "execute", order = 3, name = "Share kill to group",
+					desc = "Post the latest kill to group chat: completion time vs Warcraft Logs ranked kills, plus the group score.",
 					func = function() TP.RunSummary:Share() end,
 				},
 			},

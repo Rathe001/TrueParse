@@ -17,6 +17,7 @@ local defaults = {
 			clickThroughCombat = false,
 		},
 		coach = true,
+	wipeDebrief = true, -- local what-happened after each wipe capture
 		toasts = true, -- on-screen flash when you earn an award
 		letterGrades = false, -- show D-/C/B+/S letter tiers instead of numbers
 		announce = false, -- opt-in: one MVP line to group chat on run completion
@@ -292,7 +293,7 @@ function Addon:HandleSlash(input)
 		self:Print("  /tp config - options panel")
 		self:Print("  /tp mode - switch TrueParse/Raw scoring")
 		self:Print("  /tp letters - letter grades instead of numbers")
-		self:Print("  /tp run - run report · /tp share - post group summary")
+		self:Print("  /tp run - run report · /tp share - post last kill vs WCL")
 		self:Print("  /tp career - your stats · /tp trends - where they're heading")
 		self:Print("  /tp fights - capture history · /tp score [n] - rescore one")
 		self:Print("  /tp buffs - pre-pull raid buff diagnostic")

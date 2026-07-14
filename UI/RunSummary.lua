@@ -280,30 +280,75 @@ function RunSummary:PromptPost(lines)
 	end)
 end
 
--- Manual share: post ONLY the one-line group summary, on demand.
+-- Share to group (2026-07-14 redesign): a brag line, not coaching — the
+-- last kill's time vs WCL's ranked kills plus the group score. Pointers
+-- and analysis stay in the LOCAL report; pugs get the flex.
 function RunSummary:Share()
-	local fights, anchor = collectRunFights()
-	if not fights or #fights == 0 then
-		TP.Addon:Print("No fights captured in this instance yet.")
+	local kill
+	local newest = TP.FightHistory.fights[1]
+	for _, f in ipairs(TP.FightHistory.fights) do
+		if newest and f.runID ~= newest.runID then
+			break
+		end
+		if f.isBoss and not f.wipe then
+			kill = f
+			break
+		end
+	end
+	if not kill then
+		TP.Addon:Print("No kills to share yet.")
 		return
 	end
-	local run = TP.Scoring.Runs.Aggregate(fights, anchor)
-	local results = TP.Scoring.Engine.ScoreFight(run, TP.GetScoringOptions())
-	if #results == 0 then
-		return
-	end
+	local results = TP.Scoring.Engine.ScoreFight(kill, TP.GetScoringOptions())
 	local sum = 0
 	for _, r in ipairs(results) do
 		sum = sum + r.score
 	end
-	-- user-initiated (button/slash = hardware event): direct send is fine
-	local line = composeSummary(run, fights, results, math.floor(sum / #results + 0.5))
+	local groupScore = #results > 0 and (sum / #results) or 0
+	local d = kill.duration or 0
+	local line
+	local pct = TP.Scoring.Engine.KillSpeedPercentile(kill)
+	if pct then
+		line = ("TrueParse: %s down in %d:%02d — faster than %d%% of ranked kills on Warcraft Logs. Group score %d/100."):format(
+			kill.name or "Boss", math.floor(d / 60), d % 60, math.floor(pct + 0.5), math.floor(groupScore + 0.5))
+	else
+		line = ("TrueParse: %s down in %d:%02d. Group score %d/100."):format(
+			kill.name or "Boss", math.floor(d / 60), d % 60, math.floor(groupScore + 0.5))
+	end
 	if IsInGroup() then
 		SendChatMessage(line, groupChannel())
 	else
-		-- AceConsole already prefixes "TrueParse:" — the message's own
-		-- prefix (needed in group chat) would double it locally
 		TP.Addon:Print((line:gsub("^TrueParse: ", "")))
+	end
+end
+
+-- Post-wipe debrief (2026-07-14): the moment a group actually asks
+-- "what happened?" — local only, built from the wipe's own record.
+function RunSummary:WipeDebrief(fight)
+	local d = fight.duration or 0
+	local deaths, afterAvoidable = 0, 0
+	for _, p in pairs(fight.players or {}) do
+		local n = (p.metrics and p.metrics.deaths) or 0
+		deaths = deaths + n
+		if n > 0 and p.deathRecap then
+			for _, hit in ipairs(p.deathRecap) do
+				if hit.avoidable then
+					afterAvoidable = afterAvoidable + 1
+					break
+				end
+			end
+		end
+	end
+	local head = ("Wipe — %s at %d:%02d."):format(fight.name or "?", math.floor(d / 60), d % 60)
+	if deaths > 0 then
+		head = head .. (afterAvoidable > 0
+			and (" %d deaths, %d right after avoidable damage (hover the death bullets for recaps)."):format(deaths, afterAvoidable)
+			or (" %d deaths."):format(deaths))
+	end
+	TP.Addon:Print(head)
+	local tips = TP.Scoring.Insights.RunAdvice({ fight })
+	for i = 1, math.min(2, #tips) do
+		TP.Addon:Print("  \194\183 " .. tips[i])
 	end
 end
 
@@ -317,6 +362,13 @@ function RunSummary:OnEnable()
 	end)
 	pcall(self.RegisterEvent, self, "CHALLENGE_MODE_COMPLETED", function()
 		RunSummary:Report(true)
+	end)
+	-- wipes get a debrief the moment they capture: that's when the group
+	-- is actually asking what happened
+	self:RegisterMessage("TrueParse_FIGHT_CAPTURED", function(_, fight)
+		if fight and fight.wipe and TP.Addon.db.profile.wipeDebrief then
+			RunSummary:WipeDebrief(fight)
+		end
 	end)
 	updateInstance()
 end
