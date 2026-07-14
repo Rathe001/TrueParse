@@ -49,8 +49,8 @@ local function buildMetricTip()
 	metricTip.value:SetPoint("TOPLEFT", 10, -24)
 	metricTip.median = metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	metricTip.median:SetPoint("TOPLEFT", 10, -38)
-	-- clamped to the card: long population labels must truncate, not spill
-	metricTip.median:SetPoint("TOPRIGHT", -10, -38)
+	-- no right anchor: the TIP fits its longest line (fitTipWidth), so
+	-- lines never truncate or spill
 	metricTip.median:SetJustifyH("LEFT")
 	metricTip.median:SetWordWrap(false)
 
@@ -181,6 +181,17 @@ local function showMetricTip(anchor, data)
 	end
 	metricTip.footer:SetText(footer or ("score %d · worth %d%% of the grade"):format(
 		b.normalized or 0, (b.effectiveWeight or 0) * 100))
+
+	-- fit the tip to its longest line (same rule as the card): text never
+	-- truncates and never spills past the border
+	local needed = GAUGE_W + 24
+	for _, fs in ipairs({ metricTip.title, metricTip.value, metricTip.median, metricTip.footer }) do
+		local w = (fs:GetStringWidth() or 0) + 20
+		if w > needed then
+			needed = w
+		end
+	end
+	metricTip:SetWidth(math.min(needed, 430))
 
 	metricTip:ClearAllPoints()
 	-- flip to whichever side of the row has room (the panel itself may sit
