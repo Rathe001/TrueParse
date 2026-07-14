@@ -4,8 +4,12 @@
 -- group's total from these spells - a mechanic the whole raid eats equally
 -- can never hurt anyone's score, so a borderline entry fails soft.
 -- Curate with /tp baddies after a raid night: it prints the session's top
--- damage-taken spells with their IDs. Verify IDs against Warcraft Logs
--- before adding (wrong IDs = unfair penalties; see the Blood Pact lesson).
+-- damage-taken spells with their IDs. VERIFY before adding (wrong IDs =
+-- unfair penalties; see the Blood Pact lesson): open the fight's log on
+-- Warcraft Logs -> Post-Pull Analysis -> Damage Taken -> "Avoidable (By
+-- Spell)" — WCL's own curated avoidable list for the fight. An ID both
+-- there and in /tp baddies is confirmed; one only here should be
+-- reviewed (2026-07-14, Josh's verification path).
 local _, TP = ...
 
 TP.AVOIDABLE = {

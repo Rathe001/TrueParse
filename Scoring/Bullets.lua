@@ -157,6 +157,11 @@ function Bullets.ForResult(result, awards, extra)
 			-- floored: the fight barely needed healing, don't scold or gush
 			text, symbol, color = "Little healing needed - group stayed topped", MIDDOT, MID
 		end
+		if b.noInput then
+			-- pinned neutral: an Aug's amplification is invisible without
+			-- their own TrueParse reporting Ebon Might uptime
+			text, symbol, color = "Amplification unmeasured - needs their TrueParse", MIDDOT, MID
+		end
 		-- sort weight: count metrics use their real adjustment points;
 		-- base throughput uses its percentile distance from the middle —
 		-- a godly parse IS the score and outranks any +4 nudge

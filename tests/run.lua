@@ -198,9 +198,11 @@ for _, r in ipairs(augResults) do
 	augByName[r.name] = r
 end
 check(augByName.Auggy.role == "SUPPORT", "aug detected as SUPPORT via spec icon")
-check(augByName.Auggy.breakdown.damage.normalized >= 70,
-	("aug damage share ~15%% scores well (%.0f)"):format(augByName.Auggy.breakdown.damage.normalized))
-check(augByName.Auggy.score >= 62, ("well-played aug scores well (%.1f)"):format(augByName.Auggy.score))
+-- 2026-07-14: without an uptime report, Aug damage pins NEUTRAL (their
+-- amplification is invisible; personal damage is a misleading proxy)
+check(augByName.Auggy.breakdown.damage.normalized == 50 and augByName.Auggy.breakdown.damage.noInput,
+	("no-data aug damage pins neutral (%.0f)"):format(augByName.Auggy.breakdown.damage.normalized))
+check(augByName.Auggy.score >= 40, ("no-data aug grades neutral, not damning (%.1f)"):format(augByName.Auggy.score))
 check(augByName.DpsB.breakdown.damage.normalized == 50, "DPS cohort unaffected by aug (B vs A = 50)")
 check(augByName.Auggy.breakdown.buffUptime and not augByName.Auggy.breakdown.buffUptime.applicable,
 	"no self-reported uptime -> buffUptime inapplicable, weight redistributes")
@@ -1256,6 +1258,18 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(augFight2, { mode = "parse", nor
 		check(r.breakdown.damage.attribution == nil, "no reported uptime = no attribution")
 	end
 end
+-- ...and in True mode the unmeasurable damage pins NEUTRAL instead of
+-- dominating the grade with a misleading personal number (the score-6
+-- Aug: 72% of the grade rode a proxy we know understates them)
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(augFight2, { normalizeIlvl = false })) do
+	if r.name == "Auggy" then
+		local b = r.breakdown.damage
+		check(b.noInput and b.normalized == 50,
+			("missing uptime pins Aug damage neutral (%s, %.0f)"):format(tostring(b.noInput), b.normalized or -1))
+		check(r.score >= 35, ("no-input Aug grades neutral, not damning (%.0f)"):format(r.score))
+	end
+end
+augFight2.players.a.metrics.buffUptime = 0.5
 TP.Percentiles.encounters["Percentile Boss"]["1"] = nil
 
 -- 18d3. Kill-speed percentile: group duration vs the encounter's ranked

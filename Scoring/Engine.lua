@@ -1138,6 +1138,13 @@ function Engine.ScoreFight(fight, opts)
 				local a = ctx.attribution[p.guid]
 				breakdown[key].value = a.own + a.attributed
 				breakdown[key].attribution = a
+			elseif key == "damage" and role == "SUPPORT" and not ctx.parseMode then
+				-- No uptime report = the attribution input is missing, and
+				-- personal damage is a MISLEADING proxy for an Aug. Pin
+				-- neutral (the demand-cap pattern): an unmeasurable number
+				-- must not be 72% of a damning grade (2026-07-14).
+				breakdown[key].normalized = 50
+				breakdown[key].noInput = true
 			end
 			if applicable then
 				activeWeight = activeWeight + weight
