@@ -53,7 +53,6 @@ local lastScrollOffset = -1
 -- declaration makes earlier references nil globals (the blank-window bug).
 local displayCache = setmetatable({}, { __mode = "k" })
 local runScoreCache = setmetatable({}, { __mode = "k" })
-local trueScoreCache = setmetatable({}, { __mode = "k" }) -- run-mean inputs
 
 -- Re-anchor to a plain TOPLEFT point at the frame's exact current screen
 -- rect. The window's anchor shape varies with history (saved CENTER from
@@ -469,7 +468,6 @@ function MeterWindow:Invalidate()
 	lastRenderedFight = nil
 	wipe(displayCache)
 	wipe(runScoreCache)
-	wipe(trueScoreCache)
 	self:Refresh(true)
 end
 
@@ -709,18 +707,8 @@ local function scoreRun(run)
 	return rr
 end
 
--- True-mode scores for one FIGHT (run means are always True currency,
--- whatever lens the window shows); memoized like the display cache
-local function scoreTrue(f)
-	local opts = TP.GetScoringOptions()
-	local hit = trueScoreCache[f]
-	if hit and hit.ilvl == opts.normalizeIlvl then
-		return hit.rr
-	end
-	local rr = TP.Scoring.Engine.ScoreFight(f, opts)
-	trueScoreCache[f] = { ilvl = opts.normalizeIlvl, rr = rr }
-	return rr
-end
+-- (run means use scoreForDisplay: the avg column follows the ACTIVE
+-- lens — True avgs under a Raw card read as a bug, 2026-07-14)
 
 -- Spec icon for a row: the capture's own specIconID (retail sessions carry
 -- it), then the inspected/synced specID's icon, then the class crest.
@@ -817,13 +805,14 @@ function MeterWindow:RenderScorecard(fight)
 	if TP.RunSummary and TP.RunSummary.RunFor then
 		local run, count, runFights = TP.RunSummary:RunFor(fight)
 		if run and count and count >= 1 then
-			-- the avg column is a TRUE AVERAGE of the player's per-fight
-			-- scores (each already base+adjust). Scoring the summed
-			-- aggregate instead let run-long adjustment totals saturate:
-			-- fights of 94/98/73 read as a 99 (2026-07-13).
+			-- the avg column is a true average of the player's per-fight
+			-- scores in the ACTIVE lens (a Raw card gets Raw averages —
+			-- True avgs next to single-digit Raw fights read as a bug).
+			-- Scoring the summed aggregate instead let run-long
+			-- adjustment totals saturate: 94/98/73 read as 99.
 			local sums, counts = {}, {}
 			for _, f in ipairs(runFights or {}) do
-				for _, r in ipairs(scoreTrue(f)) do
+				for _, r in ipairs(scoreForDisplay(f)) do
 					sums[r.guid] = (sums[r.guid] or 0) + r.score
 					counts[r.guid] = (counts[r.guid] or 0) + 1
 				end
