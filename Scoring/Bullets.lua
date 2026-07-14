@@ -462,11 +462,22 @@ function Bullets.ForGroup(results, fight)
 				lines = { { "Opportunities = casts of spells this addon has ever seen interrupted (the list teaches itself). Casts that got through hit somebody.", 1, 1, 1 } } } }
 	elseif kicks > 0 then
 		local heavy = kicks >= (A.kicksFullIntensity or 6)
+		-- no opportunity data: say WHY the "kicked X of Y" stat is absent
+		-- instead of a generic shrug — the reason differs by client
+		local why
+		if TP.Compat and TP.Compat.IS_RETAIL then
+			why = "Blizzard hides enemy casts on retail, so interruptible casts can't be counted - landed kicks are all any addon can see here."
+		else
+			why = "Interruptible-cast counting is still learning this content: every spell anyone kicks is tracked forever after, then this reads \"kicked X of Y casts\"."
+		end
 		out[#out + 1] = { kind = "metric", key = "interrupts",
 			symbol = heavy and "+" or MIDDOT, color = heavy and GOOD or MID,
 			text = kicks == 1 and "1 interrupt landed" or ("%d interrupts landed"):format(kicks),
 			tooltip = { title = TP.METRIC_LABELS.interrupts,
-				lines = { { "Group total. Hover a player's kick bullet for their share.", 1, 1, 1 } } } }
+				lines = {
+					{ "Group total. Hover a player's kick bullet for their share.", 1, 1, 1 },
+					{ why, 0.8, 0.8, 0.8, true },
+				} } }
 	end
 	if dispels > 0 then
 		local heavy = dispels >= (A.dispelsFullIntensity or 8)
