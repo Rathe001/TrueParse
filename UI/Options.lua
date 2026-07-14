@@ -31,9 +31,7 @@ local optionsTable = {
 				},
 				autoCollapse = {
 					type = "toggle", order = 2, name = "Auto-collapse in combat",
-					desc = TP.Compat.IS_RETAIL
-						and "Fold to the title bar while fighting (the client shows no live data mid-fight) and re-open when the scorecard lands."
-						or "Fold to the title bar while fighting (hides the live damage bars) and re-open when the scorecard lands.",
+					desc = "Fold to the title bar when a fight starts (scores are post-fight by nature) and re-open when the scorecard lands.",
 					get = function() return profile().window.autoCollapse end,
 					set = function(_, v) profile().window.autoCollapse = v end,
 				},
@@ -68,19 +66,19 @@ local optionsTable = {
 				},
 				wipeDebrief = {
 					type = "toggle", order = 2, name = "Post-wipe debrief",
-					desc = "After a wipe: deaths, how many followed avoidable damage, and the pull's top pointers. Only you see this.",
+					desc = "After a wipe: deaths, how many followed avoidable damage, and the pull's top pointers. Notes when the wipe looked called - nothing after that point counts against anyone. Only you see this.",
 					get = function() return profile().wipeDebrief end,
 					set = function(_, v) profile().wipeDebrief = v end,
 				},
 				announce = {
 					type = "toggle", order = 3, name = "Announce run MVP to group",
-					desc = "When a dungeon/key completes, post ONE line to group chat with the run MVP and group grade. Off by default; be considerate.",
+					desc = "When a dungeon/key completes, post ONE line to group chat: the run MVP, what earned it, and the group score. When several TrueParse users have announcements on, only one (the newest version) posts - no duplicates. On retail a Post button asks first; Blizzard blocks addons from sending chat on their own. Off by default; be considerate.",
 					get = function() return profile().announce end,
 					set = function(_, v) profile().announce = v end,
 				},
 				announceSummary = {
 					type = "toggle", order = 4, name = "Announce group summary",
-					desc = "When a run completes, post ONE line: group grade plus the group's biggest strength and what to work on. No individual scores.",
+					desc = "When a run completes, post ONE line telling the group's story: the score, kill speed vs the group's own parses when they disagree (execution vs throughput), kick coverage, deaths, and the run's most useful pointer. No individual scores. Same one-announcer rule and retail Post button as the MVP line.",
 					get = function() return profile().announceSummary end,
 					set = function(_, v) profile().announceSummary = v end,
 				},
@@ -91,7 +89,7 @@ local optionsTable = {
 			args = {
 				run = {
 					type = "execute", order = 1, name = "Run report",
-					desc = "Print the current instance run's report card to your chat.",
+					desc = "Print the current run's report card to your chat: everyone's whole-run score, awards, and the run's top pointers. Only you see it.",
 					func = function() TP.RunSummary:Report() end,
 				},
 				career = {

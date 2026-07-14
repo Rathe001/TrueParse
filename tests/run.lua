@@ -1691,6 +1691,26 @@ local gaLow = TP.Scoring.Insights.GroupAnalysis({
 check(gaLow.outputN == 1, "demand-floored healer excluded from the parts")
 check(gaLow.executionGap == nil, "no gap verdict from a single measured player")
 
+-- 23b. Wipe-call detection: output collapse that never recovers marks
+-- the moment the raid stopped trying; fought-to-the-end wipes detect
+-- nothing and everything counts
+if TP.Spikes and TP.Spikes.DetectWipeCall then
+	local called = {}
+	for t = 0, 59 do called[t] = 100000 end -- honest effort
+	for t = 60, 89 do called[t] = (t % 7 == 0) and 4000 or 0 end -- gave up
+	local at = TP.Spikes.DetectWipeCall(called, 90)
+	check(at and at >= 58 and at <= 68, ("output collapse detected near the call (%s)"):format(tostring(at)))
+
+	local fought = {}
+	for t = 0, 89 do fought[t] = 90000 + (t % 10) * 1000 end
+	check(TP.Spikes.DetectWipeCall(fought, 90) == nil, "fought-to-the-end wipe detects no call")
+	check(TP.Spikes.DetectWipeCall(called, 25) == nil, "too-short fights never detect")
+	local blip = {}
+	for t = 0, 84 do blip[t] = 100000 end
+	for t = 85, 89 do blip[t] = 0 end
+	check(TP.Spikes.DetectWipeCall(blip, 90) == nil, "a 5s death-tail is not a called wipe")
+end
+
 -- 24. RunAdvice: specific pointers from raw fight records
 do
 	local advFights = {

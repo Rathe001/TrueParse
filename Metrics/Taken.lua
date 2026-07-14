@@ -21,6 +21,14 @@ local function addTaken(seg, dstGUID, amount, spellID, spellName)
 		if spellID then
 			if avoidable then
 				acc.taken.avoidable = acc.taken.avoidable + amount
+				-- by second: a called wipe stops counting from the call
+				local ab = acc.taken.avB
+				if not ab then
+					ab = {}
+					acc.taken.avB = ab
+				end
+				local t = math.floor(GetTime() - (seg.startTime or GetTime()))
+				ab[t] = (ab[t] or 0) + amount
 			end
 			local e = TP.TakenSpells[spellID]
 			if not e then

@@ -24,6 +24,18 @@ local function addDamage(seg, srcGUID, dstGUID, dstFlags, amount, overkill)
 	if not acc then
 		return
 	end
+	-- per-second GROUP output: wipe-call detection reads this (output
+	-- collapse = the raid stopped trying)
+	local g = seg.group
+	if g and seg.startTime then
+		local gb = g.out
+		if not gb then
+			gb = {}
+			g.out = gb
+		end
+		local t = math.floor(GetTime() - seg.startTime)
+		gb[t] = (gb[t] or 0) + amount
+	end
 	local d = acc.damage
 	d.total = d.total + amount
 	d.useful = d.useful + amount - max(overkill or 0, 0)

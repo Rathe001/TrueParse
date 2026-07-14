@@ -158,11 +158,30 @@ function RunSummary:Report(announce)
 		return
 	end
 
-	local sum = 0
-	for _, r in ipairs(results) do
-		sum = sum + r.score
+	-- SAME currency as the window's run column: the mean of each
+	-- player's per-fight scores. Scoring the summed aggregate saturated
+	-- every adjustment at once (a 94/98/73 run read 99) and the report
+	-- contradicted the card it sat next to (2026-07-14).
+	local sums, counts, names = {}, {}, {}
+	for _, f in ipairs(fights) do
+		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(f, TP.GetScoringOptions())) do
+			sums[r.guid] = (sums[r.guid] or 0) + r.score
+			counts[r.guid] = (counts[r.guid] or 0) + 1
+			names[r.guid] = r.name
+		end
 	end
-	local groupScore = sum / #results
+	local rows = {}
+	local total, n = 0, 0
+	for guid, s in pairs(sums) do
+		local mean = s / counts[guid]
+		rows[#rows + 1] = { guid = guid, name = names[guid], score = mean }
+		total = total + mean
+		n = n + 1
+	end
+	table.sort(rows, function(a, b)
+		return a.score > b.score
+	end)
+	local groupScore = n > 0 and (total / n) or 0
 
 	TP.Addon:Print(("Run report — %s (%d fights, %d:%02d) · group score %s · True scores, whole run"):format(
 		anchor, #fights,
@@ -170,7 +189,7 @@ function RunSummary:Report(announce)
 		TP.Scoring.Grades.ColoredScore(groupScore)))
 
 	local awards = TP.Scoring.Awards.Compute(run)
-	for i, r in ipairs(results) do
+	for i, r in ipairs(rows) do
 		local line = ("  %d. %s %s"):format(
 			i, TP.Scoring.Grades.ColoredScore(r.score), r.name)
 		if awards[r.guid] then
@@ -197,14 +216,19 @@ function RunSummary:Report(announce)
 		end
 		local lines = {}
 		if TP.Addon.db.profile.announce then
-			local mvp = results[1]
-			-- name the thing that made them MVP, not just the number
+			-- MVP by the same per-fight-mean currency the report and the
+			-- window use; the WHY still reads the whole-run breakdown
+			local mvp = rows[1]
 			local why
 			local bestPct = 0
-			for key, b in pairs(mvp.breakdown or {}) do
-				if b.applicable and (b.pctile or 0) > bestPct and (b.effectiveWeight or 0) > 0 then
-					bestPct = b.pctile
-					why = (TP.METRIC_LABELS[key] or key):lower()
+			for _, r in ipairs(results) do
+				if r.guid == mvp.guid then
+					for key, b in pairs(r.breakdown or {}) do
+						if b.applicable and (b.pctile or 0) > bestPct and (b.effectiveWeight or 0) > 0 then
+							bestPct = b.pctile
+							why = (TP.METRIC_LABELS[key] or key):lower()
+						end
+					end
 				end
 			end
 			lines[#lines + 1] = ("TrueParse MVP: %s %d/100%s. Group: %d/100."):format(
@@ -340,6 +364,10 @@ function RunSummary:WipeDebrief(fight)
 		end
 	end
 	local head = ("Wipe — %s at %d:%02d."):format(fight.name or "?", math.floor(d / 60), d % 60)
+	if fight.calledWipeAt then
+		head = head .. (" Looked called around %d:%02d — nothing after that counted."):format(
+			math.floor(fight.calledWipeAt / 60), math.floor(fight.calledWipeAt) % 60)
+	end
 	if deaths > 0 then
 		head = head .. (afterAvoidable > 0
 			and (" %d deaths, %d right after avoidable damage (hover the death bullets for recaps)."):format(deaths, afterAvoidable)

@@ -219,3 +219,59 @@ function Spikes.Compute(seg, duration)
 	end
 	return out
 end
+
+-- "Wipe it" detection (2026-07-14, Josh): when a raid leader calls the
+-- wipe, people stand in bad on purpose, jump off ledges, or AFK until
+-- the boss finishes them — none of that is performance. The tell is
+-- GROUP OUTPUT COLLAPSE: even the living stop attacking. From the
+-- per-second group damage-done buckets, find the moment output falls
+-- below a fraction of the fight's own baseline and never recovers.
+-- A wipe fought to the last death keeps output high to the end and
+-- returns nil — everything counts on those.
+function Spikes.DetectWipeCall(buckets, duration)
+	duration = math.floor(duration or 0)
+	if not buckets or duration < 30 then
+		return nil
+	end
+	-- baseline: median per-second output over the fight's first 60%
+	-- (the honest-effort phase on any wipe long enough to be called)
+	local sample = {}
+	for t = 0, math.floor(duration * 0.6) do
+		sample[#sample + 1] = buckets[t] or 0
+	end
+	table.sort(sample)
+	local baseline = sample[math.ceil(#sample / 2)] or 0
+	if baseline <= 0 then
+		return nil
+	end
+	-- walk backward: the last 5s window that still shows real effort
+	-- (>= 40% of baseline) marks the end of trying
+	local lastEffort
+	for t = duration - 5, 0, -1 do
+		local w = 0
+		for k = t, t + 4 do
+			w = w + (buckets[k] or 0)
+		end
+		if w / 5 >= baseline * 0.4 then
+			lastEffort = t + 5
+			break
+		end
+	end
+	if not lastEffort then
+		return nil
+	end
+	-- confidence: a meaningful collapsed tail (8s+), not the pull start,
+	-- and the tail really is dead (< 20% baseline average)
+	if lastEffort < 20 or duration - lastEffort < 8 then
+		return nil
+	end
+	local tail, n = 0, 0
+	for t = lastEffort, duration do
+		tail = tail + (buckets[t] or 0)
+		n = n + 1
+	end
+	if n > 0 and tail / n >= baseline * 0.2 then
+		return nil
+	end
+	return lastEffort
+end

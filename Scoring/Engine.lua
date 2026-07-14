@@ -1267,6 +1267,10 @@ function Engine.ScoreFight(fight, opts)
 					local fraction = math.max(0, math.min(1, p.deathTime / ctx.duration))
 					lastDeathCost = W.penalties.perDeath * (1 - (W.penalties.deathTimingRelief or 0) * fraction)
 				end
+				-- dying after the wipe was called is the plan, not a mistake
+				if fight.calledWipeAt and p.deathTime and p.deathTime >= fight.calledWipeAt then
+					lastDeathCost = 0
+				end
 				local pts = math.min(W.penalties.deathsCap,
 					(deathCount - 1) * W.penalties.perDeath + lastDeathCost)
 				if fight.wipe then

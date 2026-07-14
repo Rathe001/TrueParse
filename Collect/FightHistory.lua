@@ -569,11 +569,23 @@ function FightHistory:AddFromSegment(seg)
 	}
 	local players = {}
 	local playerGUID = UnitGUID("player")
+	-- "Wipe it" detection: on a called wipe, nothing after the call
+	-- counts — people stand in bad on purpose to reset faster. Output
+	-- collapse is the tell; a wipe fought to the end detects nothing
+	-- and everything counts.
+	local calledAt
+	if seg.encounterWipe and TP.Spikes and TP.Spikes.DetectWipeCall then
+		local ok, at = pcall(TP.Spikes.DetectWipeCall,
+			seg.group and seg.group.out, seg.duration)
+		calledAt = ok and at or nil
+	end
+
 	-- danger-window math runs once for the whole segment (group windows
-	-- are shared); enrichment must never block capture
+	-- are shared); enrichment must never block capture. On a called
+	-- wipe, windows past the call don't judge anyone's cooldowns.
 	local spikeData
 	if TP.Spikes and TP.Spikes.Compute then
-		local ok, data = pcall(TP.Spikes.Compute, seg, seg.duration)
+		local ok, data = pcall(TP.Spikes.Compute, seg, calledAt or seg.duration)
 		spikeData = ok and data or nil
 	end
 	for guid, acc in pairs(seg.players) do
@@ -594,7 +606,18 @@ function FightHistory:AddFromSegment(seg)
 			healingToTanks = acc.healing and acc.healing.toTanks or 0,
 			absorbs = acc.absorbs and acc.absorbs.granted or 0,
 			damageTaken = acc.taken and acc.taken.total or 0,
-			avoidableTaken = acc.taken and acc.taken.avoidable or 0,
+			avoidableTaken = (function()
+				local av = acc.taken and acc.taken.avoidable or 0
+				-- post-call avoidable was on purpose: subtract it
+				if calledAt and acc.taken and acc.taken.avB then
+					for t, v in pairs(acc.taken.avB) do
+						if t >= calledAt then
+							av = av - v
+						end
+					end
+				end
+				return math.max(0, av)
+			end)(),
 			interrupts = acc.interrupts and acc.interrupts.kicks or 0,
 			dispels = acc.dispels and acc.dispels.count or 0,
 			deaths = acc.deaths and acc.deaths.total or 0,
@@ -614,9 +637,12 @@ function FightHistory:AddFromSegment(seg)
 			m.lustCasts = acc.lust.casts
 			m.lustPotion = acc.lust.potion and 1 or 0
 		end
-		-- WoWAnalyzer-style basics (post-totals: ratios/counts, not sums)
+		-- WoWAnalyzer-style basics (post-totals: ratios/counts, not sums).
+		-- Activity on a called wipe measures the TRYING phase only —
+		-- standing still waiting to die isn't inactivity.
 		if acc.activity and (seg.duration or 0) > 0 then
-			m.activityPct = math.min(100, math.floor(acc.activity.active / seg.duration * 100 + 0.5))
+			local denom = calledAt or seg.duration
+			m.activityPct = math.min(100, math.floor(acc.activity.active / denom * 100 + 0.5))
 		end
 		if acc.healing then
 			local over = acc.healing.overheal or 0
@@ -700,6 +726,8 @@ function FightHistory:AddFromSegment(seg)
 		-- explicit verdict, else the retail-style heuristic: a boss pull
 		-- with no ENCOUNTER_END where every participant died is a wipe
 		wipe = seg.encounterWipe,
+		-- the moment the raid stopped trying (nil = fought to the end)
+		calledWipeAt = calledAt,
 		duration = seg.duration or 0,
 		capturedAt = time(),
 		zone = GetZoneText(),
