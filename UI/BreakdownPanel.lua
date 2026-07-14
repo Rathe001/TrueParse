@@ -142,8 +142,16 @@ local function showMetricTip(anchor, data)
 		metricTip.median:SetText("barely anything to heal - scored neutral")
 	elseif COUNT_METRICS[key] and b.groupTotal and not wclBacked then
 		metricTip.median:SetText("scored against an even share of the group's total")
+	elseif key == "damageTaken" then
+		-- by design, not missing data: WCL has no damage-taken rankings
+		metricTip.median:SetText("WCL doesn't rank soaking - your share vs the expected tank share")
 	elseif b.relative and not b.absolute then
-		metricTip.median:SetText("no WCL population data - vs group share")
+		if data.role == "SUPPORT" and key == "damage" then
+			-- the attribution input never arrived, name it
+			metricTip.median:SetText("no Ebon Might uptime reported - vs group share")
+		else
+			metricTip.median:SetText("no WCL population data - vs group share")
+		end
 	else
 		metricTip.median:SetText("")
 	end
@@ -481,7 +489,8 @@ function Panel:ShowFor(fight, result)
 		row.metricData = nil
 		if bullet.kind == "metric" then
 			row.tooltipData = nil
-			row.metricData = { b = result.breakdown[bullet.key], key = bullet.key, duration = fight.duration }
+			row.metricData = { b = result.breakdown[bullet.key], key = bullet.key,
+				duration = fight.duration, role = result.role }
 		elseif bullet.kind == "penalty" then
 			if bullet.key == "deaths" and player and player.deathRecap then
 				-- WCL-style death recap: the last hits, right on the bullet

@@ -277,9 +277,12 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	pcall(TP.Sync.AttachReports, TP.Sync, fight)
 	pcall(TP.Threat.AttachRetail, TP.Threat, fight)
 
-	-- Replace an earlier capture of the same session (resume case)
+	-- Replace an earlier capture of the same session (resume case).
+	-- Same NAME required: session IDs restart from 1 on a new client
+	-- session, so a bare ID match let today's session 3 delete
+	-- yesterday's unrelated session-3 boss.
 	for i = #self.fights, 1, -1 do
-		if self.fights[i].sessionID == sessionID then
+		if self.fights[i].sessionID == sessionID and self.fights[i].name == fight.name then
 			table.remove(self.fights, i)
 		end
 	end
@@ -797,10 +800,14 @@ end
 
 function FightHistory:OnEnable()
 	IsSecret = TP.Compat.IsSecret
-	-- Session contexts survive /reload, like pending reports: LFR bulk
-	-- unlocks land after the run, and losing the live context to a mid-
-	-- run reload filed a Chimaerus LFR kill as difficulty-0 open world —
-	-- wrong zone, wrong bracket, no LFR curves (2026-07-14)
+	-- Session contexts AND the captured-session ledger survive /reload,
+	-- like pending reports: LFR bulk unlocks land after the run, and a
+	-- mid-run reload (a) lost the live context — a Chimaerus LFR kill
+	-- filed as difficulty-0 open world with no LFR bracket — and (b)
+	-- forgot which sessions were already captured, so the next sweep
+	-- RE-captured every still-listed session and REPLACED good records
+	-- with degraded ones (reports and context gone: an Aug's uptime and
+	-- their whole attribution overwritten hours later, 2026-07-14).
 	local g = TP.Addon.db.global
 	g.sessionContexts = g.sessionContexts or {}
 	sessionContext = g.sessionContexts
@@ -809,6 +816,8 @@ function FightHistory:OnEnable()
 			sessionContext[id] = nil
 		end
 	end
+	g.snapshottedSessions = g.snapshottedSessions or {}
+	self.snapshotted = g.snapshottedSessions
 	self.fights = TP.Addon.db.char.recentFights or {}
 	-- Migrate away the account-wide storage used by earlier builds
 	TP.Addon.db.global.recentFights = nil
@@ -831,10 +840,11 @@ function FightHistory:OnEnable()
 	if not TP.BlizzardMeter.available then
 		return -- Classic: fights arrive via AddFromSegment
 	end
-	-- Persisted contexts are for /reload survival ONLY. A client RESTART
-	-- renumbers meter sessions from scratch, so a stale context for
-	-- session 3 would mislabel tomorrow's session 3: if the meter's
-	-- current newest ID is below anything stored, renumbering happened.
+	-- Persisted session state is for /reload survival ONLY. A client
+	-- RESTART renumbers meter sessions from scratch, so a stale entry
+	-- for session 3 would mislabel (or suppress) tomorrow's session 3:
+	-- if the meter's newest ID is below anything stored, renumbering
+	-- happened — drop everything keyed by session ID.
 	do
 		local ok, sessions = pcall(C_DamageMeter.GetAvailableCombatSessions)
 		local maxID = 0
@@ -846,11 +856,22 @@ function FightHistory:OnEnable()
 				end
 			end
 		end
+		local stale = false
 		for id in pairs(sessionContext) do
 			if type(id) ~= "number" or id > maxID then
-				wipe(sessionContext)
+				stale = true
 				break
 			end
+		end
+		for id in pairs(self.snapshotted) do
+			if type(id) ~= "number" or id > maxID then
+				stale = true
+				break
+			end
+		end
+		if stale then
+			wipe(sessionContext)
+			wipe(self.snapshotted)
 		end
 	end
 	specIconMap = TP.Compat.BuildSpecIconMap()
