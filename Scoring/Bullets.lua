@@ -44,6 +44,8 @@ local PHRASES = {
 	interrupts = { godly = "Godly interrupting", excellent = "Excellent interrupting", good = "Good interrupting", average = "Some interrupts", low = "Too few interrupts", zero = "Did not interrupt" },
 	dispels = { godly = "Godly dispelling", excellent = "Excellent dispelling", good = "Good dispelling", average = "Some dispels", low = "Too few dispels", zero = "Did not dispel" },
 	buffUptime = { godly = "Godly buff uptime", excellent = "Excellent buff uptime", good = "Good buff uptime", average = "Average buff uptime", low = "Low buff uptime", zero = "Buffs never up" },
+	-- Aug damage is contribution the buffs ENABLED, not personal output
+	amplification = { godly = "Godly amplification", excellent = "Excellent amplification", good = "Good amplification", average = "Average amplification", low = "Low amplification", zero = "No amplification" },
 }
 
 local PENALTY_DEFS = {
@@ -97,7 +99,10 @@ function Bullets.ForResult(result, awards, extra)
 		local tier, symbol = tierOf(score)
 		local color = tierColor(score)
 		local phraseKey = key
-		if key == "healing" and result.role ~= "HEALER" then
+		if key == "damage" and result.role == "SUPPORT" and b.attribution then
+			-- an Aug's "damage" is the contribution their buffs enabled
+			phraseKey = "amplification"
+		elseif key == "healing" and result.role ~= "HEALER" then
 			-- mostly-self healing is sustain, not off-healing: different
 			-- compliment, different implication for the group
 			phraseKey = (extra and extra.selfShare and extra.selfShare >= 0.8)

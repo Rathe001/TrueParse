@@ -72,6 +72,18 @@ Weights.adjustments = {
 	rezCap = 4,
 }
 
+-- Augmentation damage attribution. An Aug's personal damage massively
+-- understates their contribution — their output lands in allies' bars,
+-- and no C_DamageMeter support-damage attribute exists. WCL credits them
+-- the damage their buffs ENABLED; we approximate it from the self-reported
+-- Ebon Might uptime applied to the buffed allies (Ebon Might auto-targets
+-- the highest-damage players). CALIBRATED against Drayke's real fights
+-- (2026-07-14): transfer 0.12 on the top-4 buffed allies landed within
+-- ~5% of WCL's attributed DPS both fights (ours 31.9k/45.9k vs WCL
+-- 31.5k/48.0k). Recalibrate as more Aug fights land.
+Weights.ebonTransfer = 0.12 -- fraction of a buffed ally's damage credited per point of uptime
+Weights.ebonTargets = 4 -- Ebon Might's target count (the top damage dealers)
+
 -- Buff uptime that earns a SUPPORT player 100 points: elite Augs hold Ebon
 -- Might around 55-70% of a fight, so 100 at 60% keeps S-tier honest without
 -- demanding perfection. Calibrate as real Aug reports land.

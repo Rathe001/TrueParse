@@ -111,6 +111,13 @@ local function showMetricTip(anchor, data)
 		else
 			valueText = TP.FormatNumber(b.value or 0)
 		end
+		-- Aug attribution: show the own/enabled split on the damage line
+		if key == "damage" and b.attribution and b.attribution.attributed > 0 and duration > 0 then
+			valueText = ("%s own + %s buffs enabled = %s effective"):format(
+				TP.FormatNumber(b.attribution.own / duration),
+				TP.FormatNumber(b.attribution.attributed / duration),
+				TP.FormatNumber((b.attribution.own + b.attribution.attributed) / duration)) .. "/s"
+		end
 		-- depth riders on the same line, never new card lines
 		if key == "damage" and b.overkillPct and b.overkillPct >= 5 then
 			valueText = valueText .. (" · %d%% overkill"):format(b.overkillPct)

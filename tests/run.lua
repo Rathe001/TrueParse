@@ -1215,6 +1215,47 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(lfrFight, { mode = "parse", norm
 	check(math.abs(r.breakdown.damage.normalized - 50) < 0.001 and r.breakdown.damage.curveFrom == nil,
 		("LFR fight parses against the LFR bracket exactly (%.1f)"):format(r.breakdown.damage.normalized))
 end
+-- 18d2c. Augmentation attribution: an Aug's effective damage (own +
+-- buffs enabled) scores against the DPS population, not their tiny
+-- personal number. Two top DPS at 400/s each, Aug at 40/s own, 50%
+-- Ebon Might uptime: attributed = (40000+40000)*0.5*0.12 = 4800 over
+-- 100s = +48/s, effective 88/s. Against the DPS LFR curve that reads a
+-- real percentile instead of the group-relative ~p15.
+TP.Percentiles.encounters["Percentile Boss"]["1"] = {
+	dps = { [63] = { n = 700, curve = { { 99, 500 }, { 95, 450 }, { 90, 400 }, { 75, 320 }, { 50, 250 }, { 25, 190 }, { 10, 150 } } } },
+	hps = {},
+}
+local augFight2 = {
+	name = "(!) Percentile Boss", isBoss = true, duration = 100, difficultyID = 17,
+	players = {
+		a = { guid = "a", name = "Auggy", class = "EVOKER", role = "DAMAGER", specID = 1473,
+			specIconID = 5198700,
+			metrics = { damage = 4000, healing = 0, buffUptime = 0.5, interrupts = 0, dispels = 0, deaths = 0 } },
+		d1 = { guid = "d1", name = "Top1", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 40000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+		d2 = { guid = "d2", name = "Top2", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 40000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+	},
+}
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(augFight2, { mode = "parse", normalizeIlvl = false })) do
+	if r.name == "Auggy" then
+		local b = r.breakdown.damage
+		check(b.attribution and math.abs(b.attribution.attributed - 4800) < 1,
+			("Aug attribution = top-buffed x uptime x transfer (%s)"):format(tostring(b.attribution and b.attribution.attributed)))
+		check(math.abs((b.value or 0) - 8800) < 1, "Aug damage value is effective (own + attributed)")
+		-- 88/s on a curve where p10=150: below the sampled floor, but a real
+		-- curve percentile, NOT nil (the ~ approximation is gone)
+		check(b.absolute ~= nil and b.curveFrom ~= nil,
+			("Aug parses against the DPS population, not a group estimate (%s)"):format(tostring(b.curveFrom)))
+	end
+end
+-- with NO buff uptime reported, the Aug falls back to the old behavior
+augFight2.players.a.metrics.buffUptime = nil
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(augFight2, { mode = "parse", normalizeIlvl = false })) do
+	if r.name == "Auggy" then
+		check(r.breakdown.damage.attribution == nil, "no reported uptime = no attribution")
+	end
+end
 TP.Percentiles.encounters["Percentile Boss"]["1"] = nil
 
 -- 18d3. Kill-speed percentile: group duration vs the encounter's ranked

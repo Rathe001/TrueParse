@@ -704,20 +704,30 @@ local function normalizeMetric(p, role, key, ctx)
 	--    collapses far below elite gear — see Weights).
 	--  * RELATIVE: cohort comparison (spec/ilvl-adjusted), expected-share
 	--    fallback for solo-role slots — differentiates the room.
+	-- Augmentation: score EFFECTIVE damage (own + buff-attributed) against
+	-- the DPS population, not the tiny personal number. Attribution is
+	-- computed in ScoreFight when the Aug self-reports Ebon Might uptime;
+	-- absent it, SUPPORT damage stays out of the curve path as before.
+	local curveRole, curveVal = role, metricValue(p, key)
+	if role == "SUPPORT" and key == "damage"
+		and ctx.effectiveDamage and ctx.effectiveDamage[p.guid] then
+		curveRole, curveVal = "DAMAGER", ctx.effectiveDamage[p.guid]
+	end
+
 	local absolute, fromCurve
-	if role ~= "SUPPORT" and ctx.duration and ctx.duration > 0 then
+	if curveRole ~= "SUPPORT" and ctx.duration and ctx.duration > 0 then
 		local kind = (key == "healing") and "hps" or (key == "damage") and "dps"
 		-- True mode only: the full cross-encounter ladder must not leak
 		-- into Raw's fallback chain (parse curves resolve encounter-local
 		-- in the parse branch below)
 		if kind and not ctx.parseMode then
-			local entry, label, pooled, scale = findCurve(ctx, kind, p.specID, role)
+			local entry, label, pooled, scale = findCurve(ctx, kind, p.specID, curveRole)
 			if entry then
 				rolePooled = pooled
 				curveFrom = label
 				-- scale converts the player's rate INTO the borrowed
 				-- bracket's population before interpolating
-				local pct = percentileFor(entry.curve, (scale or 1) * metricValue(p, key) / ctx.duration)
+				local pct = percentileFor(entry.curve, (scale or 1) * curveVal / ctx.duration)
 				absolute = math.min(100, (W.trueAbsFloor or 0) + (W.trueAbsSlope or 1) * pct)
 				fromCurve = true
 				pctile = pct -- raw percentile, for the tooltip gauge
@@ -737,7 +747,7 @@ local function normalizeMetric(p, role, key, ctx)
 					bench = bench * (1 + B.ilvlSlopePct / 100) ^ (p.ilvl - ctx.fightFactors.ilvlMedian)
 				end
 				bench = bench * (W.absoluteAnchor or 1)
-				absolute = math.min(100, 100 * (metricValue(p, key) / ctx.duration) / bench)
+				absolute = math.min(100, 100 * (curveVal / ctx.duration) / bench)
 			end
 		end
 	end
@@ -780,13 +790,14 @@ local function normalizeMetric(p, role, key, ctx)
 		-- — WCL's headline parse doesn't bracket by gear either), then the
 		-- %-of-elite-median, then the group comparison.
 		local kind = (key == "healing") and "hps" or (key == "damage") and "dps"
-		if kind and ctx.duration and ctx.duration > 0 then
-			-- encounterOnly: a parse never borrows other bosses' populations
-			local entry, label, pooled, scale = findCurve(ctx, kind, p.specID, role, false, true)
+		if kind and curveRole ~= "SUPPORT" and ctx.duration and ctx.duration > 0 then
+			-- encounterOnly: a parse never borrows other bosses' populations.
+			-- Aug scores its effective damage against the DPS population.
+			local entry, label, pooled, scale = findCurve(ctx, kind, p.specID, curveRole, false, true)
 			if entry then
 				rolePooled = pooled
 				curveFrom = label
-				local pct = percentileFor(entry.curve, (scale or 1) * metricValue(p, key) / ctx.duration)
+				local pct = percentileFor(entry.curve, (scale or 1) * curveVal / ctx.duration)
 				specMedian = curveP50(entry.curve) / (scale or 1)
 				return pct, true, pct, nil, specMedian, pct, rolePooled, curveFrom
 			end
@@ -980,6 +991,38 @@ function Engine.ScoreFight(fight, opts)
 		end
 	end
 
+	-- Augmentation buff attribution (see Weights.ebonTransfer): credit the
+	-- Aug the damage their buffs enabled, approximated from the self-
+	-- reported Ebon Might uptime applied to the top-N buffed allies. Runs
+	-- after cohorts so the buffed set (highest-damage non-supports) is
+	-- known; scored as DPS in normalizeMetric via ctx.effectiveDamage.
+	do
+		local transfer = W.ebonTransfer or 0.12
+		local nTargets = W.ebonTargets or 4
+		for _, p in ipairs(players) do
+			if normalizeRole(p) == "SUPPORT" and p.metrics and p.metrics.buffUptime then
+				local allyDmg = {}
+				for _, o in ipairs(players) do
+					if o ~= p and normalizeRole(o) ~= "SUPPORT" then
+						allyDmg[#allyDmg + 1] = o.metrics and o.metrics.damage or 0
+					end
+				end
+				table.sort(allyDmg, function(a, b) return a > b end)
+				local buffed = 0
+				for i = 1, math.min(nTargets, #allyDmg) do
+					buffed = buffed + allyDmg[i]
+				end
+				local attributed = buffed * p.metrics.buffUptime * transfer
+				if attributed > 0 then
+					ctx.effectiveDamage = ctx.effectiveDamage or {}
+					ctx.attribution = ctx.attribution or {}
+					ctx.effectiveDamage[p.guid] = (p.metrics.damage or 0) + attributed
+					ctx.attribution[p.guid] = { own = p.metrics.damage or 0, attributed = attributed }
+				end
+			end
+		end
+	end
+
 	-- Healing demand: when nobody died and nobody even dipped (Classic
 	-- health sampler), share-based healing comparisons are noise — passive
 	-- DPS self-healing outweighs real healing when there's nothing to heal.
@@ -1088,6 +1131,13 @@ function Engine.ScoreFight(fight, opts)
 			if key == "interrupts" or key == "dispels" then
 				-- the tooltip phrases these as "Kicked 2 of the group's 7"
 				breakdown[key].groupTotal = ctx.totals[key] > 0 and ctx.totals[key] or nil
+			end
+			-- Aug damage: the row's number is EFFECTIVE (own + buffs
+			-- enabled); the tooltip shows the split
+			if key == "damage" and ctx.attribution and ctx.attribution[p.guid] then
+				local a = ctx.attribution[p.guid]
+				breakdown[key].value = a.own + a.attributed
+				breakdown[key].attribution = a
 			end
 			if applicable then
 				activeWeight = activeWeight + weight
