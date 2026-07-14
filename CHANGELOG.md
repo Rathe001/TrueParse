@@ -1,5 +1,13 @@
 # TrueParse Changelog
 
+## 1.3.2
+
+- Raw run averages count kills only. Warcraft Logs never ranks wipes,
+  and a wipe's per-second rates are structurally low (the dead
+  contribute zero for the rest of the pull) - so on wipe-heavy runs
+  the Raw avg column read about half the real parse. True mode still
+  grades attempts, as designed.
+
 ## 1.3.1
 
 MoP users: this adds new files - fully restart the client once.
