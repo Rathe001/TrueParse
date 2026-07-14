@@ -21,6 +21,7 @@ Data\KillTimes_Mists.lua
 Data\KillTimes_Mists_Dungeons.lua
 Data\Potions.lua
 Data\Avoidable_Mists.lua
+Data\ProcExclusions_Mists.lua
 Data\Lust_Mists.lua
 Data\Mitigation_Mists.lua
 Data\HealerCDs_Mists.lua

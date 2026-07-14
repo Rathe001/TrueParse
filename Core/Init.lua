@@ -53,9 +53,15 @@ function Addon:OnInitialize()
 	-- the 200 biggest totals (the curation-relevant tail).
 	self.db.global.takenSpells = self.db.global.takenSpells or {}
 	TP.TakenSpells = self.db.global.takenSpells
-	do
+	-- /tp procs twins (damage done / healing done by spell): same
+	-- account-wide persistence, same login prune
+	self.db.global.doneSpells = self.db.global.doneSpells or {}
+	self.db.global.healSpells = self.db.global.healSpells or {}
+	TP.DoneSpells = self.db.global.doneSpells
+	TP.HealSpells = self.db.global.healSpells
+	for _, tally in ipairs({ TP.TakenSpells, TP.DoneSpells, TP.HealSpells }) do
 		local list = {}
-		for id, e in pairs(TP.TakenSpells) do
+		for id, e in pairs(tally) do
 			list[#list + 1] = { id = id, total = e.total or 0 }
 		end
 		if #list > 300 then
@@ -63,7 +69,7 @@ function Addon:OnInitialize()
 				return a.total > b.total
 			end)
 			for i = 201, #list do
-				TP.TakenSpells[list[i].id] = nil
+				tally[list[i].id] = nil
 			end
 		end
 	end
@@ -191,6 +197,44 @@ function Addon:HandleSlash(input)
 					i, e.name or "?", e.id, TP.FormatNumber(e.total), e.hits,
 					(TP.AVOIDABLE and TP.AVOIDABLE[e.id]) and " [avoidable]" or ""))
 			end
+		end
+	elseif cmd == "procs" then
+		-- curation aid for Data/ProcExclusions_*.lua: top damage and
+		-- healing sources this session, IDs included
+		if rest == "reset" then
+			for k in pairs(TP.DoneSpells or {}) do
+				TP.DoneSpells[k] = nil
+			end
+			for k in pairs(TP.HealSpells or {}) do
+				TP.HealSpells[k] = nil
+			end
+			self:Print("Damage/healing source tallies reset.")
+			return
+		end
+		local function top(tally, label)
+			local list = {}
+			for id, e in pairs(tally or {}) do
+				list[#list + 1] = { id = id, name = e.name, total = e.total }
+			end
+			if #list == 0 then
+				return
+			end
+			table.sort(list, function(a, b)
+				return a.total > b.total
+			end)
+			self:Print(label)
+			for i = 1, math.min(12, #list) do
+				local e = list[i]
+				local excluded = TP.IsExcludedProc and TP.IsExcludedProc(e.id, e.name)
+				self:Print(("  %d. %s (%d) - %s%s"):format(
+					i, e.name or "?", e.id, TP.FormatNumber(e.total),
+					excluded and " [excluded]" or ""))
+			end
+		end
+		top(TP.DoneSpells, "Top damage sources this session (for proc exclusions):")
+		top(TP.HealSpells, "Top healing sources this session:")
+		if not next(TP.DoneSpells or {}) and not next(TP.HealSpells or {}) then
+			self:Print("No spell damage or healing recorded this session.")
 		end
 	elseif cmd == "coach" then
 		self.db.profile.coach = not self.db.profile.coach

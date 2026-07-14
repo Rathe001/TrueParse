@@ -3,10 +3,26 @@ local _, TP = ...
 
 local tracker = { subevents = {} }
 
+-- Session-wide tally of healing BY spell, for curating proc exclusions
+-- ("/tp procs")
+TP.HealSpells = {}
+
 -- SPELL_HEAL suffix: spellId, spellName, school, amount, overhealing, absorbed, critical
 local function heal(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a5)
 	if not a4 then
 		return
+	end
+	if a1 then
+		local e = TP.HealSpells[a1]
+		if not e then
+			e = { name = a2, total = 0 }
+			TP.HealSpells[a1] = e
+		end
+		e.total = e.total + a4
+		-- celestial-buff heal procs: windfall, not performance
+		if TP.IsExcludedProc and TP.IsExcludedProc(a1, a2) then
+			return
+		end
 	end
 	local guid = TP.Roster:ResolveGUID(srcGUID)
 	if not guid then

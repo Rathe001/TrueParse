@@ -38,9 +38,26 @@ tracker.subevents.SWING_DAMAGE = function(seg, srcGUID, dstGUID, srcFlags, dstFl
 	addDamage(seg, srcGUID, dstGUID, dstFlags, a1, a2)
 end
 
+-- Session-wide tally of damage BY spell, for curating proc exclusions
+-- ("/tp procs" prints the top sources with IDs — the TakenSpells twin)
+TP.DoneSpells = {}
+
 -- SPELL/RANGE prefix adds spellId, spellName, school before the damage suffix:
 -- spellId, spellName, school, amount, overkill, ...
 local function spellDamage(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a5)
+	if a1 and a4 then
+		local e = TP.DoneSpells[a1]
+		if not e then
+			e = { name = a2, total = 0 }
+			TP.DoneSpells[a1] = e
+		end
+		e.total = e.total + a4
+		-- temporary-empowerment procs (celestial buffs): RNG windfall,
+		-- not performance — excluded from every scored number
+		if TP.IsExcludedProc and TP.IsExcludedProc(a1, a2) then
+			return
+		end
+	end
 	addDamage(seg, srcGUID, dstGUID, dstFlags, a4, a5)
 end
 tracker.subevents.SPELL_DAMAGE = spellDamage

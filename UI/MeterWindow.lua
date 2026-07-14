@@ -887,22 +887,17 @@ function MeterWindow:RenderScorecard(fight)
 		local letterAlign = db().letterGrades and "LEFT" or "RIGHT"
 		row.score:SetJustifyH(letterAlign)
 		row.runAvg:SetJustifyH(letterAlign)
-		row.icon:SetAlpha(hasAddon and 1 or 0.7)
+		row.icon:SetAlpha(1)
 		row.addonMark:SetTexture(hasAddon
 			and "Interface\\COMMON\\Indicator-Green"
 			or "Interface\\COMMON\\Indicator-Gray")
 		row.addonMark:Show()
 
 		-- Details-style: the row IS a solid class-colored bar with a white
-		-- outlined name. Non-addon players get the color MUTED (washed
-		-- toward grey), never transparency - transparency stacked with the
-		-- window backdrop made whole pug scorecards unreadable.
+		-- outlined name. TRUE class colors for everyone — the old muting
+		-- wash turned a druid's orange into warrior tan and cost the card
+		-- its class identity; the green/gray dot carries presence now.
 		local cr, cg, cb = TP.ClassColor(r.class)
-		if not hasAddon then
-			cr = cr * 0.4 + 0.22
-			cg = cg * 0.4 + 0.22
-			cb = cb * 0.4 + 0.22
-		end
 		row.bg:SetColorTexture(cr, cg, cb, 0.95)
 		local barArea = math.max(40, width - COL_RESERVE)
 		row.track:SetWidth(barArea)
