@@ -810,11 +810,18 @@ function MeterWindow:RenderScorecard(fight)
 			-- True avgs next to single-digit Raw fights read as a bug).
 			-- Scoring the summed aggregate instead let run-long
 			-- adjustment totals saturate: 94/98/73 read as 99.
+			-- Raw averages KILLS ONLY: WCL never ranks wipes, and a
+			-- wipe's rates are structurally low (the dead contribute
+			-- zero for the tail) — wipe-heavy runs read half their real
+			-- parse (2026-07-14). True mode keeps grading attempts.
+			local parseLens = TP.GetDisplayScoringOptions().mode == "parse"
 			local sums, counts = {}, {}
 			for _, f in ipairs(runFights or {}) do
-				for _, r in ipairs(scoreForDisplay(f)) do
-					sums[r.guid] = (sums[r.guid] or 0) + r.score
-					counts[r.guid] = (counts[r.guid] or 0) + 1
+				if not (parseLens and f.wipe) then
+					for _, r in ipairs(scoreForDisplay(f)) do
+						sums[r.guid] = (sums[r.guid] or 0) + r.score
+						counts[r.guid] = (counts[r.guid] or 0) + 1
+					end
 				end
 			end
 			runBy = {}
