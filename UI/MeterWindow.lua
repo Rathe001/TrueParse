@@ -290,6 +290,10 @@ local function createWindow()
 	-- Fight browser: the dropdown box opens the fight picker. Hidden while
 	-- collapsed (the header click is collapse there).
 	window.fightDrop:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
+	-- the cog needs the same explicit raise: at EQUAL level with the
+	-- header button, a collapse/expand cycle reshuffles mouse priority
+	-- among siblings and the collapse button starts eating the clicks
+	window.cog:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
 	window.fightDrop:RegisterForClicks("LeftButtonUp")
 	window.fightDrop:RegisterForDrag("LeftButton")
 	window.fightDrop:SetScript("OnDragStart", startDrag)
