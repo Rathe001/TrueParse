@@ -91,10 +91,12 @@ local function composeSummary(run, fights, results, groupScore)
 	elseif deaths > #results then
 		msg = msg .. (" %d deaths."):format(deaths)
 	end
-	local insights = TP.Scoring.Insights.ForResults(results)
-	if insights.weakness then
-		msg = msg .. (" Work on: %s."):format(
-			(TP.METRIC_LABELS[insights.weakness] or insights.weakness):lower())
+	-- one SPECIFIC pointer beats "work on: healing" (which scolded the
+	-- healer for the group's off-heal averages, 2026-07-14) — but only
+	-- if it fits the 255-char chat limit
+	local tips = TP.Scoring.Insights.RunAdvice(fights)
+	if tips[1] and #msg + #tips[1] + 1 <= 250 then
+		msg = msg .. " " .. tips[1]
 	end
 	return msg
 end
@@ -171,6 +173,16 @@ function RunSummary:Report(announce)
 			line = line .. " " .. TP.STAR .. " |cffffd700" .. table.concat(awards[r.guid], ", ") .. "|r"
 		end
 		TP.Addon:Print(line)
+	end
+
+	-- specific pointers, local only: what the run's own numbers say to
+	-- change (never role-shaming averages)
+	local tips = TP.Scoring.Insights.RunAdvice(fights)
+	if #tips > 0 then
+		TP.Addon:Print("Pointers:")
+		for i = 1, math.min(3, #tips) do
+			TP.Addon:Print("  \194\183 " .. tips[i])
+		end
 	end
 
 	if announce and IsInGroup() then

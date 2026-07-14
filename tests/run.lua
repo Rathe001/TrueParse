@@ -568,20 +568,22 @@ local buffAdvice = TP.Scoring.Coach.BiggestOpportunity({
 check(buffAdvice and buffAdvice.kind == "buffs", "coach flags buff coverage")
 
 -- 13. Group insights: strengths/weaknesses derived from results
+-- healing weakness needs 2+ HEALERS agreeing (role-primary counting,
+-- 2026-07-14: off-heal averages scolded the healer)
 local insightResults = {
-	{ breakdown = { damage = { applicable = true, normalized = 90 }, interrupts = { applicable = true, normalized = 85 },
+	{ role = "HEALER", breakdown = { damage = { applicable = true, normalized = 90 }, interrupts = { applicable = true, normalized = 85 },
 			healing = { applicable = true, normalized = 40 } },
 		penaltyDetail = { deaths = 10 } },
-	{ breakdown = { damage = { applicable = true, normalized = 80 }, interrupts = { applicable = true, normalized = 95 },
+	{ role = "DAMAGER", breakdown = { damage = { applicable = true, normalized = 80 }, interrupts = { applicable = true, normalized = 95 },
 			-- damageTaken must never surface as a group strength (solo metric)
 			damageTaken = { applicable = true, normalized = 100 } },
 		penaltyDetail = { deaths = 10, avoidable = 5 } },
-	{ breakdown = { damage = { applicable = true, normalized = 70 }, healing = { applicable = true, normalized = 30 } },
+	{ role = "HEALER", breakdown = { damage = { applicable = true, normalized = 70 }, healing = { applicable = true, normalized = 30 } },
 		penaltyDetail = { deaths = 10, avoidable = 3, buffs = 2 } },
 }
 local insights = TP.Scoring.Insights.ForResults(insightResults)
 check(insights.strength == "interrupts", ("group strength is interrupts (%s)"):format(tostring(insights.strength)))
-check(insights.weakness == "healing", ("group weakness is healing (%s)"):format(tostring(insights.weakness)))
+check(insights.weakness == "healing", ("two healers under the bar still flag healing (%s)"):format(tostring(insights.weakness)))
 check(insights.deaths == 3, "counts players who died")
 check(insights.avoidableHitters == 2, "counts avoidable-damage eaters")
 check(insights.buffsMissing == true, "flags missing raid buffs")
@@ -1688,6 +1690,51 @@ local gaLow = TP.Scoring.Insights.GroupAnalysis({
 }, {}, 65)
 check(gaLow.outputN == 1, "demand-floored healer excluded from the parts")
 check(gaLow.executionGap == nil, "no gap verdict from a single measured player")
+
+-- 24. RunAdvice: specific pointers from raw fight records
+do
+	local advFights = {
+		{ totals = { kickOpportunities = 10, kicksLanded = 3, avoidableTaken = 200000, damageTaken = 1000000 },
+			players = {
+				h = { role = "HEALER", specID = 270, metrics = { dryAt = 12, manaMinPct = 1,
+					groupSpikeWindows = 4, groupSpikeCovered = 1 } },
+				d = { role = "DAMAGER", specID = 63, deathRecap = { { spell = "Falling Ash", avoidable = true } },
+					deathReadyDefensives = 2, metrics = { deaths = 1 } },
+			} },
+		{ totals = {},
+			players = {
+				h = { role = "HEALER", specID = 270, metrics = { manaMinPct = 3 } },
+			} },
+	}
+	local tips = TP.Scoring.Insights.RunAdvice(advFights)
+	check(#tips >= 4, ("run advice finds the run's stories (%d)"):format(#tips))
+	check(tips[1]:find("avoidable damage"), ("deaths-after-avoidable leads (%s)"):format(tostring(tips[1])))
+	local sawKicks, sawMana, sawSpikes = false, false, false
+	for _, t in ipairs(tips) do
+		if t:find("interruptible casts got through") then sawKicks = true end
+		if t:find("empty mana in 2 fights") then sawMana = true end
+		if t:find("heavy group%-damage moments") then sawSpikes = true end
+	end
+	check(sawKicks and sawMana and sawSpikes, "kick coverage, mana, and spike pointers all fire")
+	check(#TP.Scoring.Insights.RunAdvice({ { totals = {}, players = {} } }) == 0,
+		"a clean run gets no scolding")
+end
+
+-- weakness picker is role-primary: a card of low DPS off-heals must not
+-- flag "healing" while the actual healer parsed fine
+do
+	local ins = TP.Scoring.Insights.ForResults({
+		{ role = "HEALER", penaltyDetail = {}, breakdown = {
+			healing = { applicable = true, normalized = 90 } } },
+		{ role = "DAMAGER", penaltyDetail = {}, breakdown = {
+			damage = { applicable = true, normalized = 70 },
+			healing = { applicable = true, normalized = 10 } } },
+		{ role = "DAMAGER", penaltyDetail = {}, breakdown = {
+			damage = { applicable = true, normalized = 72 },
+			healing = { applicable = true, normalized = 5 } } },
+	})
+	check(ins.weakness ~= "healing", ("off-heal averages never flag healing (%s)"):format(tostring(ins.weakness)))
+end
 
 print("")
 if failures == 0 then
