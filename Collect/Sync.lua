@@ -84,6 +84,8 @@ end
 Sync.CommChannel = commChannel
 
 function Sync:BroadcastFightReport(duration, defensives, consumables, readyAtDeath, buffUptime, activity)
+	-- (own facts are recorded locally by the caller — SelfCasts — before
+	-- this broadcast; the receive path drops our own echo)
 	local channel = commChannel()
 	if not channel then
 		return
@@ -289,6 +291,25 @@ end
 
 function Sync:OnEnable()
 	self.enabledAt = time()
+	-- Pending reports survive /reload: retail captures land in a bulk
+	-- unlock minutes after the fight, and an in-memory staging table
+	-- meant any reload in between silently discarded every report not
+	-- yet attached (2026-07-14: cost an Aug their Ebon Might uptime and
+	-- with it their whole damage attribution). SavedVariables flush on
+	-- reload — exactly the event that was killing them.
+	local g = TP.Addon.db.global
+	g.pendingReports = g.pendingReports or {}
+	self.reports = g.pendingReports
+	for guid, list in pairs(self.reports) do
+		for i = #list, 1, -1 do
+			if (time() - (list[i].at or 0)) > REPORT_TTL then
+				table.remove(list, i)
+			end
+		end
+		if #list == 0 then
+			self.reports[guid] = nil
+		end
+	end
 	LibStub("AceComm-3.0"):Embed(self)
 	LibStub("AceEvent-3.0"):Embed(self)
 	LibStub("AceTimer-3.0"):Embed(self)

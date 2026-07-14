@@ -490,6 +490,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 				difficulty = (not IsSecret(difficultyName)) and difficultyName or nil,
 				difficultyID = (not IsSecret(difficultyID)) and difficultyID or nil,
 				roster = {},
+				at = time(), -- prune anchor (contexts persist across /reload)
 			}
 		end
 		-- Roster facts recorded LIVE: bulk-unlocked captures often land after
@@ -796,6 +797,18 @@ end
 
 function FightHistory:OnEnable()
 	IsSecret = TP.Compat.IsSecret
+	-- Session contexts survive /reload, like pending reports: LFR bulk
+	-- unlocks land after the run, and losing the live context to a mid-
+	-- run reload filed a Chimaerus LFR kill as difficulty-0 open world —
+	-- wrong zone, wrong bracket, no LFR curves (2026-07-14)
+	local g = TP.Addon.db.global
+	g.sessionContexts = g.sessionContexts or {}
+	sessionContext = g.sessionContexts
+	for id, ctx in pairs(sessionContext) do
+		if (time() - (ctx.at or 0)) > 21600 then
+			sessionContext[id] = nil
+		end
+	end
 	self.fights = TP.Addon.db.char.recentFights or {}
 	-- Migrate away the account-wide storage used by earlier builds
 	TP.Addon.db.global.recentFights = nil
@@ -817,6 +830,28 @@ function FightHistory:OnEnable()
 
 	if not TP.BlizzardMeter.available then
 		return -- Classic: fights arrive via AddFromSegment
+	end
+	-- Persisted contexts are for /reload survival ONLY. A client RESTART
+	-- renumbers meter sessions from scratch, so a stale context for
+	-- session 3 would mislabel tomorrow's session 3: if the meter's
+	-- current newest ID is below anything stored, renumbering happened.
+	do
+		local ok, sessions = pcall(C_DamageMeter.GetAvailableCombatSessions)
+		local maxID = 0
+		if ok and sessions then
+			for i = 1, #sessions do
+				local id = sessions[i].sessionID
+				if id and not IsSecret(id) and id > maxID then
+					maxID = id
+				end
+			end
+		end
+		for id in pairs(sessionContext) do
+			if type(id) ~= "number" or id > maxID then
+				wipe(sessionContext)
+				break
+			end
+		end
 	end
 	specIconMap = TP.Compat.BuildSpecIconMap()
 
