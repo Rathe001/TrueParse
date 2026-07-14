@@ -1,5 +1,58 @@
 # TrueParse Changelog
 
+## 1.3.1
+
+MoP users: this adds new files - fully restart the client once.
+
+**Augmentation Evokers finally score right.** Their personal damage
+understates them by design - the output lives in allies' bars - so
+TrueParse now credits the damage their buffs enabled, from their own
+reported Ebon Might uptime applied to the buffed allies, and scores
+that effective damage against the real DPS population. Calibrated
+against Warcraft Logs: within a point or two of WCL's own attributed
+parse on live fights. The damage tooltip shows the split ("27.9k own
++ 18.1k buffs enabled"), the bullet reads "amplification," and an Aug
+whose uptime we never received pins neutral instead of getting a
+damning score built on a number everyone knows is wrong.
+
+**"Wipe it" detection (MoP).** When the raid calls a wipe, people
+stand in bad on purpose to reset faster. On wipes, TrueParse now
+detects the moment group damage output collapses and never recovers -
+after that point, avoidable damage doesn't count, deaths cost
+nothing, and activity measures only the trying phase. A wipe fought
+to the last death detects nothing: everything counts.
+
+**Smarter reports.**
+- Post-wipe debrief (new, local): deaths, how many followed avoidable
+  damage, and the pull's top pointers - right when everyone asks
+  "what happened?"
+- Specific pointers replace "work on: healing": "9 interruptible
+  casts got through", "Falling Ash did the most avoidable damage -
+  it's dodgeable", "the healer ran dry in 3 fights." A clean run gets
+  no scolding.
+- Share to group is now a flex line: kill time vs Warcraft Logs
+  ranked kills plus the group score. Analysis stays local.
+- The run report, MVP announce, and the window's avg column all agree
+  now (same per-fight averages), and run averages follow the active
+  lens - a Raw card averages Raw scores.
+
+**Seasonal celestial procs (MoP)** no longer skew scores: Jadefire,
+Essence of Yu'lon, the Songs and friends are excluded from scored
+damage and healing (Details still shows raw). Curate additions with
+the new /tp procs.
+
+**Durability.** Reloading mid-run can no longer silently degrade
+captures: pending reports, session contexts, and the captured-session
+ledger all survive /reload, and session-ID reuse after a client
+restart can't overwrite unrelated fights.
+
+**Also:** true class colors for everyone (the non-addon muting wash
+turned druids into warriors - the green/gray dot carries presence
+now), bullets sorted best-to-worst, tooltips that never truncate or
+overflow, an options cog on the window, click-through-in-combat,
+per-client explanations for why "kicked X of Y" is or isn't
+available, the aggro story told once, and up-to-date option tooltips.
+
 ## 1.3.0
 
 The biggest scoring release since curves landed. All scores - history
