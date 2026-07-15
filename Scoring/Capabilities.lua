@@ -43,19 +43,58 @@ function Capabilities.CanInterrupt(class, role)
 	return true
 end
 
--- Friendly-dispel capability (coarse, class level): these classes have some
--- friendly cleanse on at least most specs, in MoP and retail alike. Pure
--- damage classes must not be scored on dispels they cannot perform.
-local CAN_DISPEL = {
-	PRIEST = true, PALADIN = true, DRUID = true, SHAMAN = true,
-	MONK = true, MAGE = true, EVOKER = true,
+-- Friendly-dispel capability BY TYPE (2026-07-15, Josh): a Balance
+-- druid cleanses Curse/Poison but not Magic — on a magic-only fight
+-- they must not be scored on dispels. Healer specs add Magic.
+local DISPEL_TYPES = {
+	DRUID = { Curse = true, Poison = true },
+	PRIEST = { Magic = true }, -- Mass Dispel is spec-agnostic
+	PALADIN = { Poison = true, Disease = true },
+	SHAMAN = { Curse = true },
+	MONK = { Poison = true, Disease = true },
+	MAGE = { Curse = true },
+	EVOKER = { Poison = true },
+}
+-- healer specs whose cleanse also removes Magic (+priest Disease)
+local MAGIC_CLEANSE_SPECS = {
+	[105] = true, [65] = true, [264] = true, [270] = true,
+	[256] = true, [257] = true, [1468] = true,
 }
 
-function Capabilities.CanDispel(class)
+function Capabilities.DispelTypes(class, specID)
+	local base = DISPEL_TYPES[class]
+	if not base then
+		return nil
+	end
+	if specID and MAGIC_CLEANSE_SPECS[specID] then
+		local t = { Magic = true, Disease = class == "PRIEST" and true or nil }
+		for k in pairs(base) do
+			t[k] = true
+		end
+		return t
+	end
+	return base
+end
+
+-- Eligible for dispel scoring? Type-aware when the fight's dispelled
+-- debuff types are known; capability-only while learning (cold start).
+function Capabilities.CanDispel(class, specID, fightTypes)
 	if not class then
 		return true
 	end
-	return CAN_DISPEL[class] or false
+	local mine = Capabilities.DispelTypes(class, specID)
+	if not mine then
+		return false
+	end
+	if fightTypes and next(fightTypes) then
+		for t in pairs(fightTypes) do
+			if mine[t] then
+				return true
+			end
+		end
+		return false
+	end
+	return true
 end
 
 -- Support specs whose output is transferred into OTHER players' numbers

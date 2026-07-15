@@ -806,6 +806,7 @@ function FightHistory:AddFromSegment(seg)
 	-- group interrupt coverage (opportunities from the self-curating
 	-- kickable list; feeds the kick adjustment's intensity)
 	if seg.group and (seg.group.kickOpps or 0) > 0 then
+		totals.dispelTypes = seg.group.dispelTypes
 		totals.kickOpportunities = seg.group.kickOpps
 		totals.kicksLanded = seg.group.kicksLanded or 0
 		totals.kicksThrough = seg.group.kicksThrough or 0

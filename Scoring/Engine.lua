@@ -652,8 +652,9 @@ local function normalizeMetric(p, role, key, ctx)
 	end
 
 	if key == "dispels" then
-		if not TP.Scoring.Capabilities.CanDispel(p.class) then
-			return 0, false -- no cleanse on this class
+		if not TP.Scoring.Capabilities.CanDispel(p.class, p.specID,
+			ctx.totals.dispelTypes) then
+			return 0, false -- can't cleanse what this fight presented
 		end
 		if ctx.totals.dispels <= 0 then
 			return 0, false -- nothing dispellable happened
@@ -948,7 +949,10 @@ function Engine.ScoreFight(fight, opts)
 		fightFactors = resolveFightFactors(fight),
 		curves = nil, -- widening WCL evidence ladder, set below
 		duration = fight.duration,
-		totals = { damage = 0, healing = 0, damageTaken = 0, interrupts = 0, dispels = 0, avoidable = 0 },
+		totals = { damage = 0, healing = 0, damageTaken = 0, interrupts = 0, dispels = 0, avoidable = 0,
+			-- debuff types actually dispelled this fight (learned at
+			-- capture): gates who is ELIGIBLE for dispel scoring
+			dispelTypes = fight.totals and fight.totals.dispelTypes or nil },
 	}
 
 	-- The ladder covers every boss fight the moment ANY percentile data is

@@ -795,7 +795,7 @@ local deathsBullet
 for _, b in ipairs(groupBullets) do
 	if b.kind == "penalty" and b.key == "deaths" then deathsBullet = b.text end
 end
-check(deathsBullet == "2 players died", ("group deaths phrase (%s)"):format(tostring(deathsBullet)))
+check(deathsBullet :find("^2 players died") ~= nil, ("group deaths phrase (%s)"):format(tostring(deathsBullet)))
 
 -- 15. Threat discipline penalties (Classic-only fields on the fight record)
 local threatFight = {

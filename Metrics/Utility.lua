@@ -93,6 +93,29 @@ tracker.subevents.SPELL_AURA_APPLIED = function(seg, srcGUID, dstGUID, srcFlags,
 	if a4 ~= "DEBUFF" or not a1 or not seg.players[dstGUID] then
 		return
 	end
+	-- learn a known-dispellable debuff's TYPE while it's actually on the
+	-- unit (Magic/Curse/Poison/Disease from UnitDebuff): the type gates
+	-- who is eligible for dispel scoring
+	local g = TP.Addon.db.global
+	if g.dispellableDebuffs and g.dispellableDebuffs[a1]
+		and not (g.debuffTypes and g.debuffTypes[a1]) then
+		local info = TP.Roster.players[TP.Roster:ResolveGUID(dstGUID) or ""]
+		if info and info.unit then
+			pcall(function()
+				for i = 1, 40 do
+					local name, _, _, dtype, _, _, _, _, _, sid = UnitDebuff(info.unit, i)
+					if not name then
+						break
+					end
+					if sid == a1 and dtype then
+						g.debuffTypes = g.debuffTypes or {}
+						g.debuffTypes[a1] = dtype
+						break
+					end
+				end
+			end)
+		end
+	end
 	local key = dstGUID .. a1
 	local mark = debuffAt[key]
 	if not mark then
@@ -117,6 +140,23 @@ tracker.subevents.SPELL_DISPEL = function(seg, srcGUID, dstGUID, srcFlags, dstFl
 			d.reactSum = (d.reactSum or 0) + (GetTime() - mark.at)
 			d.reactN = (d.reactN or 0) + 1
 			debuffAt[key] = nil
+		end
+	end
+	-- mark the removed debuff as dispellable; its TYPE gets learned at
+	-- the NEXT apply (the aura is already gone from the unit here), and
+	-- once known it gates who is eligible for dispel scoring
+	if a4 then
+		local g = TP.Addon.db.global
+		g.dispellableDebuffs = g.dispellableDebuffs or {}
+		g.dispellableDebuffs[a4] = true
+		local t = g.debuffTypes and g.debuffTypes[a4]
+		if t then
+			local gt = seg.group.dispelTypes
+			if not gt then
+				gt = {}
+				seg.group.dispelTypes = gt
+			end
+			gt[t] = true
 		end
 	end
 end

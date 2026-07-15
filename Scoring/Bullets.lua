@@ -391,6 +391,25 @@ local GROUP_PHRASES = {
 -- state facts (volume), never averaged share scores. Pass the fight
 -- for totals-based lines (deaths, avoidable pressure).
 function Bullets.ForGroup(results, fight)
+	-- the raid row's points work like player rows (2026-07-15): each
+	-- line carries the AVERAGE adjustment across the group for its key
+	local function avgAdj(key, penalty)
+		local sum, n = 0, 0
+		for _, r in ipairs(results) do
+			local v = penalty and -((r.penaltyDetail or {})[key] or 0)
+				or ((r.adjustDetail or {})[key] or 0)
+			sum = sum + v
+			n = n + 1
+		end
+		if n == 0 then
+			return ""
+		end
+		local avg = sum / n
+		if avg >= 0.5 or avg <= -0.5 then
+			return (" (%+.0f)"):format(avg)
+		end
+		return ""
+	end
 	local out = {}
 	local A = TP.Scoring.Weights and TP.Scoring.Weights.adjustments or {}
 	local died, avoidable, buffsMissing = 0, 0, false
@@ -478,7 +497,7 @@ function Bullets.ForGroup(results, fight)
 			sym, col = "-", BAD
 		end
 		out[#out + 1] = { kind = "metric", key = "interrupts", symbol = sym, color = col,
-			text = ("Kicked %d of %d interruptible casts"):format(landed, opps),
+			text = ("Kicked %d of %d interruptible casts"):format(landed, opps) .. avgAdj("kicks"),
 			tooltip = { title = TP.METRIC_LABELS.interrupts,
 				lines = { { "Opportunities = casts of spells this addon has ever seen interrupted (the list teaches itself). Casts that got through hit somebody.", 1, 1, 1 } } } }
 	elseif kicks > 0 then
@@ -493,7 +512,7 @@ function Bullets.ForGroup(results, fight)
 		end
 		out[#out + 1] = { kind = "metric", key = "interrupts",
 			symbol = heavy and "+" or MIDDOT, color = heavy and GOOD or MID,
-			text = kicks == 1 and "1 interrupt landed" or ("%d interrupts landed"):format(kicks),
+			text = (kicks == 1 and "1 interrupt landed" or ("%d interrupts landed"):format(kicks)) .. avgAdj("kicks"),
 			tooltip = { title = TP.METRIC_LABELS.interrupts,
 				lines = {
 					{ "Group total. Hover a player's kick bullet for their share.", 1, 1, 1 },
@@ -504,7 +523,7 @@ function Bullets.ForGroup(results, fight)
 		local heavy = dispels >= (A.dispelsFullIntensity or 8)
 		out[#out + 1] = { kind = "metric", key = "dispels",
 			symbol = heavy and "+" or MIDDOT, color = heavy and GOOD or MID,
-			text = dispels == 1 and "1 dispel" or ("%d dispels"):format(dispels),
+			text = (dispels == 1 and "1 dispel" or ("%d dispels"):format(dispels)) .. avgAdj("dispels"),
 			tooltip = { title = TP.METRIC_LABELS.dispels,
 				lines = { { "Group total. Hover a player's dispel bullet for their share.", 1, 1, 1 } } } }
 	end
@@ -515,7 +534,7 @@ function Bullets.ForGroup(results, fight)
 			text = "Nobody died" }
 	elseif died > 0 then
 		out[#out + 1] = { kind = "penalty", key = "deaths", symbol = "-", color = BAD,
-			text = died == 1 and "1 player died" or ("%d players died"):format(died) }
+			text = (died == 1 and "1 player died" or ("%d players died"):format(died)) .. avgAdj("deaths", true) }
 	end
 	if avoidable > 0 then
 		local pressure = ""
@@ -538,7 +557,7 @@ function Bullets.ForGroup(results, fight)
 	end
 	if buffsMissing then
 		out[#out + 1] = { kind = "penalty", key = "buffs", symbol = "-", color = BAD,
-			text = "Raid buffs missing at the pull" }
+			text = "Raid buffs missing at the pull" .. avgAdj("buffs", true) }
 	end
 
 	return Bullets.SortBestFirst(out)
