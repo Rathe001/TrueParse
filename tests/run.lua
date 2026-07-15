@@ -1018,12 +1018,17 @@ for _, r in ipairs(calm) do
 	end
 end
 calmFight.players.d.metrics.deaths = 0
--- a sub-70% dip also disables it
+-- a dip alone no longer disables it (a dip healed back IS met demand,
+-- 2026-07-15) — UNCOVERED intake does: crank damage taken past what
+-- the healing covered
 calmFight.players.d.minHealthPct = 0.40
+local savedTaken = calmFight.players.d.metrics.damageTaken
+calmFight.players.d.metrics.damageTaken = 100000000
 calm = TP.Scoring.Engine.ScoreFight(calmFight, { normalizeIlvl = false })
+calmFight.players.d.metrics.damageTaken = savedTaken
 for _, r in ipairs(calm) do
 	if r.name == "Heals" then
-		check(not r.breakdown.healing.lowDemand, "a health dip disables the demand floor")
+		check(not r.breakdown.healing.lowDemand, "uncovered intake disables the demand floor")
 	end
 end
 -- parse mode never floors: a raw parse on a calm fight SHOULD read low
