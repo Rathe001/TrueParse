@@ -1,5 +1,42 @@
 # TrueParse Changelog
 
+## 1.4.0
+
+**Progression tracking.**
+- Best-pull tracker (MoP): wipes show how far you got - "wipe 12%" in
+  the fight menu, and the wipe debrief reads "Pull 3 - boss at 12%
+  (best 12%)".
+- Your last kills of each boss right on the breakdown: "this boss:
+  26 41 58 72" in parse colors.
+- The run report remembers your week: "This week: 12 bosses down,
+  4 wipes - group 61 (last week 56)".
+- /tp guild: weekly standings across TrueParse users in your groups -
+  score average, fights, times topping the card.
+
+**See it, don't read it.**
+- Tank and healer breakdowns get a danger-window timeline: one strip
+  for the fight, green band = damage spike your cooldown met, red =
+  missed.
+- Death recap hits carry bars sized by damage, red when avoidable.
+
+**The impact-only card.** Every line now moves the score or stays off
+it. New scored metrics (all default to 0 without data - addon-less
+players untouched): overheal for healers on real-demand fights
+(lean healing now earns points), overkill damage, running dry on
+mana mid-fight, and dying without ever using a defensive.
+Informational lines that couldn't honestly be scored are gone.
+
+**Fairness fixes.**
+- Dispels now check WHO could help: a Balance druid isn't scored on
+  dispels when the fight's debuffs were all Magic. Capability is
+  class+spec, and debuff types teach themselves from your dispels.
+- "Healing struggled" no longer appears on fights with nothing to
+  heal: on unranked content, nobody dying + healing covering intake
+  means demand was met, period.
+- The raid card's lines carry points like player rows ("4 players
+  died (-8)"), and the kick pointer quantifies itself ("kicking 80%
+  would be worth roughly +3").
+
 ## 1.3.4
 
 - Fixed a scoring bug for MoP casters: "Essence of Yu'lon" is the
