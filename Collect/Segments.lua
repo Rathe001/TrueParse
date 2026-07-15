@@ -203,12 +203,21 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 			for i = 1, 5 do
 				local u = "boss" .. i
 				if UnitExists(u) then
-					local ok, hp, mx = pcall(function()
-						return UnitHealth(u), UnitHealthMax(u)
+					-- Midnight secrets boss health mid-combat, and secrets
+					-- throw on COMPARISON, not on call — the whole compute
+					-- lives inside the pcall with an explicit secret check
+					-- (live error: "attempt to compare a secret number")
+					local ok, frac = pcall(function()
+						local hp, mx = UnitHealth(u), UnitHealthMax(u)
+						if TP.Compat.IsSecret(hp) or TP.Compat.IsSecret(mx) then
+							return nil
+						end
+						if type(hp) == "number" and type(mx) == "number" and mx > 0 then
+							return hp / mx
+						end
 					end)
-					-- Midnight secrets boss health mid-combat; skip cleanly
-					if ok and type(hp) == "number" and type(mx) == "number" and mx > 0 then
-						sum = sum + hp / mx
+					if ok and frac then
+						sum = sum + frac
 						n = n + 1
 					end
 				end
