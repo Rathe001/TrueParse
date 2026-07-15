@@ -1376,6 +1376,7 @@ function Engine.ScoreFight(fight, opts)
 			-- tops at 99.3; without the cap the positive adjustments were
 			-- minting routine 100s (and overflowing the run column).
 			score = math.max(0, math.min(99, base + totalAdj)),
+			unclamped = base + totalAdj, -- rank ties above the cap honestly
 			base = base,
 			adjust = totalAdj, -- net signed adjustment (what the card shows)
 			adjustDetail = adj, -- [key] = signed points
@@ -1394,7 +1395,11 @@ function Engine.ScoreFight(fight, opts)
 	end
 
 	table.sort(results, function(a, b)
-		return a.score > b.score
+		if a.score ~= b.score then
+			return a.score > b.score
+		end
+		-- two 99s aren't equal: a 99 with +6 on top outranks a bare one
+		return (a.unclamped or a.score) > (b.unclamped or b.score)
 	end)
 	return results
 end

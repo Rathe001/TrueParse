@@ -569,6 +569,31 @@ function FightHistory:AddFromSegment(seg)
 	}
 	local players = {}
 	local playerGUID = UnitGUID("player")
+	-- WCL-aligned duration: Blizzard's ENCOUNTER window includes RP
+	-- intros (Norushen: ~27 dead seconds before first damage), which
+	-- deflated every per-second rate ~10% and crushed mid-pack Raw
+	-- percentiles (p45 players read p15, 2026-07-14). WCL measures
+	-- first damage -> last damage; the per-second output buckets give
+	-- us the same trim. Kill-time percentiles want this too — WCL's
+	-- ranked kill times use the same bounds.
+	if seg.group and seg.group.out and (seg.duration or 0) > 0 then
+		local first, last
+		for t in pairs(seg.group.out) do
+			if not first or t < first then
+				first = t
+			end
+			if not last or t > last then
+				last = t
+			end
+		end
+		if first and last and last > first then
+			local tight = last - first + 1
+			if tight >= 10 and tight < seg.duration then
+				seg.duration = tight
+			end
+		end
+	end
+
 	-- "Wipe it" detection: on a called wipe, nothing after the call
 	-- counts — people stand in bad on purpose to reset faster. Output
 	-- collapse is the tell; a wipe fought to the end detects nothing
