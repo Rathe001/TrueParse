@@ -109,12 +109,19 @@ function Scorecard:Acquire(parent)
 		row.icon:SetPoint("BOTTOMLEFT")
 		row.icon:SetWidth(14)
 
-		-- TrueParse presence: an indicator dot on the spec icon's corner —
-		-- green = running the addon, gray = not. A solid dot reads at
-		-- small sizes where the ready-check swoosh vanished into icon art.
-		row.addonMark = row:CreateTexture(nil, "OVERLAY")
-		row.addonMark:SetSize(12, 12)
-		row.addonMark:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 4, -4)
+		-- TrueParse presence: a green/gray LED on the spec icon's corner.
+		-- Drawn from WHITE8X8, not client art — the Indicator-* textures
+		-- are retail files and SetTexture silently cleared on MoP (the
+		-- dots vanished, 2026-07-14; same lesson as the tofu star).
+		row.addonMarkBg = row:CreateTexture(nil, "OVERLAY", nil, 1)
+		row.addonMarkBg:SetSize(9, 9)
+		row.addonMarkBg:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 3, -3)
+		row.addonMarkBg:SetTexture("Interface\\Buttons\\WHITE8X8")
+		row.addonMarkBg:SetVertexColor(0, 0, 0, 0.9)
+		row.addonMark = row:CreateTexture(nil, "OVERLAY", nil, 2)
+		row.addonMark:SetSize(7, 7)
+		row.addonMark:SetPoint("CENTER", row.addonMarkBg, "CENTER", 0, 0)
+		row.addonMark:SetTexture("Interface\\Buttons\\WHITE8X8")
 
 		row.name = outlined("GameFontHighlightSmall", 12)
 		row.name:SetPoint("LEFT", row.icon, "RIGHT", 3, 0)

@@ -420,7 +420,9 @@ local function createWindow()
 	window.footnote:SetPoint("RIGHT", window.modeReal, "LEFT", -6, 0)
 	window.footnote:SetJustifyH("LEFT")
 	window.footnote:SetWordWrap(false) -- truncate at the radios, never wrap
-	window.footnote:SetText("|TInterface\\COMMON\\Indicator-Green:9:9|t = Addon installed")
+	-- WHITE8X8 with inline vertex color: the Indicator-* files are
+	-- retail-only and render as nothing on MoP
+	window.footnote:SetText("|TInterface\\Buttons\\WHITE8X8:7:7:0:0:8:8:0:8:0:8:51:217:64|t = Addon installed")
 
 	-- the footer collapses the window like the header does — everywhere
 	-- except the mode radios (which keep their own clicks) and the grip
@@ -888,10 +890,13 @@ function MeterWindow:RenderScorecard(fight)
 		row.score:SetJustifyH(letterAlign)
 		row.runAvg:SetJustifyH(letterAlign)
 		row.icon:SetAlpha(1)
-		row.addonMark:SetTexture(hasAddon
-			and "Interface\\COMMON\\Indicator-Green"
-			or "Interface\\COMMON\\Indicator-Gray")
+		if hasAddon then
+			row.addonMark:SetVertexColor(0.20, 0.85, 0.25)
+		else
+			row.addonMark:SetVertexColor(0.45, 0.45, 0.45)
+		end
 		row.addonMark:Show()
+		row.addonMarkBg:Show()
 
 		-- Details-style: the row IS a solid class-colored bar with a white
 		-- outlined name. TRUE class colors for everyone — the old muting
@@ -1017,6 +1022,7 @@ function MeterWindow:RenderScorecard(fight)
 		row.bg:SetWidth(math.max(8, barArea * math.min(math.max(groupScore, 0), 100) / 100))
 		row.icon:Hide()
 		row.addonMark:Hide()
+		row.addonMarkBg:Hide()
 		row.playerName = label
 		row.fight = fight
 		row.result = nil
