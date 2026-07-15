@@ -124,10 +124,10 @@ function Scorecard:Acquire(parent)
 			t:AddMaskTexture(mask)
 			return t
 		end
-		row.addonMarkBg = circle(10, 1)
-		row.addonMarkBg:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", -1, 1)
+		row.addonMarkBg = circle(7, 1)
+		row.addonMarkBg:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 0, 0)
 		row.addonMarkBg:SetVertexColor(0, 0, 0, 0.9)
-		row.addonMark = circle(7, 2)
+		row.addonMark = circle(5, 2)
 		row.addonMark:SetPoint("CENTER", row.addonMarkBg, "CENTER", 0, 0)
 
 		row.name = outlined("GameFontHighlightSmall", 12)
