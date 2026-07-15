@@ -1,5 +1,18 @@
 # TrueParse Changelog
 
+## 1.3.3
+
+- Fight duration now matches Warcraft Logs (first damage to last
+  damage) instead of Blizzard's encounter window. RP intros - 27 dead
+  seconds on Norushen - were deflating every per-second rate ~10%,
+  which read fine at the top of the curves but crushed mid-pack Raw
+  percentiles (a p45 player showed p15). Verified against a live WCL
+  log. Kill-speed percentiles use the same bounds and get sharper too.
+  (MoP; retail already used Blizzard's tight session timing.)
+- Two 99s aren't equal: ties at the score cap now rank by the full
+  unclamped value, so a 99 with +6 in adjustments sorts above a bare
+  99. The adjustment column already shows why.
+
 ## 1.3.2
 
 - Raw run averages count kills only. Warcraft Logs never ranks wipes,
