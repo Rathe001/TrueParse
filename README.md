@@ -14,6 +14,12 @@ staying out of the bad gains points and standing in it costs them, and
 every bullet shows its exact impact ("Excellent interrupting (+5)").
 A tank or healer can top the card just as easily as a DPS.
 
+It also knows things meters don't: it credits an Augmentation Evoker
+for the damage their buffs enabled, it detects when the raid leader
+called a wipe and stops counting the on-purpose deaths after it, and
+its advice names the actual problem ("9 interruptible casts got
+through") instead of "do more healing."
+
 Supports retail (Midnight) and Mists of Pandaria Classic.
 
 ## What it does
@@ -45,14 +51,26 @@ Supports retail (Midnight) and Mists of Pandaria Classic.
   average — kill speed vs every ranked kill, kick coverage, deaths and
   avoidable pressure as facts, and an execution-vs-parses verdict when
   the group killed faster (or slower) than its meters predict.
-- **Coach line**: after bosses, one private chat line with your grade and
-  the single change that would have raised it most.
+- **Augmentation attribution**: an Aug Evoker's card shows their own
+  damage plus the damage their buffs enabled ("27.9k own + 18.1k buffs
+  enabled"), scored against the real DPS population — calibrated to
+  land within a few points of WCL's own attributed parses.
+- **Called-wipe forgiveness** (MoP): when group damage output collapses
+  and never recovers, the raid stopped trying — avoidable damage,
+  deaths, and inactivity after that moment don't count. A wipe fought
+  to the last death counts everything.
+- **Coach line & wipe debrief**: after bosses, one private line with
+  your grade and the single change that would have raised it most;
+  after wipes, what happened — deaths, how many followed avoidable
+  damage, and the pull's top pointers. Advice is always specific
+  ("the healer ran dry in 3 fights"), and a clean run gets none.
 - **Awards that mean something**: one per player per fight, rarest
   wins, and winning must be earned — Untouchable goes to a sole dodger,
   Giant Slayer needs a 25% margin, Not on My Watch needs a real fight.
-- **Career tracking** (`/tp career`), **run report cards** (`/tp run`), and
-  opt-in one-line **group chat summaries** (`/tp share` — off by default,
-  be considerate). When several TrueParse users have announcements on,
+- **Career tracking** (`/tp career`), **run report cards** (`/tp run`),
+  and `/tp share` — one line to group chat with the latest kill's time
+  vs Warcraft Logs ranked kills plus the group score. Opt-in run
+  announcements stay polite: when several TrueParse users have them on,
   they elect ONE announcer over the addon channel — no duplicate lines.
 - **Better together**: TrueParse users share their own combat facts
   (defensive cooldowns, consumables, activity, defensives sitting ready
