@@ -1,5 +1,22 @@
 # TrueParse Changelog
 
+## 1.3.4
+
+- Fixed a scoring bug for MoP casters: "Essence of Yu'lon" is the
+  legendary cloak's own proc, and the seasonal-dungeon exclusion was
+  name-matching it - subtracting real cloak damage from casters'
+  scores in raids. Cloak procs count again.
+- Addon-presence dots work on MoP again (the old indicator art was
+  retail-only), drawn as small circles inset on the spec icon, and
+  presence now survives /reload: clients answer hellos from users they
+  don't know, and rows green up live the moment a groupmate's addon
+  speaks - no more one-user-green raids.
+- First Siege of Orgrimmar avoidable-damage entries (Immerseus
+  puddles/waves, Galakras drake breath, Jadefire Blaze). Norushen orbs
+  deliberately excluded - soaking them is the job.
+- New /tp procs command: top damage and healing sources with spell
+  IDs, for curating the proc-exclusion list.
+
 ## 1.3.3
 
 - Fight duration now matches Warcraft Logs (first damage to last
