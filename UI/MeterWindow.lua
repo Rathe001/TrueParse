@@ -881,7 +881,11 @@ function MeterWindow:RenderScorecard(fight)
 		-- The local player always has the addon (fights captured before the
 		-- presence stamp existed rely on the isLocalPlayer fallback).
 		local player = fight.players[r.guid]
-		local hasAddon = player and (player.hasAddon or player.isLocalPlayer)
+		-- stamped at capture OR known live right now: a /reload used to
+		-- wipe Sync.users and gray the whole raid until re-capture; live
+		-- knowledge greens every card the moment their addon speaks
+		local hasAddon = player and (player.hasAddon or player.isLocalPlayer
+			or (TP.Sync and TP.Sync.users and TP.Sync.users[r.guid] ~= nil))
 		row.name:SetAlpha(1)
 		row.score:SetAlpha(1)
 		row.penalty:SetAlpha(1)

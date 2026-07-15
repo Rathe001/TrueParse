@@ -235,6 +235,16 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		end
 		if guid ~= UnitGUID("player") then
 			checkNewerVersion(remoteAddonVersion)
+			-- handshake: a hello from someone we DON'T know yet means
+			-- they can't know us either (a reloader wiped their table
+			-- and re-announced) — answer so both sides relearn. Known
+			-- senders get no reply, so this converges in one round
+			-- instead of storming. users was reload-mortal with no
+			-- re-request: one /reload turned the whole raid gray
+			-- (2026-07-14).
+			if not self.users[guid] then
+				self:QueueHello()
+			end
 		end
 		self.users[guid] = { version = tonumber(version), seen = time(),
 			addonVersion = remoteAddonVersion,
