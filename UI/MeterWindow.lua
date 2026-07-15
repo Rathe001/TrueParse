@@ -420,9 +420,9 @@ local function createWindow()
 	window.footnote:SetPoint("RIGHT", window.modeReal, "LEFT", -6, 0)
 	window.footnote:SetJustifyH("LEFT")
 	window.footnote:SetWordWrap(false) -- truncate at the radios, never wrap
-	-- WHITE8X8 with inline vertex color: the Indicator-* files are
-	-- retail-only and render as nothing on MoP
-	window.footnote:SetText("|TInterface\\Buttons\\WHITE8X8:7:7:0:0:8:8:0:8:0:8:51:217:64|t = Addon installed")
+	-- portrait alpha mask rendered as a colored CIRCLE: exists on every
+	-- client (Indicator-* files are retail-only and rendered as nothing)
+	window.footnote:SetText("|TInterface\\CharacterFrame\\TempPortraitAlphaMask:8:8:0:0:64:64:0:64:0:64:51:217:64|t = Addon installed")
 
 	-- the footer collapses the window like the header does — everywhere
 	-- except the mode radios (which keep their own clicks) and the grip

@@ -109,19 +109,26 @@ function Scorecard:Acquire(parent)
 		row.icon:SetPoint("BOTTOMLEFT")
 		row.icon:SetWidth(14)
 
-		-- TrueParse presence: a green/gray LED on the spec icon's corner.
-		-- Drawn from WHITE8X8, not client art — the Indicator-* textures
-		-- are retail files and SetTexture silently cleared on MoP (the
-		-- dots vanished, 2026-07-14; same lesson as the tofu star).
-		row.addonMarkBg = row:CreateTexture(nil, "OVERLAY", nil, 1)
-		row.addonMarkBg:SetSize(9, 9)
-		row.addonMarkBg:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 3, -3)
-		row.addonMarkBg:SetTexture("Interface\\Buttons\\WHITE8X8")
+		-- TrueParse presence: a green/gray dot INSET on the spec icon's
+		-- corner (no overhang past the row). Built from WHITE8X8 through
+		-- a circular mask — client art like Indicator-* is retail-only
+		-- and silently cleared on MoP (the tofu-star lesson).
+		local function circle(size, layer)
+			local t = row:CreateTexture(nil, "OVERLAY", nil, layer)
+			t:SetSize(size, size)
+			t:SetTexture("Interface\\Buttons\\WHITE8X8")
+			local mask = row:CreateMaskTexture()
+			mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask",
+				"CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+			mask:SetAllPoints(t)
+			t:AddMaskTexture(mask)
+			return t
+		end
+		row.addonMarkBg = circle(10, 1)
+		row.addonMarkBg:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", -1, 1)
 		row.addonMarkBg:SetVertexColor(0, 0, 0, 0.9)
-		row.addonMark = row:CreateTexture(nil, "OVERLAY", nil, 2)
-		row.addonMark:SetSize(7, 7)
+		row.addonMark = circle(7, 2)
 		row.addonMark:SetPoint("CENTER", row.addonMarkBg, "CENTER", 0, 0)
-		row.addonMark:SetTexture("Interface\\Buttons\\WHITE8X8")
 
 		row.name = outlined("GameFontHighlightSmall", 12)
 		row.name:SetPoint("LEFT", row.icon, "RIGHT", 3, 0)
