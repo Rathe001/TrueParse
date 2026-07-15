@@ -647,42 +647,52 @@ for _, b in ipairs(TP.Scoring.Bullets.ForResult(pctResult, nil)) do
 	if b.key == "damage" then pctText = b.text end
 end
 check(pctText == "Average damage", ("bullet tier follows the gauge percentile (%s)"):format(tostring(pctText)))
--- Bloodlust window bullets: DPS-only, informational
+-- Bloodlust window bullets: DPS-only, shown only when they score
+-- (impact-only card, 2026-07-15)
 local lustResult = { role = "DAMAGER", penaltyDetail = {}, breakdown = {
 	damage = { applicable = true, normalized = 60, effectiveWeight = 1, value = 100 },
 } }
-local function lustText(extra, role)
+local function lustText(extra, role, ad)
 	lustResult.role = role or "DAMAGER"
+	lustResult.adjustDetail = ad
 	for _, b in ipairs(TP.Scoring.Bullets.ForResult(lustResult, nil, extra)) do
 		if b.key == "lust" then return b.text end
 	end
 end
-check(lustText({ lustCasts = 2, lustPotion = 1 }) == "Made the most of Bloodlust (cooldowns + potion)",
+check(lustText({ lustCasts = 2, lustPotion = 1 }, nil, { lust = 3 }) == "Made the most of Bloodlust (cooldowns + potion) (+3)",
 	"lust with CDs and potion gets full credit")
-check(lustText({ lustCasts = 1, lustPotion = 0 }) == "Used cooldowns during Bloodlust",
+check(lustText({ lustCasts = 1, lustPotion = 0 }, nil, { lust = 2 }) == "Used cooldowns during Bloodlust (+2)",
 	"lust with CDs only gets partial credit")
-check(lustText({ lustCasts = 0, lustPotion = 0 }) == "Wasted Bloodlust - no cooldowns used",
+check(lustText({ lustCasts = 0, lustPotion = 0 }, nil, { lust = -3 }) == "Wasted Bloodlust - no cooldowns used (-3)",
 	"lust with nothing used is called out")
 check(lustText({}) == nil, "no lust this fight, no bullet")
 check(lustText({ lustCasts = 0 }, "HEALER") == nil, "healers never get lust bullets")
--- WoWAnalyzer-style basics: activity tiers, healer overheal, DPS offensives
-local function infoText(extra, role, wantKey)
+-- WoWAnalyzer-style basics: only lines that moved the score appear
+local function infoText(extra, role, wantKey, ad)
 	lustResult.role = role or "DAMAGER"
+	lustResult.adjustDetail = ad
 	for _, b in ipairs(TP.Scoring.Bullets.ForResult(lustResult, nil, extra)) do
 		if b.key == wantKey then return b.text, b.symbol end
 	end
 end
-local aText, aSym = infoText({ activityPct = 93 }, "DAMAGER", "activity")
-check(aText == "Active 93% of the fight" and aSym == "+", "high activity credited")
-local _, aSym2 = infoText({ activityPct = 61 }, "DAMAGER", "activity")
+local aText, aSym = infoText({ activityPct = 93 }, "DAMAGER", "activity", { activity = 4 })
+check(aText == "Active 93% of the fight (+4)" and aSym == "+", "high activity credited")
+local _, aSym2 = infoText({ activityPct = 61 }, "DAMAGER", "activity", { activity = -4 })
 check(aSym2 == "-", "low activity flagged")
-check(infoText({ overhealPct = 24 }, "HEALER", "overheal") == "24% overhealing", "healer overheal shown")
-check(infoText({ overhealPct = 24 }, "DAMAGER", "overheal") == nil, "non-healers skip overheal noise")
-check(infoText({ offensiveCDs = 3 }, "DAMAGER", "offensives") == "Used 3 offensive cooldowns", "offensive CD count shown")
-check(infoText({ offensiveCDs = 3 }, "HEALER", "offensives") == nil, "healers skip offensive CD bullets")
-local mText, mSym = infoText({ mitigationPct = 82 }, "TANK", "mitigation")
-check(mText == "Active mitigation up 82%" and mSym == "+", "tank mitigation uptime credited")
-check(infoText({ mitigationPct = 82 }, "DAMAGER", "mitigation") == nil, "non-tanks skip mitigation bullets")
+check(infoText({ activityPct = 80 }, "DAMAGER", "activity") == nil, "neutral activity hidden")
+check(infoText({ overhealPct = 62 }, "HEALER", "overheal", { overheal = -2 }) == "62% overhealing (-2)",
+	"scored overheal shown")
+check(infoText({ overhealPct = 18 }, "HEALER", "overheal", { overheal = 1 }) == "Lean healing - 18% overheal (+1)",
+	"lean overheal credited")
+check(infoText({ overhealPct = 30 }, "HEALER", "overheal") == nil, "unscored overheal hidden")
+check(infoText({ overkillPct = 14 }, "DAMAGER", "overkill", { overkill = -1 }) == "14% of damage was overkill (-1)",
+	"scored overkill shown")
+check(infoText({}, "HEALER", "manaDry", { manaDry = -1 }) == "Ran out of mana mid-fight (-1)",
+	"mana dry scored and shown")
+check(infoText({ offensiveCDs = 3 }, "DAMAGER", "offensives") == nil, "unscored offensives hidden now")
+local mText, mSym = infoText({ mitigationPct = 82 }, "TANK", "mitigation", { mitigation = 4 })
+check(mText == "Active mitigation up 82% (+4)" and mSym == "+", "tank mitigation uptime credited")
+check(infoText({ mitigationPct = 55 }, "TANK", "mitigation") == nil, "neutral mitigation hidden")
 
 -- 14a. Every award has a description
 for _, label in pairs(TP.Scoring.Awards.LABELS) do
@@ -690,15 +700,15 @@ for _, label in pairs(TP.Scoring.Awards.LABELS) do
 		("award '%s' has a description"):format(label))
 end
 
--- 14a2. Peer-reported defensives: info bullets and the Iron Wall award
+-- 14a2. Peer-reported defensives: shown when scored, silent otherwise
+bulletResult.adjustDetail = { defensives = 2 }
 local defBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { defensives = 3 })
 local defText
 for _, b in ipairs(defBullets) do
 	if b.kind == "info" then defText = b.text end
 end
-check(defText == "Used 3 defensive cooldowns", ("defensive info bullet (%s)"):format(tostring(defText)))
--- zero defensives is the MEDIAN player's fight (2026-07-13 audit): only
--- worth a line when the player died, and neutral even then
+check(defText == "Used 3 defensive cooldowns (+2)", ("defensive info bullet (%s)"):format(tostring(defText)))
+bulletResult.adjustDetail = nil
 local zeroDefBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { defensives = 0 })
 local zeroDefShown = false
 for _, b in ipairs(zeroDefBullets) do
@@ -707,48 +717,51 @@ for _, b in ipairs(zeroDefBullets) do
 	end
 end
 check(not zeroDefShown, "zero defensives says nothing when the player lived")
+-- dying without ever using one is scored now, and red
+bulletResult.adjustDetail = { deathNoDefensives = -2 }
 local diedDefBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { defensives = 0, died = true })
 local zeroDefOk = false
 for _, b in ipairs(diedDefBullets) do
-	if b.kind == "info" and b.text == "No defensive cooldowns used" and b.symbol ~= "-" then
+	if b.kind == "info" and b.text == "Died without using a defensive (-2)" and b.symbol == "-" then
 		zeroDefOk = true
 	end
 end
-check(zeroDefOk, "zero defensives is neutral (not red) when they died")
+check(zeroDefOk, "dying without a defensive is scored and red")
+bulletResult.adjustDetail = nil
 local noDefBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, nil)
 for _, b in ipairs(noDefBullets) do
 	check(b.kind ~= "info", "no report -> no defensives bullet")
 end
 
--- consumables and death-readiness info bullets
+-- consumables and death-readiness: scored lines only
+bulletResult.adjustDetail = { prepared = 1, deathReady = -3 }
 local consBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { consumables = 2, deathReady = 2 })
 local consText, readyText
 for _, b in ipairs(consBullets) do
 	if b.key == "consumables" then consText = b.text end
 	if b.key == "deathReady" then readyText = b.text end
 end
-check(consText == "Came prepared (flask/food up)", ("prepared bullet (%s)"):format(tostring(consText)))
-check(readyText == "Died with 2 defensives ready", ("death-ready bullet (%s)"):format(tostring(readyText)))
+check(consText == "Came prepared (flask/food up) (+1)", ("prepared bullet (%s)"):format(tostring(consText)))
+check(readyText == "Died with 2 defensives ready (-3)", ("death-ready bullet (%s)"):format(tostring(readyText)))
+bulletResult.adjustDetail = nil
 
--- consumable EXPECTATIONS: Classic DPS only; praise is universal
-local function consBulletFor(role, count, isRetail)
-	local res = { role = role, breakdown = { damage = { applicable = true, normalized = 60, effectiveWeight = 1, value = 100 } }, penaltyDetail = {} }
+-- unscored consumable nags are gone (impact-only card); praise still
+-- shows because being prepared carries points
+local function consBulletFor(role, count, isRetail, ad)
+	local res = { role = role, adjustDetail = ad, breakdown = { damage = { applicable = true, normalized = 60, effectiveWeight = 1, value = 100 } }, penaltyDetail = {} }
 	for _, b in ipairs(TP.Scoring.Bullets.ForResult(res, nil, { consumables = count, isRetail = isRetail })) do
 		if b.key == "consumables" then return b.text end
 	end
 	return nil
 end
-check(consBulletFor("DAMAGER", 0, false) == "No consumables at the pull", "Classic DPS still nagged")
-check(consBulletFor("HEALER", 0, false) == nil, "Classic healer never nagged about consumables")
-check(consBulletFor("TANK", 1, false) == nil, "Classic tank never nagged about consumables")
-check(consBulletFor("DAMAGER", 0, true) == nil, "retail killed the pre-pot: nobody nagged")
-check(consBulletFor("HEALER", 2, true) == "Came prepared (flask/food up)", "praise is universal")
+check(consBulletFor("DAMAGER", 0, false) == nil, "unscored consumable nag hidden")
+check(consBulletFor("HEALER", 2, true, { prepared = 1 }) == "Came prepared (flask/food up) (+1)", "praise is universal")
 local exculpBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { deathReady = 0 })
 local exculpText
 for _, b in ipairs(exculpBullets) do
 	if b.key == "deathReady" then exculpText = b.text end
 end
-check(exculpText == "Died with everything on cooldown", "death with no CDs available is exculpatory")
+check(exculpText == nil, "no-impact death context stays off the card")
 
 awardFight.players.d2.metrics.defensives = 3
 local wallAwards = TP.Scoring.Awards.Compute(awardFight)

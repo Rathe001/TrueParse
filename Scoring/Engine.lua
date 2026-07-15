@@ -1326,6 +1326,34 @@ function Engine.ScoreFight(fight, opts)
 			if (m.deaths or 0) > 0 and (p.deathReadyDefensives or 0) >= 2 then
 				put("deathReady", -(A.readyAtDeathPenalty or 0))
 			end
+			-- every metric moves the score or stays silent (2026-07-15):
+			-- all four below default to 0 when the data is absent, so
+			-- addon-less/retail players are never touched.
+			-- Overheal: healers with real demand. Fixed thresholds until a
+			-- WCL per-spec overheal crawl exists (rankings API lacks it).
+			if role == "HEALER" and m.overhealPct and breakdown.healing
+				and breakdown.healing.applicable and not breakdown.healing.lowDemand then
+				if m.overhealPct >= (A.overhealHighAt or 60) then
+					put("overheal", -(A.overhealHigh or 2))
+				elseif m.overhealPct >= (A.overhealMidAt or 45) then
+					put("overheal", -(A.overhealMid or 1))
+				elseif m.overhealPct <= (A.overhealLowAt or 20) then
+					put("overheal", A.overhealLowBonus or 1)
+				end
+			end
+			-- Overkill: damage wasted on dead targets
+			if role == "DAMAGER" and (m.overkillPct or 0) >= (A.overkillAt or 10) then
+				put("overkill", -(A.overkillPenalty or 1))
+			end
+			-- Running dry mid-fight (dry at the kill is optimal, not a fault)
+			if role == "HEALER" and m.dryAt and ctx.duration and ctx.duration > 0
+				and m.dryAt < ctx.duration * 0.8 then
+				put("manaDry", -(A.manaDryPenalty or 1))
+			end
+			-- Dying without ever using a defensive (counted, not inferred)
+			if (m.deaths or 0) > 0 and m.defensives == 0 then
+				put("deathNoDefensives", -(A.deathNoDefensives or 2))
+			end
 			-- cooldown timing: share of danger windows a cooldown covered
 			-- (Classic CLEU computes it for everyone; retail self-reports).
 			-- Needs 2+ windows: one window is a coin flip, not a pattern.

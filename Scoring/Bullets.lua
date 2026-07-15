@@ -195,9 +195,22 @@ function Bullets.ForResult(result, awards, extra)
 				text = ("Active %d%% of the fight"):format(pct) .. tag }
 		end
 	end
-	if extra and extra.overhealPct and result.role == "HEALER" then
-		out[#out + 1] = { kind = "info", key = "overheal", symbol = MIDDOT, color = MID,
-			text = ("%d%% overhealing"):format(extra.overhealPct) }
+	if (ad.overheal or 0) ~= 0 and extra and extra.overhealPct then
+		local good = ad.overheal > 0
+		out[#out + 1] = { kind = "info", key = "overheal",
+			symbol = good and "+" or "-", color = good and GOOD or BAD,
+			text = (good and "Lean healing - %d%% overheal" or "%d%% overhealing")
+				:format(extra.overhealPct) .. pts(ad.overheal) }
+	end
+	if (ad.overkill or 0) ~= 0 then
+		out[#out + 1] = { kind = "info", key = "overkill", symbol = "-", color = BAD,
+			text = (extra and extra.overkillPct
+				and ("%d%% of damage was overkill"):format(extra.overkillPct)
+				or "Overkill-heavy damage") .. pts(ad.overkill) }
+	end
+	if (ad.manaDry or 0) ~= 0 then
+		out[#out + 1] = { kind = "info", key = "manaDry", symbol = "-", color = BAD,
+			text = "Ran out of mana mid-fight" .. pts(ad.manaDry) }
 	end
 	if extra and extra.offensiveCDs and result.role ~= "HEALER" and result.role ~= "TANK" then
 		out[#out + 1] = { kind = "info", key = "offensives", symbol = "+", color = GOOD,
@@ -253,10 +266,10 @@ function Bullets.ForResult(result, awards, extra)
 				text = (extra.defensives == 1 and "Used a defensive cooldown"
 					or ("Used %d defensive cooldowns"):format(extra.defensives)) .. pts(ad.defensives) }
 		elseif extra.died then
-			-- zero is the MEDIAN player's night (2026-07-13 audit) — only
-			-- worth a line when it plausibly mattered
-			out[#out + 1] = { kind = "info", key = "defensives", symbol = MIDDOT, color = MID,
-				text = "No defensive cooldowns used" }
+			-- zero is the MEDIAN player's night (2026-07-13 audit) — it
+			-- only costs (and only shows) when they died without one
+			out[#out + 1] = { kind = "info", key = "defensives", symbol = "-", color = BAD,
+				text = "Died without using a defensive" .. pts(ad.deathNoDefensives) }
 		end
 	end
 	if extra and extra.consumables ~= nil then
@@ -304,15 +317,10 @@ function Bullets.ForResult(result, awards, extra)
 			text = ("Healing focus: %d%% on tanks"):format(extra.tankFocus * 100 + 0.5) }
 	end
 
-	if extra and extra.deathReady ~= nil then
-		if extra.deathReady > 0 then
-			out[#out + 1] = { kind = "info", key = "deathReady", symbol = "-", color = BAD,
-				text = (extra.deathReady == 1 and "Died with a defensive ready"
-					or ("Died with %d defensives ready"):format(extra.deathReady)) .. pts(ad.deathReady) }
-		else
-			out[#out + 1] = { kind = "info", key = "deathReady", symbol = MIDDOT, color = MID,
-				text = "Died with everything on cooldown" }
-		end
+	if extra and extra.deathReady ~= nil and extra.deathReady > 0 then
+		out[#out + 1] = { kind = "info", key = "deathReady", symbol = "-", color = BAD,
+			text = (extra.deathReady == 1 and "Died with a defensive ready"
+				or ("Died with %d defensives ready"):format(extra.deathReady)) .. pts(ad.deathReady) }
 	end
 
 	local pd = result.penaltyDetail or {}
@@ -324,7 +332,20 @@ function Bullets.ForResult(result, awards, extra)
 		end
 	end
 
-	return Bullets.SortBestFirst(out)
+	-- Impact-only card (2026-07-15, Josh): a bullet earns its line by
+	-- moving the score. Damage and healing anchor the card whatever
+	-- their tier (they ARE the base, and the lowDemand/noInput variants
+	-- explain a pinned score); everything else needs nonzero points.
+	local shown = {}
+	for _, b in ipairs(out) do
+		local anchor = b.kind == "metric" and (b.key == "damage" or b.key == "healing")
+		local p = b.points or tonumber((b.text or ""):match("%(([%+%-]%d+)%)$")) or 0
+		if anchor or b.kind == "penalty"
+			or (b.kind ~= "metric" and b.kind ~= "info") or p ~= 0 then
+			shown[#shown + 1] = b
+		end
+	end
+	return Bullets.SortBestFirst(shown)
 end
 
 -- Best to worst: awards, then positives (largest point gain first),

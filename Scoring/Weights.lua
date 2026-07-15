@@ -69,6 +69,14 @@ Weights.adjustments = {
 	cdTimingHigh = 0.75,
 	lustMax = 3, -- DPS cooldown+potion alignment inside lust windows
 	rezBonus = 2, -- per combat rez cast
+	-- every-metric-scores pass (2026-07-15); all data-gated, absent = 0.
+	-- Overheal thresholds are fixed pending a WCL overheal crawl.
+	overhealHigh = 2, overhealHighAt = 60,
+	overhealMid = 1, overhealMidAt = 45,
+	overhealLowBonus = 1, overhealLowAt = 20,
+	overkillPenalty = 1, overkillAt = 10,
+	manaDryPenalty = 1, -- dry before 80% of the fight (dry at the kill is fine)
+	deathNoDefensives = 2, -- died having never used a defensive
 	rezCap = 4,
 }
 
