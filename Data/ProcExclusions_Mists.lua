@@ -20,9 +20,14 @@ TP.PROC_EXCLUDE_IDS = {
 }
 
 TP.PROC_EXCLUDE_NAMES = {
-	-- celestial empowerment procs seen 2026-07-14 (Taran Zhu seasonal)
+	-- celestial empowerment procs seen 2026-07-14 (Taran Zhu seasonal).
+	-- NEVER exclude legendary-cloak procs: "Essence of Yu'lon" (148008)
+	-- is the caster cloak's own proc — WCL populations include cloak
+	-- damage, and the name-match was subtracting 112M of legitimate SoO
+	-- damage from casters' scores (caught by /tp procs, 2026-07-14).
+	-- "Xuen's Ferocity" stays: the cloak proc is "Flurry of Xuen"
+	-- (147891), a different name.
 	["Serpent's Jadefire"] = true,
-	["Essence of Yu'lon"] = true,
 	["Xuen's Ferocity"] = true,
 	["Burning Song"] = true,
 	["Blazing Song"] = true,

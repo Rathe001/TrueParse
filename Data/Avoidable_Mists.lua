@@ -27,5 +27,15 @@ TP.AVOIDABLE = {
 	[110968] = true,  -- Purifying Flames (ground fire)
 	[110963] = true,  -- Flamestrike (ground fire)
 	[106966] = true,  -- Explosion (bomb)
-	-- Siege of Orgrimmar: still to be filled from a raid-night paste.
+	-- Siege of Orgrimmar (2026-07-14 raid-night /tp baddies), the
+	-- high-confidence dodgeable subset only:
+	[143297] = true,  -- Sha Splash (Immerseus puddles)
+	[145377] = true,  -- Erupting Water (Immerseus waves)
+	[146992] = true,  -- Flames of Galakrond (drake breath line)
+	[144538] = true,  -- Jadefire Blaze (ground fire)
+	-- Deliberately NOT added pending WCL avoidable-tab check: Icy Fear
+	-- (pulsing raid-wide, likely unavoidable), Residual Corruption
+	-- (Norushen orbs — soaking them is the JOB), Dark Meditation
+	-- (Fallen Protectors zone, sometimes stood in on purpose),
+	-- Shattering Roar, Drakefire, Magistrike (seasonal, still open).
 }
