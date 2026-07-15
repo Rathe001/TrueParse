@@ -1107,13 +1107,23 @@ function Engine.ScoreFight(fight, opts)
 					normalized = 75
 					lowDemand = true
 				elseif (not absolute or curveFrom ~= nil)
-					and ctx.noDeaths and specMedian
+					and ctx.noDeaths
 					and ctx.duration and ctx.duration > 0 then
 					local healerN = math.max(1, #(ctx.cohorts.HEALER or {}))
 					local demandShare = (ctx.totals.damageTaken or 0) / ctx.duration / healerN
 					local healed = metricValue(p, key)
-					if demandShare < specMedian
-						and healed >= demandShare * ctx.duration * 0.7 then
+					local covered = healed >= demandShare * ctx.duration * 0.7
+					if specMedian then
+						if demandShare < specMedian and covered then
+							normalized = 75
+							lowDemand = true
+						end
+					elseif covered and (ctx.totals.healing or 0) >= (ctx.totals.damageTaken or 0) * 0.7 then
+						-- no curve to define "real demand" (unranked
+						-- content): nobody died and the group's healing
+						-- covered its intake — demand was met by
+						-- definition, "healing struggled" is wrong
+						-- (retail dungeon, 2026-07-15)
 						normalized = 75
 						lowDemand = true
 					end
