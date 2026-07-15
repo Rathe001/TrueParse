@@ -194,22 +194,29 @@ function Spikes.Compute(seg, duration)
 			local w = Spikes.FindWindows(s.taken, duration, s.maxHP * Spikes.TANK_3S_SHARE)
 			if #w > 0 then
 				r.spikeWindows = #w
+				r.spikeMap = {}
 				local cov = 0
 				for _, win in ipairs(w) do
-					if spanCovers(s.spans, s.since, win[1], win[2], TANK_SLOP) then
+					local met = spanCovers(s.spans, s.since, win[1], win[2], TANK_SLOP)
+					if met then
 						cov = cov + 1
 					end
+					-- {start, end, met}: the breakdown's timeline strip
+					r.spikeMap[#r.spikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), met or nil }
 				end
 				r.spikeCovered = cov
 			end
 		end
 		if #groupWindows > 0 then
 			r.groupSpikeWindows = #groupWindows
+			r.groupSpikeMap = {}
 			local cov = 0
 			for _, win in ipairs(groupWindows) do
-				if castCovers(s and s.casts, win[1], win[2], HEALER_SLOP) then
+				local met = castCovers(s and s.casts, win[1], win[2], HEALER_SLOP)
+				if met then
 					cov = cov + 1
 				end
+				r.groupSpikeMap[#r.groupSpikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), met or nil }
 			end
 			r.groupSpikeCovered = cov
 		end

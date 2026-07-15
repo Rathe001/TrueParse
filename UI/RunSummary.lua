@@ -208,6 +208,23 @@ function RunSummary:Report(announce)
 		end
 	end
 
+	-- week-over-week: this lockout vs the last one
+	local ws = TP.Addon.db.global.weekStats
+	local wk = TP.FightHistory.WeekKey and TP.FightHistory.WeekKey()
+	local w = ws and wk and ws[wk]
+	if w and (w.bosses + w.wipes) > 0 then
+		local line = ("This week: %d boss%s down, %d wipe%s"):format(
+			w.bosses, w.bosses == 1 and "" or "es", w.wipes, w.wipes == 1 and "" or "s")
+		if w.scoreN > 0 then
+			line = line .. (" \194\183 group %.0f"):format(w.scoreSum / w.scoreN)
+			local lw = ws[wk - 1]
+			if lw and lw.scoreN and lw.scoreN > 0 then
+				line = line .. (" (last week %.0f)"):format(lw.scoreSum / lw.scoreN)
+			end
+		end
+		TP.Addon:Print(line)
+	end
+
 	if announce and IsInGroup() then
 		-- one announcer per group: defer to a groupmate whose TrueParse
 		-- is newer (or equal + lower GUID) — no duplicate lines
@@ -364,6 +381,24 @@ function RunSummary:WipeDebrief(fight)
 		end
 	end
 	local head = ("Wipe — %s at %d:%02d."):format(fight.name or "?", math.floor(d / 60), d % 60)
+	-- the progression story: pull number and best-pull % this run
+	if fight.bossPct then
+		local pull, best = 0, nil
+		for _, f in ipairs(TP.FightHistory.fights) do
+			if f.name == fight.name and f.wipe and f.runID == fight.runID then
+				pull = pull + 1
+				if f.bossPct and (not best or f.bossPct < best) then
+					best = f.bossPct
+				end
+			end
+		end
+		if best and best < fight.bossPct - 0.5 then
+			head = head .. (" Pull %d - boss at %.0f%% (best %.0f%%)."):format(pull, fight.bossPct, best)
+		else
+			head = head .. (" Pull %d - boss at %.0f%%%s."):format(pull, fight.bossPct,
+				pull > 1 and ", a new best" or "")
+		end
+	end
 	if fight.calledWipeAt then
 		head = head .. (" Looked called around %d:%02d — nothing after that counted."):format(
 			math.floor(fight.calledWipeAt / 60), math.floor(fight.calledWipeAt) % 60)

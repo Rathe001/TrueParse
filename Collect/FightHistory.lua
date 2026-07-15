@@ -465,6 +465,46 @@ function FightHistory:PersonalBest(fight, guid)
 	return best
 end
 
+-- Ordered kill scores on this boss+difficulty for one player, oldest
+-- first, INCLUDING the given fight — the breakdown's progression line
+-- ("This boss: 26 41 58 72"). Same memo discipline as PersonalBest.
+local shCache, shCacheN = {}, 0
+function FightHistory:ScoreHistory(fight, guid, maxN)
+	if not (fight.isBoss and fight.name and guid) then
+		return nil
+	end
+	local key = "H|" .. fight.name .. "|" .. tostring(fight.difficultyID) .. "|" .. guid .. "|" .. #self.fights
+	local hit = shCache[key]
+	if hit ~= nil then
+		return hit or nil
+	end
+	local scores = {}
+	local opts = TP.GetScoringOptions and TP.GetScoringOptions() or {}
+	for i = #self.fights, 1, -1 do -- stored newest-first; walk oldest-first
+		local f = self.fights[i]
+		if f.name == fight.name and f.difficultyID == fight.difficultyID
+			and not f.wipe and f.players and f.players[guid] then
+			local ok, results = pcall(TP.Scoring.Engine.ScoreFight, f, opts)
+			if ok then
+				for _, r in ipairs(results) do
+					if r.guid == guid then
+						scores[#scores + 1] = r.score
+					end
+				end
+			end
+		end
+	end
+	while #scores > (maxN or 6) do
+		table.remove(scores, 1)
+	end
+	if shCacheN > 300 then
+		shCache, shCacheN = {}, 0
+	end
+	shCache[key] = #scores > 1 and scores or false
+	shCacheN = shCacheN + 1
+	return #scores > 1 and scores or nil
+end
+
 local eventFrame = CreateFrame("Frame")
 eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 	if event == "ENCOUNTER_END" then
@@ -696,6 +736,7 @@ function FightHistory:AddFromSegment(seg)
 			local sd = spikeData[guid]
 			m.spikeWindows, m.spikeCovered = sd.spikeWindows, sd.spikeCovered
 			m.groupSpikeWindows, m.groupSpikeCovered = sd.groupSpikeWindows, sd.groupSpikeCovered
+			m.spikeMap, m.groupSpikeMap = sd.spikeMap, sd.groupSpikeMap
 		end
 		-- dispel reaction time (avg seconds a dispelled debuff sat there)
 		if acc.dispels and (acc.dispels.reactN or 0) > 0 then
@@ -753,6 +794,8 @@ function FightHistory:AddFromSegment(seg)
 		wipe = seg.encounterWipe,
 		-- the moment the raid stopped trying (nil = fought to the end)
 		calledWipeAt = calledAt,
+		-- lowest boss HP% reached: the progression number on wipes
+		bossPct = seg.encounterWipe and seg.bossPctMin or nil,
 		duration = seg.duration or 0,
 		capturedAt = time(),
 		zone = GetZoneText(),
@@ -788,9 +831,70 @@ function FightHistory:AddFromSegment(seg)
 		table.remove(self.fights, i)
 	end
 	self:Persist()
+	self:AccumulateWeek(fight)
 	TP.Addon:Debug(("Captured %s: %.0fs, dmg %s"):format(
 		fight.name, fight.duration, TP.FormatNumber(totals.damage)))
 	TP.Addon:SendMessage("TrueParse_FIGHT_CAPTURED", fight)
+end
+
+-- Weekly ledger for the lockout summary ("group 61, last week 56").
+-- Weeks key off the US reset (Tuesday 15:00 UTC); only the two most
+-- recent weeks are kept.
+function FightHistory.WeekKey(t)
+	return math.floor(((t or time()) - 1704207600) / 604800)
+end
+
+function FightHistory:AccumulateWeek(fight)
+	if not fight.isBoss then
+		return
+	end
+	local g = TP.Addon.db.global
+	g.weekStats = g.weekStats or {}
+	local wk = FightHistory.WeekKey()
+	local w = g.weekStats[wk]
+	if not w then
+		w = { bosses = 0, wipes = 0, scoreSum = 0, scoreN = 0 }
+		g.weekStats[wk] = w
+		for k in pairs(g.weekStats) do
+			if k < wk - 1 then
+				g.weekStats[k] = nil
+			end
+		end
+	end
+	if fight.wipe then
+		w.wipes = w.wipes + 1
+	else
+		w.bosses = w.bosses + 1
+	end
+	local ok, results = pcall(TP.Scoring.Engine.ScoreFight, fight,
+		TP.GetScoringOptions and TP.GetScoringOptions() or {})
+	if ok and #results > 0 then
+		local sum = 0
+		for _, r in ipairs(results) do
+			sum = sum + r.score
+		end
+		w.scoreSum = w.scoreSum + sum / #results
+		w.scoreN = w.scoreN + 1
+		-- own weekly standing, for the /tp guild board (results are
+		-- sorted best-first, so results[1] is the fight's top)
+		local myGuid = UnitGUID and UnitGUID("player")
+		if myGuid then
+			for _, r in ipairs(results) do
+				if r.guid == myGuid then
+					if not (g.myWeek and g.myWeek.week == wk) then
+						g.myWeek = { week = wk, fights = 0, scoreSum = 0, tops = 0 }
+					end
+					local mw = g.myWeek
+					mw.fights = mw.fights + 1
+					mw.scoreSum = mw.scoreSum + r.score
+					if results[1].guid == myGuid then
+						mw.tops = mw.tops + 1
+					end
+					break
+				end
+			end
+		end
+	end
 end
 
 -- Retroactive wipe verdicts for captures saved without one (records from

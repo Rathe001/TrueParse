@@ -237,6 +237,33 @@ function Addon:HandleSlash(input)
 		if not next(TP.DoneSpells or {}) and not next(TP.HealSpells or {}) then
 			self:Print("No spell damage or healing recorded this session.")
 		end
+	elseif cmd == "guild" then
+		-- weekly standings across TrueParse users heard this session
+		local wk = TP.FightHistory.WeekKey and TP.FightHistory.WeekKey()
+		local rows = {}
+		local mw = self.db.global.myWeek
+		if mw and mw.week == wk and mw.fights > 0 then
+			rows[#rows + 1] = { name = UnitName("player") .. " (you)",
+				gpa = mw.scoreSum / mw.fights, fights = mw.fights, tops = mw.tops }
+		end
+		for _, e in pairs((TP.Sync and TP.Sync.weekBoard) or {}) do
+			if e.week == wk then
+				rows[#rows + 1] = { name = e.name, gpa = e.gpa, fights = e.fights, tops = e.tops }
+			end
+		end
+		if #rows == 0 then
+			self:Print("No TrueParse standings heard yet this week - they arrive as groupmates with the addon finish fights.")
+			return
+		end
+		table.sort(rows, function(a, b)
+			return a.gpa > b.gpa
+		end)
+		self:Print("This week's TrueParse standings:")
+		for i, r in ipairs(rows) do
+			self:Print(("  %d. %s %s - %d fights%s"):format(
+				i, TP.Scoring.Grades.ColoredScore(r.gpa), r.name, r.fights,
+				r.tops > 0 and (", top of the card %dx"):format(r.tops) or ""))
+		end
 	elseif cmd == "coach" then
 		self.db.profile.coach = not self.db.profile.coach
 		self:Print("Post-fight coach line " .. (self.db.profile.coach and "on." or "off."))
@@ -293,7 +320,7 @@ function Addon:HandleSlash(input)
 		self:Print("  /tp config - options panel")
 		self:Print("  /tp mode - switch TrueParse/Raw scoring")
 		self:Print("  /tp letters - letter grades instead of numbers")
-		self:Print("  /tp run - run report · /tp share - post last kill vs WCL")
+		self:Print("  /tp run - run report · /tp share - post last kill vs WCL · /tp guild - weekly standings")
 		self:Print("  /tp career - your stats · /tp trends - where they're heading")
 		self:Print("  /tp fights - capture history · /tp score [n] - rescore one")
 		self:Print("  /tp buffs - pre-pull raid buff diagnostic")

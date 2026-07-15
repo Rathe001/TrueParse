@@ -263,6 +263,27 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		return
 	end
 
+	-- weekly standings for /tp guild: "W:<week>:<gpa*10>:<fights>:<tops>"
+	local wWeek, wGpa, wFights, wTops = message:match("^W:(%d+):(%d+):(%d+):(%d+)$")
+	if wWeek then
+		local wGuid
+		for guid2, info2 in pairs(TP.Roster.players) do
+			if senderOwnsGuid(sender, guid2) then
+				wGuid = guid2
+				break
+			end
+		end
+		if wGuid then
+			self.weekBoard = self.weekBoard or {}
+			self.weekBoard[wGuid] = {
+				name = (sender or "?"):match("^([^-]+)") or sender,
+				week = tonumber(wWeek), gpa = tonumber(wGpa) / 10,
+				fights = tonumber(wFights), tops = tonumber(wTops), seen = time(),
+			}
+		end
+		return
+	end
+
 	local fVersion, fGuid, duration, defensives, consumables, readyAtDeath, buffUptime, activity =
 		message:match("^F:(%d+):([^:]+):(%d+):(%d+):(%d+):(%-?%d+):(%-?%d+):(%-?%d+)$")
 	if not fVersion then
@@ -327,5 +348,19 @@ function Sync:OnEnable()
 	self:RegisterMessage("TrueParse_ROSTER_CHANGED", function()
 		Sync:QueueHello()
 	end)
+	-- weekly standing rides along after each capture (one small message)
+	self:RegisterMessage("TrueParse_FIGHT_CAPTURED", function()
+		Sync:BroadcastWeek()
+	end)
 	self:QueueHello()
+end
+
+function Sync:BroadcastWeek()
+	local mw = TP.Addon.db.global.myWeek
+	local channel = commChannel()
+	if not mw or not channel or mw.fights == 0 then
+		return
+	end
+	self:SendCommMessage(PREFIX, ("W:%d:%d:%d:%d"):format(
+		mw.week, math.floor(mw.scoreSum / mw.fights * 10 + 0.5), mw.fights, mw.tops), channel)
 end

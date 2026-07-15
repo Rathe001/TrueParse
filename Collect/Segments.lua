@@ -102,6 +102,10 @@ function Segments:EndFight()
 		return
 	end
 	self:CancelEndCheck()
+	if self.bossPctTimer then
+		TP.Addon:CancelTimer(self.bossPctTimer)
+		self.bossPctTimer = nil
+	end
 	seg.endTime = GetTime()
 	seg.duration = math.max(seg.endTime - seg.startTime, 1)
 	self.current = nil
@@ -185,6 +189,37 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 				captureBossGUIDs(seg)
 			end
 		end)
+		-- best-pull tracking: sample boss HP every 2s; the lowest average
+		-- across boss frames is "how far we got" when this ends in a wipe
+		self.bossPctTimer = TP.Addon:ScheduleRepeatingTimer(function()
+			if self.current ~= seg then
+				if self.bossPctTimer then
+					TP.Addon:CancelTimer(self.bossPctTimer)
+					self.bossPctTimer = nil
+				end
+				return
+			end
+			local sum, n = 0, 0
+			for i = 1, 5 do
+				local u = "boss" .. i
+				if UnitExists(u) then
+					local ok, hp, mx = pcall(function()
+						return UnitHealth(u), UnitHealthMax(u)
+					end)
+					-- Midnight secrets boss health mid-combat; skip cleanly
+					if ok and type(hp) == "number" and type(mx) == "number" and mx > 0 then
+						sum = sum + hp / mx
+						n = n + 1
+					end
+				end
+			end
+			if n > 0 then
+				local pct = sum / n * 100
+				if not seg.bossPctMin or pct < seg.bossPctMin then
+					seg.bossPctMin = pct
+				end
+			end
+		end, 2)
 	end
 end
 

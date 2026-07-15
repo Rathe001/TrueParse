@@ -482,13 +482,31 @@ function Panel:ShowFor(fight, result)
 		approx and "~" or "", TP.Scoring.Grades.ColoredScore(result.score),
 		fight.name or "this fight", fight.wipe and " |cffe64d4d(wipe)|r" or "", pbTag))
 	local runR = self.runScores and self.runScores[result.guid]
-	if runR then
+	-- progression line: this player's last kills of this boss, oldest
+	-- first, the PB pattern's memo keeps it cheap
+	local histText
+	if fight.isBoss and not fight.isRun and TP.FightHistory and TP.FightHistory.ScoreHistory then
+		local hist = TP.FightHistory:ScoreHistory(fight, result.guid, 6)
+		if hist then
+			local parts = {}
+			for _, s in ipairs(hist) do
+				parts[#parts + 1] = TP.Scoring.Grades.ColoredScore(s)
+			end
+			histText = "|cff888888this boss:|r " .. table.concat(parts, " ")
+		end
+	end
+	if runR and histText then
+		frame.runLine:SetText(TP.Scoring.Grades.ColoredScore(runR.score)
+			.. " avg this run  " .. histText)
+	elseif runR then
 		frame.runLine:SetText(TP.Scoring.Grades.ColoredScore(runR.score) .. " avg this run")
+	elseif histText then
+		frame.runLine:SetText(histText)
 	else
 		frame.runLine:SetText("")
 	end
 
-	local y = runR and -50 or -37
+	local y = (runR or histText) and -50 or -37
 	for i, bullet in ipairs(bullets) do
 		local row = getRow(i, y)
 		y = y - ROW_HEIGHT
@@ -504,13 +522,22 @@ function Panel:ShowFor(fight, result)
 				duration = fight.duration, role = result.role }
 		elseif bullet.kind == "penalty" then
 			if bullet.key == "deaths" and player and player.deathRecap then
-				-- WCL-style death recap: the last hits, right on the bullet
+				-- WCL-style death recap: the last hits, right on the bullet,
+				-- each with a bar sized by the hit (red = avoidable)
+				local maxHit = 1
+				for _, hit in ipairs(player.deathRecap) do
+					maxHit = math.max(maxHit, hit.amount or 0)
+				end
 				local lines = { { "The last hits before the death:", 0.8, 0.8, 0.8 } }
 				for _, hit in ipairs(player.deathRecap) do
+					local w = math.max(2, math.floor((hit.amount or 0) / maxHit * 50))
+					local bar = hit.avoidable
+						and ("|TInterface\\Buttons\\WHITE8X8:8:%d:0:0:8:8:0:8:0:8:230:77:77|t"):format(w)
+						or ("|TInterface\\Buttons\\WHITE8X8:8:%d:0:0:8:8:0:8:0:8:120:120:130|t"):format(w)
 					lines[#lines + 1] = {
-						("%d:%02d  %s  %s%s"):format(
+						("%d:%02d %s %s  %s%s"):format(
 							math.floor((hit.t or 0) / 60), (hit.t or 0) % 60,
-							hit.spell or "?", TP.FormatNumber(hit.amount or 0),
+							bar, hit.spell or "?", TP.FormatNumber(hit.amount or 0),
 							hit.avoidable and "  (avoidable)" or ""),
 						hit.avoidable and 0.95 or 0.75,
 						hit.avoidable and 0.45 or 0.75,
@@ -535,6 +562,65 @@ function Panel:ShowFor(fight, result)
 	-- scorecard row, not an extra bullet here)
 	hideRowsFrom(#bullets + 1)
 	fitWidth(#bullets)
+
+	-- danger-window timeline: one strip for the whole fight, a band per
+	-- damage spike — green if their cooldown met it, red if not. Tanks
+	-- see their own spikes, healers the group's.
+	local mm = player and player.metrics or {}
+	local map = (result.role == "TANK" and mm.spikeMap)
+		or (result.role == "HEALER" and mm.groupSpikeMap)
+	if frame.stripTrack then
+		frame.stripTrack:Hide()
+		frame.stripLabel:Hide()
+		for _, b in ipairs(frame.stripBands or {}) do
+			b:Hide()
+		end
+	end
+	if map and #map > 0 and (fight.duration or 0) > 0 then
+		if not frame.stripTrack then
+			frame.stripLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+			frame.stripTrack = frame:CreateTexture(nil, "ARTWORK")
+			frame.stripTrack:SetTexture("Interface\\Buttons\\WHITE8X8")
+			frame.stripTrack:SetVertexColor(0.14, 0.14, 0.17, 1)
+			frame.stripBands = {}
+		end
+		y = y - 6
+		frame.stripLabel:ClearAllPoints()
+		frame.stripLabel:SetPoint("TOPLEFT", 12, y)
+		frame.stripLabel:SetText(result.role == "TANK"
+			and "your damage spikes \194\183 |cff55cc55defensive met it|r / |cffe64d4dno defensive|r"
+			or "group damage spikes \194\183 |cff55cc55cooldown met it|r / |cffe64d4duncovered|r")
+		frame.stripLabel:Show()
+		y = y - 14
+		local w = frame:GetWidth() - 24
+		frame.stripTrack:ClearAllPoints()
+		frame.stripTrack:SetPoint("TOPLEFT", 12, y)
+		frame.stripTrack:SetSize(w, 7)
+		frame.stripTrack:Show()
+		for i, win in ipairs(map) do
+			local band = frame.stripBands[i]
+			if not band then
+				band = frame:CreateTexture(nil, "OVERLAY")
+				band:SetTexture("Interface\\Buttons\\WHITE8X8")
+				frame.stripBands[i] = band
+			end
+			local left = math.min(w - 2, win[1] / fight.duration * w)
+			local width = math.max(3, (win[2] - win[1] + 1) / fight.duration * w)
+			band:ClearAllPoints()
+			band:SetPoint("TOPLEFT", frame.stripTrack, "TOPLEFT", left, 0)
+			band:SetSize(math.min(width, w - left), 7)
+			if win[3] then
+				band:SetVertexColor(0.33, 0.80, 0.33, 1)
+			else
+				band:SetVertexColor(0.90, 0.30, 0.30, 1)
+			end
+			band:Show()
+		end
+		for i = #map + 1, #(frame.stripBands or {}) do
+			frame.stripBands[i]:Hide()
+		end
+		y = y - 11
+	end
 
 	frame.total:SetText("") -- footer text is group-view only
 	-- y already sits at the last row's bottom edge; +8 mirrors the top pad
@@ -758,6 +844,15 @@ function Panel:ShowForGroup(fight, results)
 	end
 	hideRowsFrom(total + 1)
 	fitWidth(total)
+
+	-- the spike strip is player-view only; this frame is shared
+	if frame.stripTrack then
+		frame.stripTrack:Hide()
+		frame.stripLabel:Hide()
+		for _, b in ipairs(frame.stripBands or {}) do
+			b:Hide()
+		end
+	end
 
 	frame.total:SetText("") -- header lines carry the numbers now
 	frame:SetHeight(-y + 8)

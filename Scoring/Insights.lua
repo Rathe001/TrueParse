@@ -203,8 +203,17 @@ function Insights.RunAdvice(fights)
 	end
 	-- coverage stats
 	if kickOpps >= 6 and kicksLanded / kickOpps < 0.6 then
-		add(70, ("%d interruptible casts got through (%d of %d kicked) - every one hit somebody."):format(
-			kickOpps - kicksLanded, kicksLanded, kickOpps))
+		-- counterfactual, from the engine's own kick formula: what would
+		-- 80% coverage have been worth? (kicksMax x intensity x the
+		-- coverage gap — approximate, so it says "roughly")
+		local A2 = TP.Scoring.Weights.adjustments
+		local intensity = math.min(1, kickOpps / (math.max(1, #fights) * (A2.kicksFullIntensity or 6)))
+		local worth = (0.8 - kicksLanded / kickOpps) * (A2.kicksMax or 6) * intensity
+		local tail = worth >= 1
+			and (" Kicking 80%% would be worth roughly +%.0f points to the kickers."):format(worth)
+			or ""
+		add(70, ("%d interruptible casts got through (%d of %d kicked) - every one hit somebody.%s"):format(
+			kickOpps - kicksLanded, kicksLanded, kickOpps, tail))
 	end
 	if gWindows >= 3 and gCovered / gWindows < 0.5 then
 		add(60, ("%d of %d heavy group-damage moments had no healing cooldown - spreading them out covers more."):format(

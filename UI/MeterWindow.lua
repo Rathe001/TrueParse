@@ -760,7 +760,10 @@ function MeterWindow:RenderScorecard(fight)
 			label = "|cff888888no WCL data|r · " .. label
 		end
 		if fight.wipe then
-			label = "|cffe64d4dwipe|r · " .. label
+			-- best-pull number right in the label: "wipe 12% · Garrosh"
+			label = fight.bossPct
+				and ("|cffe64d4dwipe %.0f%%|r · "):format(fight.bossPct) .. label
+				or "|cffe64d4dwipe|r · " .. label
 		end
 		if UnitAffectingCombat("player") then
 			label = label .. " |cffff8888· fighting…|r"
