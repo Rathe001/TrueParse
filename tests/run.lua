@@ -1709,6 +1709,32 @@ local gaLow = TP.Scoring.Insights.GroupAnalysis({
 check(gaLow.outputN == 1, "demand-floored healer excluded from the parts")
 check(gaLow.executionGap == nil, "no gap verdict from a single measured player")
 
+-- 23a2. The ladder never crosses instance types: a Timewalking dungeon
+-- with no curves must NOT zoom out to raid pools (live: ilvl-119 TW
+-- players read p3 in True while Raw said p99)
+do
+	local twFight = {
+		isBoss = true, name = "Some TW Boss Nobody Ranked", zone = "Unranked TW Dungeon",
+		difficultyID = 24, instanceType = "party", duration = 60,
+		players = {
+			a = { guid = "a", name = "Tw1", class = "ROGUE", role = "DAMAGER", specID = 261,
+				metrics = { damage = 300000, healing = 0, damageTaken = 1000, interrupts = 0, dispels = 0, deaths = 0 } },
+			b = { guid = "b", name = "Tw2", class = "MAGE", role = "DAMAGER", specID = 63,
+				metrics = { damage = 200000, healing = 0, damageTaken = 1000, interrupts = 0, dispels = 0, deaths = 0 } },
+		},
+		totals = { damage = 500000, healing = 0, damageTaken = 2000, interrupts = 0, dispels = 0, deaths = 0 },
+	}
+	local twr = TP.Scoring.Engine.ScoreFight(twFight, { normalizeIlvl = false })
+	for _, r in ipairs(twr) do
+		local b = r.breakdown.damage
+		check(b.pctile == nil and b.curveFrom == nil,
+			("TW dungeon w/o curves stays group-relative (%s: pct=%s curve=%s)"):format(
+				r.name, tostring(b.pctile), tostring(b.curveFrom)))
+	end
+	check(twr[1].name == "Tw1" and twr[1].score > twr[2].score,
+		"group-relative still ranks the higher damage first")
+end
+
 -- 23b. Wipe-call detection: output collapse that never recovers marks
 -- the moment the raid stopped trying; fought-to-the-end wipes detect
 -- nothing and everything counts

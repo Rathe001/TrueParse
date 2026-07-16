@@ -39,6 +39,11 @@ local DUNGEON_ABSOLUTE_DIFFICULTY = {
 	["Mythic Keystone"] = true,
 	["Challenge Mode"] = true, -- MoP Classic
 }
+-- dungeon difficultyIDs (1 Normal, 2 Heroic, 8 Keystone, 23 Mythic 0,
+-- 24 Timewalking): fights on these never borrow raid populations
+local DUNGEON_DIFF_IDS = {
+	[1] = true, [2] = true, [8] = true, [23] = true, [24] = true,
+}
 
 -- Fight-specific spec expectations: boss fights match a WCL encounter table
 -- by name (retail prefixes encounters with "(!) "), anything inside a
@@ -514,6 +519,11 @@ local function findCurve(ctx, kind, specID, role, specOnly, encounterOnly)
 	if not L then
 		return nil
 	end
+	-- dungeon fights never borrow cross-encounter pools (raid-dominated
+	-- populations): this dungeon's own curves or nothing
+	if L.dungeonOnly then
+		encounterOnly = true
+	end
 	local enc, order, exact = L.enc, L.order, L.exact
 	local function scaleFor(i, bk)
 		if i == 1 or not exact or bk == exact or bk == "all" then
@@ -963,7 +973,19 @@ function Engine.ScoreFight(fight, opts)
 		if P and P.encounters and (fight.isBoss or fight.isRun) then
 			local enc = encounterCurvesFor(P, fight)
 			local bracketKey = fight.difficultyID and WCL_BRACKET[fight.difficultyID]
-			ctx.curves = { P = P, enc = enc, order = bracketSearchOrder(bracketKey), exact = bracketKey }
+			-- the ladder must never cross instance types (2026-07-16):
+			-- a Timewalking dungeon with no curves zoomed out to the RAID
+			-- all-bosses pool and scored ilvl-119-scaled players p3 while
+			-- Raw went group-relative and said p99. Dungeon fights use
+			-- THIS dungeon's curves or none — both lenses then agree.
+			local isDungeon = fight.instanceType == "party"
+				or fight.keystoneLevel ~= nil
+				or (fight.difficultyID and DUNGEON_DIFF_IDS[fight.difficultyID])
+				or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or false
+			if not (isDungeon and not enc) then
+				ctx.curves = { P = P, enc = enc, order = bracketSearchOrder(bracketKey),
+					exact = bracketKey, dungeonOnly = isDungeon or nil }
+			end
 		end
 	end
 
