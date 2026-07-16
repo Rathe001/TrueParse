@@ -24,6 +24,15 @@ function Roster:OnEnable()
 	end
 	Addon:RegisterEvent("GROUP_ROSTER_UPDATE", rebuild)
 	Addon:RegisterEvent("PLAYER_ENTERING_WORLD", rebuild)
+	-- a spec swap changes nobody's ROSTER, so nothing above fires: a
+	-- flex healer's first pull after swapping scored vs the OLD spec's
+	-- population (2026-07-16, Josh's druid). Rebuild re-reads own spec
+	-- live, and the ROSTER_CHANGED message re-hellos so groupmates
+	-- learn the new spec too. Both event names, pcall'd: retail fires
+	-- PLAYER_SPECIALIZATION_CHANGED, Classic dual-spec swaps fire
+	-- ACTIVE_TALENT_GROUP_CHANGED.
+	pcall(Addon.RegisterEvent, Addon, "PLAYER_SPECIALIZATION_CHANGED", rebuild)
+	pcall(Addon.RegisterEvent, Addon, "ACTIVE_TALENT_GROUP_CHANGED", rebuild)
 	Addon:RegisterEvent("UNIT_PET", function(_, unit)
 		Roster:UpdatePets()
 	end)
