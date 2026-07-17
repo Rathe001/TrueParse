@@ -126,6 +126,7 @@ function Insights.RunAdvice(fights)
 	local gWindows, gCovered = 0, 0
 	local tWindows, tCovered = 0, 0
 	local deaths, deathsAfterAvoidable, deathsWithDefsReady = 0, 0, 0
+	local diedPF = 0 -- player-fights with a death (recaps are per-player)
 	local drained, lustWasted, earlyPulls = 0, 0, 0
 	local avoidable, taken = 0, 0
 
@@ -155,6 +156,7 @@ function Insights.RunAdvice(fights)
 			end
 			if (m.deaths or 0) > 0 then
 				deaths = deaths + m.deaths
+				diedPF = diedPF + 1
 				if p.deathRecap then
 					for _, hit in ipairs(p.deathRecap) do
 						if hit.avoidable then
@@ -176,12 +178,14 @@ function Insights.RunAdvice(fights)
 		end
 	end
 
-	-- deaths first: nothing costs a run more
-	if deathsAfterAvoidable > 0 and deaths > 0 then
-		add(100, deaths == deathsAfterAvoidable
-			and (deaths == 1 and "The death followed avoidable damage - the recap on the death bullet names the spell."
-				or ("All %d deaths followed avoidable damage - the recaps name the spells."):format(deaths))
-			or ("%d of %d deaths followed avoidable damage - the recaps name the spells."):format(deathsAfterAvoidable, deaths))
+	-- deaths first: nothing costs a run more. Recaps are per-PLAYER
+	-- (last death only), so the denominator is players who died, not
+	-- total deaths (audit 2026-07-16 unit mismatch).
+	if deathsAfterAvoidable > 0 and diedPF > 0 then
+		add(100, diedPF == deathsAfterAvoidable
+			and (diedPF == 1 and "The death followed avoidable damage - the recap on the death bullet names the spell."
+				or ("Every player who died took avoidable damage in their final seconds - the recaps name the spells."))
+			or ("%d of the %d players who died took avoidable damage in their final seconds - the recaps name the spells."):format(deathsAfterAvoidable, diedPF))
 	end
 	if deathsWithDefsReady > 0 then
 		add(90, deathsWithDefsReady == 1
@@ -222,7 +226,7 @@ function Insights.RunAdvice(fights)
 		add(50, ("The healer hit empty mana in %d fights - a drink between pulls beats a wipe."):format(drained))
 	end
 	if lustWasted >= 2 then
-		add(40, ("%d DPS let Bloodlust pass without cooldowns - stack everything into those 40 seconds."):format(lustWasted))
+		add(40, ("Bloodlust went by unused %d times - stack cooldowns into those 40 seconds."):format(lustWasted))
 	end
 	if earlyPulls >= 2 then
 		add(35, ("%d pulls started before the tank - a breath saves a scramble."):format(earlyPulls))

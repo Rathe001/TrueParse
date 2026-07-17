@@ -63,6 +63,11 @@ end
 tracker.subevents.SPELL_DAMAGE = spellTaken
 tracker.subevents.SPELL_PERIODIC_DAMAGE = spellTaken
 tracker.subevents.RANGE_DAMAGE = spellTaken
+tracker.subevents.DAMAGE_SPLIT = spellTaken
+tracker.subevents.DAMAGE_SHIELD = spellTaken
+tracker.subevents.ENVIRONMENTAL_DAMAGE = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2)
+	addTaken(seg, dstGUID, a2)
+end
 
 -- defensive aura spans (reference-counted like Mitigation; REFRESH
 -- opens windows the pull started with)
@@ -126,7 +131,21 @@ tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags,
 end
 
 tracker.InitPlayer = function(acc)
-	-- lazily built by ensure(): most players never spike
+	-- accumulators stay lazy (most players never spike), but max HP is
+	-- captured for EVERYONE up front: the group spike threshold divides
+	-- by summed group HP, and summing only damaged players' pools made
+	-- clean pulls manufacture spike windows (audit 2026-07-16).
+	-- Guarded: headless tests have no WoW API.
+	if UnitHealthMax and TP.Roster and TP.Roster.players then
+		local info = TP.Roster.players[acc.guid]
+		if info and info.unit then
+			local ok, hp = pcall(UnitHealthMax, info.unit)
+			if ok and type(hp) == "number" and hp > 0 then
+				acc.spikes = acc.spikes or { taken = {}, spans = {}, casts = {}, n = 0 }
+				acc.spikes.maxHP = hp
+			end
+		end
+	end
 end
 tracker.MergePlayer = function(dst, src)
 	-- overall-segment merges don't carry spike timing; windows only make

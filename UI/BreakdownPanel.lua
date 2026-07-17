@@ -861,11 +861,14 @@ function Panel:ShowForGroup(fight, results)
 	frame.role:ClearAllPoints()
 	frame.role:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -10)
 	frame:Show()
-	self.currentGUID = "GROUP"
+	-- the pinned RUN card is distinct from the fight group card: a scroll
+	-- or resize re-render must not swap one for the other (audit 2026-07-16)
+	self.currentGUID = fight.isRun and "RUN" or "GROUP"
 end
 
 function Panel:ToggleGroup(fight, results)
-	if self.pinned and frame and frame:IsShown() and self.currentGUID == "GROUP" then
+	local tag = fight.isRun and "RUN" or "GROUP"
+	if self.pinned and frame and frame:IsShown() and self.currentGUID == tag then
 		self.pinned = false
 		frame:Hide()
 		self.currentGUID = nil

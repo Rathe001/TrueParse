@@ -200,12 +200,28 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- calibrating scoring weights from real runs. Prefer the context recorded
 	-- live when the session appeared — at capture time we may have already
 	-- left the instance (bulk unlock).
-	-- Kill or wipe? Prefer the recorded ENCOUNTER_END outcome; fall back to
-	-- "every player died" when the encounter event never matched.
+	-- Kill or wipe? Prefer the recorded ENCOUNTER_END outcome nearest in
+	-- time to when this session appeared (bulk unlocks deliver several
+	-- pulls of one boss at once — each consumes its own verdict); fall
+	-- back to "every player died" when no verdict matches.
 	if fight.isBoss then
-		local outcome = encounterResults[fight.name]
+		local outcomes = encounterResults[fight.name]
+		local outcome
+		if outcomes and #outcomes > 0 then
+			local live = sessionContext[sessionID]
+			local anchor = (live and live.at) or time()
+			local bestIdx, bestDiff
+			for i, o in ipairs(outcomes) do
+				local diff = math.abs((o.at or 0) - anchor)
+				if not bestDiff or diff < bestDiff then
+					bestIdx, bestDiff = i, diff
+				end
+			end
+			outcome = table.remove(outcomes, bestIdx)
+		end
 		if outcome then
-			fight.wipe = outcome.wipe
+			fight.wipe = outcome.wipe or nil
+			fight.hadVerdict = true -- explicit kill/wipe: retro passes keep off
 		else
 			local allDied, anyone = true, false
 			for _, p in pairs(players) do
@@ -278,11 +294,14 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	pcall(TP.Threat.AttachRetail, TP.Threat, fight)
 
 	-- Replace an earlier capture of the same session (resume case).
-	-- Same NAME required: session IDs restart from 1 on a new client
-	-- session, so a bare ID match let today's session 3 delete
-	-- yesterday's unrelated session-3 boss.
+	-- Same NAME required, and RECENT (audit 2026-07-16): session IDs
+	-- restart from 1 every client launch, so id+name alone let today's
+	-- re-farm of a boss delete yesterday's record from the progression
+	-- line. A genuine resume replays within hours, never days.
 	for i = #self.fights, 1, -1 do
-		if self.fights[i].sessionID == sessionID and self.fights[i].name == fight.name then
+		local old = self.fights[i]
+		if old.sessionID == sessionID and old.name == fight.name
+			and (time() - (old.capturedAt or 0)) < 6 * 3600 then
 			table.remove(self.fights, i)
 		end
 	end
@@ -295,6 +314,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 
 	self.snapshotted[sessionID] = true
 	self:Persist()
+	self:AccumulateWeek(fight) -- retail path (audit: /tp guild was dead here)
 	TP.Addon:SendMessage("TrueParse_FIGHT_CAPTURED", fight)
 	TP.Addon:Debug(("Captured %s: %.0fs, %d players, dmg %s"):format(
 		name, fight.duration, countPlayers(players), TP.FormatNumber(totals.damage or 0)))
@@ -510,7 +530,16 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 	if event == "ENCOUNTER_END" then
 		local encounterName, success = arg2, arg5
 		if encounterName and not IsSecret(encounterName) and not IsSecret(success) then
-			encounterResults[encounterName] = { wipe = (success == 0) or nil, at = GetTime() }
+			-- a LIST per name (audit 2026-07-16): LFR wipe+kill of one
+			-- boss unlock together, and one-slot storage gave every pull
+			-- the LAST pull's verdict — the wipe recorded as a kill.
+			-- wipe = false (not nil) is an explicit kill verdict.
+			local list = encounterResults[encounterName]
+			if not list then
+				list = {}
+				encounterResults[encounterName] = list
+			end
+			list[#list + 1] = { wipe = (success == 0) or false, at = time() }
 		end
 	elseif event == "DAMAGE_METER_COMBAT_SESSION_UPDATED" then
 		local damageMeterType, sessionId = arg1, arg2
@@ -856,6 +885,9 @@ function FightHistory:AddFromSegment(seg)
 		-- explicit verdict, else the retail-style heuristic: a boss pull
 		-- with no ENCOUNTER_END where every participant died is a wipe
 		wipe = seg.encounterWipe,
+		-- explicit ENCOUNTER_END verdict: retro wipe passes keep off
+		-- (an all-died KILL was flaggable as a wipe, audit 2026-07-16)
+		hadVerdict = seg.encounterEnded or nil,
 		-- the moment the raid stopped trying (nil = fought to the end)
 		calledWipeAt = calledAt,
 		-- lowest boss HP% reached: the progression number on wipes
@@ -980,7 +1012,7 @@ function FightHistory:BackfillWipes()
 		local f = self.fights[i]
 		if f.isBoss then
 			local key = tostring(f.runID) .. ":" .. (f.name or "")
-			if f.wipe == nil then
+			if f.wipe == nil and not f.hadVerdict then
 				if pulledLater[key] and RAID_DIFficulties[f.difficultyID or 0] then
 					f.wipe = true
 				else
@@ -1010,6 +1042,7 @@ function FightHistory:AmendWipe(encounterID)
 	for i = 1, math.min(#self.fights, 5) do
 		local f = self.fights[i]
 		if f.encounterID == encounterID and f.wipe == nil
+			and not f.hadVerdict
 			and (now - (f.capturedAt or 0)) < 600 then
 			f.wipe = true
 			self:Persist()

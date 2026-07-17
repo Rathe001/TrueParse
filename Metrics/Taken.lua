@@ -86,6 +86,14 @@ end
 tracker.subevents.SPELL_DAMAGE = spellTaken
 tracker.subevents.SPELL_PERIODIC_DAMAGE = spellTaken
 tracker.subevents.RANGE_DAMAGE = spellTaken
+-- split/reflect damage kills people too (audit 2026-07-16: a death to
+-- split damage showed a recap of stale earlier hits)
+tracker.subevents.DAMAGE_SPLIT = spellTaken
+tracker.subevents.DAMAGE_SHIELD = spellTaken
+-- ENVIRONMENTAL suffix: environmentalType, amount
+tracker.subevents.ENVIRONMENTAL_DAMAGE = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2)
+	addTaken(seg, dstGUID, a2, nil, a1 and ("Environment: " .. tostring(a1)) or "Environment")
+end
 
 tracker.InitPlayer = function(acc)
 	acc.taken = { total = 0, avoidable = 0, ring = {}, ringAt = 0 }

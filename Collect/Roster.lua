@@ -192,7 +192,9 @@ function Roster:UpdatePets()
 		local petUnit = TP.Compat.PetUnit(info.unit)
 		if petUnit and UnitExists(petUnit) then
 			local petGUID = UnitGUID(petUnit)
-			if petGUID then
+			-- a secret GUID as a table key throws (same guard Rebuild
+			-- applies to player GUIDs six lines up — audit 2026-07-16)
+			if petGUID and not TP.Compat.IsSecret(petGUID) then
 				self.petOwner[petGUID] = guid
 			end
 		end

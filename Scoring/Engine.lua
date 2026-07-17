@@ -98,11 +98,24 @@ local function outputFactor(p, role, key, ctx)
 	local wantHealing = (key == "healing")
 	local specFactor
 	if ctx.fightFactors then
-		local t = wantHealing and ctx.fightFactors.healingFactor or ctx.fightFactors.damageFactor
+		-- explicit branch, not and-or: a factor set missing healingFactor
+		-- would silently divide healing by the DAMAGE factor (latent,
+		-- audit 2026-07-16)
+		local t
+		if wantHealing then
+			t = ctx.fightFactors.healingFactor
+		else
+			t = ctx.fightFactors.damageFactor
+		end
 		specFactor = t and p.specID and t[p.specID]
 	end
 	if not specFactor then
-		local t = wantHealing and B.healingFactor or B.damageFactor
+		local t
+		if wantHealing then
+			t = B.healingFactor
+		else
+			t = B.damageFactor
+		end
 		specFactor = t and p.specID and t[p.specID]
 	end
 	if specFactor and specFactor > 0 then
@@ -629,6 +642,11 @@ function Engine.InvalidateNameIndex(P)
 	nameIndexCache[key] = nil
 	globalPoolCache[key] = nil
 	ratioCache[key] = nil
+	-- poolCache is keyed by BRACKET tables inside the data file; wipe it
+	-- whole (drop-together invariant, audit 2026-07-16)
+	for k in pairs(poolCache) do
+		poolCache[k] = nil
+	end
 end
 
 -- Returns normalizedScore (0-100), applicable, absolute, relative,
