@@ -1224,6 +1224,30 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(commaFight, { mode = "parse", no
 end
 TP.Percentiles.encounters["Comma, Boss"] = nil
 
+-- 18d3. encounterID-keyed lookup: a localized client's boss name can't
+-- string-match the English WCL keys, but the numeric id resolves via
+-- the crawler-emitted TP.Percentiles.ids map
+TP.Percentiles.encounters["ID Boss"] = { ["3x10"] = {
+	dps = { [63] = { n = 500, curve = { { 99, 1000 }, { 95, 900 }, { 90, 800 }, { 75, 650 }, { 50, 500 }, { 25, 380 }, { 10, 300 } } } },
+	hps = {},
+} }
+TP.Percentiles.ids = { [7777] = "ID Boss" }
+TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+local localizedFight = {
+	name = "Boss Localisé", isBoss = true, encounterID = 7777,
+	duration = 100, difficultyID = 3,
+	players = {
+		d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 50000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+	},
+}
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(localizedFight, { mode = "parse", normalizeIlvl = false })) do
+	check(math.abs(r.breakdown.damage.normalized - 50) < 0.001,
+		("localized boss name finds its curve by encounterID (%.1f)"):format(r.breakdown.damage.normalized))
+end
+TP.Percentiles.encounters["ID Boss"] = nil
+TP.Percentiles.ids = nil
+
 -- 18d2b. LFR brackets map: retail difficultyID 17 -> "1", MoP 7 -> "1x25"
 TP.Percentiles.encounters["Percentile Boss"]["1"] = {
 	dps = { [63] = { n = 700, curve = { { 99, 500 }, { 95, 450 }, { 90, 400 }, { 75, 320 }, { 50, 250 }, { 25, 190 }, { 10, 150 } } } },

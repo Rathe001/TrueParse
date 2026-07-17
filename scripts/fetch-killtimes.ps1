@@ -99,6 +99,7 @@ $PAGE_SIZE = 50 # verified live: fightRankings pages carry 50 entries
 $QUANTS = @(99, 95, 90, 75, 50, 25, 10)
 
 $results = @{}  # name -> bracketKey -> @{ n; curve (array of @(pct, seconds)) }
+$encIds = @{}
 
 foreach ($enc in $zone.encounters) {
     Write-Host ("=== {0} ({1})" -f $enc.name, $enc.id)
@@ -166,7 +167,7 @@ foreach ($enc in $zone.encounters) {
             Write-Host ("    [{0}] n={1} p99={2}s p50={3}s" -f $bracket.key, $total, $curve["99"], $curve["50"])
         }
     }
-    if ($encOut.Count -gt 0) { $results[$enc.name] = $encOut }
+    if ($encOut.Count -gt 0) { $results[$enc.name] = $encOut; $encIds[$enc.name] = $enc.id }
 }
 
 Write-Host ("Total HTTP requests: {0}" -f $script:requestCount)
@@ -201,6 +202,16 @@ foreach ($name in ($results.Keys | Sort-Object)) {
         $points = $pts -join ", "
         Emit ("put(`"{0}`", `"{1}`", {{ n = {2}, curve = {{ {3} }} }})" -f ($name -replace '"', '\"'), $bk, $entry.n, $points)
     }
+}
+
+# ENCOUNTER_START ids -> the English WCL name keys: locale-proof lookup
+# (usually redundant with the percentile file's map; the `or` merge makes
+# duplicates free and covers kill-times-only encounters).
+Emit ""
+Emit "TP.Percentiles.ids = TP.Percentiles.ids or {}"
+foreach ($name in ($results.Keys | Sort-Object)) {
+    if (-not $encIds[$name]) { continue }
+    Emit ("TP.Percentiles.ids[{0}] = `"{1}`"" -f $encIds[$name], ($name -replace '"', '\"'))
 }
 # Rooted -OutFile is used as-is (CI passes absolute paths); a bare name
 # lands in the repo Data dir. Nested Join-Path keeps separators legal on

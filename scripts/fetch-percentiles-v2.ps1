@@ -288,6 +288,7 @@ function Get-NextProbe($s) {
 }
 
 $encounters = @{}
+$encIds = @{}
 foreach ($enc in $encList) {
     Write-Host ("=== {0} ({1})" -f $enc.name, $enc.id)
     $bracketSets = @{}
@@ -384,6 +385,7 @@ foreach ($enc in $encList) {
     }
     } # foreach bracket
     $encounters[$enc.name] = $bracketSets
+    $encIds[$enc.name] = $enc.id
 }
 
 Write-Host ("Total HTTP requests: {0}" -f $script:requestCount)
@@ -438,6 +440,17 @@ foreach ($name in ($encounters.Keys | Sort-Object)) {
         Emit-CurveTable "`t" "hps" $set.hps
         Emit "}"
     }
+}
+
+# ENCOUNTER_START ids -> the English WCL name keys above. Non-English
+# clients see localized boss names that can never string-match the keys;
+# the numeric encounterID is the same on every locale.
+Emit ""
+Emit "TP.Percentiles.ids = TP.Percentiles.ids or {}"
+foreach ($name in ($encounters.Keys | Sort-Object)) {
+    if ($encounters[$name].Count -eq 0 -or -not $encIds[$name]) { continue }
+    $luaName = $name -replace '"', '\"'
+    Emit ("TP.Percentiles.ids[{0}] = `"{1}`"" -f $encIds[$name], $luaName)
 }
 
 # Rooted -OutFile is used as-is (CI passes absolute paths); a bare name

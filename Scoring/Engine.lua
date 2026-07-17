@@ -226,6 +226,17 @@ local function encounterCurvesFor(P, fight)
 	if not (fight.isBoss or fight.isRun) or not P.encounters then
 		return nil
 	end
+	-- encounterID first: locale-proof. A non-English client's
+	-- ENCOUNTER_START name can never string-match the English WCL keys,
+	-- but the numeric id is identical on every locale. P.ids is emitted
+	-- by the crawlers (data refreshed monthly); absent on older files.
+	if fight.encounterID and P.ids then
+		local keyed = P.ids[fight.encounterID]
+		local enc = keyed and P.encounters[keyed]
+		if enc then
+			return sanitizeEncounter(enc)
+		end
+	end
 	if fight.name then
 		local enc = encounterByName(P, fight.name:gsub("^%(!%)%s*", ""))
 		if enc then
