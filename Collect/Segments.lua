@@ -240,9 +240,15 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 				end
 			end
 			if mxSum > 0 then
-				local pct = hpSum / mxSum * 100
-				if not seg.bossPctMin or pct < seg.bossPctMin then
-					seg.bossPctMin = pct
+				-- pool-continuity gate: if the boss leaves the frames
+				-- (realm/intermission phases) an adds-only sample sums a
+				-- fraction of the real pool — don't let it set the min
+				seg.bossMxPeak = math.max(seg.bossMxPeak or 0, mxSum)
+				if mxSum >= seg.bossMxPeak * 0.5 then
+					local pct = hpSum / mxSum * 100
+					if not seg.bossPctMin or pct < seg.bossPctMin then
+						seg.bossPctMin = pct
+					end
 				end
 			end
 		end, 2)
