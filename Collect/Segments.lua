@@ -211,7 +211,12 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 				end
 				return
 			end
-			local sum, n = 0, 0
+			-- health-POOL-weighted progress (2026-07-16, Garrosh read
+			-- "4%" at a 25% wipe): adds in boss frames have tiny pools,
+			-- and a plain average let a dying 10M-HP add drag a 600M-HP
+			-- boss's number to the floor. sum(hp)/sum(maxHP) is how
+			-- DBM/WCL compute boss % — adds barely move it.
+			local hpSum, mxSum = 0, 0
 			for i = 1, 5 do
 				local u = "boss" .. i
 				if UnitExists(u) then
@@ -219,23 +224,23 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 					-- throw on COMPARISON, not on call — the whole compute
 					-- lives inside the pcall with an explicit secret check
 					-- (live error: "attempt to compare a secret number")
-					local ok, frac = pcall(function()
-						local hp, mx = UnitHealth(u), UnitHealthMax(u)
-						if TP.Compat.IsSecret(hp) or TP.Compat.IsSecret(mx) then
+					local ok, hp, mx = pcall(function()
+						local h, m = UnitHealth(u), UnitHealthMax(u)
+						if TP.Compat.IsSecret(h) or TP.Compat.IsSecret(m) then
 							return nil
 						end
-						if type(hp) == "number" and type(mx) == "number" and mx > 0 then
-							return hp / mx
+						if type(h) == "number" and type(m) == "number" and m > 0 then
+							return h, m
 						end
 					end)
-					if ok and frac then
-						sum = sum + frac
-						n = n + 1
+					if ok and hp and mx then
+						hpSum = hpSum + hp
+						mxSum = mxSum + mx
 					end
 				end
 			end
-			if n > 0 then
-				local pct = sum / n * 100
+			if mxSum > 0 then
+				local pct = hpSum / mxSum * 100
 				if not seg.bossPctMin or pct < seg.bossPctMin then
 					seg.bossPctMin = pct
 				end
