@@ -1,5 +1,39 @@
 # TrueParse Changelog
 
+## 1.4.2
+
+The second half of the deep audit: ten fixes to record integrity and
+scoring edge cases.
+
+**Your history can't lie to you anymore.**
+- Kill/wipe verdicts are now matched pull-by-pull: several pulls of the
+  same boss in one session each keep their own outcome instead of the
+  last verdict overwriting all of them.
+- A pull the game explicitly called a kill can never be re-flagged as a
+  wipe by the retroactive wipe passes.
+- Re-running the same instance on a later day can no longer silently
+  replace yesterday's capture of the same boss.
+
+**Retail parity.** Weekly stats (and /tp guild) now accumulate on
+retail, not just Classic.
+
+**Scoring edges.**
+- Falling, drowning, and split/shield damage now count as damage taken,
+  appear in spike detection, and show honestly in death recaps.
+- Clean pulls can no longer manufacture healer group-damage windows
+  (max-health snapshots now cover the whole roster).
+- The group advice line counts players-who-died with the right
+  denominator instead of mixing units.
+
+**Smaller repairs:** the pinned run breakdown survives scrolling; a
+secret pet GUID mid-combat can't crash the roster; two latent scoring
+branches (spec factor fallback, curve cache invalidation) were fixed
+before they could misfire.
+
+Also new in the repo (invisible in-game): a monthly automated Warcraft
+Logs data refresh keeps percentile curves and kill times from going
+stale after active development ends.
+
 ## 1.4.1
 
 A deep audit (four parallel reviewers over the whole codebase) plus a
