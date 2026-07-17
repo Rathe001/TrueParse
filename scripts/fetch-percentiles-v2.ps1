@@ -440,6 +440,10 @@ foreach ($name in ($encounters.Keys | Sort-Object)) {
     }
 }
 
-$outPath = Join-Path (Split-Path $PSScriptRoot -Parent) "Data\$OutFile"
+# Rooted -OutFile is used as-is (CI passes absolute paths); a bare name
+# lands in the repo Data dir. Nested Join-Path keeps separators legal on
+# the Linux runners ("Data\x" is a literal filename there, not a path).
+$outPath = if ([System.IO.Path]::IsPathRooted($OutFile)) { $OutFile }
+    else { Join-Path (Split-Path $PSScriptRoot -Parent) (Join-Path "Data" $OutFile) }
 [System.IO.File]::WriteAllLines($outPath, $lines)
 Write-Host "Wrote $outPath"
