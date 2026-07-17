@@ -1,0 +1,102 @@
+# Monthly WCL data refresh (anti-staleness, 2026-07-17): once active
+# development stops, this keeps the shipped percentile/kill-time data
+# from drifting. SAFETY MODEL: crawl -> headless test gate -> pull
+# request. It never tags or publishes on its own; merging the PR and
+# tagging stays a human act until this has produced verified-correct
+# data at least once (then flip the PR step to commit+tag if desired).
+# Crawlers run SEQUENTIALLY - WCL V2 tokens are single-active.
+# Zone ids change per season/tier: update invocations when content
+# rolls over. Benchmarks have their own weekly workflow.
+name: Refresh WCL data
+
+on:
+  schedule:
+    - cron: "40 9 2 * *" # monthly, 2nd, 09:40 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for credentials
+        id: creds
+        env:
+          WCL_V2_ID: ${{ secrets.WCL_V2_ID }}
+          WCL_V2_SECRET: ${{ secrets.WCL_V2_SECRET }}
+        run: |
+          if [ -z "$WCL_V2_ID" ] || [ -z "$WCL_V2_SECRET" ]; then
+            echo "hascreds=false" >> "$GITHUB_OUTPUT"
+            echo "WCL V2 secrets missing; skipping." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "hascreds=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write credential file
+        if: steps.creds.outputs.hascreds == 'true'
+        shell: pwsh
+        env:
+          WCL_V2_ID: ${{ secrets.WCL_V2_ID }}
+          WCL_V2_SECRET: ${{ secrets.WCL_V2_SECRET }}
+        run: |
+          Set-Content -Path scripts/wcl-v2-client.local.txt -Value @($env:WCL_V2_ID, $env:WCL_V2_SECRET)
+
+      # ---- crawls: SEQUENTIAL, single-active token ----
+      - name: Retail raid percentiles (zone 46)
+        if: steps.creds.outputs.hascreds == 'true'
+        shell: pwsh
+        run: ./scripts/fetch-percentiles-v2.ps1 -ZoneId 46 -OutFile "$PWD/Data/Percentiles.lua"
+
+      - name: Retail LFR percentiles (zone 46, bracket 1)
+        if: steps.creds.outputs.hascreds == 'true'
+        shell: pwsh
+        run: ./scripts/fetch-percentiles-v2.ps1 -ZoneId 46 -Brackets "1" -OutFile "$PWD/Data/Percentiles_LFR.lua"
+
+      - name: Retail kill times (zone 46)
+        if: steps.creds.outputs.hascreds == 'true'
+        shell: pwsh
+        run: ./scripts/fetch-killtimes.ps1 -ZoneId 46 -OutFile "$PWD/Data/KillTimes.lua"
+
+      - name: MoP SoO percentiles (classic zone 1054)
+        if: steps.creds.outputs.hascreds == 'true'
+        shell: pwsh
+        run: ./scripts/fetch-percentiles-v2.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x10,3x25,4x10,4x25" -OutFile "$PWD/Data/Percentiles_Mists.lua"
+
+      - name: MoP kill times (classic zone 1054)
+        if: steps.creds.outputs.hascreds == 'true'
+        shell: pwsh
+        run: ./scripts/fetch-killtimes.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x10,3x25,4x10,4x25" -OutFile "$PWD/Data/KillTimes_Mists.lua"
+
+      # ---- gate: refreshed data must pass the full headless suite ----
+      - name: Install Lua
+        if: steps.creds.outputs.hascreds == 'true'
+        run: sudo apt-get update -q && sudo apt-get install -y -q lua5.4
+
+      - name: Headless tests against refreshed data
+        if: steps.creds.outputs.hascreds == 'true'
+        run: lua5.4 tests/run.lua
+
+      - name: Open refresh PR
+        if: steps.creds.outputs.hascreds == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -f scripts/wcl-v2-client.local.txt
+          if git diff --quiet -- Data/; then
+            echo "Data unchanged; nothing to refresh." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          BRANCH="data-refresh-$(date -u +%Y%m%d)"
+          git config user.name "trueparse-data-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add Data/
+          git commit -m "Monthly WCL data refresh ($(date -u +%Y-%m-%d))"
+          git push -u origin "$BRANCH"
+          gh pr create --fill --title "Monthly WCL data refresh ($(date -u +%Y-%m-%d))" \
+            --body "Automated crawl; headless suite passed against the refreshed data. Merge, then tag a patch release to ship it."
