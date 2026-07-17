@@ -1,5 +1,46 @@
 # TrueParse Changelog
 
+## 1.4.1
+
+A deep audit (four parallel reviewers over the whole codebase) plus a
+raid night of live verification. Highlights:
+
+**Fixed crashes and corruption.**
+- The run card crashed on Classic dungeon fights that had both a kick
+  and a typed dispel (introduced in 1.4.0).
+- Run rows summed per-fight ratios: two fights of 35% overheal read as
+  70% and earned a penalty neither fight deserved; activity could
+  auto-award +4. Aggregates now omit ratio metrics entirely.
+
+**Durations now match Warcraft Logs exactly.** Verified against a live
+log: WCL's fight bounds are the encounter events themselves, so ours
+now anchor to the same events - identical by construction. (The 1.3.3
+first-damage trim read ~15s short; the audit also found its internal
+clocks disagreed, which hid late-fight tank/healer danger windows.)
+
+**Fairness.**
+- Enemy mobs interrupting YOU no longer count as group kick coverage
+  or teach the kickable-spell list; enemy purges no longer count as
+  dispels.
+- Cooldowns used up to 10s BEFORE Bloodlust lands now count -
+  pre-lusting to save a global is correct play, not "Wasted Bloodlust".
+- Best-pull percentages are health-pool weighted: adds in Garrosh's
+  boss frames no longer drag a 25% wipe down to "boss at 4%".
+- Pre-pull auras can no longer close a tank's live mitigation window.
+
+**Sync repairs.** A /reload no longer leaves you blind to groupmates
+(the handshake answered the wrong side); fight reports no longer
+erase the announcer election's memory (duplicate announcements from
+the second fight on); weekly standings reject garbage values; the
+announce checkboxes broadcast changes immediately.
+
+**Also:** auto-collapse releases after trash fights (the window could
+stick collapsed until manual clicks), the Group row can't go
+click-dead after combat with click-through enabled, /tp procs only
+tallies group sources, the advice engine no longer names last week's
+raid mechanic as tonight's avoidable culprit, and the disabled Raw
+radio finally explains itself on hover.
+
 ## 1.4.0
 
 **Progression tracking.**
