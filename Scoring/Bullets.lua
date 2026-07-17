@@ -162,11 +162,20 @@ function Bullets.ForResult(result, awards, extra)
 			-- their own TrueParse reporting Ebon Might uptime
 			text, symbol, color = "Amplification unmeasured - needs their TrueParse", MIDDOT, MID
 		end
-		-- sort weight: count metrics use their real adjustment points;
-		-- base throughput uses its percentile distance from the middle —
-		-- a godly parse IS the score and outranks any +4 nudge
+		-- sort weight: count metrics use their real adjustment points
+		-- ONLY (a nil adjust means the score moved 0 — the pctile
+		-- fallback kept zero-impact "Did not interrupt" lines alive
+		-- past the impact filter, audit 2026-07-16); base throughput
+		-- uses its percentile distance from the middle — a godly parse
+		-- IS the score and outranks any +4 nudge
+		local sortPts
+		if key == "interrupts" or key == "dispels" then
+			sortPts = b.adjust or 0
+		else
+			sortPts = b.adjust or ((b.pctile or b.normalized or 50) - 50) / 5
+		end
 		out[#out + 1] = { kind = "metric", key = key, symbol = symbol, color = color,
-			text = text, points = b.adjust or ((b.pctile or b.normalized or 50) - 50) / 5 }
+			text = text, points = sortPts }
 	end
 
 	-- Staying clean earned points: say so (the negative twin lives in the

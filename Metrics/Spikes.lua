@@ -77,6 +77,14 @@ local function auraOn(seg, dstGUID, spellID, refreshOnly)
 	if refreshOnly and s.n > 0 then
 		return
 	end
+	-- remember WHICH auras we counted: a REMOVED for an aura that was
+	-- up before the pull (never counted) must not close someone else's
+	-- window (audit 2026-07-16 underflow-by-proxy)
+	s.counted = s.counted or {}
+	if s.counted[spellID] then
+		return
+	end
+	s.counted[spellID] = true
 	s.n = s.n + 1
 	if s.n == 1 then
 		s.since = GetTime() - seg.startTime
@@ -95,9 +103,10 @@ tracker.subevents.SPELL_AURA_REMOVED = function(seg, srcGUID, dstGUID, srcFlags,
 	end
 	local acc = seg.players[dstGUID]
 	local s = acc and acc.spikes
-	if not s or s.n == 0 then
-		return
+	if not s or s.n == 0 or not (s.counted and s.counted[a1]) then
+		return -- never counted this aura: don't close someone else's window
 	end
+	s.counted[a1] = nil
 	s.n = s.n - 1
 	if s.n == 0 and s.since then
 		s.spans[#s.spans + 1] = { s.since, GetTime() - seg.startTime }

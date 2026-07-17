@@ -16,6 +16,13 @@ local function applied(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
 	if not m then
 		return
 	end
+	-- track WHICH auras were counted so a REMOVED for a never-counted
+	-- pre-pull aura can't close a live window (audit 2026-07-16)
+	m.counted = m.counted or {}
+	if m.counted[a1] then
+		return
+	end
+	m.counted[a1] = true
 	m.n = m.n + 1
 	if m.n == 1 then
 		m.since = GetTime()
@@ -31,6 +38,8 @@ local function refreshed(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
 	local acc = seg.players[dstGUID]
 	local m = acc and acc.mitigation
 	if m and m.n == 0 then
+		m.counted = m.counted or {}
+		m.counted[a1] = true -- so its own REMOVED can close the window
 		m.n = 1
 		m.since = GetTime()
 	end
@@ -42,9 +51,10 @@ local function removed(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
 	end
 	local acc = seg.players[dstGUID]
 	local m = acc and acc.mitigation
-	if not m or m.n == 0 then
+	if not m or m.n == 0 or not (m.counted and m.counted[a1]) then
 		return
 	end
+	m.counted[a1] = nil
 	m.n = m.n - 1
 	if m.n == 0 and m.since then
 		m.uptime = m.uptime + (GetTime() - m.since)

@@ -593,7 +593,9 @@ local bulletResult = {
 	breakdown = {
 		damage = { applicable = true, normalized = 85, contribution = 46.8, effectiveWeight = 0.55, value = 5000000 },
 		healing = { applicable = true, normalized = 20, contribution = 2.0, effectiveWeight = 0.10, value = 50000 },
-		interrupts = { applicable = true, normalized = 60, contribution = 15.0, effectiveWeight = 0.25, value = 1 },
+		-- count metrics need a real adjustment to earn a line now
+		-- (impact-only card, audit 2026-07-16)
+		interrupts = { applicable = true, normalized = 60, contribution = 15.0, effectiveWeight = 0.25, value = 1, adjust = -2 },
 		dispels = { applicable = false },
 	},
 	penaltyDetail = { deaths = 6.5 },
@@ -603,14 +605,15 @@ local bullets = TP.Scoring.Bullets.ForResult(bulletResult, { "Kick King" })
 check(#bullets == 5, ("5 bullets: award + 3 metrics + penalty (%d)"):format(#bullets))
 check(bullets[1].kind == "award" and bullets[1].text == "Kick King", "award bullet first, gold")
 check(bullets[2].text == "Excellent damage" and bullets[2].symbol == "+", "biggest weight first, human phrase, green +")
-check(bullets[3].text == "Too few interrupts" and bullets[3].symbol == "-",
+check(bullets[3].text == "Too few interrupts (-2)" and bullets[3].symbol == "-",
 	"count metrics tier statically: 1 kick is grey when plenty happened")
 bulletResult.breakdown.interrupts.normalized = 100
+bulletResult.breakdown.interrupts.adjust = 1
 local shareKick
 for _, b in ipairs(TP.Scoring.Bullets.ForResult(bulletResult, nil)) do
 	if b.key == "interrupts" then shareKick = b end
 end
-check(shareKick.text == "Did their share of kicks" and shareKick.symbol == "+",
+check(shareKick.text == "Did their share of kicks (+1)" and shareKick.symbol == "+",
 	"1 kick covering the fight's whole demand is credited, not scolded")
 bulletResult.breakdown.interrupts.normalized = 60
 bulletResult.breakdown.interrupts.value = 3
@@ -618,13 +621,13 @@ local threeKick
 for _, b in ipairs(TP.Scoring.Bullets.ForResult(bulletResult, nil)) do
 	if b.key == "interrupts" then threeKick = b end
 end
-check(threeKick.text == "Good interrupting" and threeKick.symbol == "+", "3 kicks is blue")
+check(threeKick.text == "Good interrupting (+1)" and threeKick.symbol == "+", "3 kicks is blue")
 bulletResult.breakdown.interrupts.value = 5
 local fiveKick
 for _, b in ipairs(TP.Scoring.Bullets.ForResult(bulletResult, nil)) do
 	if b.key == "interrupts" then fiveKick = b end
 end
-check(fiveKick.text == "Godly interrupting", "5+ kicks is godly")
+check(fiveKick.text == "Godly interrupting (+1)", "5+ kicks is godly")
 bulletResult.breakdown.interrupts.value = 1
 check(bullets[4].text == "Little off-healing" and bullets[4].symbol == "-", "weak DPS healing phrased as off-healing")
 check(bullets[5].kind == "penalty" and bullets[5].text:find("^Died"), "penalty bullet human (now with points)")
@@ -635,7 +638,7 @@ local kickText
 for _, b in ipairs(zeroBullets) do
 	if b.key == "interrupts" then kickText = b.text end
 end
-check(kickText == "Did not interrupt", ("zero kicks phrased plainly (%s)"):format(tostring(kickText)))
+check(kickText == "Did not interrupt (+1)", ("zero kicks phrased plainly (%s)"):format(tostring(kickText)))
 -- curve-scored metrics tier on the PERCENTILE the gauge shows, not the
 -- transformed True score (p37 -> 55.9 called itself "Good" in blue while
 -- the gauge marker sat in the green zone)

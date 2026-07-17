@@ -74,13 +74,25 @@ local optionsTable = {
 					type = "toggle", order = 3, name = "Announce run MVP to group",
 					desc = "When a dungeon/key completes, post ONE line to group chat: the run MVP, what earned it, and the group score. When several TrueParse users have announcements on, only one (the newest version) posts - no duplicates. On retail a Post button asks first; Blizzard blocks addons from sending chat on their own. Off by default; be considerate.",
 					get = function() return profile().announce end,
-					set = function(_, v) profile().announce = v end,
+					set = function(_, v)
+						profile().announce = v
+						-- the election reads groupmates' last-heard flags;
+						-- a silent change corrupts it (audit 2026-07-16)
+						if TP.Sync and TP.Sync.QueueHello then
+							TP.Sync:QueueHello()
+						end
+					end,
 				},
 				announceSummary = {
 					type = "toggle", order = 4, name = "Announce group summary",
 					desc = "When a run completes, post ONE line telling the group's story: the score, kill speed vs the group's own parses when they disagree (execution vs throughput), kick coverage, deaths, and the run's most useful pointer. No individual scores. Same one-announcer rule and retail Post button as the MVP line.",
 					get = function() return profile().announceSummary end,
-					set = function(_, v) profile().announceSummary = v end,
+					set = function(_, v)
+						profile().announceSummary = v
+						if TP.Sync and TP.Sync.QueueHello then
+							TP.Sync:QueueHello()
+						end
+					end,
 				},
 			},
 		},

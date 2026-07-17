@@ -629,7 +629,60 @@ function FightHistory:AddFromSegment(seg)
 		if first and last and last > first then
 			local tight = last - first + 1
 			if tight >= 10 and tight < seg.duration then
+				seg.rawDuration = seg.duration
 				seg.duration = tight
+				-- REBASE every time-series to the trimmed clock (audit
+				-- 2026-07-16: trimming only the length left buckets and
+				-- timestamps on the untrimmed clock, so spike scans
+				-- missed the fight's FINAL seconds and the wipe-call
+				-- baseline kept the phantom intro zeros)
+				if first > 0 then
+					local function shift(t)
+						if not t then
+							return nil
+						end
+						local s = {}
+						for k, v in pairs(t) do
+							s[k - first] = v
+						end
+						return s
+					end
+					seg.group.out = shift(seg.group.out)
+					for _, acc in pairs(seg.players) do
+						local sp = acc.spikes
+						if sp then
+							sp.taken = shift(sp.taken) or {}
+							if sp.since then
+								sp.since = sp.since - first
+							end
+							for _, span in ipairs(sp.spans or {}) do
+								span[1], span[2] = span[1] - first, span[2] - first
+							end
+							for i, c in ipairs(sp.casts or {}) do
+								sp.casts[i] = c - first
+							end
+						end
+						if acc.taken then
+							acc.taken.avB = shift(acc.taken.avB)
+							for _, slot in ipairs(acc.taken.ring or {}) do
+								if slot.t then
+									slot.t = math.max(0, slot.t - first)
+								end
+							end
+						end
+						for _, hit in ipairs(acc.deathRecap or {}) do
+							if hit.t then
+								hit.t = math.max(0, hit.t - first)
+							end
+						end
+						if acc.deaths and acc.deaths.lastTime then
+							acc.deaths.lastTime = math.max(0, acc.deaths.lastTime - first)
+						end
+						if acc.dryAt then
+							acc.dryAt = math.max(0, acc.dryAt - first)
+						end
+					end
+				end
 			end
 		end
 	end
@@ -797,6 +850,7 @@ function FightHistory:AddFromSegment(seg)
 		-- lowest boss HP% reached: the progression number on wipes
 		bossPct = seg.encounterWipe and seg.bossPctMin or nil,
 		duration = seg.duration or 0,
+		rawDuration = seg.rawDuration, -- untrimmed window (report matching)
 		capturedAt = time(),
 		zone = GetZoneText(),
 		difficultyID = select(3, GetInstanceInfo()),

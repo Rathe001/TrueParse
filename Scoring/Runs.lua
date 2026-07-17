@@ -8,6 +8,14 @@ TP.Scoring = TP.Scoring or {}
 local Runs = {}
 TP.Scoring.Runs = Runs
 
+-- per-fight ratios and timestamps: meaningless when summed across
+-- fights, so the aggregate omits them (absent data is always neutral)
+local RATIO_METRICS = {
+	activityPct = true, mitigationPct = true, overhealPct = true,
+	overkillPct = true, manaMinPct = true, dryAt = true,
+	dispelReactAvg = true,
+}
+
 function Runs.Aggregate(fights, name)
 	local run = {
 		name = name or "Run",
@@ -34,7 +42,17 @@ function Runs.Aggregate(fights, name)
 		run.difficultyID = fight.difficultyID or run.difficultyID
 		run.keystoneLevel = fight.keystoneLevel or run.keystoneLevel
 		for key, value in pairs(fight.totals or {}) do
-			run.totals[key] = (run.totals[key] or 0) + value
+			-- totals now carry non-numeric entries (dispelTypes is a
+			-- table): summing them crashed the run card (audit 2026-07-16)
+			if type(value) == "number" then
+				run.totals[key] = (run.totals[key] or 0) + value
+			elseif key == "dispelTypes" then
+				local t = run.totals.dispelTypes or {}
+				run.totals.dispelTypes = t
+				for k in pairs(value) do
+					t[k] = true
+				end
+			end
 		end
 		for guid, p in pairs(fight.players) do
 			local rp = run.players[guid]
@@ -55,6 +73,12 @@ function Runs.Aggregate(fights, name)
 					-- a 0-1 RATIO: summing gave a 5-fight Aug ~3.0 "uptime"
 					-- (scored 100 regardless of play). Duration-weight it.
 					rp.uptimeWeighted = (rp.uptimeWeighted or 0) + value * (fight.duration or 0)
+				elseif RATIO_METRICS[key] or type(value) ~= "number" then
+					-- ratios/timestamps must not sum (audit 2026-07-16:
+					-- two fights of 35% overheal read 70% on the run row
+					-- and earned a penalty neither fight did; summed
+					-- activityPct auto-awarded +4). The aggregate simply
+					-- omits them - absent data is always neutral.
 				else
 					rp.metrics[key] = (rp.metrics[key] or 0) + value
 				end

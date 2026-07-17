@@ -190,11 +190,20 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 			end
 		end)
 		-- best-pull tracking: sample boss HP every 2s; the lowest average
-		-- across boss frames is "how far we got" when this ends in a wipe
-		self.bossPctTimer = TP.Addon:ScheduleRepeatingTimer(function()
+		-- across boss frames is "how far we got" when this ends in a wipe.
+		-- Cancel any prior ticker FIRST and let the closure cancel its OWN
+		-- handle (audit 2026-07-16: a double ENCOUNTER_START orphaned the
+		-- old ticker, which then assassinated every future fight's sampler
+		-- via the shared self.bossPctTimer field)
+		if self.bossPctTimer then
+			TP.Addon:CancelTimer(self.bossPctTimer)
+			self.bossPctTimer = nil
+		end
+		local myTimer
+		myTimer = TP.Addon:ScheduleRepeatingTimer(function()
 			if self.current ~= seg then
-				if self.bossPctTimer then
-					TP.Addon:CancelTimer(self.bossPctTimer)
+				TP.Addon:CancelTimer(myTimer)
+				if self.bossPctTimer == myTimer then
 					self.bossPctTimer = nil
 				end
 				return
@@ -229,6 +238,7 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 				end
 			end
 		end, 2)
+		self.bossPctTimer = myTimer
 	end
 end
 

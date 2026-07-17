@@ -57,9 +57,15 @@ tracker.subevents.SPELL_INTERRUPT = function(seg, srcGUID, dstGUID, srcFlags, ds
 	segCheck(seg)
 	local guid = TP.Roster:ResolveGUID(srcGUID)
 	local acc = guid and seg.players[guid]
-	if acc then
-		acc.interrupts.kicks = acc.interrupts.kicks + 1
+	if not acc then
+		-- an ENEMY kicking a player is not group coverage, and the
+		-- player's spell must never enter the kickable list (audit
+		-- 2026-07-16: mob kicks inflated "kicked 8 of 9" and learned
+		-- Greater Heal as kickable, account-wide)
+		pendingCasts[dstGUID] = nil
+		return
 	end
+	acc.interrupts.kicks = acc.interrupts.kicks + 1
 	if a4 then
 		local known = learnedKickable()
 		if known then
@@ -128,6 +134,13 @@ end
 -- SPELL_DISPEL suffix: spellID, name, school, removedSpellID, ...
 tracker.subevents.SPELL_DISPEL = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4)
 	segCheck(seg)
+	-- FRIENDLY dispels only: the target must be a roster member. A
+	-- Purge on an enemy buff is offense, not cleansing, and an enemy
+	-- stripping a player's buff must not count or teach the
+	-- dispellable list (audit 2026-07-16)
+	if not TP.Roster:ResolveGUID(dstGUID) then
+		return
+	end
 	local guid = TP.Roster:ResolveGUID(srcGUID)
 	local acc = guid and seg.players[guid]
 	if acc then
@@ -144,8 +157,10 @@ tracker.subevents.SPELL_DISPEL = function(seg, srcGUID, dstGUID, srcFlags, dstFl
 	end
 	-- mark the removed debuff as dispellable; its TYPE gets learned at
 	-- the NEXT apply (the aura is already gone from the unit here), and
-	-- once known it gates who is eligible for dispel scoring
-	if a4 then
+	-- once known it gates who is eligible for dispel scoring. Roster
+	-- dispellers only: an enemy stripping a player's BUFF must not
+	-- teach the list (audit 2026-07-16)
+	if a4 and acc then
 		local g = TP.Addon.db.global
 		g.dispellableDebuffs = g.dispellableDebuffs or {}
 		g.dispellableDebuffs[a4] = true

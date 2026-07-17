@@ -542,6 +542,12 @@ function MeterWindow:OnEnable()
 		if TP.Segments.current and db().window.autoCollapse then
 			autoCollapsed = true
 			TP.BreakdownPanel:HideAll()
+		elseif not TP.Segments.current then
+			-- segment ENDED: reopen even when nothing captures (trash
+			-- pulls fire no FIGHT_CAPTURED, so the auto-collapse used
+			-- to stick until manual clicks — 2026-07-16 report of the
+			-- first expand click doing nothing after fights)
+			autoCollapsed = false
 		end
 		MeterWindow:Refresh(true)
 	end)
@@ -792,6 +798,9 @@ function MeterWindow:RenderScorecard(fight)
 			window.modeRaw:Enable()
 		else
 			window.modeRaw:Disable()
+			-- a disabled button fires no OnEnter, so the "why is this
+			-- disabled" tooltip was unreachable (audit 2026-07-16)
+			window.modeRaw:SetMotionScriptsWhileDisabled(true)
 		end
 	end
 	local rowHeight = SCORECARD_ROW_HEIGHT
@@ -979,6 +988,10 @@ function MeterWindow:RenderScorecard(fight)
 			row = TP.Scorecard:Acquire(window)
 			activeRows[index] = row
 		end
+		-- pooled rows carry stale mouse state (audit 2026-07-16: a row
+		-- released while click-through-in-combat stayed dead forever
+		-- when re-acquired as the footer)
+		row:EnableMouse(not clickThrough)
 		row:SetSize(width, rowHeight)
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + COLHEAD_HEIGHT + (index - 1) * (rowHeight + 1)))

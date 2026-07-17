@@ -190,16 +190,11 @@ function Insights.RunAdvice(fights)
 	end
 	-- what the group ate
 	if taken > 0 and avoidable / taken >= 0.10 then
-		local worst
-		local worstTotal = 0
-		for id, e in pairs(TP.TakenSpells or {}) do
-			if TP.AVOIDABLE and TP.AVOIDABLE[id] and (e.total or 0) > worstTotal then
-				worst, worstTotal = e.name, e.total
-			end
-		end
-		add(80, worst
-			and ("%.0f%% of all damage taken was avoidable - %s did the most of it, and it's dodgeable."):format(avoidable / taken * 100, worst)
-			or ("%.0f%% of all damage taken was avoidable."):format(avoidable / taken * 100))
+		-- no spell name here: TakenSpells is an account-LIFETIME tally,
+		-- and naming last week's raid mechanic as tonight's culprit was
+		-- wrong (audit 2026-07-16). /tp baddies still names names with
+		-- its scope labeled.
+		add(80, ("%.0f%% of all damage taken was avoidable - the death recaps and /tp baddies name the spells."):format(avoidable / taken * 100))
 	end
 	-- coverage stats
 	if kickOpps >= 6 and kicksLanded / kickOpps < 0.6 then

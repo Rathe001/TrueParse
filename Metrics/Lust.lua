@@ -7,12 +7,31 @@ local _, TP = ...
 local tracker = { subevents = {} }
 
 local LUST_DURATION = 40
+-- pre-lusting is CORRECT play: popping cooldowns just before the lust
+-- lands saves a global (Josh, 2026-07-16 — his pre-lust CDs read
+-- "Wasted Bloodlust"). Casts this many seconds BEFORE the buff count.
+local LUST_PRE_GRACE = 10
 
 tracker.subevents.SPELL_AURA_APPLIED = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
 	if not a1 then
 		return
 	end
 	if TP.LUST and TP.LUST[a1] then
+		if not seg.lustSeen then
+			-- retro-credit cooldowns popped in the pre-lust grace
+			local since = GetTime() - LUST_PRE_GRACE
+			for _, acc in pairs(seg.players) do
+				local l = acc.lust
+				if l and l.recent then
+					for _, t in ipairs(l.recent) do
+						if t >= since then
+							l.casts = l.casts + 1
+						end
+					end
+					l.recent = nil
+				end
+			end
+		end
 		seg.lustSeen = true
 		seg.lustUntil = GetTime() + LUST_DURATION
 		return
@@ -37,6 +56,12 @@ tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags,
 	acc.lust.totalCasts = acc.lust.totalCasts + 1
 	if seg.lustUntil and GetTime() < seg.lustUntil then
 		acc.lust.casts = acc.lust.casts + 1
+	elseif not seg.lustSeen then
+		-- remember pre-lust casts so a lust in the next few seconds
+		-- can claim them (ring of 4: nobody pre-lusts more CDs)
+		local l = acc.lust
+		l.recent = l.recent or {}
+		l.recent[#l.recent % 4 + 1] = GetTime()
 	end
 end
 

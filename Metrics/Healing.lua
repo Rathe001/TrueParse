@@ -12,7 +12,7 @@ local function heal(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a
 	if not a4 then
 		return
 	end
-	if a1 then
+	if a1 and TP.Roster:ResolveGUID(srcGUID) then
 		local e = TP.HealSpells[a1]
 		if not e then
 			e = { name = a2, total = 0 }

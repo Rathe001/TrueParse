@@ -57,7 +57,9 @@ TP.DoneSpells = {}
 -- SPELL/RANGE prefix adds spellId, spellName, school before the damage suffix:
 -- spellId, spellName, school, amount, overkill, ...
 local function spellDamage(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a5)
-	if a1 and a4 then
+	-- tally GROUP sources only (audit 2026-07-16: boss AoE totals were
+	-- drowning player procs out of /tp procs and its login prune)
+	if a1 and a4 and TP.Roster:ResolveGUID(srcGUID) then
 		local e = TP.DoneSpells[a1]
 		if not e then
 			e = { name = a2, total = 0 }

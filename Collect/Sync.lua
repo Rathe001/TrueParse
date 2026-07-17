@@ -124,7 +124,13 @@ function Sync:AttachReports(fight)
 			local bestIdx, bestDiff
 			local tolerance = math.max(8, (fight.duration or 0) * 0.2)
 			for i, report in ipairs(list) do
+				-- self-reports measure the UNTRIMMED combat window; match
+				-- both clocks (audit 2026-07-16: the WCL trim pushed intro
+				-- fights past tolerance and dropped every report)
 				local diff = math.abs((report.duration or 0) - (fight.duration or 0))
+				if fight.rawDuration then
+					diff = math.min(diff, math.abs((report.duration or 0) - fight.rawDuration))
+				end
 				if diff <= tolerance and (not bestDiff or diff < bestDiff) then
 					bestIdx, bestDiff = i, diff
 				end
@@ -235,14 +241,14 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		end
 		if guid ~= UnitGUID("player") then
 			checkNewerVersion(remoteAddonVersion)
-			-- handshake: a hello from someone we DON'T know yet means
-			-- they can't know us either (a reloader wiped their table
-			-- and re-announced) — answer so both sides relearn. Known
-			-- senders get no reply, so this converges in one round
-			-- instead of storming. users was reload-mortal with no
-			-- re-request: one /reload turned the whole raid gray
-			-- (2026-07-14).
-			if not self.users[guid] then
+			-- handshake (audit 2026-07-16: the unknown-SENDER test was
+			-- backwards — a reloader's hello arrived at peers who all
+			-- knew them, so nobody replied and the reloader stayed
+			-- blind). A hello can't tell us whether the sender knows
+			-- US, so reply whenever we haven't announced recently; our
+			-- own fresh hello suppresses replying to the replies,
+			-- which kills the storm.
+			if time() - (self.helloAt or 0) > 15 then
 				self:QueueHello()
 			end
 		end
@@ -265,6 +271,11 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 
 	-- weekly standings for /tp guild: "W:<week>:<gpa*10>:<fights>:<tops>"
 	local wWeek, wGpa, wFights, wTops = message:match("^W:(%d+):(%d+):(%d+):(%d+)$")
+	-- sanity-bound remote claims like every other wire path (audit
+	-- 2026-07-16): a garbage gpa of 9999999 sorted to rank 1
+	if wWeek and (tonumber(wGpa) > 990 or tonumber(wFights) > 500) then
+		wWeek = nil
+	end
 	if wWeek then
 		local wGuid
 		for guid2, info2 in pairs(TP.Roster.players) do
@@ -307,7 +318,16 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		if not TP.Roster.players[fGuid] or not senderOwnsGuid(sender, fGuid) then
 			return -- not in our group, or claiming someone else's GUID
 		end
+		-- merge, never replace: a full overwrite here destroyed the
+	-- addonVersion/announces learned from the hello, so the announcer
+	-- election forgot its voters after the first fight (audit 2026-07-16)
+	local known = self.users[fGuid]
+	if known then
+		known.version = tonumber(fVersion)
+		known.seen = time()
+	else
 		self.users[fGuid] = { version = tonumber(fVersion), seen = time() }
+	end
 		-- sanity-bound self-reported numbers
 		local ready = tonumber(readyAtDeath)
 		self:RecordFightReport(fGuid,
