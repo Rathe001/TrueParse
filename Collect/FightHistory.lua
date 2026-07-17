@@ -616,18 +616,29 @@ function FightHistory:AddFromSegment(seg)
 	-- first damage -> last damage; the per-second output buckets give
 	-- us the same trim. Kill-time percentiles want this too — WCL's
 	-- ranked kill times use the same bounds.
-	if seg.group and seg.group.out and (seg.duration or 0) > 0 then
-		local first, last
-		for t in pairs(seg.group.out) do
-			if not first or t < first then
-				first = t
+	if (seg.duration or 0) > 0 then
+		-- WCL's fight bounds are the ENCOUNTER events, intros included
+		-- (verified vs live logs 2026-07-16: the first-damage trim read
+		-- SHORT of WCL by ~15s). Anchor to the encounter window when we
+		-- have one; fall back to damage-bucket bounds only for segments
+		-- without a clean encounter verdict.
+		local first, tight
+		if seg.encounterStartTime and seg.encounterEnded and seg.endTime then
+			first = math.max(0, math.floor(seg.encounterStartTime - seg.startTime))
+			tight = math.max(1, math.floor(seg.endTime - seg.encounterStartTime + 0.5))
+		elseif seg.group and seg.group.out then
+			local last
+			for t in pairs(seg.group.out) do
+				if not first or t < first then
+					first = t
+				end
+				if not last or t > last then
+					last = t
+				end
 			end
-			if not last or t > last then
-				last = t
-			end
+			tight = first and last and last > first and (last - first + 1) or nil
 		end
-		if first and last and last > first then
-			local tight = last - first + 1
+		if first and tight then
 			if tight >= 10 and tight < seg.duration then
 				seg.rawDuration = seg.duration
 				seg.duration = tight

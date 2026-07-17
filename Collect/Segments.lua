@@ -178,6 +178,9 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 	self:StartFight(encounterName)
 	if self.current then
 		self.current.encounterID = encounterID
+		-- WCL's fight bounds ARE the encounter events; anchoring our
+		-- duration here matches their rankings by construction
+		self.current.encounterStartTime = GetTime()
 		if encounterName then -- secret name: keep StartFight's fallback label
 			self.current.name = encounterName
 		end
