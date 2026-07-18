@@ -911,11 +911,12 @@ end
 -- kills gives us only the FASTEST 1000, and the slow tail is never served.
 local SPEED_RANK_CAP = 1000
 
--- Fixed raid sizes turn per-spec parse counts into a kill count: WCL ranks
--- every raider on BOTH dps and hps (verified: the two sums match to the
--- person), so sum(dps parses) / raidSize = total kills. Flex retail brackets
--- (Normal/Heroic/LFR) have no fixed size and are omitted — we can't size
--- their field, so their capped samples can't be honestly ranked.
+-- Raid size turns per-spec parse counts into a kill count: WCL ranks every
+-- raider on BOTH dps and hps (verified: the two sums match to the person),
+-- so sum(dps parses) / raidSize = total kills. Preferred source is the
+-- crawl-captured killTime.avgSize (real average, so flex retail brackets
+-- work too); this table is the fallback for data crawled before avgSize
+-- existed — fixed-size brackets only, flex omitted (can't size them).
 local BRACKET_RAID_SIZE = {
 	["3x10"] = 10, ["4x10"] = 10, ["3x25"] = 25, ["4x25"] = 25, -- MoP 10/25 N/H
 	["5"] = 20, -- retail Mythic (fixed 20)
@@ -973,9 +974,12 @@ function Engine.KillSpeedPercentile(fight)
 	end
 
 	-- Capped: rescale the fastest-1000 sample by the estimated true field.
-	local N = estimateKillPopulation(bracket, key and BRACKET_RAID_SIZE[key])
+	-- Prefer the crawl-captured average raid size (sizes flex brackets too);
+	-- fall back to the fixed-size table for data that predates avgSize.
+	local size = kt.avgSize or (key and BRACKET_RAID_SIZE[key])
+	local N = estimateKillPopulation(bracket, size)
 	if not N or N <= sampleN then
-		-- can't size the field (flex retail) — no honest ranking to give
+		-- can't size the field (flex retail, no avgSize) — nothing honest to give
 		return nil
 	end
 	if fight.duration > curve[#curve][2] then

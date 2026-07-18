@@ -149,10 +149,21 @@ foreach ($enc in $zone.encounters) {
             $needed["$page"]["$p"] = $rank
         }
         $curve = @{}
+        # Accumulate raid size across the fetched quantile pages (they span
+        # p99..p10). Flex brackets (retail Normal/Heroic/LFR) have no fixed
+        # size, so the engine can't turn per-spec parse counts into a kill
+        # count without this average; fixed-size brackets get their exact
+        # size back (a harmless no-op there).
+        $sizeSum = 0.0; $sizeCount = 0
         foreach ($pageKey in $needed.Keys) {
             $page = [int]$pageKey
             $data = if ($page -eq 1) { $first } else { Get-RankingsPage $enc.id $bracket.args $page }
             if (-not ($data -and $data.rankings)) { continue }
+            foreach ($rk in $data.rankings) {
+                $sz = $rk.size
+                if (-not $sz) { $sz = [double]($rk.tanks + $rk.healers + $rk.melee + $rk.ranged) }
+                if ($sz -and $sz -gt 0) { $sizeSum += [double]$sz; $sizeCount++ }
+            }
             foreach ($pKey in $needed[$pageKey].Keys) {
                 $rank = $needed[$pageKey][$pKey]
                 $idx = ($rank - 1) % $PAGE_SIZE
@@ -163,8 +174,9 @@ foreach ($enc in $zone.encounters) {
             }
         }
         if ($curve.Count -ge 4) {
-            $encOut[$bracket.key] = @{ n = $total; curve = $curve }
-            Write-Host ("    [{0}] n={1} p99={2}s p50={3}s" -f $bracket.key, $total, $curve["99"], $curve["50"])
+            $avgSize = if ($sizeCount -gt 0) { [math]::Round($sizeSum / $sizeCount, 1) } else { $null }
+            $encOut[$bracket.key] = @{ n = $total; curve = $curve; avgSize = $avgSize }
+            Write-Host ("    [{0}] n={1} p99={2}s p50={3}s avgSize={4}" -f $bracket.key, $total, $curve["99"], $curve["50"], $avgSize)
         }
     }
     if ($encOut.Count -gt 0) { $results[$enc.name] = $encOut; $encIds[$enc.name] = $enc.id }
@@ -200,7 +212,10 @@ foreach ($name in ($results.Keys | Sort-Object)) {
             }
         }
         $points = $pts -join ", "
-        Emit ("put(`"{0}`", `"{1}`", {{ n = {2}, curve = {{ {3} }} }})" -f ($name -replace '"', '\"'), $bk, $entry.n, $points)
+        # avgSize present -> the engine can size flex fields; absent -> it
+        # falls back to the hardcoded fixed sizes (older data stays valid)
+        $sizePart = if ($null -ne $entry.avgSize) { (", avgSize = {0}" -f $entry.avgSize) } else { "" }
+        Emit ("put(`"{0}`", `"{1}`", {{ n = {2}, curve = {{ {3} }}{4} }})" -f ($name -replace '"', '\"'), $bk, $entry.n, $points, $sizePart)
     }
 }
 

@@ -1360,15 +1360,22 @@ capFight.duration = 500
 local bpct, _, _, bbnd = TP.Scoring.Engine.KillSpeedPercentile(capFight)
 check(bbnd and bpct and math.abs(bpct - 75) < 0.5,
 	("beyond-sample kill is bounded at the field ceiling (%s, bounded=%s)"):format(tostring(bpct), tostring(bbnd)))
--- flex retail bracket (no fixed raid size) capped -> can't rank -> nil
+-- flex retail bracket (difficultyID 14 -> "3", not in the fixed-size table):
+-- without a crawl-captured avgSize we can't size the field -> nil
 TP.Percentiles.encounters["Capped Boss"]["3"] = {
-	dps = { [63] = { n = 20000, curve = {} } }, hps = {},
+	dps = { [63] = { n = 30000, curve = {} }, [64] = { n = 30000, curve = {} } }, hps = {},
 	killTime = { n = 1000, curve = { { 99, 60 }, { 95, 80 }, { 90, 100 }, { 75, 140 }, { 50, 200 }, { 25, 280 }, { 10, 400 } } },
 }
 TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
 local flexFight = { name = "(!) Capped Boss", isBoss = true, duration = 200, difficultyID = 14, players = {} }
 check(TP.Scoring.Engine.KillSpeedPercentile(flexFight) == nil,
-	"capped flex-retail bracket (unknown raid size) yields no percentile")
+	"capped flex bracket without avgSize yields no percentile")
+-- with a crawl-captured avgSize the flex field is sizeable and rescales:
+-- 60000 dps / avgSize 20 = 3000 kills; 200s = sample p50 -> rank 500 -> p83.3
+TP.Percentiles.encounters["Capped Boss"]["3"].killTime.avgSize = 20
+local flexPct = TP.Scoring.Engine.KillSpeedPercentile(flexFight)
+check(flexPct and math.abs(flexPct - 83.3) < 0.5,
+	("crawl-captured avgSize lets a flex bracket rescale (%s)"):format(tostring(flexPct)))
 TP.Percentiles.encounters["Capped Boss"] = nil
 TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
 

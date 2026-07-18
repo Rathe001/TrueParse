@@ -50,7 +50,7 @@ jobs:
       - name: Retail raid percentiles (zone 46)
         if: steps.creds.outputs.hascreds == 'true'
         shell: pwsh
-        run: ./scripts/fetch-percentiles-v2.ps1 -ZoneId 46 -OutFile "$PWD/Data/Percentiles.lua"
+        run: ./scripts/fetch-percentiles-v2.ps1 -ZoneId 46 -Brackets "3,4,5" -OutFile "$PWD/Data/Percentiles.lua"
 
       - name: Retail LFR percentiles (zone 46, bracket 1)
         if: steps.creds.outputs.hascreds == 'true'
@@ -60,7 +60,7 @@ jobs:
       - name: Retail kill times (zone 46)
         if: steps.creds.outputs.hascreds == 'true'
         shell: pwsh
-        run: ./scripts/fetch-killtimes.ps1 -ZoneId 46 -OutFile "$PWD/Data/KillTimes.lua"
+        run: ./scripts/fetch-killtimes.ps1 -ZoneId 46 -Brackets "3,4,5" -OutFile "$PWD/Data/KillTimes.lua"
 
       - name: MoP SoO percentiles (classic zone 1054)
         if: steps.creds.outputs.hascreds == 'true'
