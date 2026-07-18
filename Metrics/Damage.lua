@@ -35,6 +35,16 @@ local function addDamage(seg, srcGUID, dstGUID, dstFlags, amount, overkill)
 		end
 		local t = math.floor(GetTime() - seg.startTime)
 		gb[t] = (gb[t] or 0) + amount
+		-- when the TANK first dealt damage: threat's pull detection uses
+		-- this to tell a tank-initiated pull (slow projectile still in
+		-- the air while a DPS pre-cast lands) from a real DPS pull. One
+		-- lookup per event until set, then short-circuits.
+		if not g.tankFirstDamage and srcGUID == guid then
+			local info = TP.Roster.players[guid]
+			if info and info.role == "TANK" then
+				g.tankFirstDamage = GetTime() - seg.startTime
+			end
+		end
 	end
 	local d = acc.damage
 	d.total = d.total + amount

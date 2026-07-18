@@ -48,7 +48,11 @@ local function sample()
 	local elapsed = GetTime() - seg.startTime
 
 	-- No living tank: aggro is nobody's job right now (all-DPS groups,
-	-- tank death mid-wipe). Attribute nothing this tick.
+	-- tank death mid-wipe). Attribute nothing this tick — but keep the
+	-- per-player `has` state current, or aggro acquired while the tank
+	-- was dead reads as a fresh rip on the first tick after a brez
+	-- (audit 2026-07-18). The grace window gives a rezzed tank a few
+	-- seconds to taunt before rips/loss start charging again.
 	wipe(tankScratch)
 	local tanks
 	for guid, info in pairs(TP.Roster.players) do
@@ -58,8 +62,22 @@ local function sample()
 		end
 	end
 	if not tanks then
+		for guid, info in pairs(TP.Roster.players) do
+			if info.role ~= "TANK" and UnitExists(info.unit) then
+				local acc = seg.players[guid]
+				if acc then
+					ensureAggro(acc).has = (UnitThreatSituation(info.unit) or 0) >= 2
+				end
+			end
+		end
+		seg.group.tankGraceUntil = GetTime() + 5
 		return
 	end
+	local inGrace = seg.group.tankGraceUntil and GetTime() < seg.group.tankGraceUntil
+	-- a tank-initiated pull (first tank damage within the opening
+	-- seconds — slow projectile, body pull) is never a DPS "pull",
+	-- even if a pre-cast landed first and briefly held the mob
+	local tankInitiated = seg.group.tankFirstDamage and seg.group.tankFirstDamage <= 1.5
 
 	local nonTankHasAggro = false
 	for guid, info in pairs(TP.Roster.players) do
@@ -76,11 +94,13 @@ local function sample()
 						-- Opening aggro before the tank has it: a pull once
 						-- they hold it for a second sample (an instant taunt
 						-- save keeps it off their record)
-						a.pullTicks = a.pullTicks + 1
-						if a.pullTicks >= 2 then
-							a.pulled = true
+						if not tankInitiated then
+							a.pullTicks = a.pullTicks + 1
+							if a.pullTicks >= 2 then
+								a.pulled = true
+							end
 						end
-					elseif not a.has then
+					elseif not a.has and not inGrace then
 						a.rips = a.rips + 1
 					end
 				end
@@ -96,7 +116,11 @@ local function sample()
 			seg.group.tankOpened = true
 		end
 		local acc = seg.players[guid]
-		if acc and nonTankHasAggro then
+		-- loss-seconds only once the tank has actually had the pack (or
+		-- the pull window passed): a DPS mis-pull isn't the tank losing
+		-- aggro, and a freshly-rezzed tank gets the same grace as rips
+		if acc and nonTankHasAggro and not inGrace
+			and (seg.group.tankOpened or elapsed > PULL_WINDOW) then
 			ensureAggro(acc).lost = ensureAggro(acc).lost + INTERVAL
 		end
 	end

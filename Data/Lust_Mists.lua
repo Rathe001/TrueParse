@@ -1,6 +1,6 @@
 -- Bloodlust-window data, MoP Classic. Used by Metrics/Lust.lua to judge
 -- whether DPS players stacked their cooldowns and potion into the 40s
--- window. Informational bullets only - never scored. Curated conservative:
+-- window. Scored ±3 via the lust adjustment. Curated conservative:
 -- big offensive buttons only; a missing ID means a missed compliment, a
 -- wrong one a bogus count, so verify against Warcraft Logs before adding.
 local _, TP = ...

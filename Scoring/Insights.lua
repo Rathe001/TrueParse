@@ -157,7 +157,13 @@ function Insights.RunAdvice(fights)
 			if (m.deaths or 0) > 0 then
 				deaths = deaths + m.deaths
 				diedPF = diedPF + 1
-				if p.deathRecap then
+				-- post-wipe-call deaths are the plan: their recaps show
+				-- deliberate resets (standing in bad on purpose), and
+				-- unspent defensives were correctly saved — neither is
+				-- advice material (audit 2026-07-18)
+				local forgiven = f.calledWipeAt and p.deathTime
+					and p.deathTime >= f.calledWipeAt
+				if p.deathRecap and not forgiven then
 					for _, hit in ipairs(p.deathRecap) do
 						if hit.avoidable then
 							deathsAfterAvoidable = deathsAfterAvoidable + 1
@@ -165,7 +171,7 @@ function Insights.RunAdvice(fights)
 						end
 					end
 				end
-				if (p.deathReadyDefensives or 0) >= 2 then
+				if (p.deathReadyDefensives or 0) >= 2 and not forgiven then
 					deathsWithDefsReady = deathsWithDefsReady + 1
 				end
 			end

@@ -710,17 +710,33 @@ function FightHistory:AddFromSegment(seg)
 								end
 							end
 						end
-						for _, hit in ipairs(acc.deathRecap or {}) do
-							if hit.t then
-								hit.t = math.max(0, hit.t - first)
+						-- the recap lives at deaths.recap (audit 2026-07-18:
+						-- this loop shifted a field that never existed, so
+						-- recap timestamps stayed on the untrimmed clock)
+						if acc.deaths then
+							for _, hit in ipairs(acc.deaths.recap or {}) do
+								if hit.t then
+									hit.t = math.max(0, hit.t - first)
+								end
+							end
+							if acc.deaths.lastTime then
+								acc.deaths.lastTime = math.max(0, acc.deaths.lastTime - first)
+							end
+							for i, t in ipairs(acc.deaths.times or {}) do
+								acc.deaths.times[i] = math.max(0, t - first)
 							end
 						end
-						if acc.deaths and acc.deaths.lastTime then
-							acc.deaths.lastTime = math.max(0, acc.deaths.lastTime - first)
+						if acc.utility then
+							for i, t in ipairs(acc.utility.rezTimes or {}) do
+								acc.utility.rezTimes[i] = math.max(0, t - first)
+							end
 						end
 						if acc.dryAt then
 							acc.dryAt = math.max(0, acc.dryAt - first)
 						end
+					end
+					if seg.lustAt then
+						seg.lustAt = math.max(0, seg.lustAt - first)
 					end
 				end
 			end
@@ -804,7 +820,12 @@ function FightHistory:AddFromSegment(seg)
 		end
 		if acc.healing then
 			local over = acc.healing.overheal or 0
+			-- absorbs belong in the denominator: the healing SCORE counts
+			-- them as output, and shield-heavy specs (Disc) pre-top their
+			-- targets, which inflates the heal slice's overheal — waste
+			-- must be measured against the same total output
 			local raw = (acc.healing.effective or 0) + over
+				+ (acc.absorbs and acc.absorbs.granted or 0)
 			if raw > 0 then
 				m.overhealPct = math.floor(over / raw * 100 + 0.5)
 			end
@@ -835,9 +856,22 @@ function FightHistory:AddFromSegment(seg)
 		if acc.dispels and (acc.dispels.reactN or 0) > 0 then
 			m.dispelReactAvg = acc.dispels.reactSum / acc.dispels.reactN
 		end
-		-- combat rezzes cast (group contribution, adjustment-worthy)
+		-- combat rezzes cast (group contribution, adjustment-worthy).
+		-- Post-call rezzes are wasted brezzes, not contribution: the
+		-- target's ensuing death is itself forgiven as "the plan"
 		if acc.utility and (acc.utility.rezzes or 0) > 0 then
-			m.combatRezzes = acc.utility.rezzes
+			local rezzes = acc.utility.rezzes
+			if calledAt and acc.utility.rezTimes then
+				rezzes = 0
+				for _, t in ipairs(acc.utility.rezTimes) do
+					if t < calledAt then
+						rezzes = rezzes + 1
+					end
+				end
+			end
+			if rezzes > 0 then
+				m.combatRezzes = rezzes
+			end
 		end
 		-- overkill share of total damage (padding context, tooltip-only)
 		if acc.damage and (acc.damage.total or 0) > 0 then
@@ -861,6 +895,12 @@ function FightHistory:AddFromSegment(seg)
 			ilvl = acc.ilvl,
 			isLocalPlayer = (guid == playerGUID),
 			deathTime = acc.deaths and acc.deaths.lastTime or nil,
+			-- every death's fight-offset: the engine drops post-call
+			-- deaths from the charged count (brez double-charge fix)
+			deathTimes = acc.deaths and acc.deaths.times or nil,
+			-- max HP at fight start: lets the engine recognize one-shot
+			-- deaths (no defensive would have mattered) from the recap
+			maxHP = acc.spikes and acc.spikes.maxHP or nil,
 			-- Threat discipline (Collect/Threat.lua sampler; Classic only)
 			aggroPulled = ag and ag.pulled or nil,
 			aggroRips = (ag and ag.rips or 0) > 0 and ag.rips or nil,
@@ -890,6 +930,9 @@ function FightHistory:AddFromSegment(seg)
 		hadVerdict = seg.encounterEnded or nil,
 		-- the moment the raid stopped trying (nil = fought to the end)
 		calledWipeAt = calledAt,
+		-- when Bloodlust went out (fight-offset): players dead before
+		-- this can't have "wasted" it
+		lustAt = seg.lustAt,
 		-- lowest boss HP% reached: the progression number on wipes
 		bossPct = seg.encounterWipe and seg.bossPctMin or nil,
 		duration = seg.duration or 0,
