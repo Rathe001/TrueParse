@@ -772,35 +772,50 @@ function Panel:ShowForGroup(fight, results)
 
 	-- Group-vs-group: kill speed against WCL's ranked kills for this
 	-- encounter+bracket (the one number that compares GROUPS, not players)
-	local speedPct, speedN, speedMedian = TP.Scoring.Engine.KillSpeedPercentile(fight)
+	local speedPct, speedN, speedMedian, speedBounded = TP.Scoring.Engine.KillSpeedPercentile(fight)
 	if speedPct then
 		total = total + 1
 		local row = getRow(total, y)
 		y = y - ROW_HEIGHT
-		local sr, sg, sb = TP.Scoring.Grades.ColorForScore(speedPct)
-		row.symbol:SetText(speedPct >= 50 and "+" or "\194\183")
-		row.symbol:SetTextColor(sr, sg, sb)
-		row.text:SetText(("Killed faster than %d%% of groups"):format(speedPct))
-		row.text:SetTextColor(sr, sg, sb)
 		local function mmss(s)
 			return ("%d:%02d"):format(math.floor(s / 60), s % 60)
 		end
-		-- gauge with the marker at the speed percentile
-		row.tooltipData = nil
-		row.metricData = {
-			b = { value = fight.duration or 0, normalized = speedPct, pctile = speedPct },
-			key = "Kill speed",
-			duration = fight.duration,
-			valueText = ("Killed in %s · median ranked kill %s"):format(
-				mmss(fight.duration or 0), speedMedian and mmss(speedMedian) or "?"),
-			footerText = ("faster than %d%% of %s ranked kills"):format(
-				speedPct, TP.FormatNumber(speedN or 0)),
-		}
+		if speedBounded then
+			-- slower than WCL's served fastest 1000: we can't rank it, only
+			-- say it fell outside that field (a precise % would be invented)
+			row.symbol:SetText("\194\183")
+			row.symbol:SetTextColor(0.6, 0.6, 0.6)
+			row.text:SetText("Outside WCL's 1000 fastest kills")
+			row.text:SetTextColor(0.6, 0.6, 0.6)
+			row.metricData = nil
+			row.tooltipData = { title = "Kill speed", lines = {
+				{ ("Killed in %s. WCL only ranks the fastest 1000 kills, and this was slower than all of them - so the exact speed percentile can't be known."):format(mmss(fight.duration or 0)), 0.8, 0.8, 0.8, true },
+			} }
+		else
+			local sr, sg, sb = TP.Scoring.Grades.ColorForScore(speedPct)
+			row.symbol:SetText(speedPct >= 50 and "+" or "\194\183")
+			row.symbol:SetTextColor(sr, sg, sb)
+			row.text:SetText(("Killed faster than %d%% of groups"):format(speedPct))
+			row.text:SetTextColor(sr, sg, sb)
+			-- gauge with the marker at the speed percentile
+			row.tooltipData = nil
+			row.metricData = {
+				b = { value = fight.duration or 0, normalized = speedPct, pctile = speedPct },
+				key = "Kill speed",
+				duration = fight.duration,
+				valueText = speedMedian
+					and ("Killed in %s · median ranked kill %s"):format(mmss(fight.duration or 0), mmss(speedMedian))
+					or ("Killed in %s"):format(mmss(fight.duration or 0)),
+				footerText = ("faster than %d%% of ~%s ranked kills"):format(
+					speedPct, TP.FormatNumber(speedN or 0)),
+			}
+		end
 	end
 
 	-- the whole vs the parts: when kill speed and the group's own parses
-	-- disagree hard, that gap IS the group-level story
-	if speedPct then
+	-- disagree hard, that gap IS the group-level story (a bounded ceiling
+	-- isn't a real speed percentile, so it can't anchor the comparison)
+	if speedPct and not speedBounded then
 		local ga = TP.Scoring.Insights.GroupAnalysis(results, {}, speedPct)
 		if ga.executionGap and math.abs(ga.executionGap) >= 20 then
 			total = total + 1

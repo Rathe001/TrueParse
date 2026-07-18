@@ -62,8 +62,11 @@ local function composeSummary(run, fights, results, groupScore)
 		kickOpps = kickOpps + (t.kickOpportunities or 0)
 		kicksLanded = kicksLanded + (t.kicksLanded or 0)
 		deaths = deaths + (t.deaths or 0)
-		local pct = TP.Scoring.Engine.KillSpeedPercentile(f)
-		if pct then
+		local pct, _, _, bounded = TP.Scoring.Engine.KillSpeedPercentile(f)
+		-- bounded kills (slower than WCL's served fastest 1000) give only a
+		-- ceiling, not a rankable percentile — keep them out of the
+		-- execution-gap average so it isn't skewed by a guess
+		if pct and not bounded then
 			killSum = killSum + pct
 			killN = killN + 1
 		end
@@ -348,8 +351,10 @@ function RunSummary:Share()
 	local groupScore = #results > 0 and (sum / #results) or 0
 	local d = kill.duration or 0
 	local line
-	local pct = TP.Scoring.Engine.KillSpeedPercentile(kill)
-	if pct then
+	local pct, _, _, bounded = TP.Scoring.Engine.KillSpeedPercentile(kill)
+	-- only cite a percentile when it's a real ranking, not a ceiling: a
+	-- bounded kill (outside WCL's served fastest 1000) can't be bragged
+	if pct and not bounded then
 		line = ("TrueParse: %s down in %d:%02d — faster than %d%% of ranked kills on Warcraft Logs. Group score %d/100."):format(
 			kill.name or "Boss", math.floor(d / 60), d % 60, math.floor(pct + 0.5), math.floor(groupScore + 0.5))
 	else

@@ -905,7 +905,46 @@ local function speedPercentile(curve, duration)
 	return last[1] * (1 - (duration - last[2]) / last[2])
 end
 
--- Returns pct, populationSize, medianSeconds — or nil (wipe, no data).
+-- WCL's fightRankings endpoint hard-caps at 1000 results (20 pages of 50),
+-- ordered fastest-first (verified live 2026-07-18: page 20 full with
+-- hasMorePages=true, page 21 empty). So any boss with more than 1000 logged
+-- kills gives us only the FASTEST 1000, and the slow tail is never served.
+local SPEED_RANK_CAP = 1000
+
+-- Fixed raid sizes turn per-spec parse counts into a kill count: WCL ranks
+-- every raider on BOTH dps and hps (verified: the two sums match to the
+-- person), so sum(dps parses) / raidSize = total kills. Flex retail brackets
+-- (Normal/Heroic/LFR) have no fixed size and are omitted — we can't size
+-- their field, so their capped samples can't be honestly ranked.
+local BRACKET_RAID_SIZE = {
+	["3x10"] = 10, ["4x10"] = 10, ["3x25"] = 25, ["4x25"] = 25, -- MoP 10/25 N/H
+	["5"] = 20, -- retail Mythic (fixed 20)
+}
+
+-- Estimate the true kill population from the per-spec parse counts that live
+-- on the same bracket table. Per-spec counts cap at 2000 for a few very
+-- popular specs, which nudges this LOW — safe: it makes rescaled percentiles
+-- slightly conservative rather than inflated.
+local function estimateKillPopulation(bracket, size)
+	if not (bracket and bracket.dps and size) then
+		return nil
+	end
+	local sum = 0
+	for _, entry in pairs(bracket.dps) do
+		sum = sum + (entry.n or 0)
+	end
+	if sum <= 0 then
+		return nil
+	end
+	return sum / size
+end
+
+-- Returns pct, populationSize, medianSeconds, bounded — or nil (wipe, no
+-- data, or a capped field we can't size). When the sample is capped, pct is
+-- rescaled against the estimated true field (the raw sample percentile reads
+-- every real kill as bottom-decile against a fastest-1000 leaderboard).
+-- bounded=true means the kill was slower than the 1000th-fastest: its true
+-- rank is past the served data, so pct is only a ceiling.
 function Engine.KillSpeedPercentile(fight)
 	if fight.wipe or not fight.duration or fight.duration <= 0 then
 		return nil
@@ -924,7 +963,37 @@ function Engine.KillSpeedPercentile(fight)
 	if not (kt and kt.curve and #kt.curve > 1) then
 		return nil
 	end
-	return speedPercentile(kt.curve, fight.duration), kt.n, curveP50(kt.curve)
+	local curve = kt.curve
+	local sampleN = kt.n or SPEED_RANK_CAP
+
+	-- Uncapped: WCL served the whole field, so the sample percentile IS the
+	-- true percentile (e.g. retail Midnight Falls Normal, n=676).
+	if sampleN < SPEED_RANK_CAP then
+		return speedPercentile(curve, fight.duration), sampleN, curveP50(curve), false
+	end
+
+	-- Capped: rescale the fastest-1000 sample by the estimated true field.
+	local N = estimateKillPopulation(bracket, key and BRACKET_RAID_SIZE[key])
+	if not N or N <= sampleN then
+		-- can't size the field (flex retail) — no honest ranking to give
+		return nil
+	end
+	if fight.duration > curve[#curve][2] then
+		-- slower than the 1000th-fastest kill: rank is beyond the served
+		-- data and the tail shape is unknown. Report the field ceiling.
+		return 100 * (1 - sampleN / N), N, nil, true
+	end
+	-- within the served field: the sample percentile gives an exact rank,
+	-- which the true field size turns into an accurate percentile
+	local samplePct = speedPercentile(curve, fight.duration)
+	local rank = (100 - samplePct) / 100 * sampleN
+	local truePct = 100 * (1 - rank / N)
+	if truePct < 0 then
+		truePct = 0
+	elseif truePct > 99 then
+		truePct = 99
+	end
+	return truePct, N, nil, false
 end
 
 -- Where this encounter's median kill time ranks among the tier's bosses

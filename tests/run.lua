@@ -1320,14 +1320,16 @@ augFight2.players.a.metrics.buffUptime = 0.5
 TP.Percentiles.encounters["Percentile Boss"]["1"] = nil
 
 -- 18d3. Kill-speed percentile: group duration vs the encounter's ranked
--- kill-time curve (seconds, ascending from fastest)
+-- kill-time curve (seconds, ascending from fastest). UNCAPPED sample
+-- (n < 1000 = WCL served the whole field): the sample percentile is the
+-- true percentile.
 TP.Percentiles.encounters["Percentile Boss"]["3x10"].killTime = {
-	n = 5000, curve = { { 99, 60 }, { 95, 80 }, { 90, 100 }, { 75, 140 }, { 50, 200 }, { 25, 280 }, { 10, 400 } },
+	n = 676, curve = { { 99, 60 }, { 95, 80 }, { 90, 100 }, { 75, 140 }, { 50, 200 }, { 25, 280 }, { 10, 400 } },
 }
 local speedFight = { name = "(!) Percentile Boss", isBoss = true, duration = 200, difficultyID = 3, players = {} }
 local pct, n, median = TP.Scoring.Engine.KillSpeedPercentile(speedFight)
-check(pct and math.abs(pct - 50) < 0.001 and n == 5000 and median == 200,
-	("median-speed kill reads p50 (%s, n=%s)"):format(tostring(pct), tostring(n)))
+check(pct and math.abs(pct - 50) < 0.001 and n == 676 and median == 200,
+	("uncapped median-speed kill reads p50 (%s, n=%s)"):format(tostring(pct), tostring(n)))
 speedFight.duration = 55
 check(TP.Scoring.Engine.KillSpeedPercentile(speedFight) == 99, "faster than the fastest sample pins at 99")
 speedFight.duration = 900
@@ -1336,6 +1338,39 @@ speedFight.duration = 200
 speedFight.wipe = true
 check(TP.Scoring.Engine.KillSpeedPercentile(speedFight) == nil, "wipes carry no speed percentile")
 TP.Percentiles.encounters["Percentile Boss"]["3x10"].killTime = nil
+
+-- 18d3b. CAPPED sample (n == 1000 = WCL's fightRankings ceiling): the sample
+-- is only the fastest 1000 of a larger field, so the raw sample percentile
+-- reads every real kill as bottom-decile. Rescale by the field size
+-- estimated from per-spec parse counts (sum dps / raidSize = kills).
+TP.Percentiles.encounters["Capped Boss"] = { ["3x10"] = {
+	-- 40000 dps parses / 10-player raid = 4000 true kills
+	dps = { [63] = { n = 20000, curve = {} }, [64] = { n = 20000, curve = {} } },
+	hps = {},
+	killTime = { n = 1000, curve = { { 99, 60 }, { 95, 80 }, { 90, 100 }, { 75, 140 }, { 50, 200 }, { 25, 280 }, { 10, 400 } } },
+} }
+TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+local capFight = { name = "(!) Capped Boss", isBoss = true, duration = 200, difficultyID = 3, players = {} }
+-- 200s = sample p50 -> sample rank 500 of 1000 -> true pct = 1 - 500/4000 = 87.5
+local cpct, cn, cmed, cbnd = TP.Scoring.Engine.KillSpeedPercentile(capFight)
+check(cpct and math.abs(cpct - 87.5) < 0.5 and cn == 4000 and not cbnd,
+	("capped sample rescales p50->p87.5 (%s, n=%s)"):format(tostring(cpct), tostring(cn)))
+-- slower than the slowest sampled (400s) -> bounded, ceiling = 1 - 1000/4000 = 75
+capFight.duration = 500
+local bpct, _, _, bbnd = TP.Scoring.Engine.KillSpeedPercentile(capFight)
+check(bbnd and bpct and math.abs(bpct - 75) < 0.5,
+	("beyond-sample kill is bounded at the field ceiling (%s, bounded=%s)"):format(tostring(bpct), tostring(bbnd)))
+-- flex retail bracket (no fixed raid size) capped -> can't rank -> nil
+TP.Percentiles.encounters["Capped Boss"]["3"] = {
+	dps = { [63] = { n = 20000, curve = {} } }, hps = {},
+	killTime = { n = 1000, curve = { { 99, 60 }, { 95, 80 }, { 90, 100 }, { 75, 140 }, { 50, 200 }, { 25, 280 }, { 10, 400 } } },
+}
+TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+local flexFight = { name = "(!) Capped Boss", isBoss = true, duration = 200, difficultyID = 14, players = {} }
+check(TP.Scoring.Engine.KillSpeedPercentile(flexFight) == nil,
+	"capped flex-retail bracket (unknown raid size) yields no percentile")
+TP.Percentiles.encounters["Capped Boss"] = nil
+TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
 
 -- 18d4. Demand cap: you can't heal damage that never went out. A healer
 -- on a trivial fight (per-healer incoming damage below the spec's median
