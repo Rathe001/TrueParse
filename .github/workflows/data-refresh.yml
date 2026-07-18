@@ -1,18 +1,55 @@
-# Monthly WCL data refresh (anti-staleness, 2026-07-17): once active
-# development stops, this keeps the shipped percentile/kill-time data
-# from drifting. SAFETY MODEL: crawl -> headless test gate -> pull
-# request. It never tags or publishes on its own; merging the PR and
-# tagging stays a human act until this has produced verified-correct
-# data at least once (then flip the PR step to commit+tag if desired).
-# Crawlers run SEQUENTIALLY - WCL V2 tokens are single-active.
-# Zone ids change per season/tier: update invocations when content
+# Monthly WCL data refresh (anti-staleness). Keeps the shipped percentile /
+# kill-time curves from drifting once active development slows.
+#
+# WHY STAGGERED: WCL V2 tokens get ~one hour of points; the full crawl set
+# costs several hours of budget, and a single job can only recover budget by
+# sleeping through hourly resets — which blew past GitHub's 6h job cap and
+# died mid-MoP. So the crawl is split into slices, one per DAY, each with a
+# whole fresh job window for its own slice. Slices accumulate into ONE shared
+# monthly branch; the finalize slice turns that branch into a PR (or, once
+# armed, a tagged release).
+#
+# SAFETY MODEL: every slice gates on the headless test suite before it commits
+# refreshed data, and the finalize slice opens a PULL REQUEST by default —
+# nothing publishes on its own. Merging the PR and tagging stays a human act.
+# AUTO-PUBLISH is stubbed below (env AUTO_PUBLISH=false): after ONE verified
+# cycle of good data, flip it to "true" to have finalize bump the version,
+# tag, and package to CurseForge inline (no PAT needed — see that step).
+#
+# Zone ids change per season/tier: update the crawl invocations when content
 # rolls over. Benchmarks have their own weekly workflow.
 name: Refresh WCL data
 
 on:
   schedule:
-    - cron: "40 9 2 * *" # monthly, 2nd, 09:40 UTC
+    - cron: "40 9 2 * *" # day 2: retail raid percentiles
+    - cron: "40 9 3 * *" # day 3: retail LFR percentiles + kill times
+    - cron: "40 9 4 * *" # day 4: MoP SoO percentiles
+    - cron: "40 9 5 * *" # day 5: MoP kill times
+    - cron: "40 9 6 * *" # day 6: finalize (test gate -> PR / release)
   workflow_dispatch:
+    inputs:
+      slice:
+        description: "Which slice to run"
+        required: true
+        default: finalize
+        type: choice
+        options: [retail-pct, retail-rest, mop-pct, mop-kt, finalize]
+
+# never let two slices (and their single-active WCL token) run at once; queue
+# a new run behind an in-flight one rather than cancelling it
+concurrency:
+  group: wcl-refresh
+  cancel-in-progress: false
+
+env:
+  # Flip to "true" ONLY after one supervised cycle has produced verified-good
+  # data. When true, finalize bumps the patch version, commits to main, tags,
+  # and packages to CurseForge inline (the packager reads the tag we create in
+  # the same job, so it never depends on the tag-push event — which the
+  # default GITHUB_TOKEN cannot trigger anyway).
+  AUTO_PUBLISH: "false"
+  BRANCH_PREFIX: data-refresh
 
 permissions:
   contents: write
@@ -21,8 +58,36 @@ permissions:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    timeout-minutes: 350 # just under GitHub's 360-minute hard job cap
     steps:
+      - name: Resolve slice + shared branch
+        id: cfg
+        run: |
+          case "${{ github.event.schedule }}" in
+            "40 9 2 * *") S=retail-pct ;;
+            "40 9 3 * *") S=retail-rest ;;
+            "40 9 4 * *") S=mop-pct ;;
+            "40 9 5 * *") S=mop-kt ;;
+            "40 9 6 * *") S=finalize ;;
+            *) S="${{ github.event.inputs.slice }}" ;;
+          esac
+          echo "slice=$S" >> "$GITHUB_OUTPUT"
+          echo "branch=${BRANCH_PREFIX}-$(date -u +%Y%m)" >> "$GITHUB_OUTPUT"
+          echo "Slice: **$S**  ·  branch: \`${BRANCH_PREFIX}-$(date -u +%Y%m)\`" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out / create the shared refresh branch
+        run: |
+          B="${{ steps.cfg.outputs.branch }}"
+          git fetch origin "$B" || true
+          if git rev-parse --verify "origin/$B" >/dev/null 2>&1; then
+            git checkout -B "$B" "origin/$B"
+          else
+            git checkout -B "$B"
+          fi
 
       - name: Check for credentials
         id: creds
@@ -32,71 +97,124 @@ jobs:
         run: |
           if [ -z "$WCL_V2_ID" ] || [ -z "$WCL_V2_SECRET" ]; then
             echo "hascreds=false" >> "$GITHUB_OUTPUT"
-            echo "WCL V2 secrets missing; skipping." >> "$GITHUB_STEP_SUMMARY"
+            echo "WCL V2 secrets missing; crawl slices will skip." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "hascreds=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Write credential file
-        if: steps.creds.outputs.hascreds == 'true'
+        if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice != 'finalize'
         shell: pwsh
         env:
           WCL_V2_ID: ${{ secrets.WCL_V2_ID }}
           WCL_V2_SECRET: ${{ secrets.WCL_V2_SECRET }}
-        run: |
-          Set-Content -Path scripts/wcl-v2-client.local.txt -Value @($env:WCL_V2_ID, $env:WCL_V2_SECRET)
+        run: Set-Content -Path scripts/wcl-v2-client.local.txt -Value @($env:WCL_V2_ID, $env:WCL_V2_SECRET)
 
-      # ---- crawls: SEQUENTIAL, single-active token ----
+      # ---- crawl slices: exactly one runs per invocation ----
       - name: Retail raid percentiles (zone 46)
-        if: steps.creds.outputs.hascreds == 'true'
+        if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'retail-pct'
         shell: pwsh
         run: ./scripts/fetch-percentiles-v2.ps1 -ZoneId 46 -Brackets "3,4,5" -OutFile "$PWD/Data/Percentiles.lua"
 
-      - name: Retail LFR percentiles (zone 46, bracket 1)
-        if: steps.creds.outputs.hascreds == 'true'
+      - name: Retail LFR percentiles + kill times (zone 46)
+        if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'retail-rest'
         shell: pwsh
-        run: ./scripts/fetch-percentiles-v2.ps1 -ZoneId 46 -Brackets "1" -OutFile "$PWD/Data/Percentiles_LFR.lua"
-
-      - name: Retail kill times (zone 46)
-        if: steps.creds.outputs.hascreds == 'true'
-        shell: pwsh
-        run: ./scripts/fetch-killtimes.ps1 -ZoneId 46 -Brackets "3,4,5" -OutFile "$PWD/Data/KillTimes.lua"
+        run: |
+          ./scripts/fetch-percentiles-v2.ps1 -ZoneId 46 -Brackets "1" -OutFile "$PWD/Data/Percentiles_LFR.lua"
+          ./scripts/fetch-killtimes.ps1 -ZoneId 46 -Brackets "3,4,5" -OutFile "$PWD/Data/KillTimes.lua"
 
       - name: MoP SoO percentiles (classic zone 1054)
-        if: steps.creds.outputs.hascreds == 'true'
+        if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'mop-pct'
         shell: pwsh
         run: ./scripts/fetch-percentiles-v2.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x10,3x25,4x10,4x25" -OutFile "$PWD/Data/Percentiles_Mists.lua"
 
       - name: MoP kill times (classic zone 1054)
-        if: steps.creds.outputs.hascreds == 'true'
+        if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'mop-kt'
         shell: pwsh
         run: ./scripts/fetch-killtimes.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x10,3x25,4x10,4x25" -OutFile "$PWD/Data/KillTimes_Mists.lua"
 
-      # ---- gate: refreshed data must pass the full headless suite ----
+      # ---- gate: any refreshed data must pass the full headless suite ----
       - name: Install Lua
-        if: steps.creds.outputs.hascreds == 'true'
         run: sudo apt-get update -q && sudo apt-get install -y -q lua5.4
 
-      - name: Headless tests against refreshed data
-        if: steps.creds.outputs.hascreds == 'true'
+      - name: Headless tests against current data
         run: lua5.4 tests/run.lua
 
-      - name: Open refresh PR
-        if: steps.creds.outputs.hascreds == 'true'
+      # ---- crawl slices commit their file(s) to the shared branch ----
+      - name: Commit slice data
+        if: steps.cfg.outputs.slice != 'finalize'
+        run: |
+          rm -f scripts/wcl-v2-client.local.txt
+          if git diff --quiet -- Data/; then
+            echo "Slice **${{ steps.cfg.outputs.slice }}**: data unchanged." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "trueparse-data-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add Data/
+          git commit -m "WCL refresh: ${{ steps.cfg.outputs.slice }} ($(date -u +%Y-%m-%d))"
+          git push origin "HEAD:${{ steps.cfg.outputs.branch }}"
+          echo "Slice **${{ steps.cfg.outputs.slice }}**: committed refreshed data." >> "$GITHUB_STEP_SUMMARY"
+
+      # ---- finalize: PR by default; tagged release only when armed ----
+      - name: Finalize (open PR, or publish when armed)
+        id: finalize
+        if: steps.cfg.outputs.slice == 'finalize'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           rm -f scripts/wcl-v2-client.local.txt
-          if git diff --quiet -- Data/; then
-            echo "Data unchanged; nothing to refresh." >> "$GITHUB_STEP_SUMMARY"
+          B="${{ steps.cfg.outputs.branch }}"
+          git fetch origin main
+          if git diff --quiet origin/main -- Data/; then
+            echo "No data changed this cycle; nothing to finalize." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          BRANCH="data-refresh-$(date -u +%Y%m%d)"
+
+          if [ "$AUTO_PUBLISH" != "true" ]; then
+            # -------- PR mode (default) --------
+            if [ -n "$(gh pr list --head "$B" --base main --json number --jq '.[0].number')" ]; then
+              echo "PR already open for \`$B\`." >> "$GITHUB_STEP_SUMMARY"
+            else
+              gh pr create --base main --head "$B" \
+                --title "Monthly WCL data refresh ($(date -u +%Y-%m))" \
+                --body "Automated staggered crawl; the headless suite passed against the refreshed data at each slice. Review the Data/ diff, merge, then tag a patch release to ship it."
+              echo "Opened refresh PR from \`$B\`." >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 0
+          fi
+
+          # -------- ARMED: bump version, commit to main, tag --------
+          # (packaging to CurseForge happens in the next step, which reads the
+          # tag we create here — so it never relies on the tag-push event.)
           git config user.name "trueparse-data-bot"
           git config user.email "actions@users.noreply.github.com"
-          git checkout -b "$BRANCH"
-          git add Data/
-          git commit -m "Monthly WCL data refresh ($(date -u +%Y-%m-%d))"
-          git push -u origin "$BRANCH"
-          gh pr create --fill --title "Monthly WCL data refresh ($(date -u +%Y-%m-%d))" \
-            --body "Automated crawl; headless suite passed against the refreshed data. Merge, then tag a patch release to ship it."
+          git checkout main
+          git reset --hard origin/main   # publish on top of the latest main
+          git checkout "$B" -- Data/
+          CUR=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' TrueParse.toc | head -1)
+          MAJOR=${CUR%%.*}; REST=${CUR#*.}; MINOR=${REST%%.*}; PATCH=${REST##*.}
+          NEW="$MAJOR.$MINOR.$((PATCH + 1))"
+          for t in TrueParse.toc TrueParse_Mainline.toc TrueParse_Mists.toc; do
+            sed -i "s/## Version: .*/## Version: $NEW/" "$t"
+          done
+          { echo "# TrueParse Changelog"; echo; echo "## $NEW"; echo; \
+            echo "Automated monthly Warcraft Logs data refresh (percentile curves and kill times)."; \
+            echo; tail -n +2 CHANGELOG.md; } > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+          git add Data/ TrueParse.toc TrueParse_Mainline.toc TrueParse_Mists.toc CHANGELOG.md
+          git commit -m "v$NEW: monthly WCL data refresh"
+          git push origin main
+          git tag "v$NEW"
+          git push origin "v$NEW"
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "Published **v$NEW** (data refresh)." >> "$GITHUB_STEP_SUMMARY"
+
+      # Inline packaging: only when armed AND finalize actually published. The
+      # packager reads the tag created above from this same checkout, so no
+      # PAT is needed (a GITHUB_TOKEN-pushed tag can't trigger release.yml).
+      - name: Package to CurseForge (armed only)
+        if: steps.cfg.outputs.slice == 'finalize' && env.AUTO_PUBLISH == 'true' && steps.finalize.outputs.published == 'true'
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
