@@ -22,11 +22,12 @@ name: Refresh WCL data
 
 on:
   schedule:
-    - cron: "40 9 2 * *" # day 2: retail raid percentiles
+    - cron: "40 9 2 * *" # day 2: retail raid percentiles (3 brackets, ~5h)
     - cron: "40 9 3 * *" # day 3: retail LFR percentiles + kill times
-    - cron: "40 9 4 * *" # day 4: MoP SoO percentiles
-    - cron: "40 9 5 * *" # day 5: MoP kill times
-    - cron: "40 9 6 * *" # day 6: finalize (test gate -> PR / release)
+    - cron: "40 9 4 * *" # day 4: MoP SoO 10-man percentiles
+    - cron: "40 9 5 * *" # day 5: MoP SoO 25-man percentiles
+    - cron: "40 9 6 * *" # day 6: MoP kill times
+    - cron: "40 9 7 * *" # day 7: finalize (test gate -> PR / release)
   workflow_dispatch:
     inputs:
       slice:
@@ -34,7 +35,7 @@ on:
         required: true
         default: finalize
         type: choice
-        options: [retail-pct, retail-rest, mop-pct, mop-kt, finalize]
+        options: [retail-pct, retail-rest, mop-pct-10, mop-pct-25, mop-kt, finalize]
 
 # never let two slices (and their single-active WCL token) run at once; queue
 # a new run behind an in-flight one rather than cancelling it
@@ -66,9 +67,10 @@ jobs:
           case "${{ github.event.schedule }}" in
             "40 9 2 * *") S=retail-pct ;;
             "40 9 3 * *") S=retail-rest ;;
-            "40 9 4 * *") S=mop-pct ;;
-            "40 9 5 * *") S=mop-kt ;;
-            "40 9 6 * *") S=finalize ;;
+            "40 9 4 * *") S=mop-pct-10 ;;
+            "40 9 5 * *") S=mop-pct-25 ;;
+            "40 9 6 * *") S=mop-kt ;;
+            "40 9 7 * *") S=finalize ;;
             *) S="${{ github.event.inputs.slice }}" ;;
           esac
           echo "slice=$S" >> "$GITHUB_OUTPUT"
@@ -123,10 +125,18 @@ jobs:
           ./scripts/fetch-percentiles-v2.ps1 -ZoneId 46 -Brackets "1" -OutFile "$PWD/Data/Percentiles_LFR.lua"
           ./scripts/fetch-killtimes.ps1 -ZoneId 46 -Brackets "3,4,5" -OutFile "$PWD/Data/KillTimes.lua"
 
-      - name: MoP SoO percentiles (classic zone 1054)
-        if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'mop-pct'
+      # MoP percentiles are split by raid size: 4 brackets in one window
+      # blew the 6h job cap (retail's 3 brackets took 4h52m). The two
+      # files ADD to the same table at load (merge-friendly emitter).
+      - name: MoP SoO 10-man percentiles (classic zone 1054)
+        if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'mop-pct-10'
         shell: pwsh
-        run: ./scripts/fetch-percentiles-v2.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x10,3x25,4x10,4x25" -OutFile "$PWD/Data/Percentiles_Mists.lua"
+        run: ./scripts/fetch-percentiles-v2.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x10,4x10" -OutFile "$PWD/Data/Percentiles_Mists.lua"
+
+      - name: MoP SoO 25-man percentiles (classic zone 1054)
+        if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'mop-pct-25'
+        shell: pwsh
+        run: ./scripts/fetch-percentiles-v2.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x25,4x25" -OutFile "$PWD/Data/Percentiles_Mists_25.lua"
 
       - name: MoP kill times (classic zone 1054)
         if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'mop-kt'
