@@ -1986,6 +1986,26 @@ end
 	check((ka.kicks or 0) > (kb.kicks or 0) * 0.2 and (kb.kicks or 0) < 0,
 		("dead kicker's share penalty scaled way down (%s vs %s)"):format(
 			tostring(ka.kicks), tostring(kb.kicks)))
+
+	-- 25i. per-spec overheal thresholds: a shield-heavy spec's population
+	-- runs high overheal; its p75 exempts what the fixed 45 would charge
+	local f9 = ctxFight({})
+	f9.players.a = dps("Discy", { specID = 256, metrics = { healing = 500000, overhealPct = 50 } })
+	f9.players.a.role = "HEALER"
+	f9.players.b = dps("Tank", { role = "TANK", metrics = { damageTaken = 900000 } })
+	f9.players.b.role = "TANK"
+	TP.OverhealCurves = { [256] = { p25 = 30, p75 = 55, p90 = 70, n = 100 } }
+	local oh = adFor(f9, "Discy")
+	check((oh.overheal or 0) == 0,
+		("spec p75=55 exempts 50%% overheal that fixed-45 would charge (%s)"):format(tostring(oh.overheal)))
+	TP.OverhealCurves[256] = { p25 = 30, p75 = 45, p90 = 48, n = 100 }
+	oh = adFor(f9, "Discy")
+	check((oh.overheal or 0) < -1.5,
+		("above spec p90 hits the -2 tier (%s)"):format(tostring(oh.overheal)))
+	TP.OverhealCurves = nil
+	oh = adFor(f9, "Discy")
+	check((oh.overheal or 0) == -1,
+		("no curves: fixed thresholds unchanged (%s)"):format(tostring(oh.overheal)))
 end)()
 
 -- 26. Spikes.Compute team coverage (audit 2026-07-18): group windows are

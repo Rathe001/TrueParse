@@ -1532,11 +1532,17 @@ function Engine.ScoreFight(fight, opts)
 			if role == "HEALER" and m.overhealPct and breakdown.healing
 				and breakdown.healing.applicable and not breakdown.healing.lowDemand
 				and not ctx.lowHealingDemand then
-				if m.overhealPct >= (A.overhealHighAt or 60) then
+				-- per-spec population quantiles when the overheal crawl has
+				-- data for this spec (a Disc priest's normal overheal is
+				-- nothing like a Resto druid's): above p90 = -2, above
+				-- p75 = -1, leaner than p25 = +1. Fixed thresholds are the
+				-- fallback until Data/Overheal_*.lua ships.
+				local oc = TP.OverhealCurves and p.specID and TP.OverhealCurves[p.specID]
+				if m.overhealPct >= (oc and oc.p90 or A.overhealHighAt or 60) then
 					put("overheal", -(A.overhealHigh or 2))
-				elseif m.overhealPct >= (A.overhealMidAt or 45) then
+				elseif m.overhealPct >= (oc and oc.p75 or A.overhealMidAt or 45) then
 					put("overheal", -(A.overhealMid or 1))
-				elseif m.overhealPct <= (A.overhealLowAt or 20) then
+				elseif m.overhealPct <= (oc and oc.p25 or A.overhealLowAt or 20) then
 					put("overheal", A.overhealLowBonus or 1)
 				end
 			end
