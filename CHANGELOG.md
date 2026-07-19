@@ -1,5 +1,64 @@
 # TrueParse Changelog
 
+## 1.4.3
+
+A second deep audit, themed on one idea: a bonus or penalty must judge
+the WHOLE fight, not a moment out of context (the lesson from the
+Bloodlust pre-grace fix). Seventeen scoring fixes, all in the
+forgiveness direction.
+
+**Wipe calls now forgive everything they should.**
+- Dying after the call no longer costs "died with defensives ready" or
+  "died without a defensive" - saving cooldowns for the next pull was
+  the right play.
+- Accepting a battle rez and dying again after the call no longer costs
+  MORE than staying dead.
+- Running dry on mana after the call, brezzing into the doomed tail,
+  and the post-call AFK sinking your mitigation uptime: all excused.
+- The wipe debrief no longer indicts "avoidable damage before death"
+  for people deliberately standing in fire to reset faster.
+
+**Being dead is no longer scoreable.**
+- A corpse can't waste Bloodlust: dead before the window opened means
+  no penalty (and cooldowns spent earlier in the fight soften a miss).
+- Heavy-damage windows that open after a healer's death don't count
+  against them; a dead player's low activity isn't charged twice; the
+  kick/dispel share penalty scales by time actually alive.
+- One-shot deaths (a single hit for your whole health bar) skip the
+  defensive penalties - nothing you pressed would have mattered.
+
+**Correct play stopped reading as failure.**
+- Healer raid-cooldown coverage is now TEAM coverage: three healers
+  rotating cooldowns perfectly used to each read "missed most windows"
+  - now a window covered by anyone credits everyone.
+- Raid CDs cast proactively (up to 8s before the hit, on a timer) count
+  as covering it. More raid CDs recognized: Hand of Sacrifice, Rallying
+  Cry, Ancestral Guidance, Avert Harm, Vampiric Embrace. Brewmaster
+  Guard, Elusive Brew, and Sacred Shield now count as active mitigation.
+- Interruptible casts completing right after your group landed a kick
+  (interrupt on cooldown) no longer count as missed opportunities.
+- Disc priests: absorbs now count in the overheal denominator - shield
+  play no longer inflates apparent waste. Well-scoring healers on
+  trivial fights get the same low-demand exemption weak ones did.
+- Overkill is only judged on real fights (60s+) - someone must land
+  every killing blow.
+- A tank's slow-projectile pull no longer flags the DPS whose pre-cast
+  landed first; a freshly-rezzed tank gets a grace window before
+  aggro penalties resume.
+
+**Kill speed vs Warcraft Logs is now honest.** WCL only serves the
+fastest 1000 kills per boss; treating that leaderboard as the whole
+population read every real kill as bottom-decile (SoO Normal kills all
+scored p8-p20). The addon now estimates the true field from parse
+counts and rescales: a 5:20 Immerseus kill reads p85, not p47. Kills
+slower than the 1000th-fastest honestly say "outside WCL's top 1000"
+instead of a fake number.
+
+**Also:** percentile curves resolve by encounter ID first (non-English
+clients get scores once refreshed data ships); per-spec overheal
+thresholds supported (data crawl pending); every MoP healer-CD and
+tank-mitigation spell ID verified against Wowhead MoP Classic.
+
 ## 1.4.2
 
 The second half of the deep audit: ten fixes to record integrity and
