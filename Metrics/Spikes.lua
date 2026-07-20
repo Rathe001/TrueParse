@@ -19,6 +19,12 @@ Spikes.GROUP_3S_SHARE = 0.18 -- group 3s intake >= 18% of group max HP
 local MERGE_GAP = 3 -- windows this close merge into one event
 local TANK_SLOP = 1.5 -- seconds of grace around a window for aura overlap
 local HEALER_SLOP = 3 -- reaction time for a cast to count as "met it"
+-- proactive raid CDs are the BETTER play: Barrier dropped on a DBM timer
+-- 5-8s before the hit still covers it (the buff lasts 6-10s), but the
+-- cast timestamp precedes the window. Same shape as the Bloodlust
+-- pre-grace (audit 2026-07-18). Tanks don't need this — their coverage
+-- is aura-span overlap, which already credits early walls.
+local HEALER_PRE_SLOP = 8
 
 local function ensure(seg, dstGUID)
 	local acc = seg.players[dstGUID]
@@ -185,9 +191,9 @@ local function spanCovers(spans, openSince, ws, we, slop)
 	return openSince ~= nil and openSince <= we + slop
 end
 
-local function castCovers(casts, ws, we, slop)
+local function castCovers(casts, ws, we, preSlop, postSlop)
 	for _, t in ipairs(casts or {}) do
-		if t >= ws - slop and t <= we + slop then
+		if t >= ws - preSlop and t <= we + postSlop then
 			return true
 		end
 	end
@@ -215,6 +221,23 @@ function Spikes.Compute(seg, duration)
 	local groupWindows = groupHP > 0
 		and Spikes.FindWindows(groupTaken, duration, groupHP * Spikes.GROUP_3S_SHARE) or {}
 
+	-- group windows are the TEAM's job: healers rotating raid CDs so each
+	-- window has ONE cooldown is the universally correct strategy, but it
+	-- means no single healer covers most windows. Coverage is therefore
+	-- computed as "did ANYONE'S cooldown meet it" and credited to every
+	-- healer (audit 2026-07-18: 3 healers rotating perfectly each read
+	-- 2/6 covered and all three were penalized for 100% team coverage).
+	local groupMet = {}
+	for i, win in ipairs(groupWindows) do
+		for _, acc in pairs(seg.players) do
+			local s = acc.spikes
+			if s and castCovers(s.casts, win[1], win[2], HEALER_PRE_SLOP, HEALER_SLOP) then
+				groupMet[i] = true
+				break
+			end
+		end
+	end
+
 	for guid, acc in pairs(seg.players) do
 		local s = acc.spikes
 		local r = {}
@@ -236,17 +259,25 @@ function Spikes.Compute(seg, duration)
 			end
 		end
 		if #groupWindows > 0 then
-			r.groupSpikeWindows = #groupWindows
+			-- windows that open after this player's death don't judge
+			-- them: a corpse can't cast Healing Tide (audit 2026-07-18)
+			local diedAt = acc.deaths and (acc.deaths.total or 0) > 0
+				and acc.deaths.lastTime or nil
+			local windows, cov = 0, 0
 			r.groupSpikeMap = {}
-			local cov = 0
-			for _, win in ipairs(groupWindows) do
-				local met = castCovers(s and s.casts, win[1], win[2], HEALER_SLOP)
-				if met then
-					cov = cov + 1
+			for i, win in ipairs(groupWindows) do
+				if not (diedAt and win[1] >= diedAt) then
+					windows = windows + 1
+					if groupMet[i] then
+						cov = cov + 1
+					end
 				end
-				r.groupSpikeMap[#r.groupSpikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), met or nil }
+				r.groupSpikeMap[#r.groupSpikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), groupMet[i] or nil }
 			end
-			r.groupSpikeCovered = cov
+			if windows > 0 then
+				r.groupSpikeWindows = windows
+				r.groupSpikeCovered = cov
+			end
 		end
 		if next(r) then
 			out[guid] = r

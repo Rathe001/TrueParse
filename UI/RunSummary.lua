@@ -376,7 +376,11 @@ function RunSummary:WipeDebrief(fight)
 	for _, p in pairs(fight.players or {}) do
 		local n = (p.metrics and p.metrics.deaths) or 0
 		deaths = deaths + n
-		if n > 0 and p.deathRecap then
+		-- a post-call death's recap is someone standing in bad ON PURPOSE
+		-- to reset — don't indict the behavior the call excuses
+		local forgiven = fight.calledWipeAt and p.deathTime
+			and p.deathTime >= fight.calledWipeAt
+		if n > 0 and p.deathRecap and not forgiven then
 			for _, hit in ipairs(p.deathRecap) do
 				if hit.avoidable then
 					afterAvoidable = afterAvoidable + 1

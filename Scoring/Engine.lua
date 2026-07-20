@@ -1370,6 +1370,14 @@ function Engine.ScoreFight(fight, opts)
 				local intensity = math.min(1, (volume or ctx.totals[key] or 0) / fullIntensity)
 				local center = A.shareCenter or 55
 				local lean = math.max(-1, math.min(1, (b.normalized - center) / (100 - center)))
+				-- a player dead for most of the fight couldn't kick or
+				-- dispel while dead: scale the below-share penalty by the
+				-- fraction of the fight they were alive for (the death is
+				-- already charged once — audit 2026-07-18)
+				if lean < 0 and (m.deaths or 0) > 0 and p.deathTime
+					and ctx.duration and ctx.duration > 0 then
+					lean = lean * math.max(0, math.min(1, p.deathTime / ctx.duration))
+				end
 				b.intensity = intensity
 				put(key == "interrupts" and "kicks" or key, intensity * maxPts * lean)
 				b.adjust = adj[key == "interrupts" and "kicks" or key]
@@ -1397,16 +1405,32 @@ function Engine.ScoreFight(fight, opts)
 				end
 			end
 
-			-- deaths: negative only (staying alive is the base's job)
+			-- deaths: negative only (staying alive is the base's job).
+			-- Post-call deaths are dropped from the charged count entirely
+			-- (audit 2026-07-18: forgiving only the LAST death meant a
+			-- brez + forgiven re-death promoted the earlier death to full
+			-- price — accepting the rez cost more than staying dead).
 			local deathCount = m.deaths or 0
+			local chargedTime = p.deathTime -- timing relief anchor
+			if fight.calledWipeAt and p.deathTimes then
+				deathCount, chargedTime = 0, nil
+				for _, t in ipairs(p.deathTimes) do
+					if t < fight.calledWipeAt then
+						deathCount = deathCount + 1
+						chargedTime = t
+					end
+				end
+			end
 			if deathCount > 0 then
 				local lastDeathCost = W.penalties.perDeath
-				if p.deathTime and ctx.duration and ctx.duration > 0 then
-					local fraction = math.max(0, math.min(1, p.deathTime / ctx.duration))
+				if chargedTime and ctx.duration and ctx.duration > 0 then
+					local fraction = math.max(0, math.min(1, chargedTime / ctx.duration))
 					lastDeathCost = W.penalties.perDeath * (1 - (W.penalties.deathTimingRelief or 0) * fraction)
 				end
-				-- dying after the wipe was called is the plan, not a mistake
-				if fight.calledWipeAt and p.deathTime and p.deathTime >= fight.calledWipeAt then
+				-- legacy records (no deathTimes): forgive the last death by
+				-- zeroing its cost, as before
+				if fight.calledWipeAt and not p.deathTimes
+					and p.deathTime and p.deathTime >= fight.calledWipeAt then
 					lastDeathCost = 0
 				end
 				local pts = math.min(W.penalties.deathsCap,
@@ -1415,6 +1439,21 @@ function Engine.ScoreFight(fight, opts)
 					pts = pts * (W.penalties.wipeDeathScale or 1)
 				end
 				put("deaths", -pts)
+			end
+			-- shared context for every death-adjacent penalty below: a
+			-- death that happened after the wipe call judges nothing, and
+			-- a one-shot (single recap hit >= ~90% of max HP) is a death
+			-- no defensive would have changed (audit 2026-07-18)
+			local deathForgiven = fight.calledWipeAt and p.deathTime
+				and p.deathTime >= fight.calledWipeAt
+			local oneShot = false
+			if p.maxHP and p.maxHP > 0 and p.deathRecap then
+				for _, hit in ipairs(p.deathRecap) do
+					if (hit.amount or 0) >= p.maxHP * 0.9 then
+						oneShot = true
+						break
+					end
+				end
 			end
 
 			-- pre-pull raid buff coverage (providers only)
@@ -1448,12 +1487,26 @@ function Engine.ScoreFight(fight, opts)
 
 			-- ---- addon-reported extras: absence is always neutral ----
 			if m.activityPct then
-				put("activity", ramp(m.activityPct, A.activityLow or 70, A.activityHigh or 89,
-					A.activityMax or 4))
+				local pts = ramp(m.activityPct, A.activityLow or 70, A.activityHigh or 89,
+					A.activityMax or 4)
+				-- dead time reads as inactivity, and the death already
+				-- cost: don't charge the same corpse-minutes twice
+				if pts < 0 and (m.deaths or 0) > 0 then
+					pts = 0
+				end
+				put("activity", pts)
 			end
 			if role == "TANK" and m.mitigationPct then
-				put("mitigation", ramp(m.mitigationPct, A.mitigationLow or 40, A.mitigationHigh or 70,
-					A.mitigationMax or 4))
+				local pts = ramp(m.mitigationPct, A.mitigationLow or 40, A.mitigationHigh or 70,
+					A.mitigationMax or 4)
+				-- the uptime ratio has no idea about dead time or the
+				-- post-call AFK tail (its numerator can't be clipped after
+				-- the fact): suppress the penalty when either contaminates
+				-- it; the bonus side still stands
+				if pts < 0 and ((m.deaths or 0) > 0 or fight.calledWipeAt) then
+					pts = 0
+				end
+				put("mitigation", pts)
 			end
 			if (m.consumables or 0) >= 2 then
 				put("prepared", A.preparedBonus or 0)
@@ -1461,7 +1514,10 @@ function Engine.ScoreFight(fight, opts)
 			if (m.defensives or 0) >= 2 then
 				put("defensives", A.defensivesBonus or 0)
 			end
-			if (m.deaths or 0) > 0 and (p.deathReadyDefensives or 0) >= 2 then
+			-- forgiven post-call deaths and one-shots judge nothing: the
+			-- player did what the raid asked / nothing they pressed mattered
+			if (m.deaths or 0) > 0 and (p.deathReadyDefensives or 0) >= 2
+				and not deathForgiven and not oneShot then
 				put("deathReady", -(A.readyAtDeathPenalty or 0))
 			end
 			-- every metric moves the score or stays silent (2026-07-15):
@@ -1469,27 +1525,47 @@ function Engine.ScoreFight(fight, opts)
 			-- addon-less/retail players are never touched.
 			-- Overheal: healers with real demand. Fixed thresholds until a
 			-- WCL per-spec overheal crawl exists (rankings API lacks it).
+			-- ctx.lowHealingDemand checked directly: breakdown.lowDemand is
+			-- only computed on the <75-score floor path, so a healer who
+			-- scored WELL on a trivial fight never got the exemption while
+			-- a weaker one did (audit 2026-07-18)
 			if role == "HEALER" and m.overhealPct and breakdown.healing
-				and breakdown.healing.applicable and not breakdown.healing.lowDemand then
-				if m.overhealPct >= (A.overhealHighAt or 60) then
+				and breakdown.healing.applicable and not breakdown.healing.lowDemand
+				and not ctx.lowHealingDemand then
+				-- per-spec population quantiles when the overheal crawl has
+				-- data for this spec (a Disc priest's normal overheal is
+				-- nothing like a Resto druid's): above p90 = -2, above
+				-- p75 = -1, leaner than p25 = +1. Fixed thresholds are the
+				-- fallback until Data/Overheal_*.lua ships.
+				local oc = TP.OverhealCurves and p.specID and TP.OverhealCurves[p.specID]
+				if m.overhealPct >= (oc and oc.p90 or A.overhealHighAt or 60) then
 					put("overheal", -(A.overhealHigh or 2))
-				elseif m.overhealPct >= (A.overhealMidAt or 45) then
+				elseif m.overhealPct >= (oc and oc.p75 or A.overhealMidAt or 45) then
 					put("overheal", -(A.overhealMid or 1))
-				elseif m.overhealPct <= (A.overhealLowAt or 20) then
+				elseif m.overhealPct <= (oc and oc.p25 or A.overhealLowAt or 20) then
 					put("overheal", A.overhealLowBonus or 1)
 				end
 			end
-			-- Overkill: damage wasted on dead targets
-			if role == "DAMAGER" and (m.overkillPct or 0) >= (A.overkillAt or 10) then
+			-- Overkill: damage wasted on dead targets. Short segments are a
+			-- couple of killing blows — and SOMEONE must land every final
+			-- blow — so only sustained fights can show a real pattern
+			if role == "DAMAGER" and (m.overkillPct or 0) >= (A.overkillAt or 10)
+				and (ctx.duration or 0) >= (A.overkillMinDuration or 60) then
 				put("overkill", -(A.overkillPenalty or 1))
 			end
-			-- Running dry mid-fight (dry at the kill is optimal, not a fault)
-			if role == "HEALER" and m.dryAt and ctx.duration and ctx.duration > 0
-				and m.dryAt < ctx.duration * 0.8 then
-				put("manaDry", -(A.manaDryPenalty or 1))
+			-- Running dry mid-fight (dry at the kill is optimal, not a
+			-- fault; dry after the wipe call is spam-healing the doomed,
+			-- which the addon declines to judge — audit 2026-07-18)
+			if role == "HEALER" and m.dryAt and ctx.duration and ctx.duration > 0 then
+				local judged = math.min(ctx.duration, fight.calledWipeAt or ctx.duration)
+				if m.dryAt < judged * 0.8 then
+					put("manaDry", -(A.manaDryPenalty or 1))
+				end
 			end
-			-- Dying without ever using a defensive (counted, not inferred)
-			if (m.deaths or 0) > 0 and m.defensives == 0 then
+			-- Dying without ever using a defensive (counted, not inferred;
+			-- forgiven post-call deaths and one-shots judge nothing)
+			if (m.deaths or 0) > 0 and m.defensives == 0
+				and not deathForgiven and not oneShot then
 				put("deathNoDefensives", -(A.deathNoDefensives or 2))
 			end
 			-- cooldown timing: share of danger windows a cooldown covered
@@ -1512,8 +1588,14 @@ function Engine.ScoreFight(fight, opts)
 					put("lust", A.lustMax or 3)
 				elseif m.lustCasts > 0 then
 					put("lust", (A.lustMax or 3) * 0.5)
-				else
-					put("lust", -(A.lustMax or 3))
+				-- a corpse can't press cooldowns: dead before the window
+				-- opened is not "wasted" (the twin of the pre-grace fix)
+				elseif not (fight.lustAt and p.deathTime and p.deathTime <= fight.lustAt) then
+					-- CDs spent earlier in the fight (forced by the boss
+					-- timeline) soften the miss: they pressed buttons,
+					-- just not in the window
+					local scale = (m.offensiveCDs or 0) > 0 and 0.5 or 1
+					put("lust", -(A.lustMax or 3) * scale)
 				end
 			end
 		end

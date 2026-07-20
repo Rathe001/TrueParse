@@ -1,7 +1,7 @@
 -- Bloodlust-window usage, from CLEU (Classic path). When a lust buff goes
 -- out, a 40s window opens on the segment; offensive cooldown casts and DPS
--- potion buffs inside it are tallied per player. Bullets phrase the result
--- for DPS only - informational, never scored.
+-- potion buffs inside it are tallied per player. Scored ±3 for DPS via the
+-- lust adjustment (Engine); bullets phrase it.
 local _, TP = ...
 
 local tracker = { subevents = {} }
@@ -11,6 +11,8 @@ local LUST_DURATION = 40
 -- lands saves a global (Josh, 2026-07-16 — his pre-lust CDs read
 -- "Wasted Bloodlust"). Casts this many seconds BEFORE the buff count.
 local LUST_PRE_GRACE = 10
+-- a cast queued at the window's edge lands just after it: same grace idea
+local LUST_POST_GRACE = 2
 
 tracker.subevents.SPELL_AURA_APPLIED = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
 	if not a1 then
@@ -31,6 +33,11 @@ tracker.subevents.SPELL_AURA_APPLIED = function(seg, srcGUID, dstGUID, srcFlags,
 					l.recent = nil
 				end
 			end
+		end
+		if not seg.lustSeen and seg.startTime then
+			-- the window's fight-offset: the engine forgives "wasted lust"
+			-- for players already dead when it opened (audit 2026-07-18)
+			seg.lustAt = GetTime() - seg.startTime
 		end
 		seg.lustSeen = true
 		seg.lustUntil = GetTime() + LUST_DURATION
@@ -54,7 +61,7 @@ tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags,
 		return
 	end
 	acc.lust.totalCasts = acc.lust.totalCasts + 1
-	if seg.lustUntil and GetTime() < seg.lustUntil then
+	if seg.lustUntil and GetTime() < seg.lustUntil + LUST_POST_GRACE then
 		acc.lust.casts = acc.lust.casts + 1
 	elseif not seg.lustSeen then
 		-- remember pre-lust casts so a lust in the next few seconds

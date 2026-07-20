@@ -75,6 +75,12 @@ tracker.subevents.SPELL_INTERRUPT = function(seg, srcGUID, dstGUID, srcFlags, ds
 	local g = seg.group
 	g.kickOpps = (g.kickOpps or 0) + 1
 	g.kicksLanded = (g.kicksLanded or 0) + 1
+	-- a landed kick puts the kicker's interrupt on cooldown: casts that
+	-- complete in the next few seconds were not real opportunities for a
+	-- group that just spent its kick (audit 2026-07-18 — spam-casters
+	-- made coverage mathematically unreachable). Grace matches the
+	-- shortest common interrupt CD; under-counting is the lenient side.
+	g.kickGraceUntil = GetTime() + 10
 	pendingCasts[dstGUID] = nil
 end
 
@@ -88,6 +94,11 @@ tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags,
 	local known = learnedKickable()
 	if known and known[a1] then
 		local g = seg.group
+		-- inside the post-kick grace the group's interrupt was down:
+		-- this completion was not a missable opportunity
+		if g.kickGraceUntil and GetTime() < g.kickGraceUntil then
+			return
+		end
 		g.kickOpps = (g.kickOpps or 0) + 1
 		g.kicksThrough = (g.kicksThrough or 0) + 1
 	end
@@ -188,21 +199,34 @@ tracker.subevents.UNIT_DIED = function(seg, srcGUID, dstGUID)
 	acc.deaths.total = acc.deaths.total + 1
 	if seg.startTime then
 		acc.deaths.lastTime = GetTime() - seg.startTime
+		-- every death's time: the engine drops post-wipe-call deaths from
+		-- the charged count (audit 2026-07-18: accepting a brez and dying
+		-- again post-call charged MORE than staying dead)
+		acc.deaths.times = acc.deaths.times or {}
+		acc.deaths.times[#acc.deaths.times + 1] = acc.deaths.lastTime
 	end
-	-- death recap: the last hits, snapshotted at the moment of death
-	-- (first death only: the recap that matters is the one that stuck)
-	if not acc.deaths.recap and TP.TakenRecap then
+	-- death recap: the last hits, snapshotted at the moment of death.
+	-- LAST death wins — deathTime, readyAtDeath, and the wipe-call gate
+	-- all describe the final death, so the recap must describe the same
+	-- one (audit 2026-07-18: recap said first death, everything else last)
+	if TP.TakenRecap then
 		acc.deaths.recap = TP.TakenRecap(acc)
 	end
 end
 
--- combat rez: casting it is group contribution, full stop
+-- combat rez: casting it is group contribution — before the wipe call.
+-- Times recorded so capture can drop post-call rezzes (a brez thrown
+-- into a called wipe is a wasted brez, not contribution).
 tracker.subevents.SPELL_RESURRECT = function(seg, srcGUID)
 	local guid = TP.Roster:ResolveGUID(srcGUID)
 	local acc = guid and seg.players[guid]
 	if acc then
 		acc.utility = acc.utility or {}
 		acc.utility.rezzes = (acc.utility.rezzes or 0) + 1
+		if seg.startTime then
+			acc.utility.rezTimes = acc.utility.rezTimes or {}
+			acc.utility.rezTimes[#acc.utility.rezTimes + 1] = GetTime() - seg.startTime
+		end
 	end
 end
 

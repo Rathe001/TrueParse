@@ -1869,6 +1869,164 @@ do
 	check(ins.weakness ~= "healing", ("off-heal averages never flag healing (%s)"):format(tostring(ins.weakness)))
 end
 
+-- 25. Whole-fight context gates (audit 2026-07-18): adjustments must not
+-- judge windows the player couldn't act in or behavior a wipe call excuses
+-- (IIFE: the main chunk is at Lua's 200-local ceiling)
+;(function()
+	local function ctxFight(over)
+		local f = {
+			name = "Context Boss", isBoss = true, duration = 300,
+			players = {},
+		}
+		for k, v in pairs(over or {}) do
+			f[k] = v
+		end
+		return f
+	end
+	local function dps(guid, over)
+		local p = { guid = guid, name = guid, class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 50000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } }
+		for k, v in pairs(over or {}) do
+			if k == "metrics" then
+				for mk, mv in pairs(v) do
+					p.metrics[mk] = mv
+				end
+			else
+				p[k] = v
+			end
+		end
+		return p
+	end
+	local function adFor(fight, guid)
+		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(fight, { normalizeIlvl = false })) do
+			if r.name == guid then
+				return r.adjustDetail or {}
+			end
+		end
+		return {}
+	end
+
+	-- 25a. post-call deaths: deathReady + deathNoDefensives forgiven
+	local f = ctxFight({ wipe = true, calledWipeAt = 200 })
+	f.players.a = dps("PostCall", { deathTime = 250, deathTimes = { 250 }, deathReadyDefensives = 3,
+		metrics = { deaths = 1, defensives = 0 } })
+	f.players.b = dps("PreCall", { deathTime = 100, deathTimes = { 100 }, deathReadyDefensives = 3,
+		metrics = { deaths = 1, defensives = 0 } })
+	local adA, adB = adFor(f, "PostCall"), adFor(f, "PreCall")
+	check((adA.deathReady or 0) == 0 and (adA.deathNoDefensives or 0) == 0 and (adA.deaths or 0) == 0,
+		("post-call death forgiven everywhere (ready=%s nodef=%s deaths=%s)"):format(
+			tostring(adA.deathReady), tostring(adA.deathNoDefensives), tostring(adA.deaths)))
+	check((adB.deathReady or 0) < 0 and (adB.deathNoDefensives or 0) < 0 and (adB.deaths or 0) < 0,
+		"pre-call death still charged in full")
+
+	-- 25b. brez double-charge: pre-call death charged once, post-call
+	-- re-death dropped from the count (not promoted to full price)
+	f.players.c = dps("Brezzed", { deathTime = 250, deathTimes = { 100, 250 },
+		metrics = { deaths = 2, defensives = 1 } })
+	local adC = adFor(f, "Brezzed")
+	check((adC.deaths or 0) < 0 and adC.deaths > -4.5,
+		("brezzed re-death not promoted to full price (%s)"):format(tostring(adC.deaths)))
+
+	-- 25c. one-shot death: no defensive would have mattered
+	local f2 = ctxFight({})
+	f2.players.a = dps("Oneshot", { deathTime = 150, maxHP = 400000, deathReadyDefensives = 2,
+		deathRecap = { { t = 149, spell = "Buster", amount = 4000000 } },
+		metrics = { deaths = 1, defensives = 0 } })
+	f2.players.b = dps("Rotted", { deathTime = 150, maxHP = 400000, deathReadyDefensives = 2,
+		deathRecap = { { t = 148, spell = "Rot", amount = 90000 }, { t = 149, spell = "Rot", amount = 95000 } },
+		metrics = { deaths = 1, defensives = 0 } })
+	local ad1, ad2 = adFor(f2, "Oneshot"), adFor(f2, "Rotted")
+	check((ad1.deathReady or 0) == 0 and (ad1.deathNoDefensives or 0) == 0,
+		"one-shot death skips the defensive penalties")
+	check((ad2.deathReady or 0) < 0 and (ad2.deathNoDefensives or 0) < 0,
+		"sustained death with defensives ready still charged")
+
+	-- 25d. lust: dead before the window opened is not "wasted"; CDs spent
+	-- earlier in the fight soften the miss
+	local f3 = ctxFight({ lustAt = 200 })
+	f3.players.a = dps("DeadFirst", { deathTime = 100, metrics = { deaths = 1, lustCasts = 0 } })
+	f3.players.b = dps("SpentEarly", { metrics = { lustCasts = 0, offensiveCDs = 3 } })
+	f3.players.c = dps("NoButtons", { metrics = { lustCasts = 0 } })
+	local la, lb, lc = adFor(f3, "DeadFirst"), adFor(f3, "SpentEarly"), adFor(f3, "NoButtons")
+	check((la.lust or 0) == 0, ("dead before lust window: no penalty (%s)"):format(tostring(la.lust)))
+	check((lb.lust or 0) == -1.5, ("early CDs halve the lust miss (%s)"):format(tostring(lb.lust)))
+	check((lc.lust or 0) == -3, ("no buttons at all keeps the full miss (%s)"):format(tostring(lc.lust)))
+
+	-- 25e. manaDry judged against the trying phase, not the doomed tail
+	local f4 = ctxFight({ wipe = true, calledWipeAt = 150 })
+	f4.players.a = dps("DryLate", { role = "HEALER",
+		metrics = { healing = 50000, dryAt = 200, deaths = 0 } })
+	f4.players.a.role = "HEALER"
+	local adDry = adFor(f4, "DryLate")
+	check((adDry.manaDry or 0) == 0,
+		("dry after the wipe call: no penalty (%s)"):format(tostring(adDry.manaDry)))
+
+	-- 25f. overkill needs a sustained fight (someone must land every blow)
+	local f5 = ctxFight({ duration = 30 })
+	f5.players.a = dps("Finisher", { metrics = { overkillPct = 15 } })
+	check((adFor(f5, "Finisher").overkill or 0) == 0, "short-fight overkill not judged")
+	local f6 = ctxFight({ duration = 300 })
+	f6.players.a = dps("Padder", { metrics = { overkillPct = 15 } })
+	check((adFor(f6, "Padder").overkill or 0) < 0, "sustained overkill still charged")
+
+	-- 25g. activity: dead time isn't inactivity (the death already cost)
+	local f7 = ctxFight({})
+	f7.players.a = dps("DiedEarly", { deathTime = 60, metrics = { deaths = 1, activityPct = 40 } })
+	f7.players.b = dps("Afk", { metrics = { activityPct = 40 } })
+	check((adFor(f7, "DiedEarly").activity or 0) == 0, "dead time doesn't double as inactivity")
+	check((adFor(f7, "Afk").activity or 0) < 0, "living low activity still charged")
+
+	-- 25h. kick share scaled by alive fraction: a player dead at 10%
+	-- couldn't kick for the other 90%
+	local f8 = ctxFight({ totals = nil })
+	f8.players.a = dps("DeadKicker", { deathTime = 30, metrics = { deaths = 1, interrupts = 0 } })
+	f8.players.b = dps("LazyKicker", { metrics = { interrupts = 0 } })
+	f8.players.c = dps("Kicker", { metrics = { interrupts = 8 } })
+	local ka, kb = adFor(f8, "DeadKicker"), adFor(f8, "LazyKicker")
+	check((ka.kicks or 0) > (kb.kicks or 0) * 0.2 and (kb.kicks or 0) < 0,
+		("dead kicker's share penalty scaled way down (%s vs %s)"):format(
+			tostring(ka.kicks), tostring(kb.kicks)))
+
+	-- 25i. per-spec overheal thresholds: a shield-heavy spec's population
+	-- runs high overheal; its p75 exempts what the fixed 45 would charge
+	local f9 = ctxFight({})
+	f9.players.a = dps("Discy", { specID = 256, metrics = { healing = 500000, overhealPct = 50 } })
+	f9.players.a.role = "HEALER"
+	f9.players.b = dps("Tank", { role = "TANK", metrics = { damageTaken = 900000 } })
+	f9.players.b.role = "TANK"
+	TP.OverhealCurves = { [256] = { p25 = 30, p75 = 55, p90 = 70, n = 100 } }
+	local oh = adFor(f9, "Discy")
+	check((oh.overheal or 0) == 0,
+		("spec p75=55 exempts 50%% overheal that fixed-45 would charge (%s)"):format(tostring(oh.overheal)))
+	TP.OverhealCurves[256] = { p25 = 30, p75 = 45, p90 = 48, n = 100 }
+	oh = adFor(f9, "Discy")
+	check((oh.overheal or 0) < -1.5,
+		("above spec p90 hits the -2 tier (%s)"):format(tostring(oh.overheal)))
+	TP.OverhealCurves = nil
+	oh = adFor(f9, "Discy")
+	check((oh.overheal or 0) == -1,
+		("no curves: fixed thresholds unchanged (%s)"):format(tostring(oh.overheal)))
+end)()
+
+-- 26. Spikes.Compute team coverage (audit 2026-07-18): group windows are
+-- the healer TEAM's job; proactive pre-casts count; corpses aren't judged
+;(function()
+	local seg = {
+		players = {
+			h1 = { spikes = { maxHP = 100000, taken = {}, casts = { 24 } } }, -- 6s early: pre-slop credits it
+			h2 = { spikes = { maxHP = 100000, taken = { [30] = 60000 }, casts = {} } }, -- 60k >= 18% of 300k group HP
+			h3 = { spikes = { maxHP = 100000, taken = {}, casts = {} },
+				deaths = { total = 1, lastTime = 20 } },
+		},
+	}
+	local out = TP.Spikes.Compute(seg, 120)
+	check(out.h1 and out.h1.groupSpikeCovered == 1, "pre-cast raid CD covers the window (pre-slop)")
+	check(out.h2 and out.h2.groupSpikeCovered == 1,
+		"team coverage credits every healer (rotation isn't punished)")
+	check(not (out.h3 and out.h3.groupSpikeWindows),
+		"windows after a player's death don't judge them")
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")
