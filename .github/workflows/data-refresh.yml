@@ -155,13 +155,17 @@ jobs:
         if: steps.cfg.outputs.slice != 'finalize'
         run: |
           rm -f scripts/wcl-v2-client.local.txt
-          if git diff --quiet -- Data/; then
+          # stage FIRST: `git diff` is blind to untracked files, and a slice
+          # whose output file is new on this branch (e.g. Percentiles_Mists_25
+          # before the branch picked up the stub) would silently discard the
+          # whole crawl as "unchanged"
+          git add Data/
+          if git diff --cached --quiet -- Data/; then
             echo "Slice **${{ steps.cfg.outputs.slice }}**: data unchanged." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           git config user.name "trueparse-data-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add Data/
           git commit -m "WCL refresh: ${{ steps.cfg.outputs.slice }} ($(date -u +%Y-%m-%d))"
           git push origin "HEAD:${{ steps.cfg.outputs.branch }}"
           echo "Slice **${{ steps.cfg.outputs.slice }}**: committed refreshed data." >> "$GITHUB_STEP_SUMMARY"
