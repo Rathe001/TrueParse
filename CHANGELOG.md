@@ -1,5 +1,17 @@
 # TrueParse Changelog
 
+## 1.4.4
+
+Monthly Warcraft Logs data refresh (first full staggered-crawl cycle).
+
+- Retail percentile curves refreshed per difficulty (LFR/Normal/Heroic/Mythic),
+  plus kill times with crawled average raid sizes for the flex rescale.
+- MoP SoO percentiles refreshed and expanded: Heroic 10-man curves for 11
+  bosses and a new 25-man bracket file (Normal for all 14 bosses, Heroic for
+  13 - Heroic Garrosh's population is still under the sample floor).
+- MoP kill times refreshed across all four brackets, now with average raid
+  sizes and encounter-ID keying (locale-proof lookups).
+
 ## 1.4.3
 
 A second deep audit, themed on one idea: a bonus or penalty must judge

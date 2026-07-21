@@ -1,8 +1,8 @@
-## Interface: 50504
+﻿## Interface: 50504
 ## Title: TrueParse
 ## Notes: A parse that shows you actually did your job. Group contribution meter.
 ## Author: Josh
-## Version: 1.4.3
+## Version: 1.4.4
 ## SavedVariables: TrueParseDB
 ## X-Category: Combat
 ## X-Website: https://github.com/rathe001/TrueParse
