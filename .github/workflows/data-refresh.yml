@@ -49,7 +49,7 @@ env:
   # and packages to CurseForge inline (the packager reads the tag we create in
   # the same job, so it never depends on the tag-push event — which the
   # default GITHUB_TOKEN cannot trigger anyway).
-  AUTO_PUBLISH: "false"
+  AUTO_PUBLISH: "true"
   BRANCH_PREFIX: data-refresh
 
 permissions:
