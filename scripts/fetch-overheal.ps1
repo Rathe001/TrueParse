@@ -156,7 +156,10 @@ foreach ($ref in $shuffled) {
     elseif ($tbl -and $tbl.entries) { $entries = $tbl.entries }
     if (-not $entries) { continue }
     foreach ($e in $entries) {
-        $specID = $e.icon -and $specByIcon[[string]$e.icon]
+        # NOTE: PowerShell -and yields a BOOLEAN, not the right operand —
+        # `$e.icon -and $lookup[...]` collapsed every spec to key True
+        if (-not $e.icon) { continue }
+        $specID = $specByIcon[[string]$e.icon]
         if (-not $specID) { continue }
         $eff = [double]($e.total)
         $over = 0.0
