@@ -1,5 +1,18 @@
 # TrueParse Changelog
 
+## 1.4.5
+
+Per-spec overheal thresholds for MoP healers, crawled from Warcraft
+Logs report tables (the first data for the v1.4.3 overheal support).
+
+- A healer's overheal is now judged against their own spec's normal
+  range instead of fixed 20/45/60 thresholds: Discipline reads lowest
+  (absorbs don't overheal), Resto Druid highest (HoT overwrite is the
+  spec), a ~12-point spread the fixed numbers couldn't see.
+- Covered: Disc, Holy Paladin, Resto Shaman, Resto Druid, Mistweaver.
+  Holy Priest missed the sample floor by one this crawl and keeps the
+  fixed fallback until the next refresh.
+
 ## 1.4.4
 
 Monthly Warcraft Logs data refresh (first full staggered-crawl cycle).
