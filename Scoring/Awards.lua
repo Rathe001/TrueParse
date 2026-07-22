@@ -233,7 +233,7 @@ function Awards.Compute(fight)
 			end
 			local entry = offTbl and p.specID and offTbl[p.specID]
 			if entry and entry.curve and #entry.curve > 1
-				and Engine.PercentileFor(entry.curve, rate) >= 90 then
+				and Engine.EntryPercentileFor(entry, rate) >= 90 then
 				grant(guid, "virtuoso")
 			end
 		end

@@ -112,6 +112,10 @@ jobs:
           WCL_V2_SECRET: ${{ secrets.WCL_V2_SECRET }}
         run: Set-Content -Path scripts/wcl-v2-client.local.txt -Value @($env:WCL_V2_ID, $env:WCL_V2_SECRET)
 
+      # needed before the crawl steps too: dump-capped.lua feeds fetch-totals
+      - name: Install Lua
+        run: sudo apt-get update -q && sudo apt-get install -y -q lua5.4
+
       # ---- crawl slices: exactly one runs per invocation ----
       - name: Retail raid percentiles (zone 46)
         if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'retail-pct'
@@ -124,6 +128,9 @@ jobs:
         run: |
           ./scripts/fetch-percentiles-v2.ps1 -ZoneId 46 -Brackets "1" -OutFile "$PWD/Data/Percentiles_LFR.lua"
           ./scripts/fetch-killtimes.ps1 -ZoneId 46 -Brackets "3,4,5" -OutFile "$PWD/Data/KillTimes.lua"
+          # true-population totals for capped curves (cheap; same token)
+          lua5.4 scripts/dump-capped.lua Data/Percentiles.lua Data/Percentiles_LFR.lua Data/KillTimes.lua Data/KillTimes_LFR.lua > /tmp/capped.csv
+          ./scripts/fetch-totals.ps1 -ZoneId 46 -BracketStyle retail -CappedCsv /tmp/capped.csv -OutFile "$PWD/Data/Totals.lua"
 
       # MoP percentiles are split by raid size: 4 brackets in one window
       # blew the 6h job cap (retail's 3 brackets took 4h52m). The two
@@ -141,7 +148,11 @@ jobs:
       - name: MoP kill times (classic zone 1054)
         if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'mop-kt'
         shell: pwsh
-        run: ./scripts/fetch-killtimes.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x10,3x25,4x10,4x25" -OutFile "$PWD/Data/KillTimes_Mists.lua"
+        run: |
+          ./scripts/fetch-killtimes.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x10,3x25,4x10,4x25" -OutFile "$PWD/Data/KillTimes_Mists.lua"
+          # true-population totals for capped curves (cheap; same token)
+          lua5.4 scripts/dump-capped.lua Data/Percentiles_Mists.lua Data/Percentiles_Mists_25.lua Data/KillTimes_Mists.lua > /tmp/capped.csv
+          ./scripts/fetch-totals.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -BracketStyle classic -CappedCsv /tmp/capped.csv -OutFile "$PWD/Data/Totals_Mists.lua"
 
       # ---- gate: any refreshed data must pass the full headless suite ----
       - name: Install Lua

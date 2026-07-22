@@ -1341,13 +1341,12 @@ TP.Percentiles.encounters["Percentile Boss"]["3x10"].killTime = nil
 
 -- 18d3b. CAPPED sample (n == 1000 = WCL's fightRankings ceiling): the sample
 -- is only the fastest 1000 of a larger field, so the raw sample percentile
--- reads every real kill as bottom-decile. Rescale by the field size
--- estimated from per-spec parse counts (sum dps / raidSize = kills).
+-- reads every real kill as bottom-decile. Rescale by the TRUE field size
+-- crawled from report rankings (killTime.total); without it, nothing honest
+-- can be said, so the percentile is suppressed entirely.
 TP.Percentiles.encounters["Capped Boss"] = { ["3x10"] = {
-	-- 40000 dps parses / 10-player raid = 4000 true kills
-	dps = { [63] = { n = 20000, curve = {} }, [64] = { n = 20000, curve = {} } },
-	hps = {},
-	killTime = { n = 1000, curve = { { 99, 60 }, { 95, 80 }, { 90, 100 }, { 75, 140 }, { 50, 200 }, { 25, 280 }, { 10, 400 } } },
+	dps = {}, hps = {},
+	killTime = { n = 1000, total = 4000, curve = { { 99, 60 }, { 95, 80 }, { 90, 100 }, { 75, 140 }, { 50, 200 }, { 25, 280 }, { 10, 400 } } },
 } }
 TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
 local capFight = { name = "(!) Capped Boss", isBoss = true, duration = 200, difficultyID = 3, players = {} }
@@ -1360,24 +1359,37 @@ capFight.duration = 500
 local bpct, _, _, bbnd = TP.Scoring.Engine.KillSpeedPercentile(capFight)
 check(bbnd and bpct and math.abs(bpct - 75) < 0.5,
 	("beyond-sample kill is bounded at the field ceiling (%s, bounded=%s)"):format(tostring(bpct), tostring(bbnd)))
--- flex retail bracket (difficultyID 14 -> "3", not in the fixed-size table):
--- without a crawl-captured avgSize we can't size the field -> nil
-TP.Percentiles.encounters["Capped Boss"]["3"] = {
-	dps = { [63] = { n = 30000, curve = {} }, [64] = { n = 30000, curve = {} } }, hps = {},
-	killTime = { n = 1000, curve = { { 99, 60 }, { 95, 80 }, { 90, 100 }, { 75, 140 }, { 50, 200 }, { 25, 280 }, { 10, 400 } } },
-}
-TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
-local flexFight = { name = "(!) Capped Boss", isBoss = true, duration = 200, difficultyID = 14, players = {} }
-check(TP.Scoring.Engine.KillSpeedPercentile(flexFight) == nil,
-	"capped flex bracket without avgSize yields no percentile")
--- with a crawl-captured avgSize the flex field is sizeable and rescales:
--- 60000 dps / avgSize 20 = 3000 kills; 200s = sample p50 -> rank 500 -> p83.3
-TP.Percentiles.encounters["Capped Boss"]["3"].killTime.avgSize = 20
-local flexPct = TP.Scoring.Engine.KillSpeedPercentile(flexFight)
-check(flexPct and math.abs(flexPct - 83.3) < 0.5,
-	("crawl-captured avgSize lets a flex bracket rescale (%s)"):format(tostring(flexPct)))
+-- capped bracket with NO crawled total: suppressed (the old parse-count
+-- estimator overestimated the field ~3x — validated against WCL 2026-07-22)
+TP.Percentiles.encounters["Capped Boss"]["3x10"].killTime.total = nil
+capFight.duration = 200
+check(TP.Scoring.Engine.KillSpeedPercentile(capFight) == nil,
+	"capped bracket without a crawled total yields no percentile")
 TP.Percentiles.encounters["Capped Boss"] = nil
 TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+
+-- 18d3c. Capped THROUGHPUT curves rescale the same way: characterRankings
+-- serves at most 2000 chars per spec, so a popular spec's curve is the
+-- population's top slice and plain interpolation under-rates mid-pack
+-- players (Elemental read 10-27 points under WCL's own rankPercents).
+;(function()
+	local entry = {
+		n = 2000, total = 4000,
+		curve = { { 99, 400 }, { 95, 350 }, { 90, 320 }, { 75, 280 }, { 50, 240 }, { 25, 200 }, { 10, 160 } },
+	}
+	-- sample p50 (240/s) = in-sample rank 1000 of 4000 true chars -> p75
+	local p = TP.Scoring.Engine.EntryPercentileFor(entry, 240)
+	check(math.abs(p - 75) < 0.5, ("capped spec curve rescales p50->p75 (%s)"):format(tostring(p)))
+	-- below the sampled tail only a ceiling is known: anchor the fade there
+	-- (ceiling = 1 - 0.9*2000/4000 = 55; half the tail value reads 27.5)
+	local q = TP.Scoring.Engine.EntryPercentileFor(entry, 80)
+	check(math.abs(q - 27.5) < 0.5, ("below-tail fade anchors at the ceiling (%s)"):format(tostring(q)))
+	-- top of the sample can't exceed WCL's no-100 convention
+	check(TP.Scoring.Engine.EntryPercentileFor(entry, 500) == 99, "rescaled top still pins at 99")
+	-- without a crawled total the plain interpolation stands (status quo)
+	local plain = TP.Scoring.Engine.EntryPercentileFor({ n = 2000, curve = entry.curve }, 240)
+	check(math.abs(plain - 50) < 0.5, ("uncrawled capped curve keeps sample percentile (%s)"):format(tostring(plain)))
+end)()
 
 -- 18d4. Demand cap: you can't heal damage that never went out. A healer
 -- on a trivial fight (per-healer incoming damage below the spec's median

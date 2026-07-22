@@ -474,6 +474,36 @@ local function percentileFor(curve, rate)
 	return last[1] * rate / last[2]
 end
 
+-- Capped-curve correction: characterRankings serves at most 2000 chars per
+-- spec, so a popular spec's curve samples only the population's top slice
+-- and plain interpolation under-rates everyone mid-pack (validated
+-- 2026-07-22: Elemental read 10-27 points below WCL's own rankPercents).
+-- When the totals crawl recorded the real population (entry.total), a
+-- sample percentile converts to an exact in-sample rank, and the true
+-- population turns that rank into an honest percentile — same construction
+-- as the kill-speed rescale. Below the sampled tail only a ceiling is
+-- known, so the fade-to-zero anchors there instead of at p10.
+local function entryPercentileFor(entry, rate)
+	local curve, n, total = entry.curve, entry.n, entry.total
+	if not (n and total and total > n) then
+		return percentileFor(curve, rate)
+	end
+	local last = curve[#curve]
+	if rate and rate > 0 and rate < last[2] then
+		local ceiling = 100 * (1 - (1 - last[1] / 100) * n / total)
+		return ceiling * rate / last[2]
+	end
+	local samplePct = percentileFor(curve, rate)
+	local rank = (100 - samplePct) / 100 * n
+	local pct = 100 * (1 - rank / total)
+	if pct < 0 then
+		pct = 0
+	elseif pct > 99 then
+		pct = 99
+	end
+	return pct
+end
+
 -- Cross-bracket correction: difficulty shifts the whole population by a
 -- stable factor (2026-07-13 audit: median p50 ratios run 1.3-3.0x on
 -- retail; applying them cuts neighbor-bracket transfer error from 20-48
@@ -767,7 +797,7 @@ local function normalizeMetric(p, role, key, ctx)
 				curveFrom = label
 				-- scale converts the player's rate INTO the borrowed
 				-- bracket's population before interpolating
-				local pct = percentileFor(entry.curve, (scale or 1) * curveVal / ctx.duration)
+				local pct = entryPercentileFor(entry, (scale or 1) * curveVal / ctx.duration)
 				absolute = math.min(100, (W.trueAbsFloor or 0) + (W.trueAbsSlope or 1) * pct)
 				fromCurve = true
 				pctile = pct -- raw percentile, for the tooltip gauge
@@ -837,7 +867,7 @@ local function normalizeMetric(p, role, key, ctx)
 			if entry then
 				rolePooled = pooled
 				curveFrom = label
-				local pct = percentileFor(entry.curve, (scale or 1) * curveVal / ctx.duration)
+				local pct = entryPercentileFor(entry, (scale or 1) * curveVal / ctx.duration)
 				specMedian = curveP50(entry.curve) / (scale or 1)
 				return pct, true, pct, nil, specMedian, pct, rolePooled, curveFrom
 			end
@@ -877,6 +907,7 @@ local PARSE_WEIGHTS = {
 -- Public for Awards (Virtuoso needs off-metric percentiles) and tooling
 Engine.ResolvePercentiles = resolvePercentiles
 Engine.PercentileFor = percentileFor
+Engine.EntryPercentileFor = entryPercentileFor
 
 -- Group kill speed vs WCL's ranked kills for this encounter+bracket.
 -- killTime curves hold durations in seconds, ascending from p99 (fastest)
@@ -911,39 +942,16 @@ end
 -- kills gives us only the FASTEST 1000, and the slow tail is never served.
 local SPEED_RANK_CAP = 1000
 
--- Raid size turns per-spec parse counts into a kill count: WCL ranks every
--- raider on BOTH dps and hps (verified: the two sums match to the person),
--- so sum(dps parses) / raidSize = total kills. Preferred source is the
--- crawl-captured killTime.avgSize (real average, so flex retail brackets
--- work too); this table is the fallback for data crawled before avgSize
--- existed — fixed-size brackets only, flex omitted (can't size them).
-local BRACKET_RAID_SIZE = {
-	["3x10"] = 10, ["4x10"] = 10, ["3x25"] = 25, ["4x25"] = 25, -- MoP 10/25 N/H
-	["5"] = 20, -- retail Mythic (fixed 20)
-}
-
--- Estimate the true kill population from the per-spec parse counts that live
--- on the same bracket table. Per-spec counts cap at 2000 for a few very
--- popular specs, which nudges this LOW — safe: it makes rescaled percentiles
--- slightly conservative rather than inflated.
-local function estimateKillPopulation(bracket, size)
-	if not (bracket and bracket.dps and size) then
-		return nil
-	end
-	local sum = 0
-	for _, entry in pairs(bracket.dps) do
-		sum = sum + (entry.n or 0)
-	end
-	if sum <= 0 then
-		return nil
-	end
-	return sum / size
-end
-
 -- Returns pct, populationSize, medianSeconds, bounded — or nil (wipe, no
 -- data, or a capped field we can't size). When the sample is capped, pct is
--- rescaled against the estimated true field (the raw sample percentile reads
--- every real kill as bottom-decile against a fastest-1000 leaderboard).
+-- rescaled against the TRUE field size crawled from report rankings
+-- (killTime.total): the raw sample percentile reads every real kill as
+-- bottom-decile against a fastest-1000 leaderboard. The old estimator
+-- (sum of per-spec parse counts / raid size) is gone — validated 2026-07-22
+-- against WCL's own speed rankPercents, it overestimated the field ~3x
+-- (parse counts tally distinct characters ever, not ranked kills), which
+-- inflated the share line badly (announced 81, truth 41). Capped data
+-- without a crawled total now reports nothing rather than guessing.
 -- bounded=true means the kill was slower than the 1000th-fastest: its true
 -- rank is past the served data, so pct is only a ceiling.
 function Engine.KillSpeedPercentile(fight)
@@ -973,13 +981,10 @@ function Engine.KillSpeedPercentile(fight)
 		return speedPercentile(curve, fight.duration), sampleN, curveP50(curve), false
 	end
 
-	-- Capped: rescale the fastest-1000 sample by the estimated true field.
-	-- Prefer the crawl-captured average raid size (sizes flex brackets too);
-	-- fall back to the fixed-size table for data that predates avgSize.
-	local size = kt.avgSize or (key and BRACKET_RAID_SIZE[key])
-	local N = estimateKillPopulation(bracket, size)
+	-- Capped: rescale the fastest-1000 sample by the crawled true field.
+	local N = kt.total
 	if not N or N <= sampleN then
-		-- can't size the field (flex retail, no avgSize) — nothing honest to give
+		-- no totals crawled for this bracket — nothing honest to give
 		return nil
 	end
 	if fight.duration > curve[#curve][2] then

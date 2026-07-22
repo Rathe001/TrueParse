@@ -1,5 +1,28 @@
 # TrueParse Changelog
 
+## 1.4.6
+
+Percentile honesty: capped WCL samples now rescale against the real
+population. Validated head-to-head against a raid night's official WCL
+rankPercents - parse error dropped from as much as 27 points to about
+1 point on average, and the kill-speed line now matches WCL's speed
+percentile within a point.
+
+- WCL's rankings silently cap at 2000 characters per spec, so popular
+  specs' curves (Elemental, hunters, and most retail specs) were
+  top-slice samples that under-rated everyone mid-pack by 10-27
+  points. A new totals crawl records each capped curve's true
+  population, and the engine converts the sample percentile into an
+  exact rank inside it.
+- The kill-speed announcement was too generous (~2x): the population
+  estimate counted characters instead of kills. It now uses the true
+  ranked-kill count crawled from report rankings; capped brackets
+  without a crawled total stay silent rather than guess.
+- Covered everywhere curves ship except Mythic+ (WCL's report rankings
+  answer differently for keystone runs - M+ raw parses keep the old
+  behavior for now): current retail raid + LFR, Sporefall, and MoP
+  Siege of Orgrimmar.
+
 ## 1.4.5
 
 Per-spec overheal thresholds for MoP healers, crawled from Warcraft

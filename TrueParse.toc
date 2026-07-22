@@ -2,7 +2,7 @@
 ## Title: TrueParse
 ## Notes: A parse that shows you actually did your job. Group contribution meter.
 ## Author: Josh
-## Version: 1.4.5
+## Version: 1.4.6
 ## SavedVariables: TrueParseDB
 ## X-Category: Combat
 ## X-Website: https://github.com/rathe001/TrueParse
@@ -23,6 +23,8 @@ Data\Percentiles_Sporefall.lua
 Data\KillTimes.lua
 Data\KillTimes_LFR.lua
 Data\KillTimes_Sporefall.lua
+Data\Totals.lua
+Data\Totals_Sporefall.lua
 Data\Potions.lua
 Data\GroupBuffs.lua
 Data\Defensives.lua
