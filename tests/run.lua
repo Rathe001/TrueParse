@@ -16,6 +16,7 @@ loadModule("Scoring/Weights.lua", TP)
 loadModule("Scoring/Engine.lua", TP)
 loadModule("Scoring/Grades.lua", TP)
 loadModule("Data/Benchmarks.lua", TP)
+loadModule("Data/HealerCDs_Mists.lua", TP) -- RAID_CDS feeds the assignment line
 loadModule("Scoring/Awards.lua", TP)
 loadModule("Scoring/Coach.lua", TP)
 loadModule("Scoring/Runs.lua", TP)
@@ -2111,6 +2112,38 @@ end)()
 	check(saw, "run advice names the comp trade after repeated heavy kills")
 	check(#TP.Scoring.Insights.RunAdvice({ mkFight() }) == 0,
 		"one heavy kill is not a pattern")
+
+	-- raid-CD assignment line: uncovered moments + unused raid-wide CDs
+	local function cdFight(used, coveredN)
+		local f = mkFight()
+		f.totals = { raidCdsUsed = used }
+		-- resto druid owns Tranquility; class field feeds Rallying Cry
+		f.players.h2.class = "DRUID"
+		f.players.d4.class = "WARRIOR"
+		f.players.h1.metrics.groupSpikeWindows = 4
+		f.players.h1.metrics.groupSpikeCovered = coveredN
+		return f
+	end
+	local function cdLine(f)
+		for _, b in ipairs(TP.Scoring.Bullets.ForGroup({}, f)) do
+			if b.key == "raidCds" then
+				return b.text
+			end
+		end
+	end
+	-- the comp owns: Revival (h1 MW), Tranquility (h2 resto), Devotion
+	-- Aura (h3 HPal), Avert Harm (t brew), Rallying Cry (d4 warrior)
+	local line = cdLine(cdFight({ [115310] = true }, 2))
+	check(line and line:find("2 of 4", 1, true)
+		and line:find("Avert Harm, Devotion Aura, Rallying Cry", 1, true),
+		("assignment line names owned-but-unused raid CDs, capped at 3 (%s)"):format(tostring(line)))
+	check(line and not line:find("Revival", 1, true),
+		"a raid CD that was pressed is never listed")
+	check(cdLine(cdFight({ [115310] = true, [740] = true, [97462] = true,
+		[31821] = true, [115213] = true }, 2)) == nil,
+		"all owned raid CDs used -> no assignment line")
+	check(cdLine(cdFight({}, 4)) == nil,
+		"full coverage -> no assignment line")
 	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
 	TP.Percentiles = savedP
 end)()

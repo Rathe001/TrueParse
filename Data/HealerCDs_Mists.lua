@@ -27,3 +27,23 @@ TP.HEALER_CDS = {
 	[115213] = true, -- Avert Harm (brewmaster raid CD, exists all of MoP)
 	[15286] = true,  -- Vampiric Embrace (shadow's raid-healing CD)
 }
+
+-- Raid-WIDE cooldowns and who baseline-owns them, for the group card's
+-- assignment line ("...sat unused"). Single-target externals (Pain
+-- Suppression, Guardian Spirit, Ironbark, Life Cocoon, Sacrifice) are
+-- deliberately absent - "assign the raid CD" advice only makes sense for
+-- raid-wide buttons. Talent CDs (Ancestral Guidance, Ascendance) are
+-- absent too: talents aren't observable, and naming a button nobody took
+-- would be wrong. Names ship in English, like every data-file key.
+TP.RAID_CDS = {
+	[740] = { spec = 105, name = "Tranquility" },
+	[64843] = { spec = 257, name = "Divine Hymn" },
+	[62618] = { spec = 256, name = "Power Word: Barrier" },
+	[108280] = { spec = 264, name = "Healing Tide Totem" },
+	[98008] = { spec = 264, name = "Spirit Link Totem" },
+	[115310] = { spec = 270, name = "Revival" },
+	[31821] = { spec = 65, name = "Devotion Aura" },
+	[97462] = { class = "WARRIOR", name = "Rallying Cry" },
+	[115213] = { spec = 268, name = "Avert Harm" },
+	[15286] = { spec = 258, name = "Vampiric Embrace" },
+}

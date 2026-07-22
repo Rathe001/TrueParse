@@ -1,5 +1,17 @@
 # TrueParse Changelog
 
+## 1.5.1
+
+**Raid-cooldown assignment line.** When heavy-damage moments go
+uncovered while raid-wide cooldowns sat in someone's kit unused the
+whole fight, the group card now names the buttons: "2 of 4
+heavy-damage moments had no cooldown - Revival, Tranquility sat
+unused". The healers' timing points already judged coverage; this
+line is the to-do list that fixes it - assign one button per big
+moment before the pull. Baseline abilities only (talent cooldowns
+aren't observable, so they're never listed); single-target externals
+excluded by design. MoP Classic only, like all cast tracking.
+
 ## 1.5.0
 
 Two group-level features, both born from real raid-night arguments.

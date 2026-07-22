@@ -606,6 +606,50 @@ function Bullets.ForGroup(results, fight)
 		end
 	end
 
+	-- Raid-CD assignment: heavy-damage moments went uncovered while
+	-- raid-wide cooldowns sat in someone's kit unused ALL fight. Names
+	-- the buttons, so "assign the raid CDs" stops being abstract. The
+	-- healers' cdTiming points already judge coverage; this line is the
+	-- to-do list. Classic only (retail can't see others' casts).
+	if fight and fight.players and TP.RAID_CDS then
+		local windows, covered = 0, 0
+		for _, p in pairs(fight.players) do
+			local m = p.metrics or {}
+			if (m.groupSpikeWindows or 0) > windows then
+				windows = m.groupSpikeWindows
+				covered = m.groupSpikeCovered or 0
+			end
+		end
+		if windows >= 2 and covered < windows then
+			local used = (fight.totals and fight.totals.raidCdsUsed) or {}
+			local unused = {}
+			for spellID, cd in pairs(TP.RAID_CDS) do
+				if not used[spellID] then
+					for _, p in pairs(fight.players) do
+						if (cd.spec and p.specID == cd.spec) or (cd.class and p.class == cd.class) then
+							unused[#unused + 1] = cd.name
+							break
+						end
+					end
+				end
+			end
+			if #unused > 0 then
+				table.sort(unused)
+				local names = table.concat(unused, ", ", 1, math.min(3, #unused))
+				local bad = covered / windows < 0.5
+				out[#out + 1] = { kind = "info", key = "raidCds",
+					symbol = bad and "-" or MIDDOT, color = bad and BAD or MID,
+					text = ("%d of %d heavy-damage moments had no cooldown - %s sat unused"):format(
+						windows - covered, windows, names),
+					tooltip = { title = "Raid cooldown assignment",
+						lines = {
+							{ "These raid-wide cooldowns were in the group's kit and never pressed this fight. Assigning one button per big-damage moment before the pull turns this line green.", 1, 1, 1 },
+							{ "Baseline abilities only - talent cooldowns aren't observable, so they're never listed.", 0.8, 0.8, 0.8, true },
+						} } }
+			end
+		end
+	end
+
 	-- what the fight cost, in facts
 	if fight and fight.isBoss and (fight.totals and fight.totals.deaths) == 0 and not fight.wipe then
 		out[#out + 1] = { kind = "info", key = "deaths", symbol = "+", color = GOOD,

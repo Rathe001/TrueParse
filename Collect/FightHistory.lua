@@ -951,6 +951,11 @@ function FightHistory:AddFromSegment(seg)
 		totals.kicksLanded = seg.group.kicksLanded or 0
 		totals.kicksThrough = seg.group.kicksThrough or 0
 	end
+	-- raid CDs pressed this fight (any at all): the group card's
+	-- assignment line subtracts these from what the comp owns
+	if seg.group and seg.group.raidCdsUsed then
+		totals.raidCdsUsed = seg.group.raidCdsUsed
+	end
 	-- Enrichment must never block capture
 	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
 	pcall(TP.Sync.AttachReports, TP.Sync, fight)

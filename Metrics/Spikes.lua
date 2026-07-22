@@ -134,6 +134,15 @@ tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags,
 	if s then
 		s.casts[#s.casts + 1] = GetTime() - seg.startTime
 	end
+	-- which raid CDs got pressed at all: the group card names the ones
+	-- that sat unused while heavy-damage moments went uncovered
+	seg.group = seg.group or {}
+	local used = seg.group.raidCdsUsed
+	if not used then
+		used = {}
+		seg.group.raidCdsUsed = used
+	end
+	used[a1] = true
 end
 
 tracker.InitPlayer = function(acc)
