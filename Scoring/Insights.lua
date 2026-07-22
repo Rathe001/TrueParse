@@ -129,9 +129,11 @@ function Insights.RunAdvice(fights)
 	local diedPF = 0 -- player-fights with a death (recaps are per-player)
 	local drained, lustWasted, earlyPulls = 0, 0, 0
 	local avoidable, taken = 0, 0
+	local healerHeavy, healerFieldMode, healerRan = 0, nil, nil
 
 	for _, f in ipairs(fights) do
 		local t = f.totals or {}
+		local fHealers, fSize = 0, 0
 		kickOpps = kickOpps + (t.kickOpportunities or 0)
 		kicksLanded = kicksLanded + (t.kicksLanded or 0)
 		avoidable = avoidable + (t.avoidableTaken or 0)
@@ -140,7 +142,9 @@ function Insights.RunAdvice(fights)
 		for _, p in pairs(f.players or {}) do
 			local m = p.metrics or {}
 			local role = TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID)
+			fSize = fSize + 1
 			if role == "HEALER" then
+				fHealers = fHealers + 1
 				if not countedGroupSpikes and (m.groupSpikeWindows or 0) > 0 then
 					-- group windows are shared; count once per fight
 					gWindows = gWindows + m.groupSpikeWindows
@@ -175,11 +179,25 @@ function Insights.RunAdvice(fights)
 					deathsWithDefsReady = deathsWithDefsReady + 1
 				end
 			end
-			if role == "DAMAGER" and m.lustCasts ~= nil and m.lustCasts == 0 then
+			-- dead before the window opened = excused, same as the engine
+			if role == "DAMAGER" and m.lustCasts ~= nil and m.lustCasts == 0
+				and not (f.lustAt and p.deathTime and p.deathTime <= f.lustAt) then
 				lustWasted = lustWasted + 1
 			end
 			if p.aggroPulled then
 				earlyPulls = earlyPulls + 1
+			end
+		end
+		-- comp vs the field: count kills where the group ran more healers
+		-- than ranked kills' dominant comp (same-size comps only)
+		if f.isBoss and not f.wipe and fSize > 0 then
+			local field, fieldSize = TP.Scoring.Engine.HealerCountField(f)
+			if field and field.mode and (field.modePct or 0) >= 50
+				and fHealers > field.mode and fieldSize
+				and math.abs(fSize - fieldSize) <= 2 then
+				healerHeavy = healerHeavy + 1
+				healerFieldMode = field.mode
+				healerRan = fHealers
 			end
 		end
 	end
@@ -236,6 +254,12 @@ function Insights.RunAdvice(fights)
 	end
 	if earlyPulls >= 2 then
 		add(35, ("%d pulls started before the tank - a breath saves a scramble."):format(earlyPulls))
+	end
+	-- comp advice last: it's a choice, not a mistake — but if the group
+	-- runs heavier than the field all night, say what it's trading away
+	if healerHeavy >= 2 and healerFieldMode and healerRan then
+		add(30, ("Ranked kills of these bosses mostly run %d healers; your %d-heal comp trades kill speed for safety - a healer swapped to DPS is the cheapest speed upgrade."):format(
+			healerFieldMode, healerRan))
 	end
 
 	table.sort(advice, function(a, b)

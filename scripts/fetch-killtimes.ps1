@@ -155,6 +155,9 @@ foreach ($enc in $zone.encounters) {
         # count without this average; fixed-size brackets get their exact
         # size back (a harmless no-op there).
         $sizeSum = 0.0; $sizeCount = 0
+        # healer-count distribution across the same sampled kills: feeds the
+        # group card's comp advisor ("ranked kills mostly run 2 healers")
+        $healSum = 0.0; $healN = 0; $healHist = @{}
         foreach ($pageKey in $needed.Keys) {
             $page = [int]$pageKey
             $data = if ($page -eq 1) { $first } else { Get-RankingsPage $enc.id $bracket.args $page }
@@ -163,6 +166,12 @@ foreach ($enc in $zone.encounters) {
                 $sz = $rk.size
                 if (-not $sz) { $sz = [double]($rk.tanks + $rk.healers + $rk.melee + $rk.ranged) }
                 if ($sz -and $sz -gt 0) { $sizeSum += [double]$sz; $sizeCount++ }
+                if ($null -ne $rk.healers) {
+                    $hc = [int]$rk.healers
+                    $healSum += $hc; $healN++
+                    if (-not $healHist.ContainsKey($hc)) { $healHist[$hc] = 0 }
+                    $healHist[$hc]++
+                }
             }
             foreach ($pKey in $needed[$pageKey].Keys) {
                 $rank = $needed[$pageKey][$pKey]
@@ -175,8 +184,20 @@ foreach ($enc in $zone.encounters) {
         }
         if ($curve.Count -ge 4) {
             $avgSize = if ($sizeCount -gt 0) { [math]::Round($sizeSum / $sizeCount, 1) } else { $null }
-            $encOut[$bracket.key] = @{ n = $total; curve = $curve; avgSize = $avgSize }
-            Write-Host ("    [{0}] n={1} p99={2}s p50={3}s avgSize={4}" -f $bracket.key, $total, $curve["99"], $curve["50"], $avgSize)
+            $healers = $null
+            if ($healN -ge 20) {
+                $mode = $null; $modeCount = 0
+                foreach ($hc in $healHist.Keys) {
+                    if ($healHist[$hc] -gt $modeCount) { $mode = $hc; $modeCount = $healHist[$hc] }
+                }
+                $healers = @{
+                    avg = [math]::Round($healSum / $healN, 1)
+                    mode = $mode
+                    modePct = [int][math]::Round(100.0 * $modeCount / $healN)
+                }
+            }
+            $encOut[$bracket.key] = @{ n = $total; curve = $curve; avgSize = $avgSize; healers = $healers }
+            Write-Host ("    [{0}] n={1} p99={2}s p50={3}s avgSize={4} healers={5}@{6}%" -f $bracket.key, $total, $curve["99"], $curve["50"], $avgSize, $healers.mode, $healers.modePct)
         }
     }
     if ($encOut.Count -gt 0) { $results[$enc.name] = $encOut; $encIds[$enc.name] = $enc.id }
@@ -215,6 +236,11 @@ foreach ($name in ($results.Keys | Sort-Object)) {
         # avgSize present -> the engine can size flex fields; absent -> it
         # falls back to the hardcoded fixed sizes (older data stays valid)
         $sizePart = if ($null -ne $entry.avgSize) { (", avgSize = {0}" -f $entry.avgSize) } else { "" }
+        # healer-count distribution: the comp advisor's field baseline
+        if ($null -ne $entry.healers) {
+            $sizePart += (", healers = {{ avg = {0}, mode = {1}, modePct = {2} }}" -f `
+                $entry.healers.avg, $entry.healers.mode, $entry.healers.modePct)
+        }
         Emit ("put(`"{0}`", `"{1}`", {{ n = {2}, curve = {{ {3} }}{4} }})" -f ($name -replace '"', '\"'), $bk, $entry.n, $points, $sizePart)
     }
 }

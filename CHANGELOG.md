@@ -1,5 +1,27 @@
 # TrueParse Changelog
 
+## 1.5.0
+
+Two group-level features, both born from real raid-night arguments.
+
+**Healer-count advisor.** The kill-time crawl now records how many
+healers ranked kills actually bring, per boss and bracket. When your
+raid kills a boss running more healers than the field's dominant comp
+(and only then - it never nags you to ADD healers, and never on
+wipes), the group card notes it: "Ran 3 healers - ranked kills mostly
+run 2", with the field distribution in the tooltip. Advice, never
+points - comp is a group choice, and progression comps run extra
+healers on purpose. If the pattern holds across a run, the end-of-run
+advice names the trade: kill speed for safety. Raids only; sizes must
+be comparable (flex guard).
+
+**Bloodlust discipline, the group view.** The card now rolls up what
+each DPS did with the lust window: "Bloodlust: 4 of 6 DPS stacked
+cooldowns, 2 potioned", carrying the average of the individual lust
+points that already existed. Players dead before the window opened are
+excused - here, in the score, and now in the end-of-run advice too
+(the advice engine previously counted corpses as wasted lust).
+
 ## 1.4.6
 
 Percentile honesty: capped WCL samples now rescale against the real

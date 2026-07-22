@@ -537,6 +537,75 @@ function Bullets.ForGroup(results, fight)
 				lines = { { "Group total. Hover a player's dispel bullet for their share.", 1, 1, 1 } } } }
 	end
 
+	-- Bloodlust discipline, the group view: how many DPS actually stacked
+	-- cooldowns (and potions) into the window. The per-player lust points
+	-- already exist; this line rolls them up so the raid argument about
+	-- "save it or send it" gets a number. Classic CLEU sees everyone;
+	-- retail fights have no lustCasts and the line stays absent.
+	if fight and fight.players then
+		local dps, aligned, potioned = 0, 0, 0
+		for _, p in pairs(fight.players) do
+			local m = p.metrics or {}
+			local role = TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID)
+			-- dead before the window opened = excused, same as the engine
+			if role == "DAMAGER" and m.lustCasts ~= nil
+				and not (fight.lustAt and p.deathTime and p.deathTime <= fight.lustAt) then
+				dps = dps + 1
+				if m.lustCasts > 0 then
+					aligned = aligned + 1
+				end
+				if (m.lustPotion or 0) > 0 then
+					potioned = potioned + 1
+				end
+			end
+		end
+		if dps >= 2 then
+			local ratio = aligned / dps
+			local sym, col = MIDDOT, MID
+			if ratio >= 0.8 then
+				sym, col = "+", GOOD
+			elseif ratio < 0.5 then
+				sym, col = "-", BAD
+			end
+			local potPart = potioned > 0 and (", %d potioned"):format(potioned) or ", nobody potioned"
+			out[#out + 1] = { kind = "metric", key = "lust", symbol = sym, color = col,
+				text = ("Bloodlust: %d of %d DPS stacked cooldowns%s"):format(aligned, dps, potPart) .. avgAdj("lust"),
+				tooltip = { title = "Bloodlust discipline",
+					lines = {
+						{ "Those 40 seconds are the fight's damage jackpot: offensive cooldowns and potions multiply inside them. Hover a DPS row's Bloodlust bullet for their part.", 1, 1, 1 },
+						{ "Players dead before the lust went out are excused.", 0.8, 0.8, 0.8, true },
+					} } }
+		end
+	end
+
+	-- Healer-count advisor (raid kills): compare the comp against what
+	-- ranked kills of this boss actually field. Advice, never points -
+	-- comp is a group choice, and progression comps 3-heal on purpose.
+	-- Only speaks when the group ran HEAVIER than the field's dominant
+	-- comp (deaths already argue the other direction) and the raid sizes
+	-- are comparable (flex guard).
+	if fight and fight.isBoss and not fight.wipe and fight.players then
+		local field, fieldSize = TP.Scoring.Engine.HealerCountField(fight)
+		if field and field.mode and (field.modePct or 0) >= 50 then
+			local healers, size = 0, 0
+			for _, p in pairs(fight.players) do
+				size = size + 1
+				if TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID) == "HEALER" then
+					healers = healers + 1
+				end
+			end
+			if healers > field.mode and fieldSize and math.abs(size - fieldSize) <= 2 then
+				out[#out + 1] = { kind = "info", key = "healerComp", symbol = MIDDOT, color = MID,
+					text = ("Ran %d healers - ranked kills mostly run %d"):format(healers, field.mode),
+					tooltip = { title = "Healer count",
+						lines = {
+							{ ("%d%% of ranked kills of this boss bring %d healer(s); the field average is %.1f. Every healer swapped to DPS shortens the fight - and the healing parses split fewer ways."):format(field.modePct, field.mode, field.avg or field.mode), 1, 1, 1 },
+							{ "Advice, not a grade: progression comps run extra healers on purpose.", 0.8, 0.8, 0.8, true },
+						} } }
+			end
+		end
+	end
+
 	-- what the fight cost, in facts
 	if fight and fight.isBoss and (fight.totals and fight.totals.deaths) == 0 and not fight.wipe then
 		out[#out + 1] = { kind = "info", key = "deaths", symbol = "+", color = GOOD,

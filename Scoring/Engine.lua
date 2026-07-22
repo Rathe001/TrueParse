@@ -1005,6 +1005,29 @@ function Engine.KillSpeedPercentile(fight)
 	return truePct, N, nil, false
 end
 
+-- Field comp for this fight's bracket: how many healers ranked kills of
+-- this boss actually bring (crawled healer-count distribution stored on
+-- killTime by fetch-killtimes.ps1; raid zones only). Returns the healers
+-- table { avg, mode, modePct } and the field's average raid size — nil
+-- when the data (or the fight's bracket) is absent.
+function Engine.HealerCountField(fight)
+	local P = TP.Percentiles
+	if not P then
+		return nil
+	end
+	local enc = encounterCurvesFor(P, fight)
+	if not enc then
+		return nil
+	end
+	local key = fight.difficultyID and WCL_BRACKET[fight.difficultyID]
+	local bracket = (key and enc[key]) or enc.all
+	local kt = bracket and bracket.killTime
+	if not (kt and kt.healers) then
+		return nil
+	end
+	return kt.healers, kt.avgSize
+end
+
 -- Where this encounter's median kill time ranks among the tier's bosses
 -- (same data file, same bracket): 0 = the tier's fastest-killed boss,
 -- 1 = the slowest. Group-card context, so a rough score on a rough boss

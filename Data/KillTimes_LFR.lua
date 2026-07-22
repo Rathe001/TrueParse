@@ -13,3 +13,5 @@ local function put(name, bracket, killTime)
 	E[name][bracket].killTime = killTime
 end
 
+
+TP.Percentiles.ids = TP.Percentiles.ids or {}

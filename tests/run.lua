@@ -2039,6 +2039,82 @@ end)()
 		"windows after a player's death don't judge them")
 end)()
 
+-- 27. v1.5.0 group lines: Bloodlust discipline rollup + healer-count
+-- advisor (field comp crawled onto killTime.healers)
+;(function()
+	local savedP = TP.Percentiles
+	TP.Percentiles = { encounters = {} }
+	local E = TP.Percentiles.encounters
+	E["Comp Boss"] = { ["3x10"] = {
+		killTime = { n = 500, curve = { { 99, 100 }, { 75, 150 }, { 50, 200 }, { 10, 300 } },
+			avgSize = 10, healers = { avg = 2.2, mode = 2, modePct = 64 } },
+	} }
+	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+	local function mkFight()
+		return {
+			name = "Comp Boss", isBoss = true, duration = 220, difficultyID = 3, lustAt = 20,
+			players = {
+				t = { role = "TANK", specID = 268, metrics = {} },
+				h1 = { role = "HEALER", specID = 270, metrics = {} },
+				h2 = { role = "HEALER", specID = 105, metrics = {} },
+				h3 = { role = "HEALER", specID = 65, metrics = {} },
+				d1 = { role = "DAMAGER", specID = 63, metrics = { lustCasts = 2, lustPotion = 1 } },
+				d2 = { role = "DAMAGER", specID = 64, metrics = { lustCasts = 1, lustPotion = 0 } },
+				d3 = { role = "DAMAGER", specID = 62, metrics = { lustCasts = 0, lustPotion = 0 } },
+				-- dead before the lust window opened: excused entirely
+				d4 = { role = "DAMAGER", specID = 72, metrics = { lustCasts = 0 }, deathTime = 10 },
+			},
+		}
+	end
+	local function lines(fight)
+		local lust, comp
+		for _, b in ipairs(TP.Scoring.Bullets.ForGroup({}, fight)) do
+			if b.key == "lust" then lust = b.text end
+			if b.key == "healerComp" then comp = b.text end
+		end
+		return lust, comp
+	end
+	local hf, hs = TP.Scoring.Engine.HealerCountField(mkFight())
+	check(hf and hf.mode == 2 and hf.modePct == 64 and hs == 10,
+		"HealerCountField reads the crawled comp distribution")
+	local lust, comp = lines(mkFight())
+	check(lust and lust:find("2 of 3 DPS", 1, true) and lust:find("1 potioned", 1, true),
+		("group lust line counts aligned+potioned, excuses the dead (%s)"):format(tostring(lust)))
+	check(comp and comp:find("Ran 3 healers", 1, true) and comp:find("mostly run 2", 1, true),
+		("healer advisor fires when heavier than the field (%s)"):format(tostring(comp)))
+	-- field mode not dominant -> the advisor holds its tongue
+	E["Comp Boss"]["3x10"].killTime.healers.modePct = 40
+	local _, quiet = lines(mkFight())
+	check(quiet == nil, "advisor quiet when no comp dominates the field")
+	E["Comp Boss"]["3x10"].killTime.healers.modePct = 64
+	-- comp matches the field -> quiet (it never advises ADDING healers)
+	E["Comp Boss"]["3x10"].killTime.healers.mode = 3
+	local _, match = lines(mkFight())
+	check(match == nil, "advisor quiet when the comp matches (or is leaner)")
+	E["Comp Boss"]["3x10"].killTime.healers.mode = 2
+	-- flex guard: a comp much smaller than the field's size isn't compared
+	E["Comp Boss"]["3x10"].killTime.avgSize = 22
+	local _, flex = lines(mkFight())
+	check(flex == nil, "advisor quiet across mismatched raid sizes")
+	E["Comp Boss"]["3x10"].killTime.avgSize = 10
+	-- wipes carry no comp advice
+	local wf = mkFight()
+	wf.wipe = true
+	local _, wiped = lines(wf)
+	check(wiped == nil, "advisor quiet on wipes")
+	-- run-level pointer needs the pattern across 2+ kills
+	local tips = TP.Scoring.Insights.RunAdvice({ mkFight(), mkFight() })
+	local saw = false
+	for _, t in ipairs(tips) do
+		if t:find("healer swapped to DPS", 1, true) then saw = true end
+	end
+	check(saw, "run advice names the comp trade after repeated heavy kills")
+	check(#TP.Scoring.Insights.RunAdvice({ mkFight() }) == 0,
+		"one heavy kill is not a pattern")
+	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+	TP.Percentiles = savedP
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")
