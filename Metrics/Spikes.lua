@@ -246,6 +246,17 @@ function Spikes.Compute(seg, duration)
 			end
 		end
 	end
+	-- the TEAM's demonstrated raid-CD capacity: how many cooldown casts
+	-- actually happened. The engine caps the judged window count at
+	-- capacity+1 — a team with 2 casts in a 6-window fight failed
+	-- capacity, not discipline ("could have, but didn't" needs could-have)
+	local teamCasts = 0
+	for _, acc in pairs(seg.players) do
+		local s = acc.spikes
+		if s and s.casts then
+			teamCasts = teamCasts + #s.casts
+		end
+	end
 
 	for guid, acc in pairs(seg.players) do
 		local s = acc.spikes
@@ -265,6 +276,9 @@ function Spikes.Compute(seg, duration)
 					r.spikeMap[#r.spikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), met or nil }
 				end
 				r.spikeCovered = cov
+				-- demonstrated defensive capacity (completed aura spans,
+				-- plus one still running at fight end)
+				r.defensiveUses = #(s.spans or {}) + (s.since and 1 or 0)
 			end
 		end
 		if #groupWindows > 0 then
@@ -286,6 +300,7 @@ function Spikes.Compute(seg, duration)
 			if windows > 0 then
 				r.groupSpikeWindows = windows
 				r.groupSpikeCovered = cov
+				r.groupCdCasts = teamCasts
 			end
 		end
 		if next(r) then

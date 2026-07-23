@@ -147,17 +147,27 @@ function Insights.RunAdvice(fights)
 			if role == "HEALER" then
 				fHealers = fHealers + 1
 				if not countedGroupSpikes and (m.groupSpikeWindows or 0) > 0 then
-					-- group windows are shared; count once per fight
-					gWindows = gWindows + m.groupSpikeWindows
-					gCovered = gCovered + (m.groupSpikeCovered or 0)
+					-- group windows are shared; count once per fight.
+					-- Capacity-capped like the engine: windows beyond what
+					-- the team's raid CDs could cover aren't advice material
+					local w, c = m.groupSpikeWindows, m.groupSpikeCovered or 0
+					if (m.groupCdCasts or 0) > 0 then
+						w = math.min(w, math.max(m.groupCdCasts, c) + 1)
+					end
+					gWindows = gWindows + w
+					gCovered = gCovered + math.min(c, w)
 					countedGroupSpikes = true
 				end
 				if m.dryAt or (m.manaMinPct or 100) <= 5 then
 					drained = drained + 1
 				end
 			elseif role == "TANK" then
-				tWindows = tWindows + (m.spikeWindows or 0)
-				tCovered = tCovered + (m.spikeCovered or 0)
+				local w, c = m.spikeWindows or 0, m.spikeCovered or 0
+				if w > 0 and (m.defensiveUses or 0) > 0 then
+					w = math.min(w, math.max(m.defensiveUses, c) + 1)
+				end
+				tWindows = tWindows + w
+				tCovered = tCovered + math.min(c, w)
 			end
 			if (m.deaths or 0) > 0 then
 				deaths = deaths + m.deaths

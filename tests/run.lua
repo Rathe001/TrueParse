@@ -2210,6 +2210,82 @@ end)()
 	TP.Percentiles = savedP
 end)()
 
+-- 29. Availability awareness (2026-07-23): "could have, but didn't"
+-- requires could-have. Capacity caps the judged danger windows; a CD
+-- spent just before Bloodlust is no lust miss; a reported zero-ready
+-- death had nothing to press.
+;(function()
+	local PLAYER_KEYS = { deathReadyDefensives = true, deathTime = true }
+	local function score(patches)
+		local fight = {
+			name = "(!) Avail Boss", isBoss = true, duration = 300,
+			players = {
+				h = { guid = "h", name = "Healer", class = "MONK", role = "HEALER", specID = 270,
+					metrics = { damage = 0, healing = 900000, interrupts = 0, dispels = 0,
+						deaths = 0, avoidableTaken = 0, damageTaken = 10000 } },
+				t = { guid = "t", name = "Tank", class = "WARRIOR", role = "TANK", specID = 73,
+					metrics = { damage = 200000, healing = 0, interrupts = 0, dispels = 0,
+						deaths = 0, avoidableTaken = 0, damageTaken = 500000 } },
+				d = { guid = "d", name = "Dps", class = "MAGE", role = "DAMAGER", specID = 63,
+					metrics = { damage = 900000, healing = 0, interrupts = 0, dispels = 0,
+						deaths = 0, avoidableTaken = 0, damageTaken = 10000 } },
+			},
+		}
+		for guid, patch in pairs(patches or {}) do
+			if guid == "fight" then
+				for k, v in pairs(patch) do
+					fight[k] = v
+				end
+			else
+				for k, v in pairs(patch) do
+					if PLAYER_KEYS[k] then
+						fight.players[guid][k] = v
+					else
+						fight.players[guid].metrics[k] = v
+					end
+				end
+			end
+		end
+		local by = {}
+		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(fight, { normalizeIlvl = false })) do
+			by[r.name] = r
+		end
+		return by
+	end
+	-- healer team: 6 windows but only 2 raid-CD casts (both landed well).
+	-- 3 coverable, 2 covered -> positive, where the old math said -3
+	local by = score({ h = { groupSpikeWindows = 6, groupSpikeCovered = 2, groupCdCasts = 2 } })
+	check((by.Healer.adjustDetail.cdTiming or 0) > 0,
+		("out of buttons, not discipline: capped coverage reads positive (%.1f)"):format(by.Healer.adjustDetail.cdTiming or 0))
+	-- zero uses gets NO cap: nothing was ever on cooldown
+	by = score({ h = { groupSpikeWindows = 6, groupSpikeCovered = 0, groupCdCasts = 0 } })
+	check((by.Healer.adjustDetail.cdTiming or 0) < 0,
+		"zero uses is maximum culpability, not an exemption")
+	-- pre-capacity records: unchanged judgment
+	by = score({ h = { groupSpikeWindows = 6, groupSpikeCovered = 2 } })
+	check((by.Healer.adjustDetail.cdTiming or 0) < 0,
+		"records without capacity data keep the old judgment")
+	-- tank personal defensives cap the same way
+	by = score({ t = { spikeWindows = 5, spikeCovered = 2, defensiveUses = 2 } })
+	check((by.Tank.adjustDetail.cdTiming or 0) > 0,
+		("tank capacity cap (%.1f)"):format(by.Tank.adjustDetail.cdTiming or 0))
+	-- lust cooldown shadow: a CD spent 60s before the window was still
+	-- down during it -> no penalty at all (was: halved)
+	by = score({ fight = { lustAt = 100 }, d = { lustCasts = 0, offensiveCDs = 2, lastOffensiveAt = 40 } })
+	check((by.Dps.adjustDetail.lust or 0) == 0,
+		"a CD inside the pre-lust shadow is no alibi-free miss")
+	-- a cast long before the shadow is no alibi: softened penalty stands
+	by = score({ fight = { lustAt = 200 }, d = { lustCasts = 0, offensiveCDs = 2, lastOffensiveAt = 40 } })
+	check((by.Dps.adjustDetail.lust or 0) < 0, "an old cast is no alibi")
+	-- reported ZERO defensives ready at death = nothing to press
+	by = score({ d = { deaths = 1, defensives = 0, deathReadyDefensives = 0 } })
+	check((by.Dps.adjustDetail.deathNoDefensives or 0) == 0,
+		"all-on-cooldown death skips the no-defensive penalty")
+	by = score({ d = { deaths = 1, defensives = 0 } })
+	check((by.Dps.adjustDetail.deathNoDefensives or 0) < 0,
+		"unreported readiness keeps the penalty (counted, not inferred)")
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")

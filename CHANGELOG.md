@@ -1,5 +1,25 @@
 # TrueParse Changelog
 
+## 1.5.3
+
+Availability awareness: "could have, but didn't" now requires the
+could-have. No penalty is charged for a button that was on cooldown.
+
+- **Cooldown timing** (tank spikes and healer raid-damage windows) now
+  caps the judged window count at demonstrated capacity: uses actually
+  made, plus one more they might have held. A healer team that spent
+  both its raid CDs well across a 6-spike fight ran out of buttons,
+  not discipline - that read -3 before and reads positive now. Zero
+  uses gets no cap (nothing was ever on cooldown), and the bullet
+  says when capacity capped it ("met 2 of 6 raid-damage spikes
+  (3 coverable)"). End-of-run advice applies the same cap.
+- **Bloodlust misses** are excused when the player's last offensive
+  cooldown went out within 90s before the window - it was still on
+  cooldown during it. Older casts keep the softened penalty.
+- **Dying without a defensive** is no longer charged when the
+  readiness report says zero defensives were off cooldown at death -
+  they were spent earlier or the spec has none.
+
 ## 1.5.2
 
 Three additions: Mythic+ joins the percentile-honesty fix, and two new

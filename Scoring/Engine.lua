@@ -1591,20 +1591,44 @@ function Engine.ScoreFight(fight, opts)
 				end
 			end
 			-- Dying without ever using a defensive (counted, not inferred;
-			-- forgiven post-call deaths and one-shots judge nothing)
+			-- forgiven post-call deaths and one-shots judge nothing).
+			-- Availability: a self/peer readiness report of ZERO defensives
+			-- off cooldown at death means there was nothing to press —
+			-- spent pre-pull or the spec has none (Josh 2026-07-23)
 			if (m.deaths or 0) > 0 and m.defensives == 0
+				and p.deathReadyDefensives ~= 0
 				and not deathForgiven and not oneShot then
 				put("deathNoDefensives", -(A.deathNoDefensives or 2))
 			end
 			-- cooldown timing: share of danger windows a cooldown covered
 			-- (Classic CLEU computes it for everyone; retail self-reports).
 			-- Needs 2+ windows: one window is a coin flip, not a pattern.
+			-- AVAILABILITY CAP (Josh 2026-07-23): only judge windows the
+			-- player COULD have covered. Without per-spell cooldown tables,
+			-- demonstrated capacity (uses actually made, +1 headroom for one
+			-- more they might have held) is the honest bound — a healer team
+			-- with 2 raid-CD casts in a 6-window fight ran out of buttons,
+			-- not discipline. Judged still needs 2+ coverable windows.
+			-- (zero uses gets NO cap: nothing was ever on cooldown, so every
+			-- window was coverable — that's maximum culpability, not physics)
 			if role == "TANK" and (m.spikeWindows or 0) >= 2 then
-				put("cdTiming", ramp((m.spikeCovered or 0) / m.spikeWindows,
-					A.cdTimingLow or 0.25, A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
+				local judged = m.spikeWindows
+				if (m.defensiveUses or 0) > 0 then
+					judged = math.min(judged, math.max(m.defensiveUses, m.spikeCovered or 0) + 1)
+				end
+				if judged >= 2 then
+					put("cdTiming", ramp((m.spikeCovered or 0) / judged,
+						A.cdTimingLow or 0.25, A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
+				end
 			elseif role == "HEALER" and (m.groupSpikeWindows or 0) >= 2 then
-				put("cdTiming", ramp((m.groupSpikeCovered or 0) / m.groupSpikeWindows,
-					A.cdTimingLow or 0.25, A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
+				local judged = m.groupSpikeWindows
+				if (m.groupCdCasts or 0) > 0 then
+					judged = math.min(judged, math.max(m.groupCdCasts, m.groupSpikeCovered or 0) + 1)
+				end
+				if judged >= 2 then
+					put("cdTiming", ramp((m.groupSpikeCovered or 0) / judged,
+						A.cdTimingLow or 0.25, A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
+				end
 			end
 			-- combat rezzes: casting one is group contribution, full stop
 			if (m.combatRezzes or 0) > 0 then
@@ -1619,11 +1643,20 @@ function Engine.ScoreFight(fight, opts)
 				-- a corpse can't press cooldowns: dead before the window
 				-- opened is not "wasted" (the twin of the pre-grace fix)
 				elseif not (fight.lustAt and p.deathTime and p.deathTime <= fight.lustAt) then
-					-- CDs spent earlier in the fight (forced by the boss
-					-- timeline) soften the miss: they pressed buttons,
-					-- just not in the window
-					local scale = (m.offensiveCDs or 0) > 0 and 0.5 or 1
-					put("lust", -(A.lustMax or 3) * scale)
+					-- availability (Josh 2026-07-23): a CD spent in the
+					-- ~90s before the window was still on cooldown DURING
+					-- it — no penalty for a button that wasn't there
+					local shadow = A.lustCdShadow or 90
+					local spentRecently = fight.lustAt and m.lastOffensiveAt
+						and m.lastOffensiveAt < fight.lustAt
+						and (fight.lustAt - m.lastOffensiveAt) < shadow
+					if not spentRecently then
+						-- CDs spent earlier in the fight (forced by the boss
+						-- timeline) soften the miss: they pressed buttons,
+						-- just not in the window
+						local scale = (m.offensiveCDs or 0) > 0 and 0.5 or 1
+						put("lust", -(A.lustMax or 3) * scale)
+					end
 				end
 			end
 		end

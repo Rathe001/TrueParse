@@ -61,6 +61,12 @@ tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags,
 		return
 	end
 	acc.lust.totalCasts = acc.lust.totalCasts + 1
+	-- when the last CD went out (fight offset): a CD spent shortly before
+	-- the lust window was still on cooldown DURING it — the engine skips
+	-- the miss penalty then ("could have, but didn't" needs could-have)
+	if seg.startTime then
+		acc.lust.lastCastAt = GetTime() - seg.startTime
+	end
 	if seg.lustUntil and GetTime() < seg.lustUntil + LUST_POST_GRACE then
 		acc.lust.casts = acc.lust.casts + 1
 	elseif not seg.lustSeen then

@@ -242,7 +242,18 @@ function Bullets.ForResult(result, awards, extra)
 	end
 
 	-- Cooldown timing vs the fight's danger windows (Classic CLEU sees
-	-- everyone; retail players self-report their own)
+	-- everyone; retail players self-report their own). When demonstrated
+	-- capacity capped the judged count below the window count, say so —
+	-- the points grade the coverable windows, not the physics.
+	local function coverableNote(windows, uses, covered)
+		if (uses or 0) > 0 then
+			local judged = math.min(windows, math.max(uses, covered) + 1)
+			if judged < windows then
+				return (" (%d coverable)"):format(judged)
+			end
+		end
+		return ""
+	end
 	if extra and (extra.spikeWindows or 0) >= 2 and result.role == "TANK" then
 		local covered = extra.spikeCovered or 0
 		local a = ad.cdTiming or 0
@@ -253,7 +264,8 @@ function Bullets.ForResult(result, awards, extra)
 			sym, col = "-", BAD
 		end
 		out[#out + 1] = { kind = "info", key = "cdTiming", symbol = sym, color = col,
-			text = ("Cooldowns met %d of %d damage spikes"):format(covered, extra.spikeWindows) .. pts(a) }
+			text = ("Cooldowns met %d of %d damage spikes"):format(covered, extra.spikeWindows)
+				.. coverableNote(extra.spikeWindows, extra.defensiveUses, covered) .. pts(a) }
 	end
 	if extra and (extra.groupSpikeWindows or 0) >= 2 and result.role == "HEALER" then
 		local covered = extra.groupSpikeCovered or 0
@@ -265,7 +277,8 @@ function Bullets.ForResult(result, awards, extra)
 			sym, col = "-", BAD
 		end
 		out[#out + 1] = { kind = "info", key = "cdTiming", symbol = sym, color = col,
-			text = ("Cooldowns met %d of %d raid-damage spikes"):format(covered, extra.groupSpikeWindows) .. pts(a) }
+			text = ("Cooldowns met %d of %d raid-damage spikes"):format(covered, extra.groupSpikeWindows)
+				.. coverableNote(extra.groupSpikeWindows, extra.groupCdCasts, covered) .. pts(a) }
 	end
 
 	-- Peer-reported facts

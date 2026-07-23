@@ -753,6 +753,9 @@ function FightHistory:AddFromSegment(seg)
 						if acc.dryAt then
 							acc.dryAt = math.max(0, acc.dryAt - first)
 						end
+						if acc.lust and acc.lust.lastCastAt then
+							acc.lust.lastCastAt = math.max(0, acc.lust.lastCastAt - first)
+						end
 					end
 					if seg.lustAt then
 						seg.lustAt = math.max(0, seg.lustAt - first)
@@ -829,6 +832,9 @@ function FightHistory:AddFromSegment(seg)
 		if seg.lustSeen and acc.lust then
 			m.lustCasts = acc.lust.casts
 			m.lustPotion = acc.lust.potion and 1 or 0
+			-- last offensive-CD cast before/around the window: availability
+			-- evidence for the engine's miss penalty
+			m.lastOffensiveAt = acc.lust.lastCastAt
 		end
 		-- WoWAnalyzer-style basics (post-totals: ratios/counts, not sums).
 		-- Activity on a called wipe measures the TRYING phase only —
@@ -870,6 +876,9 @@ function FightHistory:AddFromSegment(seg)
 			m.spikeWindows, m.spikeCovered = sd.spikeWindows, sd.spikeCovered
 			m.groupSpikeWindows, m.groupSpikeCovered = sd.groupSpikeWindows, sd.groupSpikeCovered
 			m.spikeMap, m.groupSpikeMap = sd.spikeMap, sd.groupSpikeMap
+			-- demonstrated capacity: the engine caps judged windows at
+			-- uses+1 so nobody is penalized for physics
+			m.defensiveUses, m.groupCdCasts = sd.defensiveUses, sd.groupCdCasts
 		end
 		-- dispel reaction time (avg seconds a dispelled debuff sat there)
 		if acc.dispels and (acc.dispels.reactN or 0) > 0 then
