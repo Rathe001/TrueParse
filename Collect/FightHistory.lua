@@ -306,6 +306,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		end
 	end
 	self:StampRunID(fight)
+	self:StampPrevKill(fight)
 	table.insert(self.fights, 1, fight)
 	local cap = TP.Addon.db.profile.history.maxFights
 	for i = #self.fights, cap + 1, -1 do
@@ -319,6 +320,24 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	TP.Addon:Debug(("Captured %s: %.0fs, %d players, dmg %s"):format(
 		name, fight.duration, countPlayers(players), TP.FormatNumber(totals.damage or 0)))
 	return true
+end
+
+-- Speed trend: remember the previous KILL of this boss+difficulty so the
+-- group card can say "14s faster than last time". Stamped at capture,
+-- BEFORE the new fight enters the list — history access lives here so
+-- Scoring stays pure. Fights are newest-first, so the first match wins.
+function FightHistory:StampPrevKill(fight)
+	if not fight.isBoss or fight.wipe then
+		return
+	end
+	for _, old in ipairs(self.fights) do
+		if old.isBoss and not old.wipe and old.name == fight.name
+			and old.difficultyID == fight.difficultyID and (old.duration or 0) > 0 then
+			fight.prevKillDuration = old.duration
+			fight.prevKillAt = old.capturedAt
+			return
+		end
+	end
 end
 
 -- A "run" = one group's visit to one instance at one difficulty. New run
@@ -971,6 +990,7 @@ function FightHistory:AddFromSegment(seg)
 		fight.wipe = (anyone and allDied) or nil
 	end
 	self:StampRunID(fight)
+	self:StampPrevKill(fight)
 	table.insert(self.fights, 1, fight)
 	local cap = TP.Addon.db.profile.history.maxFights
 	for i = #self.fights, cap + 1, -1 do

@@ -650,6 +650,63 @@ function Bullets.ForGroup(results, fight)
 		end
 	end
 
+	-- Speed trend: this kill vs the group's previous kill of the same
+	-- boss+difficulty (stamped at capture by FightHistory). The percentile
+	-- move rides along when curves cover the fight; ties within 5s stay
+	-- silent (that's variance, not a trend).
+	if fight and fight.isBoss and not fight.wipe
+		and fight.prevKillDuration and (fight.duration or 0) > 0 then
+		local delta = fight.prevKillDuration - fight.duration
+		if math.abs(delta) >= 5 then
+			local pctPart = ""
+			local E2 = TP.Scoring and TP.Scoring.Engine
+			if E2 and E2.KillSpeedPercentile then
+				local curPct, _, _, curB = E2.KillSpeedPercentile(fight)
+				if curPct and not curB then
+					local prevPct, _, _, prevB = E2.KillSpeedPercentile({
+						name = fight.name, encounterID = fight.encounterID, isBoss = true,
+						duration = fight.prevKillDuration, difficultyID = fight.difficultyID,
+					})
+					if prevPct and not prevB then
+						pctPart = (" (p%d -> p%d)"):format(
+							math.floor(prevPct + 0.5), math.floor(curPct + 0.5))
+					end
+				end
+			end
+			local faster = delta > 0
+			out[#out + 1] = { kind = "info", key = "speedTrend",
+				symbol = faster and "+" or MIDDOT, color = faster and GOOD or MID,
+				text = (faster
+					and ("Killed %ds faster than last time%s")
+					or ("%ds slower than the last kill%s")):format(math.floor(math.abs(delta) + 0.5), pctPart),
+				tooltip = { title = "Kill speed trend",
+					lines = {
+						{ "Compared against this group's PREVIOUS kill of the same boss and difficulty. The percentile shift is measured against Warcraft Logs' ranked kills.", 1, 1, 1 },
+					} } }
+		end
+	end
+
+	-- Wipe-call crispness: once a wipe is called, dying fast IS the reset
+	-- - every second spent kiting is a second not spent re-pulling. The
+	-- forgiveness set already stops the call from costing anyone points;
+	-- this line grades the wrap itself.
+	if fight and fight.wipe and fight.calledWipeAt
+		and (fight.duration or 0) > fight.calledWipeAt then
+		local tail = math.floor(fight.duration - fight.calledWipeAt + 0.5)
+		local sym, col, suffix = "-", BAD, ""
+		if tail <= 15 then
+			sym, col, suffix = "+", GOOD, " - crisp"
+		elseif tail <= 30 then
+			sym, col = MIDDOT, MID
+		end
+		out[#out + 1] = { kind = "info", key = "wipeWrap", symbol = sym, color = col,
+			text = ("Wipe called, wrapped %ds later%s"):format(tail, suffix),
+			tooltip = { title = "Wipe-call crispness",
+				lines = {
+					{ "Time between the detected wipe call and the end of the fight. A fast wrap means a faster reset and another pull; nothing after the call costs anyone points either way.", 1, 1, 1 },
+				} } }
+	end
+
 	-- what the fight cost, in facts
 	if fight and fight.isBoss and (fight.totals and fight.totals.deaths) == 0 and not fight.wipe then
 		out[#out + 1] = { kind = "info", key = "deaths", symbol = "+", color = GOOD,

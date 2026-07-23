@@ -131,6 +131,9 @@ jobs:
           # true-population totals for capped curves (cheap; same token)
           lua5.4 scripts/dump-capped.lua Data/Percentiles.lua Data/Percentiles_LFR.lua Data/KillTimes.lua Data/KillTimes_LFR.lua > /tmp/capped.csv
           ./scripts/fetch-totals.ps1 -ZoneId 46 -BracketStyle retail -CappedCsv /tmp/capped.csv -OutFile "$PWD/Data/Totals.lua"
+          # M+ totals refresh via character zoneRankings (zone 47 = current season)
+          lua5.4 scripts/dump-capped.lua Data/Percentiles_Dungeons.lua > /tmp/capped_dung.csv
+          ./scripts/fetch-totals-mplus.ps1 -ZoneId 47 -CappedCsv /tmp/capped_dung.csv -OutFile "$PWD/Data/Totals_Dungeons.lua"
 
       # MoP percentiles are split by raid size: 4 brackets in one window
       # blew the 6h job cap (retail's 3 brackets took 4h52m). The two

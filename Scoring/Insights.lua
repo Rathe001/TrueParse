@@ -130,6 +130,7 @@ function Insights.RunAdvice(fights)
 	local drained, lustWasted, earlyPulls = 0, 0, 0
 	local avoidable, taken = 0, 0
 	local healerHeavy, healerFieldMode, healerRan = 0, nil, nil
+	local callTails, callTailSum = 0, 0
 
 	for _, f in ipairs(fights) do
 		local t = f.totals or {}
@@ -187,6 +188,12 @@ function Insights.RunAdvice(fights)
 			if p.aggroPulled then
 				earlyPulls = earlyPulls + 1
 			end
+		end
+		-- wipe-call crispness: how long the group kept fighting past the
+		-- call (dying fast IS the reset)
+		if f.wipe and f.calledWipeAt and (f.duration or 0) > f.calledWipeAt then
+			callTails = callTails + 1
+			callTailSum = callTailSum + (f.duration - f.calledWipeAt)
 		end
 		-- comp vs the field: count kills where the group ran more healers
 		-- than ranked kills' dominant comp (same-size comps only)
@@ -254,6 +261,10 @@ function Insights.RunAdvice(fights)
 	end
 	if earlyPulls >= 2 then
 		add(35, ("%d pulls started before the tank - a breath saves a scramble."):format(earlyPulls))
+	end
+	if callTails >= 2 and callTailSum / callTails >= 25 then
+		add(33, ("Wipes drag %ds past the call on average - once it's called, dying fast IS the reset."):format(
+			math.floor(callTailSum / callTails + 0.5)))
 	end
 	-- comp advice last: it's a choice, not a mistake — but if the group
 	-- runs heavier than the field all night, say what it's trading away

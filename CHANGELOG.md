@@ -1,5 +1,24 @@
 # TrueParse Changelog
 
+## 1.5.2
+
+Three additions: Mythic+ joins the percentile-honesty fix, and two new
+group-card lines.
+
+- **Mythic+ true populations.** A new crawler reads per-spec keystone
+  populations from character zoneRankings (validated exactly against
+  report-level totalParses). M+ populations dwarf WCL's 2000-character
+  serving cap - 250,000+ parses per popular spec, so the old curves
+  sampled only the top ~1% and mid-pack keystone runners read absurdly
+  low. Capped M+ curves now rescale like raids have since 1.4.6.
+- **Kill speed trend.** On a boss kill, the group card compares against
+  your group's previous kill of the same boss and difficulty: "Killed
+  30s faster than last time (p50 -> p75)". Ties within 5s stay silent.
+- **Wipe-call crispness.** Called wipes now show how fast the group
+  wrapped ("wrapped 10s later - crisp"); chronically slow wraps (25s+
+  average) get an end-of-run pointer - once it's called, dying fast IS
+  the reset. The wipe debrief line carries the wrap time too.
+
 ## 1.5.1
 
 **Raid-cooldown assignment line.** When heavy-damage moments go

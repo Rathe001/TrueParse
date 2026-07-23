@@ -2148,6 +2148,68 @@ end)()
 	TP.Percentiles = savedP
 end)()
 
+-- 28. v1.5.2: kill-speed trend line + wipe-call crispness
+;(function()
+	local savedP = TP.Percentiles
+	TP.Percentiles = { encounters = {
+		["Trend Boss"] = { ["3x10"] = {
+			-- uncapped killTime: sample pct IS the true pct
+			killTime = { n = 600, curve = { { 99, 100 }, { 90, 140 }, { 75, 170 }, { 50, 200 }, { 25, 240 }, { 10, 280 } } },
+		} },
+	} }
+	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+	local function lineFor(fight, key)
+		for _, b in ipairs(TP.Scoring.Bullets.ForGroup({}, fight)) do
+			if b.key == key then
+				return b.text
+			end
+		end
+	end
+	-- faster kill with curve coverage: seconds + percentile move
+	local kill = { name = "Trend Boss", isBoss = true, difficultyID = 3,
+		duration = 170, prevKillDuration = 200, players = {} }
+	local t = lineFor(kill, "speedTrend")
+	check(t and t:find("30s faster", 1, true) and t:find("(p50 -> p75)", 1, true),
+		("speed trend shows seconds and percentile move (%s)"):format(tostring(t)))
+	-- slower reads neutral, not scolding
+	kill.duration = 240
+	kill.prevKillDuration = 200
+	t = lineFor(kill, "speedTrend")
+	check(t and t:find("40s slower", 1, true), ("slower kill reads neutral (%s)"):format(tostring(t)))
+	-- within 5s = variance, no line; no prior kill = no line
+	kill.duration = 202
+	check(lineFor(kill, "speedTrend") == nil, "a 2s delta is variance, not a trend")
+	kill.prevKillDuration = nil
+	kill.duration = 170
+	check(lineFor(kill, "speedTrend") == nil, "first kill has no trend line")
+	-- wipe-call crispness tiers
+	local wipe = { name = "Trend Boss", isBoss = true, difficultyID = 3, wipe = true,
+		duration = 130, calledWipeAt = 120, players = {} }
+	t = lineFor(wipe, "wipeWrap")
+	check(t and t:find("wrapped 10s later - crisp", 1, true),
+		("crisp wrap earns the label (%s)"):format(tostring(t)))
+	wipe.duration = 165
+	t = lineFor(wipe, "wipeWrap")
+	check(t and t:find("wrapped 45s later", 1, true) and not t:find("crisp", 1, true),
+		("slow wrap shown without the label (%s)"):format(tostring(t)))
+	wipe.calledWipeAt = nil
+	check(lineFor(wipe, "wipeWrap") == nil, "uncalled wipes carry no wrap line")
+	-- chronic slow wraps become run advice
+	local slow = { name = "Trend Boss", isBoss = true, wipe = true, duration = 165,
+		calledWipeAt = 120, players = {}, totals = {} }
+	local tips = TP.Scoring.Insights.RunAdvice({ slow, slow })
+	local saw = false
+	for _, tip in ipairs(tips) do
+		if tip:find("dying fast IS the reset", 1, true) then
+			saw = true
+		end
+	end
+	check(saw, "chronic slow wraps get the run pointer")
+	check(#TP.Scoring.Insights.RunAdvice({ slow }) == 0, "one slow wrap is not a pattern")
+	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+	TP.Percentiles = savedP
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")
