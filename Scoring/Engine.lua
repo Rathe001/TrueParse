@@ -50,6 +50,7 @@ local DUNGEON_ABSOLUTE_DIFFICULTY = {
 -- 24 Timewalking): fights on these never borrow raid populations
 local DUNGEON_DIFF_IDS = {
 	[1] = true, [2] = true, [8] = true, [23] = true, [24] = true,
+	[237] = true, -- MoP Classic "Celestial" (verified via /dump 2026-07-24)
 }
 
 -- Fight-specific spec expectations: boss fights match a WCL encounter table

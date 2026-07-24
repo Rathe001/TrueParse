@@ -41,6 +41,12 @@ function Segments:OnEnable()
 	Addon:RegisterEvent("ENCOUNTER_END", function(_, encounterID, _, _, _, success)
 		Segments:OnEncounterEnd(encounterID, success)
 	end)
+	-- Celestial dungeons (difficulty 237, verified via Josh's /dump
+	-- 2026-07-24) run real dungeon bosses WITHOUT ENCOUNTER events —
+	-- boss frames are the only engagement signal. Fires when they appear.
+	Addon:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", function()
+		Segments:OnEngageUnit()
+	end)
 	-- Players who join mid-fight still need accumulators
 	Addon:RegisterMessage("TrueParse_ROSTER_CHANGED", function()
 		local seg = Segments.current
@@ -298,6 +304,32 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 		end, 2)
 		self.bossPctTimer = myTimer
 	end
+end
+
+-- Boss-frame fallback for encounter-event-less content (Celestial
+-- dungeons): a party-instance segment whose boss frames light up IS a
+-- boss fight. Raids keep the real ENCOUNTER pipeline (their events
+-- always fire, and encounterID wins when both arrive).
+function Segments:OnEngageUnit()
+	local seg = self.current
+	if not seg or seg.encounterID or seg.bossEngaged or TP.Compat.IS_RETAIL then
+		return
+	end
+	if not UnitExists("boss1") then
+		return
+	end
+	local _, itype = GetInstanceInfo()
+	if itype ~= "party" then
+		return
+	end
+	seg.bossEngaged = true
+	local name = UnitName("boss1")
+	if name and not TP.Compat.IsSecret(name) then
+		seg.name = name
+	end
+	captureBossGUIDs(seg)
+	-- the wipe-it button and anything else gating on "is this a boss"
+	TP.Addon:SendMessage("TrueParse_SEGMENT_CHANGED")
 end
 
 function Segments:OnEncounterEnd(encounterID, success)

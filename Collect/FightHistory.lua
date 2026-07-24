@@ -659,7 +659,9 @@ function FightHistory:AddFromSegment(seg)
 		practice = TP.Addon.db.profile.practiceDummies
 			and (seg.name or ""):find("Training Dummy", 1, true) ~= nil
 			and (seg.duration or 0) >= 60
-		if not practice then
+		-- boss-frame fallback (Celestial dungeons, 2026-07-24): engaged
+		-- boss frames make a boss fight even without ENCOUNTER events
+		if not practice and not seg.bossEngaged then
 			return
 		end
 	end
@@ -1030,15 +1032,15 @@ function FightHistory:AddFromSegment(seg)
 		name = seg.name or "Fight",
 		-- practice fights ride the boss pipeline (curves, coach, card)
 		-- but flag themselves so kill-speed/comp/career logic steps aside
-		isBoss = (seg.encounterID or practice) and true or false,
+		isBoss = (seg.encounterID or practice or seg.bossEngaged) and true or false,
 		practice = practice or nil,
 		encounterID = seg.encounterID,
 		-- explicit verdict, else the retail-style heuristic: a boss pull
 		-- with no ENCOUNTER_END where every participant died is a wipe
 		wipe = seg.encounterWipe,
-		-- explicit ENCOUNTER_END verdict: retro wipe passes keep off
-		-- (an all-died KILL was flaggable as a wipe, audit 2026-07-16)
-		hadVerdict = seg.encounterEnded or nil,
+		-- explicit ENCOUNTER_END verdict — or, on boss-frame fallback
+		-- fights, every engaged boss dying (Celestial kill verdict)
+		hadVerdict = (seg.encounterEnded or seg.bossKilled) or nil,
 		-- the moment the raid stopped trying (nil = fought to the end);
 		-- wipeCalledBy present = someone pressed the button (ground truth)
 		calledWipeAt = calledAt,
@@ -1086,7 +1088,8 @@ function FightHistory:AddFromSegment(seg)
 	-- Enrichment must never block capture
 	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
 	pcall(TP.Sync.AttachReports, TP.Sync, fight)
-	if fight.isBoss and fight.wipe == nil and not seg.encounterEnded then
+	if fight.isBoss and fight.wipe == nil and not seg.encounterEnded
+		and not seg.bossKilled then
 		local anyone, allDied = false, true
 		for _, p in pairs(players) do
 			anyone = true

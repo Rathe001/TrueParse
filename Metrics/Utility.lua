@@ -188,6 +188,22 @@ tracker.subevents.SPELL_DISPEL = function(seg, srcGUID, dstGUID, srcFlags, dstFl
 end
 
 tracker.subevents.UNIT_DIED = function(seg, srcGUID, dstGUID)
+	-- boss-frame fallback fights (Celestial dungeons fire no ENCOUNTER
+	-- events): the kill verdict is every engaged boss dying
+	if seg.bossEngaged and seg.bossGUIDs and seg.bossGUIDs[dstGUID] then
+		seg.bossDead = seg.bossDead or {}
+		seg.bossDead[dstGUID] = true
+		local all = true
+		for guid in pairs(seg.bossGUIDs) do
+			if not seg.bossDead[guid] then
+				all = false
+				break
+			end
+		end
+		if all then
+			seg.bossKilled = true
+		end
+	end
 	local acc = seg.players[dstGUID]
 	if not acc then
 		return
