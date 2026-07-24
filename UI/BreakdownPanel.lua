@@ -380,11 +380,15 @@ local function renderSignal(row, sig, groupAvg)
 		row.track:Show()
 		local v = sig.value or 0
 		local r, g, b
-		local gauge = false
+		local gauge, markerAt = false, nil
 		if sig.tier then
-			-- quantile-anchored raw metrics (activity, mitigation): the
-			-- bar's width is the raw %, its color the population tier
+			-- quantile-anchored raw metrics (activity, mitigation) are
+			-- population-backed too, so they wear the gauge (Josh
+			-- 2026-07-24): marker at the POPULATION TIER, number stays
+			-- the raw % — "90% active" sitting in the purple zone reads
+			-- "and that's p80 of the field"
 			r, g, b = TP.Scoring.Grades.ColorForScore(sig.tier)
+			gauge, markerAt = true, sig.tier
 		elseif sig.num or sig.raw then
 			-- non-percentile bars (coverage, activity, mitigation, share
 			-- scores, unranked throughput): VERDICT colors, never brackets
@@ -403,7 +407,7 @@ local function renderSignal(row, sig, groupAvg)
 			-- a marker at your position (Josh 2026-07-24 — the card now
 			-- shows what the tooltip used to duplicate)
 			r, g, b = TP.Scoring.Grades.ColorForScore(v)
-			gauge = true
+			gauge, markerAt = true, v
 		end
 		-- fixed geometry: anchors haven't settled on first render, so
 		-- GetWidth() lies — the card is WIDTH wide by construction
@@ -420,7 +424,7 @@ local function renderSignal(row, sig, groupAvg)
 				t:Show()
 			end
 			row.marker:ClearAllPoints()
-			row.marker:SetPoint("CENTER", row.track, "LEFT", math.min(99, v) / 100 * w, 0)
+			row.marker:SetPoint("CENTER", row.track, "LEFT", math.min(99, markerAt) / 100 * w, 0)
 			row.marker:Show()
 		else
 			row.fill:SetColorTexture(r, g, b, 0.9)
@@ -563,42 +567,46 @@ local function createFrame()
 		Panel.currentGUID = nil
 	end)
 
-	-- big score, top right (group view only; player view puts the score in
-	-- a compact line under the name)
-	frame.bigScore = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-	local fontPath, _, fontFlags = frame.bigScore:GetFont()
-	frame.bigScore:SetFont(fontPath, 26, fontFlags)
-	frame.bigScore:SetPoint("TOPRIGHT", -10, -8)
-	frame.bigScore:SetJustifyH("RIGHT")
-
-	-- role tag on the title row, right side (player view)
-	frame.role = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	frame.role:SetPoint("TOPRIGHT", -10, -10)
-	frame.role:SetJustifyH("RIGHT")
-
+	-- mockup header (Josh 2026-07-24): NAME then the big bracket-colored
+	-- score right beside it — one hero line, role tag far right
 	frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	frame.title:SetPoint("TOPLEFT", 10, -8)
-	frame.title:SetPoint("RIGHT", frame.role, "LEFT", -8, 0)
+	local fontPath, _, fontFlags = frame.title:GetFont()
+	frame.title:SetFont(fontPath, 15, fontFlags)
+	frame.title:SetPoint("TOPLEFT", 10, -9)
 	frame.title:SetJustifyH("LEFT")
+
+	frame.bigScore = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+	frame.bigScore:SetFont(fontPath, 18, fontFlags)
+	frame.bigScore:SetPoint("BOTTOMLEFT", frame.title, "BOTTOMRIGHT", 7, -1)
+	frame.bigScore:SetJustifyH("LEFT")
+
+	-- role tag on the title row, right side
+	frame.role = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	frame.role:SetPoint("TOPRIGHT", -10, -12)
+	frame.role:SetJustifyH("RIGHT")
 
 	frame.subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	frame.subtitle:SetPoint("TOPLEFT", 10, -24)
-	frame.subtitle:SetPoint("RIGHT", frame.bigScore, "LEFT", -8, 0)
 	frame.subtitle:SetJustifyH("LEFT")
 
-	-- "54 vs Siegecrafter Blackfuse" / "58 avg this run" (player view)
+	-- subheader: one dim line — boss · wipe % · duration · run avg
 	frame.scoreLine = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	frame.scoreLine:SetPoint("TOPLEFT", 10, -23)
-	frame.scoreLine:SetPoint("TOPRIGHT", -10, -23)
+	frame.scoreLine:SetPoint("TOPLEFT", 10, -29)
+	frame.scoreLine:SetPoint("TOPRIGHT", -10, -29)
 	frame.scoreLine:SetJustifyH("LEFT")
 
 	frame.runLine = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	frame.runLine:SetPoint("TOPLEFT", 10, -36)
-	frame.runLine:SetPoint("TOPRIGHT", -10, -36)
+	frame.runLine:SetPoint("TOPLEFT", 10, -42)
+	frame.runLine:SetPoint("TOPRIGHT", -10, -42)
 	frame.runLine:SetJustifyH("LEFT")
 
 	frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	frame.total:SetPoint("BOTTOMLEFT", 10, 10)
+
+	-- mockup footer: dim closing line (flask/food · pull time)
+	frame.footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	frame.footer:SetPoint("BOTTOMLEFT", 12, 8)
+	frame.footer:SetJustifyH("LEFT")
 end
 
 -- group-card visualization elements (fight shape, team coverage,
@@ -771,10 +779,22 @@ function Panel:ShowFor(fight, result)
 			pbTag = " |cffe8b923· personal best|r"
 		end
 	end
-	frame.scoreLine:SetText(("%s%s vs %s%s%s"):format(
-		approx and "~" or "", TP.Scoring.Grades.ColoredScore(result.score),
-		fight.name or "this fight", fight.wipe and (fight.bossPct and (" |cffe64d4d(wipe %.0f%%)|r"):format(fight.bossPct) or " |cffe64d4d(wipe)|r") or "", pbTag))
+	-- hero line: name + big bracket-colored score (mockup header,
+	-- Josh 2026-07-24); the subheader is one dim compact line
+	frame.bigScore:SetText((approx and "~" or "") .. TP.Scoring.Grades.ColoredScore(result.score))
 	local runR = self.runScores and self.runScores[result.guid]
+	local sub = { fight.name or "this fight" }
+	if fight.wipe then
+		sub[#sub + 1] = fight.bossPct and ("|cffe64d4dwipe %.0f%%|r"):format(fight.bossPct)
+			or "|cffe64d4dwipe|r"
+	end
+	if (fight.duration or 0) > 0 then
+		sub[#sub + 1] = ("%d:%02d"):format(math.floor(fight.duration / 60), fight.duration % 60)
+	end
+	if runR then
+		sub[#sub + 1] = "run avg " .. TP.Scoring.Grades.ColoredScore(runR.score)
+	end
+	frame.scoreLine:SetText(table.concat(sub, " \194\183 ") .. pbTag)
 	-- progression line: this player's last kills of this boss, oldest
 	-- first, the PB pattern's memo keeps it cheap
 	local histText
@@ -788,18 +808,10 @@ function Panel:ShowFor(fight, result)
 			histText = "|cff888888this boss:|r " .. table.concat(parts, " ")
 		end
 	end
-	if runR and histText then
-		frame.runLine:SetText(TP.Scoring.Grades.ColoredScore(runR.score)
-			.. " avg this run  " .. histText)
-	elseif runR then
-		frame.runLine:SetText(TP.Scoring.Grades.ColoredScore(runR.score) .. " avg this run")
-	elseif histText then
-		frame.runLine:SetText(histText)
-	else
-		frame.runLine:SetText("")
-	end
+	-- run avg moved into the subheader; this line is history only
+	frame.runLine:SetText(histText or "")
 
-	local y = (runR or histText) and -50 or -37
+	local y = histText and -56 or -44
 
 	-- Signal Column (2026-07-26 redesign): awards keep their gold text
 	-- rows; every scored signal renders as icon + verdict + marks.
@@ -1068,14 +1080,40 @@ function Panel:ShowFor(fight, result)
 		y = y - 11
 	end
 
-	frame.total:SetText("") -- footer text is group-view only
-	-- y already sits at the last row's bottom edge; +8 mirrors the top pad
-	frame:SetHeight(-y + 8)
+	frame.total:SetText("")
+	-- mockup footer (Josh 2026-07-24): flask/food state + pull time, one
+	-- dim closing line. Data-honest: consumables is a self-reported COUNT
+	-- (nil without their TrueParse), so absence says nothing. Raw stays
+	-- pure WCL.
+	local footParts = {}
+	if not result.parse then
+		local cons = mm.consumables
+		if cons ~= nil then
+			local ok = "|TInterface\\RaidFrame\\ReadyCheck-Ready:11|t"
+			local no = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:11|t"
+			footParts[#footParts + 1] = cons >= 2 and ("flask " .. ok .. " \194\183 food " .. ok)
+				or cons == 1 and ("flask/food 1 of 2 " .. no)
+				or ("no flask/food " .. no)
+		end
+		if fight.capturedAt and (fight.duration or 0) > 0 then
+			footParts[#footParts + 1] = "pulled " .. date("%H:%M", fight.capturedAt - fight.duration)
+		end
+	end
+	if #footParts > 0 then
+		frame.footer:SetText(table.concat(footParts, " \194\183 "))
+		frame.footer:Show()
+		frame:SetHeight(-y + 22)
+	else
+		frame.footer:SetText("")
+		frame.footer:Hide()
+		-- y already sits at the last row's bottom edge; +8 mirrors the top pad
+		frame:SetHeight(-y + 8)
+	end
 
 	anchorPanel()
 	frame.close:SetShown(self.pinned)
 	frame.role:ClearAllPoints()
-	frame.role:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -10)
+	frame.role:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -12)
 	frame:Show()
 	self.currentGUID = result.guid
 end
@@ -1178,14 +1216,22 @@ function Panel:ShowForGroup(fight, results)
 		groupSum = groupSum + r.score
 	end
 	local groupScore = groupSum / #results
-	frame.scoreLine:SetText(("%s vs %s%s"):format(
-		TP.Scoring.Grades.ColoredScore(groupScore),
-		fight.name or "this fight", fight.wipe and (fight.bossPct and (" |cffe64d4d(wipe %.0f%%)|r"):format(fight.bossPct) or " |cffe64d4d(wipe)|r") or ""))
-	if self.groupRunScore then
-		frame.runLine:SetText(TP.Scoring.Grades.ColoredScore(self.groupRunScore) .. " avg this run")
-	else
-		frame.runLine:SetText("")
+	-- same mockup header as the player card: hero score beside the name,
+	-- one dim subheader line
+	frame.bigScore:SetText(TP.Scoring.Grades.ColoredScore(groupScore))
+	local sub = { fight.name or "this fight" }
+	if fight.wipe then
+		sub[#sub + 1] = fight.bossPct and ("|cffe64d4dwipe %.0f%%|r"):format(fight.bossPct)
+			or "|cffe64d4dwipe|r"
 	end
+	if (fight.duration or 0) > 0 then
+		sub[#sub + 1] = ("%d:%02d"):format(math.floor(fight.duration / 60), fight.duration % 60)
+	end
+	if self.groupRunScore then
+		sub[#sub + 1] = "run avg " .. TP.Scoring.Grades.ColoredScore(self.groupRunScore)
+	end
+	frame.scoreLine:SetText(table.concat(sub, " \194\183 "))
+	frame.runLine:SetText("")
 
 	if frame.baseRule then
 		frame.baseRule:Hide() -- player-card element; the group card has none
@@ -1196,7 +1242,7 @@ function Panel:ShowForGroup(fight, results)
 	-- only WCL-backed rows (group-averaged throughput + kill speed), no
 	-- advisors, no rollup, no graphs.
 	local raw = results[1] and results[1].parse
-	local y = self.groupRunScore and -50 or -37 -- below the header lines
+	local y = -44 -- below the hero line + subheader
 	local total = 0
 	local function groupRow(sig)
 		total = total + 1
@@ -1388,10 +1434,17 @@ function Panel:ShowForGroup(fight, results)
 			peak = math.max(peak, v)
 		end
 		if peak > 0 then
-			vizLabel("shapeLabel", "output \194\183 |cff66ccfflust|r \194\183 |cffe64d4dafter the call|r")
+			-- mockup caption (Josh 2026-07-24): name the series and stamp
+			-- the collapse moment when the detector found one
+			local cap = "group output/sec \194\183 |cff66ccfflust window|r \194\183 |cffe64d4ddeaths above|r"
+			if fight.calledWipeAt then
+				cap = cap .. (" \194\183 |cffe64d4dcall collapse at %d:%02d|r"):format(
+					math.floor(fight.calledWipeAt / 60), fight.calledWipeAt % 60)
+			end
+			vizLabel("shapeLabel", cap)
 			local n = #fight.shape
 			local cols = vizPool("shapeCols", n + 12)
-			local H = 26
+			local H = 32
 			local colW = math.max(1, math.floor((w - (n - 1)) / n))
 			local cellDur = fight.duration / n
 			for i = 1, n do
@@ -1426,7 +1479,7 @@ function Panel:ShowForGroup(fight, results)
 					end
 				end
 			end
-			y = y - 26 - 6
+			y = y - H - 6
 		end
 	end
 
@@ -1551,11 +1604,13 @@ function Panel:ShowForGroup(fight, results)
 	end
 
 	frame.total:SetText("") -- header lines carry the numbers now
+	frame.footer:SetText("")
+	frame.footer:Hide() -- shared frame: the player footer never lingers
 	frame:SetHeight(-y + 8)
 	anchorPanel()
 	frame.close:SetShown(self.pinned)
 	frame.role:ClearAllPoints()
-	frame.role:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -10)
+	frame.role:SetPoint("TOPRIGHT", self.pinned and -28 or -10, -12)
 	frame:Show()
 	-- the pinned RUN card is distinct from the fight group card: a scroll
 	-- or resize re-render must not swap one for the other (audit 2026-07-16)
