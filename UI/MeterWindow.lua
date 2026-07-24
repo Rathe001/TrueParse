@@ -286,6 +286,42 @@ local function createWindow()
 		MeterWindow:ToggleCollapse()
 	end)
 
+	-- "Wipe it" (Josh 2026-07-26): one press records the exact call moment
+	-- and locks every install out for the rest of the fight. Lives on the
+	-- header so it's reachable while auto-collapsed mid-combat; own mouse
+	-- so click-through-in-combat never eats it. Visibility rules in
+	-- UpdateWipeButton (option off by default; lead/assist-gated).
+	window.wipeBtn = CreateFrame("Button", nil, window, "BackdropTemplate")
+	window.wipeBtn:SetSize(52, 16)
+	window.wipeBtn:SetBackdrop({
+		bgFile = "Interface\\Buttons\\WHITE8X8",
+		edgeFile = "Interface\\Buttons\\WHITE8X8",
+		edgeSize = 1,
+	})
+	window.wipeBtn:SetBackdropColor(0.55, 0.08, 0.08, 0.95)
+	window.wipeBtn:SetBackdropBorderColor(1, 0.3, 0.3, 0.9)
+	window.wipeBtn.label = window.wipeBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	window.wipeBtn.label:SetPoint("CENTER", 0, 0)
+	window.wipeBtn.label:SetText("WIPE IT")
+	window.wipeBtn:SetPoint("TOPRIGHT", -(PADDING + 18), -((HEADER_HEIGHT - 16) / 2))
+	window.wipeBtn:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
+	window.wipeBtn:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.15)
+	window.wipeBtn:EnableMouse(true)
+	window.wipeBtn:Hide()
+	window.wipeBtn:SetScript("OnClick", function()
+		local seg = TP.Segments and TP.Segments.current
+		if not seg or seg.manualWipeAt then
+			return
+		end
+		if TP.Segments:ManualWipeCall(GetTime() - seg.startTime, UnitName("player")) then
+			if TP.Sync and TP.Sync.BroadcastWipeCall then
+				TP.Sync:BroadcastWipeCall()
+			end
+			TP.Addon:Print("Wipe called — nothing after this counts against anyone.")
+		end
+		MeterWindow:UpdateWipeButton()
+	end)
+
 	-- Fight browser: the dropdown box opens the fight picker. Hidden while
 	-- collapsed (the header click is collapse there).
 	window.fightDrop:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
@@ -293,6 +329,7 @@ local function createWindow()
 	-- header button, a collapse/expand cycle reshuffles mouse priority
 	-- among siblings and the collapse button starts eating the clicks
 	window.cog:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
+	window.wipeBtn:SetFrameLevel(window.headerButton:GetFrameLevel() + 2)
 	window.fightDrop:RegisterForClicks("LeftButtonUp")
 	window.fightDrop:RegisterForDrag("LeftButton")
 	window.fightDrop:SetScript("OnDragStart", startDrag)
@@ -519,6 +556,26 @@ function MeterWindow:Toggle()
 	end
 end
 
+-- "Wipe it" visibility: option on + Classic + mid-combat boss segment +
+-- not yet called + in a group + permitted (lead/assist when any officer
+-- runs TrueParse; anyone otherwise). Everything here is cheap and
+-- event-driven — no ticker.
+function MeterWindow:UpdateWipeButton()
+	if not window or not window.wipeBtn then
+		return
+	end
+	local seg = TP.Segments and TP.Segments.current
+	local show = db().wipeButton
+		and not TP.Compat.IS_RETAIL
+		and seg ~= nil
+		and seg.encounterID ~= nil
+		and not seg.manualWipeAt
+		and UnitAffectingCombat("player")
+		and IsInGroup()
+		and TP.Sync and TP.Sync.WipeCallPermitted and TP.Sync:WipeCallPermitted()
+	window.wipeBtn:SetShown(show and true or false)
+end
+
 function MeterWindow:OnEnable()
 	createWindow()
 	self:ApplyPosition()
@@ -541,11 +598,16 @@ function MeterWindow:OnEnable()
 		else
 			applyClickThrough(false)
 		end
+		MeterWindow:UpdateWipeButton()
+	end)
+	TP.Addon:RegisterMessage("TrueParse_WIPE_CALLED", function()
+		MeterWindow:UpdateWipeButton()
 	end)
 
 	TP.Addon:RegisterMessage("TrueParse_SEGMENT_CHANGED", function()
 		-- No live view on any client — when a fight starts, give the
 		-- screen back
+		MeterWindow:UpdateWipeButton()
 		if TP.Segments.current and db().window.autoCollapse then
 			autoCollapsed = true
 			TP.BreakdownPanel:HideAll()

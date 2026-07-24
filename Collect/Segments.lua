@@ -96,6 +96,21 @@ function Segments:StartFight(name)
 	TP.Addon:Debug("Fight started:", name)
 end
 
+-- Manual "wipe it" (Josh 2026-07-26): a permitted player pressed the
+-- button (or a peer's press arrived over sync). Records the EXACT call
+-- moment; capture prefers this over the output-collapse heuristic.
+-- First call wins — once per fight across every install.
+function Segments:ManualWipeCall(offset, by)
+	local seg = self.current
+	if not seg or seg.manualWipeAt then
+		return false
+	end
+	seg.manualWipeAt = math.max(0, offset or (GetTime() - seg.startTime))
+	seg.manualWipeBy = by
+	TP.Addon:SendMessage("TrueParse_WIPE_CALLED")
+	return true
+end
+
 function Segments:EndFight()
 	local seg = self.current
 	if not seg then

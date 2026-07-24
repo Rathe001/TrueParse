@@ -219,6 +219,40 @@ local function senderOwnsGuid(sender, guid)
 	return Ambiguate(info.name, "none") == Ambiguate(sender, "none")
 end
 
+-- "Wipe it" permission (Josh 2026-07-26): when any raid lead or assist
+-- runs TrueParse, only THEY may call it; otherwise anyone with the addon
+-- can. unit nil = check the local player.
+local function unitIsOfficer(unit)
+	return unit and (UnitIsGroupLeader(unit) or UnitIsGroupAssistant(unit))
+end
+
+function Sync:WipeCallPermitted(guid)
+	local anyOfficerHasAddon = false
+	for g, info in pairs(TP.Roster.players) do
+		if info.unit and unitIsOfficer(info.unit)
+			and (self.users[g] or UnitIsUnit(info.unit, "player")) then
+			anyOfficerHasAddon = true
+			break
+		end
+	end
+	local unit
+	if guid then
+		local info = TP.Roster.players[guid]
+		unit = info and info.unit
+	else
+		unit = "player"
+	end
+	return unitIsOfficer(unit) or not anyOfficerHasAddon
+end
+
+-- Local button press: record + broadcast so every install locks out
+function Sync:BroadcastWipeCall()
+	if not IsInGroup() then
+		return
+	end
+	self:SendCommMessage(PREFIX, ("C:%d"):format(GetServerTime()), commChannel())
+end
+
 function Sync:OnCommReceived(prefix, message, _, sender)
 	if prefix ~= PREFIX then
 		return
@@ -266,6 +300,34 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 			info.ilvl = ilvl
 		end
 		TP.Roster.cache[guid] = { specID = info.specID, ilvl = info.ilvl }
+		return
+	end
+
+	-- "Wipe it" call: "C:<serverTime>". First one per fight wins across
+	-- every install; the sender must hold the same permission the button
+	-- itself enforces (lead/assist, or anyone when no officer has the
+	-- addon). Clock skew beyond 30s is treated as "now".
+	local callT = message:match("^C:(%d+)$")
+	if callT then
+		local seg = TP.Segments and TP.Segments.current
+		if not seg or seg.manualWipeAt then
+			return
+		end
+		local senderGuid
+		for g, info in pairs(TP.Roster.players) do
+			if info.name and Ambiguate(info.name, "none") == Ambiguate(sender, "none") then
+				senderGuid = g
+				break
+			end
+		end
+		if not senderGuid or not self:WipeCallPermitted(senderGuid) then
+			return
+		end
+		local skew = GetServerTime() - tonumber(callT)
+		if skew < 0 or skew > 30 then
+			skew = 0
+		end
+		TP.Segments:ManualWipeCall((GetTime() - seg.startTime) - skew, Ambiguate(sender, "none"))
 		return
 	end
 

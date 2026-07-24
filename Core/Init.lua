@@ -18,6 +18,10 @@ local defaults = {
 		},
 		coach = true,
 	wipeDebrief = true, -- local what-happened after each wipe capture
+		-- "Wipe it" header button: records the exact wipe-call moment and
+		-- syncs it to every TrueParse in the group (heuristic detection
+		-- stays as the fallback). Off by default; Classic only.
+		wipeButton = false,
 		toasts = true, -- on-screen flash when you earn an award
 		letterGrades = false, -- show D-/C/B+/S letter tiers instead of numbers
 		announce = false, -- opt-in: one MVP line to group chat on run completion

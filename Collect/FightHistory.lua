@@ -760,17 +760,21 @@ function FightHistory:AddFromSegment(seg)
 					if seg.lustAt then
 						seg.lustAt = math.max(0, seg.lustAt - first)
 					end
+					if seg.manualWipeAt then
+						seg.manualWipeAt = math.max(0, seg.manualWipeAt - first)
+					end
 				end
 			end
 		end
 	end
 
-	-- "Wipe it" detection: on a called wipe, nothing after the call
-	-- counts — people stand in bad on purpose to reset faster. Output
-	-- collapse is the tell; a wipe fought to the end detects nothing
-	-- and everything counts.
-	local calledAt
-	if seg.encounterWipe and TP.Spikes and TP.Spikes.DetectWipeCall then
+	-- "Wipe it": a manual button press is ground truth and beats the
+	-- output-collapse heuristic; without one, on a called wipe nothing
+	-- after the detected collapse counts — people stand in bad on purpose
+	-- to reset faster. A wipe fought to the end detects nothing and
+	-- everything counts.
+	local calledAt = seg.manualWipeAt
+	if not calledAt and seg.encounterWipe and TP.Spikes and TP.Spikes.DetectWipeCall then
 		local ok, at = pcall(TP.Spikes.DetectWipeCall,
 			seg.group and seg.group.out, seg.duration)
 		calledAt = ok and at or nil
@@ -960,8 +964,10 @@ function FightHistory:AddFromSegment(seg)
 		-- explicit ENCOUNTER_END verdict: retro wipe passes keep off
 		-- (an all-died KILL was flaggable as a wipe, audit 2026-07-16)
 		hadVerdict = seg.encounterEnded or nil,
-		-- the moment the raid stopped trying (nil = fought to the end)
+		-- the moment the raid stopped trying (nil = fought to the end);
+		-- wipeCalledBy present = someone pressed the button (ground truth)
 		calledWipeAt = calledAt,
+		wipeCalledBy = seg.manualWipeAt and seg.manualWipeBy or nil,
 		-- when Bloodlust went out (fight-offset): players dead before
 		-- this can't have "wasted" it
 		lustAt = seg.lustAt,

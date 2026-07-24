@@ -410,8 +410,13 @@ function RunSummary:WipeDebrief(fight)
 	end
 	if fight.calledWipeAt then
 		local tail = math.max(0, math.floor(d - fight.calledWipeAt + 0.5))
-		head = head .. (" Looked called around %d:%02d, wrapped %ds later — nothing after the call counted."):format(
-			math.floor(fight.calledWipeAt / 60), math.floor(fight.calledWipeAt) % 60, tail)
+		if fight.wipeCalledBy then
+			head = head .. (" %s called it at %d:%02d, wrapped %ds later — nothing after the call counted."):format(
+				fight.wipeCalledBy, math.floor(fight.calledWipeAt / 60), math.floor(fight.calledWipeAt) % 60, tail)
+		else
+			head = head .. (" Looked called around %d:%02d, wrapped %ds later — nothing after the call counted."):format(
+				math.floor(fight.calledWipeAt / 60), math.floor(fight.calledWipeAt) % 60, tail)
+		end
 	end
 	if deaths > 0 then
 		head = head .. (afterAvoidable > 0

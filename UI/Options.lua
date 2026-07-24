@@ -70,6 +70,18 @@ local optionsTable = {
 					get = function() return profile().wipeDebrief end,
 					set = function(_, v) profile().wipeDebrief = v end,
 				},
+				wipeButton = {
+					type = "toggle", order = 2.5, name = "\"Wipe it\" button",
+					desc = "A red button on the window header during boss fights. One press marks the exact wipe-call moment for every TrueParse in the group - nothing after it counts against anyone. If the raid lead or an assist runs TrueParse, only they see it. Classic only.",
+					hidden = function() return TP.Compat.IS_RETAIL end,
+					get = function() return profile().wipeButton end,
+					set = function(_, v)
+						profile().wipeButton = v
+						if TP.MeterWindow.UpdateWipeButton then
+							TP.MeterWindow:UpdateWipeButton()
+						end
+					end,
+				},
 				announce = {
 					type = "toggle", order = 3, name = "Announce run MVP to group",
 					desc = "When a dungeon/key completes, post ONE line to group chat: the run MVP, what earned it, and the group score. When several TrueParse users have announcements on, only one (the newest version) posts - no duplicates. On retail a Post button asks first; Blizzard blocks addons from sending chat on their own. Off by default; be considerate.",
