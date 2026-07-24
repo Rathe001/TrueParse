@@ -41,11 +41,14 @@ local function barRow(key, icon, label, value, points)
 		value = math.max(0, math.min(99, value)), points = points }
 end
 
--- squares: good = well-used events, bad = missed/failed events,
--- ghost = events beyond demonstrated capacity (never judged)
-local function squareRow(key, icon, label, good, bad, ghost, points)
-	return { key = key, kind = "squares", icon = icon, label = label,
-		good = good, bad = bad, ghost = ghost or 0, points = points }
+-- Coverage math shared with GroupAverages: judged windows are capped at
+-- demonstrated capacity (uses+1); zero uses judges everything
+local function coverageOf(windows, covered, uses)
+	local judged = windows
+	if (uses or 0) > 0 then
+		judged = math.min(windows, math.max(uses, covered) + 1)
+	end
+	return covered, judged
 end
 
 -- One player's ordered signal list. result = engine row; player = the
@@ -91,14 +94,19 @@ function Signals.ForResult(result, fight, player)
 		windows, covered, uses, icon = m.groupSpikeWindows, m.groupSpikeCovered or 0, m.groupCdCasts, ICONS.cdTimingHealer
 	end
 	if windows then
-		local judged = windows
-		if (uses or 0) > 0 then
-			judged = math.min(windows, math.max(uses, covered) + 1)
+		local c, judged = coverageOf(windows, covered, uses)
+		-- labels must survive an ~86px column: verdicts stay short.
+		-- ONE denominator everywhere (Josh 2026-07-26: mixed counts
+		-- created dissonance): bar fill AND the count use judged windows;
+		-- the raw total lives in the tooltip detail.
+		local cdLabel = c >= judged and "Spikes met" or "Uncovered"
+		local row = barRow("cdTiming", icon, cdLabel,
+			judged > 0 and c / judged * 100 or 0, ad.cdTiming)
+		row.num = ("%d/%d"):format(c, judged)
+		if windows > judged then
+			row.detail = ("%d spikes this fight; your cooldowns could reach %d."):format(windows, judged)
 		end
-		-- labels must survive an ~86px column: verdicts stay short
-		local cdLabel = covered >= judged and "Spikes met" or "Uncovered"
-		out[#out + 1] = squareRow("cdTiming", icon, cdLabel,
-			covered, math.max(0, judged - covered), windows - judged, ad.cdTiming)
+		out[#out + 1] = row
 	end
 
 	-- 5) kicks: landed = good squares, got-through = bad (they hit
@@ -108,9 +116,10 @@ function Signals.ForResult(result, fight, player)
 	if bi and bi.applicable and bi.opportunities and bi.opportunities > 0
 		and (role ~= "HEALER" or (bi.value or 0) > 0) then
 		local landed = bi.value or 0
-		out[#out + 1] = squareRow("interrupts", ICONS.interrupts, "Kicks",
-			landed, math.max(0, (bi.opportunities or 0) - (bi.landed or 0)), 0, ad.kicks)
-		out[#out].capNote = bi.opportunities
+		local row = barRow("interrupts", ICONS.interrupts, "Kicks",
+			landed / bi.opportunities * 100, ad.kicks)
+		row.num = ("%d/%d"):format(landed, bi.opportunities)
+		out[#out + 1] = row
 	end
 
 	-- 6) dispels: share bar (volleys, not per-event quality)
@@ -219,6 +228,24 @@ function Signals.GroupAverages(results, fight)
 		if m then
 			add("activity", m.activityPct)
 			add("mitigation", m.mitigationPct)
+			-- coverage bars tick against the other players holding the
+			-- same job (tanks vs tanks, healers share team coverage)
+			local w, c, u
+			if r.role == "TANK" and (m.spikeWindows or 0) >= 2 then
+				w, c, u = m.spikeWindows, m.spikeCovered or 0, m.defensiveUses
+			elseif r.role == "HEALER" and (m.groupSpikeWindows or 0) >= 2 then
+				w, c, u = m.groupSpikeWindows, m.groupSpikeCovered or 0, m.groupCdCasts
+			end
+			if w then
+				local cov, judged = coverageOf(w, c, u)
+				if judged > 0 then
+					add("cdTiming", cov / judged * 100)
+				end
+			end
+		end
+		local bi = r.breakdown.interrupts
+		if bi and bi.applicable and bi.opportunities and bi.opportunities > 0 then
+			add("interrupts", (bi.value or 0) / bi.opportunities * 100)
 		end
 	end
 	local avg = {}

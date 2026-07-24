@@ -2411,10 +2411,10 @@ end)()
 	check(byKey.activity and byKey.activity.points == -4 and byKey.activity.value == 69,
 		"activity bar carries its points")
 	local cd = byKey.cdTiming
-	check(cd and cd.kind == "squares" and cd.good == 2 and cd.bad == 1 and cd.ghost == 3
-		and cd.label == "Uncovered",
-		("capacity cap draws ghosts: 2 good, 1 bad, 3 ghost (%s/%s/%s)"):format(
-			tostring(cd and cd.good), tostring(cd and cd.bad), tostring(cd and cd.ghost)))
+	check(cd and cd.kind == "bar" and cd.num == "2/3" and math.abs(cd.value - 66.7) < 0.5
+		and cd.label == "Uncovered" and cd.detail and cd.detail:find("6 spikes", 1, true),
+		("coverage bar: one denominator everywhere, capacity in the tooltip (%s, %s)"):format(
+			tostring(cd and cd.num), tostring(cd and cd.value)))
 	check(byKey.deaths and byKey.deaths.kind == "pips" and byKey.deaths.count == 1
 		and byKey.deaths.label == "Died", "deaths are pips with a verdict label")
 	check(byKey.lust == nil, "healers get no lust row")

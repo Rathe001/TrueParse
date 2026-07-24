@@ -384,7 +384,15 @@ local function renderSignal(row, sig, groupAvg)
 	if sig.kind == "bar" then
 		row.track:Show()
 		local v = sig.value or 0
-		local r, g, b = TP.Scoring.Grades.ColorForScore(v)
+		local r, g, b
+		if sig.num then
+			-- coverage bars: verdict green/red, never bracket colors — a
+			-- 67% coverage is not a blue parse
+			local c = (sig.points or 0) >= 0 and MARK_GOOD or MARK_BAD
+			r, g, b = c[1], c[2], c[3]
+		else
+			r, g, b = TP.Scoring.Grades.ColorForScore(v)
+		end
 		row.fill:SetColorTexture(r, g, b, 0.9)
 		-- fixed geometry: anchors haven't settled on first render, so
 		-- GetWidth() lies — the card is WIDTH wide by construction
@@ -397,8 +405,19 @@ local function renderSignal(row, sig, groupAvg)
 			row.tick:SetPoint("LEFT", row.track, "LEFT", w * math.min(99, avg) / 100, 0)
 			row.tick:Show()
 		end
-		row.num:SetText(("%d"):format(v + 0.5))
-		row.num:SetTextColor(r, g, b)
+		if sig.num then
+			-- count bars ("2/3", "0/1") keep exact facts in the number and
+			-- color by verdict, not bracket (a coverage % isn't a parse)
+			row.num:SetText(sig.num)
+			if (sig.points or 0) >= 0 then
+				row.num:SetTextColor(MARK_GOOD[1], MARK_GOOD[2], MARK_GOOD[3])
+			else
+				row.num:SetTextColor(MARK_BAD[1], MARK_BAD[2], MARK_BAD[3])
+			end
+		else
+			row.num:SetText(("%d"):format(v + 0.5))
+			row.num:SetTextColor(r, g, b)
+		end
 		row.num:Show()
 	elseif sig.kind == "squares" then
 		-- fixed 10-segment gauge, filled proportionally (Josh 2026-07-26:
@@ -764,9 +783,13 @@ function Panel:ShowFor(fight, result)
 		elseif sig.key == "deaths" and player and player.deathRecap then
 			row.tooltipData = { title = sig.label, lines = deathRecapLines(player) }
 		else
-			row.tooltipData = { title = sig.label, lines = {
+			local lines = {
 				{ infoHelp()[sig.key] or PENALTY_HELP[sig.key]
-					or "Reported by this player's TrueParse.", 0.8, 0.8, 0.8, true } } }
+					or "Reported by this player's TrueParse.", 0.8, 0.8, 0.8, true } }
+			if sig.detail then
+				lines[#lines + 1] = { sig.detail, 1, 1, 1, true }
+			end
+			row.tooltipData = { title = sig.label, lines = lines }
 		end
 	end
 
