@@ -1334,22 +1334,54 @@ function Panel:ShowForGroup(fight, results)
 	end
 	if teamMap and (fight.duration or 0) > 0 then
 		vizLabel("covLabel", "group spikes \194\183 |cff55cc55a cooldown met it|r / |cffe64d4duncovered|r")
-		local bands = vizPool("covBands", #teamMap)
+		-- hoverable bands, same as the player strip (Josh 2026-07-24)
+		frame.covBands = frame.covBands or {}
+		for i = #frame.covBands + 1, #teamMap do
+			local band = CreateFrame("Frame", nil, frame)
+			band.tex = band:CreateTexture(nil, "OVERLAY")
+			band.tex:SetAllPoints(band)
+			band.tex:SetTexture("Interface\\Buttons\\WHITE8X8")
+			band:EnableMouse(true)
+			band:SetScript("OnEnter", function(b)
+				if b.tipLines then
+					TP.Tooltip:Show(b, tipSide() == "LEFT" and "FORCE_LEFT" or "FORCE_RIGHT",
+						b.tipTitle, b.tipLines)
+				end
+			end)
+			band:SetScript("OnLeave", function()
+				TP.Tooltip:Hide()
+			end)
+			frame.covBands[i] = band
+		end
 		for i, win in ipairs(teamMap) do
-			local t = bands[i]
+			local band = frame.covBands[i]
 			local left = math.min(w - 2, win[1] / fight.duration * w)
 			local bw = math.max(3, (win[2] - win[1] + 1) / fight.duration * w)
 			if win[3] then
-				t:SetVertexColor(0.33, 0.80, 0.33, 1)
+				band.tex:SetVertexColor(0.33, 0.80, 0.33, 1)
 			else
-				t:SetVertexColor(0.90, 0.30, 0.30, 1)
+				band.tex:SetVertexColor(0.90, 0.30, 0.30, 1)
 			end
-			t:ClearAllPoints()
-			t:SetSize(math.min(bw, w - left), 7)
-			t:SetPoint("TOPLEFT", 12 + left, y)
-			t:Show()
+			band:ClearAllPoints()
+			band:SetSize(math.min(bw, w - left), 9)
+			band:SetPoint("TOPLEFT", 12 + left, y + 1)
+			band.tipTitle = ("Spike %d:%02d\226\128\147%d:%02d"):format(
+				math.floor(win[1] / 60), win[1] % 60, math.floor(win[2] / 60), win[2] % 60)
+			local lines = {}
+			if win[5] then
+				lines[1] = { win[6] and ("%s \194\183 %s over %ds"):format(
+					win[6], TP.FormatNumber(win[5]), math.max(1, win[2] - win[1]))
+					or ("%s over %ds"):format(TP.FormatNumber(win[5]), math.max(1, win[2] - win[1])), 1, 1, 1 }
+			end
+			lines[#lines + 1] = win[3] and { "A cooldown met it", 0.33, 0.80, 0.33 }
+				or { "Uncovered", 0.90, 0.35, 0.35 }
+			if not win[5] then
+				lines[#lines + 1] = { "Recorded before hit tracking - new pulls carry the ability and damage.", 0.6, 0.6, 0.6, true }
+			end
+			band.tipLines = lines
+			band:Show()
 		end
-		y = y - 7 - 4
+		y = y - 9 - 4
 	end
 
 	-- 3) progression staircase: boss % remaining per pull tonight, best
