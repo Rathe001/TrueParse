@@ -2988,6 +2988,64 @@ end)()
 	end
 	check(rrow and rrow.label == "Soaking", "Raw keeps the plain soak share")
 
+	-- stagger purified counts toward recovery (Josh 2026-07-24)
+	local mm2 = {
+		damageTaken = 1000000,
+		swingsLanded = 60, swingsAvoided = 40,
+		absorbedTaken = 250000, selfAbsorbs = 0,
+		selfHealing = 200000, staggerPurified = 200000, -- recovery = 40%
+	}
+	local bsigs = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
+		breakdown = { damageTaken = { applicable = true, normalized = 60, value = 1000000 } } },
+		{}, { metrics = mm2 })
+	local brow
+	for _, r in ipairs(bsigs) do
+		if r.key == "damageTaken" then
+			brow = r
+		end
+	end
+	check(brow and brow.tipText:find("stagger purified") ~= nil
+		and brow.tipText:find("400.0k self%-recovered") ~= nil,
+		("purifies join recovery with the ~ mark (%s)"):format(tostring(brow and brow.tipText)))
+
+	-- the purify estimator: fresh tick x 10 credits, stale ticks don't
+	;(function()
+		local clock = 100
+		GetTime = function()
+			return clock
+		end
+		loadModule("Metrics/Taken.lua", TP)
+		local tk
+		for _, t in ipairs(TP.Metrics.trackers) do
+			if t.subevents and t.subevents.SWING_MISSED then
+				tk = t
+			end
+		end
+		check(tk ~= nil, "taken tracker registers miss handlers")
+		local acc = { guid = "bm" }
+		tk.InitPlayer(acc)
+		local seg = { players = { bm = acc }, startTime = 90 }
+		-- stagger tick (35k) then an immediate purify: pool ~ 350k
+		tk.subevents.SPELL_PERIODIC_DAMAGE(seg, "boss", "bm", nil, nil, 124255, "Stagger", 1, 35000)
+		clock = 101
+		tk.subevents.SPELL_CAST_SUCCESS(seg, "bm", nil, nil, nil, 119582)
+		check(acc.taken.staggerPurified == 350000,
+			("fresh purify credits tick x 10 (%s)"):format(tostring(acc.taken.staggerPurified)))
+		-- a second purify with no new tick credits nothing
+		clock = 102
+		tk.subevents.SPELL_CAST_SUCCESS(seg, "bm", nil, nil, nil, 119582)
+		check(acc.taken.staggerPurified == 350000, "no fresh tick, no double credit")
+		-- a stale tick (pool long empty) credits nothing
+		tk.subevents.SPELL_PERIODIC_DAMAGE(seg, "boss", "bm", nil, nil, 124255, "Stagger", 1, 20000)
+		clock = 110
+		tk.subevents.SPELL_CAST_SUCCESS(seg, "bm", nil, nil, nil, 119582)
+		check(acc.taken.staggerPurified == 350000, "stale ticks never credit")
+		-- avoided-swing counting rides the same tracker
+		tk.subevents.SWING_MISSED(seg, "boss", "bm", nil, nil, "DODGE")
+		tk.subevents.SWING_MISSED(seg, "boss", "bm", nil, nil, "ABSORB")
+		check(acc.taken.avoided == 1, "dodge counts, full absorb doesn't")
+	end)()
+
 	-- the coach speaks human now
 	local savedProf2 = TP.SpellProfiles
 	TP.SpellProfiles = { [105] = { spells = { { ids = { 774 }, name = "Rejuvenation", cpm = 20 } } } }

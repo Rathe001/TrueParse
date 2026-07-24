@@ -87,10 +87,26 @@ TP.TakenRecap = tracker.RecapFor
 tracker.subevents.SWING_DAMAGE = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a5)
 	addTaken(seg, dstGUID, a1, nil, nil, a5, true)
 end
+
+-- Brewmaster stagger (Josh 2026-07-24): purified damage never reaches
+-- the log — it vanishes from the pool — so it's estimated the way the
+-- MoP-era addons did: the Stagger DoT ticks pool/10 every second, so
+-- at a Purifying Brew cast the pool ~ last tick x 10. Freshness-gated:
+-- a stale tick means the pool already emptied.
+local STAGGER_TICK = 124255
+local PURIFYING_BREW = 119582
+
 -- SPELL/RANGE prefix: spellId, spellName, school, then the damage
 -- suffix: amount, overkill, school, resisted, blocked, ...
 local function spellTaken(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a5, a6, a7, a8)
 	addTaken(seg, dstGUID, a4, a1, a2, a8)
+	if a1 == STAGGER_TICK then
+		local acc = seg.players[dstGUID]
+		if acc then
+			acc.taken.staggerTick = a4
+			acc.taken.staggerTickAt = GetTime()
+		end
+	end
 end
 tracker.subevents.SPELL_DAMAGE = spellTaken
 tracker.subevents.SPELL_PERIODIC_DAMAGE = spellTaken
@@ -127,6 +143,18 @@ end
 tracker.subevents.SPELL_MISSED = spellMissed
 tracker.subevents.RANGE_MISSED = spellMissed
 
+tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
+	if a1 ~= PURIFYING_BREW then
+		return
+	end
+	local acc = seg.players[srcGUID]
+	local t = acc and acc.taken
+	if t and t.staggerTickAt and (GetTime() - t.staggerTickAt) <= 2 and (t.staggerTick or 0) > 0 then
+		t.staggerPurified = (t.staggerPurified or 0) + t.staggerTick * 10
+		t.staggerTickAt = nil -- one credit per pool; the next tick re-arms
+	end
+end
+
 tracker.InitPlayer = function(acc)
 	acc.taken = { total = 0, avoidable = 0, ring = {}, ringAt = 0 }
 end
@@ -136,6 +164,7 @@ tracker.MergePlayer = function(dst, src)
 	dst.taken.blocked = (dst.taken.blocked or 0) + (src.taken.blocked or 0)
 	dst.taken.swings = (dst.taken.swings or 0) + (src.taken.swings or 0)
 	dst.taken.avoided = (dst.taken.avoided or 0) + (src.taken.avoided or 0)
+	dst.taken.staggerPurified = (dst.taken.staggerPurified or 0) + (src.taken.staggerPurified or 0)
 end
 
 TP.Metrics:Register(tracker)

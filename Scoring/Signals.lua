@@ -91,12 +91,18 @@ local function tankingRow(m, b)
 		n = n + 1
 		parts[#parts + 1] = ("%s blocked+shielded (%.0f%%)"):format(TP.FormatNumber(shielded), mitPct)
 	end
-	local rec = (m.selfHealing or 0) + selfAbs
+	-- Brewmaster purifies are self-sufficiency too (Josh 2026-07-24);
+	-- the amount is tick-x-10 estimated, so it wears the ~ estimate mark
+	local purified = m.staggerPurified or 0
+	local rec = (m.selfHealing or 0) + selfAbs + purified
 	if taken > 0 and rec > 0 then
 		local recPct = math.min(100, rec / taken * 100)
 		sum = sum + recPct
 		n = n + 1
 		parts[#parts + 1] = ("%s self-recovered (%.0f%%)"):format(TP.FormatNumber(rec), recPct)
+		if purified > 0 then
+			parts[#parts + 1] = ("~%s of that was stagger purified"):format(TP.FormatNumber(purified))
+		end
 	end
 	if n < 3 then
 		return nil -- legacy record: not enough ingredients for a composite
