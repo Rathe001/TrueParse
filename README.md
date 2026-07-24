@@ -173,11 +173,12 @@ table.
 - A thin **comparison tick** on solid-fill bars marks the group's
   average: your fill vs the tick is the "my shape vs the group's
   shape" read. Gauges never carry one — two white ticks read as noise.
-- **Discrete things get discrete marks**, never bars: deaths are red
-  pips, cooldown uses are per-event squares colored by how well that
-  press met a damage spike (**ghost squares** = spikes beyond what your
-  cooldowns could physically reach — the availability cap, drawn),
-  binary signals are single glyphs.
+- **Discrete things are markless**, never bars: deaths, coverage
+  ("1/3"), kicks ("0/10"), and dispel counts render as label + colored
+  count + points — a bar under a count implies a continuous scale that
+  isn't there. The availability cap lives in the judged denominator
+  ("your cooldowns could reach N" in the tooltip). Binary signals are
+  single glyphs.
 - **Verdict labels, never sentences.** Each row carries a 2–4 word
   verdict in muted ink stating what happened — "Lust missed",
   "Died, CDs ready", "Stayed clean" — so nobody computes a finding
