@@ -295,7 +295,11 @@ function Spikes.Compute(seg, duration)
 						cov = cov + 1
 					end
 				end
-				r.groupSpikeMap[#r.groupSpikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), groupMet[i] or nil }
+				-- 4th field: did THIS player's cast cover it (the card's
+				-- tape draws personal attribution; the SCORE stays team-
+				-- union — Josh 2026-07-26, "the healers look identical")
+				local mine = s and castCovers(s.casts, win[1], win[2], HEALER_PRE_SLOP, HEALER_SLOP) or nil
+				r.groupSpikeMap[#r.groupSpikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), groupMet[i] or nil, mine }
 			end
 			if windows > 0 then
 				r.groupSpikeWindows = windows

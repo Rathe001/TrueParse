@@ -788,7 +788,7 @@ function Panel:ShowFor(fight, result)
 		frame.stripLabel:SetPoint("TOPLEFT", 12, y)
 		frame.stripLabel:SetText(result.role == "TANK"
 			and "your damage spikes \194\183 |cff55cc55defensive met it|r / |cffe64d4dno defensive|r"
-			or "group damage spikes \194\183 |cff55cc55cooldown met it|r / |cffe64d4duncovered|r")
+			or "group spikes \194\183 |cff55cc55yours|r / |cff3d6b42teammate's|r / |cffe64d4duncovered|r")
 		frame.stripLabel:Show()
 		y = y - 14
 		local w = frame:GetWidth() - 24
@@ -808,10 +808,14 @@ function Panel:ShowFor(fight, result)
 			band:ClearAllPoints()
 			band:SetPoint("TOPLEFT", frame.stripTrack, "TOPLEFT", left, 0)
 			band:SetSize(math.min(width, w - left), 7)
-			if win[3] then
-				band:SetVertexColor(0.33, 0.80, 0.33, 1)
+			-- tank maps are personal already (no 4th field); healer maps
+			-- carry mine-vs-team so each healer's tape is their own story
+			if win[4] or (result.role == "TANK" and win[3]) then
+				band:SetVertexColor(0.33, 0.80, 0.33, 1) -- yours
+			elseif win[3] then
+				band:SetVertexColor(0.24, 0.42, 0.26, 1) -- a teammate's
 			else
-				band:SetVertexColor(0.90, 0.30, 0.30, 1)
+				band:SetVertexColor(0.90, 0.30, 0.30, 1) -- uncovered
 			end
 			band:Show()
 		end

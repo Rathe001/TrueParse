@@ -2042,6 +2042,12 @@ end)()
 	check(out.h1 and out.h1.groupSpikeCovered == 1, "pre-cast raid CD covers the window (pre-slop)")
 	check(out.h2 and out.h2.groupSpikeCovered == 1,
 		"team coverage credits every healer (rotation isn't punished)")
+	-- personal attribution rides the map's 4th field: h1 cast it, h2
+	-- didn't — their tapes must differ even though the score is shared
+	check(out.h1.groupSpikeMap and out.h1.groupSpikeMap[1][4] == true,
+		"the caster's tape marks the window as theirs")
+	check(out.h2.groupSpikeMap and out.h2.groupSpikeMap[1][3] and not out.h2.groupSpikeMap[1][4],
+		"the non-caster sees teammate coverage, not their own")
 	check(not (out.h3 and out.h3.groupSpikeWindows),
 		"windows after a player's death don't judge them")
 end)()
