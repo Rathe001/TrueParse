@@ -714,8 +714,12 @@ local MAX_WIDTH = 430
 local function fitWidth(rowCount)
 	local needed = WIDTH
 	for i = 1, math.min(rowCount, #rows) do
-		-- GetStringWidth measures the FULL text, not the clipped render
-		local w = rows[i].text:GetStringWidth() + 28 + 8 + 12
+		-- GetStringWidth measures the FULL text, not the clipped render.
+		-- Wrapping rows (the coach) never widen the card: a wider card
+		-- stretches the tracks past the fixed-width gauges and bares the
+		-- grey tail (Josh 2026-07-24)
+		local w = rows[i].wraps and 0
+			or rows[i].text:GetStringWidth() + 28 + 8 + 12
 		if w > needed then
 			needed = w
 		end
@@ -855,6 +859,10 @@ function Panel:ShowFor(fight, result)
 		y = y - ROW_HEIGHT
 		row.metricData = nil
 		row.tooltipData = nil
+		-- recycled rows shed any wrap state from a previous tenant
+		row.wraps = nil
+		row:SetHeight(ROW_HEIGHT)
+		row.text:SetWordWrap(false)
 		return row
 	end
 	for _, award in ipairs(myAwards or {}) do
@@ -966,8 +974,17 @@ function Panel:ShowFor(fight, result)
 			row.icon:SetTexture("Interface\\Icons\\INV_Misc_PocketWatch_01")
 			row.icon:Show()
 			row.symbol:SetText("")
+			-- long advice WRAPS at the card's standard width instead of
+			-- widening the card (Josh 2026-07-24)
+			row.wraps = true
+			row.text:SetWordWrap(true)
 			row.text:SetText(gap.text)
 			row.text:SetTextColor(0.40, 0.85, 1.00)
+			local avail = WIDTH - 12 - 26 - 8
+			if row.text:GetStringWidth() > avail then
+				row:SetHeight(ROW_HEIGHT * 2)
+				y = y - ROW_HEIGHT -- the second line's room
+			end
 			row.tooltipData = { title = "Parse coach", lines = {
 				{ infoHelp().coach, 0.8, 0.8, 0.8, true } } }
 		end
