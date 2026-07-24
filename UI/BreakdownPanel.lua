@@ -631,7 +631,7 @@ end
 
 -- group-card visualization elements (fight shape, team coverage,
 -- staircase) — hidden wholesale when the shared frame shows a player
-local GROUP_VIZ = { "shapeLabel", "shapeCols", "covLabel", "covBands", "stairLabel", "stairCols" }
+local GROUP_VIZ = { "shapeLabel", "shapeCols", "covLabel", "covTrack", "covBands", "stairLabel", "stairCols" }
 local function hideGroupViz()
 	if not frame then
 		return
@@ -1060,7 +1060,9 @@ function Panel:ShowFor(fight, result)
 			width = math.min(width, w - left)
 			lastRight = left + width
 			band:ClearAllPoints()
-			band:SetPoint("TOPLEFT", frame.stripTrack, "TOPLEFT", left, -1)
+			-- +1: the 9px band centers on the 7px track (at -1 it hung 3px
+			-- below the track — audit 2026-07-24)
+			band:SetPoint("TOPLEFT", frame.stripTrack, "TOPLEFT", left, 1)
 			band:SetSize(width, 9)
 			-- personal maps carry "you covered it" in [3]; group maps in [4]
 			-- (legacy group records fall back to team coverage [3])
@@ -1529,6 +1531,17 @@ function Panel:ShowForGroup(fight, results)
 	end
 	if teamMap and (fight.duration or 0) > 0 then
 		vizLabel("covLabel", "group spikes \194\183 |cff55cc55a cooldown met it|r / |cffe64d4duncovered|r")
+		-- background track (it was missing here — audit 2026-07-24: bands
+		-- floated on nothing while the player strip had its rail)
+		if not frame.covTrack then
+			frame.covTrack = frame:CreateTexture(nil, "ARTWORK")
+			frame.covTrack:SetTexture("Interface\\Buttons\\WHITE8X8")
+			frame.covTrack:SetVertexColor(0.14, 0.14, 0.17, 1)
+		end
+		frame.covTrack:ClearAllPoints()
+		frame.covTrack:SetPoint("TOPLEFT", 12, y)
+		frame.covTrack:SetSize(w, 7)
+		frame.covTrack:Show()
 		-- hoverable bands, same as the player strip (Josh 2026-07-24)
 		frame.covBands = frame.covBands or {}
 		for i = #frame.covBands + 1, #teamMap do
