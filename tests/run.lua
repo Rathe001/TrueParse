@@ -2153,7 +2153,7 @@ end)()
 	end
 	check(g.lust and g.lust.kind == "bar" and g.lust.num == "2/3",
 		("group lust becomes a coverage bar (%s)"):format(tostring(g.lust and g.lust.num)))
-	check(g.healerComp and g.healerComp.kind == "glyph" and g.healerComp.count == "3 vs 2",
+	check(g.healerComp and g.healerComp.kind == "glyph" and g.healerComp.count == "3v2",
 		("comp advisor becomes a verdict glyph (%s)"):format(tostring(g.healerComp and g.healerComp.count)))
 	-- run-level pointer needs the pattern across 2+ kills
 	local tips = TP.Scoring.Insights.RunAdvice({ mkFight(), mkFight() })
@@ -2196,6 +2196,21 @@ end)()
 		"all owned raid CDs used -> no assignment line")
 	check(cdLine(cdFight({}, 4)) == nil,
 		"full coverage -> no assignment line")
+
+	-- the group card's raidCds glyph: names go in the TOOLTIP (the 30px
+	-- number column clipped them — audit 2026-07-24), the count on the row
+	local cdRows = TP.Scoring.Signals.GroupRows({}, cdFight({ [115310] = true }, 2))
+	local cdRow
+	for _, r in ipairs(cdRows) do
+		if r.key == "raidCds" then
+			cdRow = r
+		end
+	end
+	check(cdRow and cdRow.count == "3",
+		("raidCds glyph carries the count, not the names (%s)"):format(tostring(cdRow and cdRow.count)))
+	check(cdRow and cdRow.tooltip and cdRow.tooltip.lines[1]
+		and cdRow.tooltip.lines[1][1]:find("Avert Harm, Devotion Aura, Rallying Cry", 1, true) ~= nil,
+		"raidCds tooltip names the unused cooldowns")
 	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
 	TP.Percentiles = savedP
 end)()
@@ -2627,6 +2642,121 @@ end)()
 	swing(seg, "me")
 	check(math.abs(acc.activity.active - 2.6) < 0.01,
 		("swings credit as before (%.1f)"):format(acc.activity.active))
+end)()
+
+-- 33. Cross-scenario audit fixes (2026-07-24): dungeon-keyed kill-time
+-- curves, run-aggregate raid CDs, and the card accounting for every point.
+;(function()
+	local S = TP.Scoring.Signals
+
+	-- (1) a CM/dungeon boss fight must NOT compare its duration against
+	-- the dungeon's FULL-RUN curve (every ~90s boss beat every 274s+ run)
+	local savedP = TP.Percentiles
+	TP.Percentiles = { encounters = { ["Gate of the Setting Sun"] = { all = {
+		killTime = { n = 60, curve = { { 99, 274.8 }, { 50, 420 }, { 10, 700 } } },
+	} } } }
+	local cmFight = { name = "Raigonn", zone = "Gate of the Setting Sun",
+		isBoss = true, duration = 90, difficultyID = 8, players = {} }
+	check(TP.Scoring.Engine.KillSpeedPercentile(cmFight) == nil,
+		"CM boss fight gets no kill-speed from the run-duration curve")
+	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+	TP.Percentiles = savedP
+
+	-- (3) run aggregation unions raidCdsUsed so the run card stops calling
+	-- pressed cooldowns "sat unused"
+	local runF = function(cds)
+		return { duration = 100, players = {}, totals = { raidCdsUsed = cds } }
+	end
+	local agg = TP.Scoring.Runs.Aggregate({ runF({ [740] = true }), runF({ [115310] = true }) }, "Run")
+	check(agg.totals.raidCdsUsed and agg.totals.raidCdsUsed[740] and agg.totals.raidCdsUsed[115310],
+		"run aggregate unions raidCdsUsed across fights")
+
+	-- (4)/(5) charged-but-invisible: a capable player at zero kicks or
+	-- dispels still shows the charge in Other
+	local function itemsOf(sigs)
+		for _, r in ipairs(sigs) do
+			if r.key == "other" then
+				return r.items
+			end
+		end
+		return {}
+	end
+	local function hasItem(items, label)
+		for _, it in ipairs(items) do
+			if it.label == label then
+				return it
+			end
+		end
+	end
+	local zeroKicks = S.ForResult({ role = "DAMAGER",
+		adjustDetail = { kicks = -2 }, penaltyDetail = {},
+		breakdown = { interrupts = { applicable = true, value = 0 } } },
+		{}, { metrics = {} })
+	local ki = hasItem(itemsOf(zeroKicks), "No interrupts")
+	check(ki and ki.points == -2, "zero kicks with a charge surfaces in Other")
+	local zeroDispels = S.ForResult({ role = "DAMAGER",
+		adjustDetail = { dispels = -3 }, penaltyDetail = {},
+		breakdown = { dispels = { applicable = true, value = 0 } } },
+		{}, { metrics = {} })
+	check(hasItem(itemsOf(zeroDispels), "No dispels") ~= nil,
+		"zero dispels with a charge surfaces in Other")
+
+	-- (6) a low-demand healer keeps their primary metric as a verdict
+	local lowD = S.ForResult({ role = "HEALER", adjustDetail = {}, penaltyDetail = {},
+		breakdown = { healing = { applicable = true, lowDemand = true, normalized = 75 } } },
+		{}, { metrics = {} })
+	local hRow
+	for _, r in ipairs(lowD) do
+		if r.key == "healing" then
+			hRow = r
+		end
+	end
+	check(hRow and hRow.kind == "glyph" and hRow.label == "Little to heal"
+		and hRow.b ~= nil and hRow.base,
+		"low-demand healer keeps a Healing verdict row with its tooltip")
+
+	-- (8) kicks/dispels rows carry the breakdown for numeric tooltips, and
+	-- the dispel COUNT rides the row, not the share score
+	local counted = S.ForResult({ role = "DAMAGER", adjustDetail = {}, penaltyDetail = {},
+		breakdown = {
+			interrupts = { applicable = true, value = 2, opportunities = 4 },
+			dispels = { applicable = true, value = 3, normalized = 60 },
+		} }, {}, { metrics = {} })
+	local kRow, dRow
+	for _, r in ipairs(counted) do
+		if r.key == "interrupts" then
+			kRow = r
+		elseif r.key == "dispels" then
+			dRow = r
+		end
+	end
+	check(kRow and kRow.b ~= nil and not kRow.base,
+		"kicks row carries its breakdown but never joins the Raw view")
+	check(dRow and dRow.b ~= nil and dRow.num == "3" and not dRow.base,
+		("dispels row shows the count (%s)"):format(tostring(dRow and dRow.num)))
+
+	-- (9) an Aug with no Ebon Might report reads unmeasured, not mid-pack
+	local mute = S.ForResult({ role = "SUPPORT", adjustDetail = {}, penaltyDetail = {},
+		breakdown = { damage = { applicable = true, normalized = 50, noInput = true, relative = true } } },
+		{}, { metrics = {} })
+	check(mute[1] and mute[1].label == "Amplified" and mute[1].num == "?",
+		("no-input Aug bar wears the '?' (%s %s)"):format(
+			tostring(mute[1] and mute[1].label), tostring(mute[1] and mute[1].num)))
+
+	-- base flags: throughput bars join the Raw view, everything else doesn't
+	local based = S.ForResult({ role = "DAMAGER", adjustDetail = {}, penaltyDetail = {},
+		breakdown = { damage = { applicable = true, pctile = 60, normalized = 60 } } },
+		{}, { metrics = { activityPct = 90 } })
+	local dmgRow, actRow
+	for _, r in ipairs(based) do
+		if r.key == "damage" then
+			dmgRow = r
+		elseif r.key == "activity" then
+			actRow = r
+		end
+	end
+	check(dmgRow and dmgRow.base and actRow and not actRow.base,
+		"Raw view keeps throughput, drops activity")
 end)()
 
 print("")

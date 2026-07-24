@@ -89,14 +89,28 @@ function Signals.ForResult(result, fight, player)
 			local label = key == "damageTaken" and "Soaking"
 				or key:sub(1, 1):upper() .. key:sub(2)
 			-- an Aug's "damage" is what their buffs enabled, not output
-			if key == "damage" and role == "SUPPORT" and b.attribution then
+			if key == "damage" and role == "SUPPORT" and (b.attribution or b.noInput) then
 				label = "Amplified"
 			end
 			out[#out + 1] = barRow(key, ICONS[key], label, b.pctile or b.normalized or 0, nil)
 			out[#out].b = b -- the tooltip's gauge needs the full breakdown
+			out[#out].base = true -- makes the raw score; Raw mode keeps these
 			-- bracket colors are for PARSES only: a group-relative share
 			-- wears neutral, not purple
 			out[#out].raw = not (b.pctile or b.absolute) or nil
+			if b.noInput then
+				-- an Aug with no Ebon Might report: the 50 is a PIN, not a
+				-- measurement — "?" keeps it from reading as mid-pack share
+				out[#out].num = "?"
+			end
+		elseif b and b.applicable and b.lowDemand and key == "healing" and role == "HEALER" then
+			-- a healer's primary metric can't just vanish: the base sits
+			-- pinned at 75 because there was nothing to heal — say so
+			local row = { key = key, kind = "glyph", icon = ICONS[key],
+				label = "Little to heal", good = true }
+			row.b = b -- the metric tooltip explains the neutral scoring
+			row.base = true
+			out[#out + 1] = row
 		end
 	end
 
@@ -107,6 +121,7 @@ function Signals.ForResult(result, fight, player)
 		local row = barRow("buffUptime", ICONS.buffUptime, "Ebon Might",
 			bu.normalized or 0, nil)
 		row.b = bu
+		row.base = true -- 35% of the Aug's grade: part of the raw score
 		row.raw = true -- scored vs its own anchor, not a parse population
 		out[#out + 1] = row
 	end
@@ -158,6 +173,7 @@ function Signals.ForResult(result, fight, player)
 			local row = barRow("interrupts", ICONS.interrupts, "Kicks",
 				landed / bi.opportunities * 100, ad.kicks)
 			row.num = ("%d/%d"):format(landed, bi.opportunities)
+			row.b = bi -- numeric tooltip ("Kicked N · group got L of O")
 			out[#out + 1] = row
 		elseif (bi.value or 0) > 0 then
 			-- no opportunity data (retail hides enemy casts; Classic still
@@ -167,6 +183,7 @@ function Signals.ForResult(result, fight, player)
 				bi.normalized or 0, ad.kicks)
 			row.num = tostring(bi.value)
 			row.raw = true
+			row.b = bi
 			out[#out + 1] = row
 		end
 	end
@@ -175,7 +192,8 @@ function Signals.ForResult(result, fight, player)
 	local bd = result.breakdown.dispels
 	if bd and bd.applicable and (bd.value or 0) > 0 then
 		out[#out + 1] = barRow("dispels", ICONS.dispels, "Dispels", bd.normalized or 0, ad.dispels)
-		out[#out].count = bd.value
+		out[#out].num = tostring(bd.value) -- the count, not the share score
+		out[#out].b = bd -- numeric tooltip (dispelled-of-group + reaction avg)
 		out[#out].raw = true -- share score, not a percentile
 	end
 
@@ -219,7 +237,11 @@ function Signals.ForResult(result, fight, player)
 		{ key = "pull", up = nil, down = "Pulled early", icon = ICONS.avoidable },
 		{ key = "aggro", up = nil, down = "Ripped aggro", icon = ICONS.avoidable },
 		{ key = "aggroLoss", up = nil, down = "Lost aggro", icon = ICONS.avoidable },
-		{ key = "kicks", up = "Kicked anyway", down = nil, icon = ICONS.interrupts, healerOnly = true },
+		-- kicks/dispels: the bar only renders when something landed, but a
+		-- capable player at zero still gets charged — the charge must show
+		-- (healers are bonus-only for kicks, so "down" never fires on them)
+		{ key = "kicks", up = "Kicked anyway", down = "No interrupts", icon = ICONS.interrupts },
+		{ key = "dispels", up = "Dispels", down = "No dispels", icon = ICONS.dispels },
 	}
 	local shown = {}
 	for _, row in ipairs(out) do
@@ -310,12 +332,21 @@ function Signals.GroupRows(results, fight)
 			local ran, mode = text:match("Ran (%d+) healers %- ranked kills mostly run (%d+)")
 			rows[#rows + 1] = { key = "healerComp", kind = "glyph", icon = ICONS.healing,
 				label = "Heavy comp", good = false,
-				count = ran and (ran .. " vs " .. mode) or nil, tooltip = bl.tooltip }
+				count = ran and (ran .. "v" .. mode) or nil, tooltip = bl.tooltip }
 		elseif bl.key == "raidCds" then
+			-- the names ARE the point of this line ("assign the raid CDs"
+			-- stops being abstract) — the 30px number column clips them, so
+			-- they go in the tooltip and the count rides the row
 			local names = text:match("%- (.+) sat unused")
-			local row = { key = "raidCds", kind = "glyph", icon = ICONS.cdTimingHealer,
-				label = "CDs unused", good = false, count = names, tooltip = bl.tooltip }
-			rows[#rows + 1] = row
+			local lines = {}
+			if names then
+				lines[#lines + 1] = { names, 1, 1, 1, true }
+			end
+			lines[#lines + 1] = { "Owned, never pressed. Assign one button per big moment.", 0.8, 0.8, 0.8, true }
+			rows[#rows + 1] = { key = "raidCds", kind = "glyph", icon = ICONS.cdTimingHealer,
+				label = "CDs unused", good = false,
+				count = names and tostring(select(2, names:gsub(",", ",")) + 1) or nil,
+				tooltip = { title = "Raid cooldown assignment", lines = lines } }
 		elseif bl.key == "speedTrend" then
 			local fasterS = text:match("(%d+)s faster")
 			local slowerS = text:match("(%d+)s slower")

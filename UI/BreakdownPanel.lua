@@ -423,7 +423,11 @@ local function renderSignal(row, sig, groupAvg)
 		-- picked the color); counts stay counts, tooltips stay numeric.
 		local numText = sig.num
 		if not numText then
-			if TP.Addon.db.profile.letterGrades and TP.Scoring.Grades.LetterFor then
+			-- letters are bracket language: only rows whose color came from
+			-- a population tier may wear one — a group-share 92 stays "92",
+			-- never an "S-" over a neutral fill (audit 2026-07-24)
+			if TP.Addon.db.profile.letterGrades and TP.Scoring.Grades.LetterFor
+				and (sig.tier or not sig.raw) then
 				numText = TP.Scoring.Grades.LetterFor(sig.tier or v)
 			else
 				numText = ("%d"):format(v + 0.5)
@@ -688,6 +692,8 @@ local function infoHelp()
 			cdTiming = "Damage spikes with a cooldown active inside. Judged only on spikes your cooldowns could reach.",
 			rez = "Combat rez cast, from the combat log.",
 			coach = "The biggest gap between this fight and top parses of this spec.",
+			interrupts = "Casts this player interrupted.",
+			dispels = "Debuffs this player dispelled.",
 		}
 	end
 	return INFO_HELP
@@ -806,12 +812,14 @@ function Panel:ShowFor(fight, result)
 		end
 	end
 	-- Raw mode = the WCL view (Josh 2026-07-24): only the throughput
-	-- bars that MAKE the raw score — no adjustments, no rule, no strip
+	-- bars that MAKE the raw score — no adjustments, no rule, no strip.
+	-- Filter on `base`, not `b`: kicks/dispels rows carry `b` for their
+	-- numeric tooltips but never weight into the raw score.
 	local signals = TP.Scoring.Signals.ForResult(result, fight, player)
 	if result.parse then
 		local kept = {}
 		for _, sig in ipairs(signals) do
-			if sig.b then
+			if sig.base then
 				kept[#kept + 1] = sig
 			end
 		end
@@ -823,7 +831,7 @@ function Panel:ShowFor(fight, result)
 	-- (Josh 2026-07-24)
 	local drewBase, ruleDrawn = false, false
 	for _, sig in ipairs(signals) do
-		if sig.b then
+		if sig.base then
 			drewBase = true
 		elseif drewBase and not ruleDrawn then
 			ruleDrawn = true
@@ -875,6 +883,25 @@ function Panel:ShowFor(fight, result)
 		end
 	end
 
+	-- the parse coach keeps its visible line (Josh 2026-07-24: "I don't
+	-- see the coach anywhere" — tooltip-only was invisible). Advice, not a
+	-- signal: rendered like the award text rows, in the coach's cyan.
+	-- Raw mode stays pure WCL.
+	if not result.parse and player and player.metrics and player.metrics.profCasts
+		and player.specID and TP.Scoring.Insights.ParseGap then
+		local gap = TP.Scoring.Insights.ParseGap(player.specID, player.metrics, fight.duration)
+		if gap then
+			local row = nextRow()
+			hideSignalWidgets(row)
+			row.symbol:SetText("\194\183")
+			row.symbol:SetTextColor(0.40, 0.85, 1.00)
+			row.text:SetText("Coach: " .. gap.text)
+			row.text:SetTextColor(0.40, 0.85, 1.00)
+			row.tooltipData = { title = "Parse coach", lines = {
+				{ infoHelp().coach, 0.8, 0.8, 0.8, true } } }
+		end
+	end
+
 	if frame.baseRule and not ruleDrawn then
 		frame.baseRule:Hide()
 	end
@@ -893,8 +920,18 @@ function Panel:ShowFor(fight, result)
 	-- rendering everything as falsely uncovered. Hidden entirely in Raw
 	-- mode — that view is parses and nothing else.
 	local mm = player and player.metrics or {}
-	local map = not result.parse
-		and ((result.role == "HEALER") and mm.groupSpikeMap or mm.spikeMap) or nil
+	-- pick the map AND remember which kind it is: a healer whose record has
+	-- no group map falls back to their personal intake map, and the label/
+	-- field reads must follow the MAP, not the role (audit 2026-07-24 — the
+	-- and-or chain handed healers a personal map wearing group labels)
+	local map, isGroupMap
+	if not result.parse then
+		if result.role == "HEALER" and mm.groupSpikeMap then
+			map, isGroupMap = mm.groupSpikeMap, true
+		else
+			map = mm.spikeMap
+		end
+	end
 	local hasMine = false
 	for _, win in ipairs(map or {}) do
 		if win[4] ~= nil then
@@ -921,7 +958,7 @@ function Panel:ShowFor(fight, result)
 		frame.stripLabel:ClearAllPoints()
 		frame.stripLabel:SetPoint("TOPLEFT", 12, y)
 		local lbl
-		if result.role ~= "HEALER" then
+		if not isGroupMap then
 			lbl = "your damage spikes \194\183 |cff55cc55defensive met it|r / |cffe64d4dno defensive|r"
 		elseif hasMine then
 			lbl = "group spikes \194\183 |cff55cc55you covered it|r / |cffe64d4dyou didn't|r"
@@ -963,10 +1000,10 @@ function Panel:ShowFor(fight, result)
 			band:ClearAllPoints()
 			band:SetPoint("TOPLEFT", frame.stripTrack, "TOPLEFT", left, -1)
 			band:SetSize(math.min(width, w - left), 9)
-			-- personal maps carry "you covered it" in [3]; healer group maps
-			-- in [4] (legacy healer records fall back to team coverage [3])
+			-- personal maps carry "you covered it" in [3]; group maps in [4]
+			-- (legacy group records fall back to team coverage [3])
 			local covered
-			if result.role ~= "HEALER" then
+			if not isGroupMap then
 				covered = win[3]
 			else
 				covered = hasMine and win[4] or (not hasMine and win[3])
@@ -990,7 +1027,7 @@ function Panel:ShowFor(fight, result)
 			elseif covered then
 				lines[#lines + 1] = { "Covered", 0.33, 0.80, 0.33 }
 			else
-				lines[#lines + 1] = { result.role == "TANK" and "No defensive" or "You didn't cover it", 0.90, 0.35, 0.35 }
+				lines[#lines + 1] = { isGroupMap and "You didn't cover it" or "No defensive", 0.90, 0.35, 0.35 }
 			end
 			if not win[5] then
 				-- legacy capture: a dead hover reads as broken, so say why
@@ -1501,6 +1538,12 @@ function Panel:OnFightRendered(fight, results)
 	end
 	if self.currentGUID == "GROUP" then
 		self:ShowForGroup(fight, results)
+		return
+	end
+	if self.currentGUID == "RUN" then
+		-- the pinned RUN card is a different fight record than the one just
+		-- rendered: leave it alone (falling through to the player loop
+		-- matched nothing and CLOSED it on every scroll — audit 2026-07-24)
 		return
 	end
 	for _, r in ipairs(results) do

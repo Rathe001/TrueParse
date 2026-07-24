@@ -263,7 +263,10 @@ local function encounterCurvesFor(P, fight)
 		or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or fight.keystoneLevel
 		or fight.instanceType == "party") then
 		local enc = P.encounters[fight.zone]
-		return enc and sanitizeEncounter(enc) or nil
+		-- second return: this entry is DUNGEON-keyed, so its killTime curve
+		-- measures FULL RUNS — callers comparing a single fight's duration
+		-- against it must not (a 90s CM boss "beat" every 274s+ run: p99)
+		return enc and sanitizeEncounter(enc) or nil, true
 	end
 	return nil
 end
@@ -973,8 +976,11 @@ function Engine.KillSpeedPercentile(fight)
 	if not P then
 		return nil
 	end
-	local enc = encounterCurvesFor(P, fight)
-	if not enc then
+	local enc, runScoped = encounterCurvesFor(P, fight)
+	if not enc or runScoped then
+		-- dungeon-keyed killTime curves measure full runs; neither a single
+		-- boss fight nor a RUN aggregate (trash time excluded) can honestly
+		-- compare against them (audit 2026-07-24: CM bosses always read p99)
 		return nil
 	end
 	local key = fight.difficultyID and WCL_BRACKET[fight.difficultyID]

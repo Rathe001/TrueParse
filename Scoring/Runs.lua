@@ -42,13 +42,16 @@ function Runs.Aggregate(fights, name)
 		run.difficultyID = fight.difficultyID or run.difficultyID
 		run.keystoneLevel = fight.keystoneLevel or run.keystoneLevel
 		for key, value in pairs(fight.totals or {}) do
-			-- totals now carry non-numeric entries (dispelTypes is a
-			-- table): summing them crashed the run card (audit 2026-07-16)
+			-- totals now carry non-numeric entries (dispelTypes and
+			-- raidCdsUsed are tables): summing them crashed the run card
+			-- (audit 2026-07-16). Sets union across the run — dropping
+			-- raidCdsUsed made the run card call every owned CD "sat
+			-- unused" even when pressed (audit 2026-07-24).
 			if type(value) == "number" then
 				run.totals[key] = (run.totals[key] or 0) + value
-			elseif key == "dispelTypes" then
-				local t = run.totals.dispelTypes or {}
-				run.totals.dispelTypes = t
+			elseif key == "dispelTypes" or key == "raidCdsUsed" then
+				local t = run.totals[key] or {}
+				run.totals[key] = t
 				for k in pairs(value) do
 					t[k] = true
 				end
