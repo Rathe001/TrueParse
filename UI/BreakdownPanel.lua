@@ -770,7 +770,27 @@ function Panel:ShowFor(fight, result)
 			groupAvg = TP.Scoring.Signals.GroupAverages(all, fight)
 		end
 	end
+	-- a light rule after the throughput bars: everything above IS the
+	-- base score (no +/- points by design), everything below adjusts it
+	-- (Josh 2026-07-24)
+	local drewBase, ruleDrawn = false, false
 	for _, sig in ipairs(TP.Scoring.Signals.ForResult(result, fight, player)) do
+		if sig.b then
+			drewBase = true
+		elseif drewBase and not ruleDrawn then
+			ruleDrawn = true
+			if not frame.baseRule then
+				frame.baseRule = frame:CreateTexture(nil, "ARTWORK")
+				frame.baseRule:SetColorTexture(0.5, 0.5, 0.55, 0.3)
+				frame.baseRule:SetHeight(1)
+			end
+			y = y - 2
+			frame.baseRule:ClearAllPoints()
+			frame.baseRule:SetPoint("TOPLEFT", 10, y)
+			frame.baseRule:SetPoint("TOPRIGHT", -10, y)
+			frame.baseRule:Show()
+			y = y - 4
+		end
 		local row = nextRow()
 		renderSignal(row, sig, groupAvg)
 		if sig.b then
@@ -805,6 +825,10 @@ function Panel:ShowFor(fight, result)
 			end
 			row.tooltipData = { title = sig.label, lines = lines }
 		end
+	end
+
+	if frame.baseRule and not ruleDrawn then
+		frame.baseRule:Hide()
 	end
 
 	-- (players without TrueParse are flagged by the red X on their
@@ -1013,6 +1037,9 @@ function Panel:ShowForGroup(fight, results)
 		frame.runLine:SetText("")
 	end
 
+	if frame.baseRule then
+		frame.baseRule:Hide() -- player-card element; the group card has none
+	end
 	local bullets = TP.Scoring.Bullets.ForGroup(results, fight)
 	local y = self.groupRunScore and -50 or -37 -- below the header lines
 	for i, bullet in ipairs(bullets) do
