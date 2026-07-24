@@ -55,6 +55,7 @@ Scoring\Coach.lua
 Scoring\Runs.lua
 Scoring\Insights.lua
 Scoring\Bullets.lua
+Scoring\Signals.lua
 Core\Career.lua
 Core\Trends.lua
 UI\Tooltip.lua

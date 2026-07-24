@@ -22,6 +22,7 @@ loadModule("Scoring/Coach.lua", TP)
 loadModule("Scoring/Runs.lua", TP)
 loadModule("Scoring/Insights.lua", TP)
 loadModule("Scoring/Bullets.lua", TP)
+loadModule("Scoring/Signals.lua", TP)
 loadModule("Metrics/Registry.lua", TP)
 loadModule("Metrics/Spikes.lua", TP) -- FindWindows/Compute are pure at capture time
 
@@ -2374,6 +2375,69 @@ end)()
 	check(found and found:find("Coach: top parses cast Rejuvenation", 1, true),
 		("coach bullet survives the impact filter (%s)"):format(tostring(found)))
 	TP.SpellProfiles = savedProf
+end)()
+
+-- 31. Signal Column model (2026-07-26 redesign): rows carry verdict
+-- labels, capacity ghosts, and honest kinds per signal
+;(function()
+	local S = TP.Scoring.Signals
+	local result = {
+		role = "HEALER",
+		adjustDetail = { cdTiming = 3, dispels = 3, defensives = 2, activity = -4 },
+		penaltyDetail = { deaths = 6 },
+		breakdown = {
+			healing = { applicable = true, pctile = 38, value = 35600000 },
+			damage = { applicable = true, pctile = 52, value = 8000000 },
+			dispels = { applicable = true, normalized = 72, value = 5 },
+		},
+	}
+	local player = {
+		metrics = { activityPct = 69, groupSpikeWindows = 6, groupSpikeCovered = 2,
+			groupCdCasts = 2, defensives = 2, deaths = 1, lustCasts = 0 },
+	}
+	local rows = S.ForResult(result, { isBoss = true }, player)
+	local byKey = {}
+	for _, r in ipairs(rows) do
+		byKey[r.key] = r
+	end
+	check(rows[1].key == "healing" and rows[1].kind == "bar" and rows[1].label == "Healing"
+		and rows[1].value == 38, "healer's primary bar leads with its percentile")
+	check(byKey.activity and byKey.activity.points == -4 and byKey.activity.value == 69,
+		"activity bar carries its points")
+	local cd = byKey.cdTiming
+	check(cd and cd.kind == "squares" and cd.good == 2 and cd.bad == 1 and cd.ghost == 3
+		and cd.label == "Spikes uncovered",
+		("capacity cap draws ghosts: 2 good, 1 bad, 3 ghost (%s/%s/%s)"):format(
+			tostring(cd and cd.good), tostring(cd and cd.bad), tostring(cd and cd.ghost)))
+	check(byKey.deaths and byKey.deaths.kind == "pips" and byKey.deaths.count == 1
+		and byKey.deaths.label == "Died", "deaths are pips with a verdict label")
+	check(byKey.lust == nil, "healers get no lust row")
+	-- DPS lust verdicts spell out the finding (Josh: never make the
+	-- user compute "missed the window")
+	local dps = { role = "DAMAGER", adjustDetail = { lust = -3 }, penaltyDetail = {},
+		breakdown = { damage = { applicable = true, pctile = 80 } } }
+	local drows = S.ForResult(dps, {}, { metrics = { lustCasts = 0 } })
+	local lust
+	for _, r in ipairs(drows) do
+		if r.key == "lust" then
+			lust = r
+		end
+	end
+	check(lust and lust.kind == "glyph" and lust.label == "Lust missed" and not lust.good,
+		("a missed window says so in words (%s)"):format(tostring(lust and lust.label)))
+	drows = S.ForResult({ role = "DAMAGER", adjustDetail = { lust = 3 }, penaltyDetail = {},
+		breakdown = { damage = { applicable = true, pctile = 80 } } }, {},
+		{ metrics = { lustCasts = 2, lustPotion = 1 } })
+	for _, r in ipairs(drows) do
+		if r.key == "lust" then
+			lust = r
+		end
+	end
+	check(lust and lust.label == "Lust + potion" and lust.good, "full alignment reads as the best verdict")
+	-- group averages feed the comparison ticks
+	local avg = S.GroupAverages({ result, dps }, { players = {} })
+	check(avg.damage and math.abs(avg.damage - 66) < 0.5,
+		("group average per key ((52+80)/2 = %s)"):format(tostring(avg.damage)))
 end)()
 
 print("")

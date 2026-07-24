@@ -134,6 +134,64 @@ engine is pure Lua with a headless test suite.
 
 Bug reports and requests: [GitHub issues](https://github.com/Rathe001/TrueParse/issues).
 
+## Design guide
+
+The card's visual language is built from three things WoW raiders
+already read fluently, and nothing else. Every rule below is load-bearing;
+if a new feature can't be expressed in this language, the feature is
+redesigned, not the language.
+
+**Color is meaning, and every hue is reserved.**
+
+| Color | Meaning | Values |
+|---|---|---|
+| WCL parse brackets | *how good* — the only judgment colors | grey `#8a8a8a` 0–24 · green `#1eff00` 25–49 · blue `#0070ff` 50–74 · purple `#a335ee` 75–94 · orange `#ff8000` 95–98 · pink `#e268a8` 99 · gold `#e5cc80` 100/awards |
+| Class colors | *who* — names and bars, never judgment | Blizzard `RAID_CLASS_COLORS` |
+| Red `#e64d4d` | *danger only* — deaths, wipes, uncovered spikes | never decorative |
+| Coach cyan `#66ccff` | *the parse coach* — advice comparing you to top parses | one line, tooltips only |
+
+A colored two-digit number carries value and verdict at once — the
+number IS the indicator. Nothing on the card uses color outside this
+table.
+
+**The card: one hero, uniform quiet rows, zero sentences.**
+
+- The **score is the hero** — one large bracket-colored number. Nothing
+  else competes at that size.
+- Every continuous signal is an identical micro-row: `[icon] [thin
+  0–100 bar tinted by its own bracket] [colored number] [signed grey
+  points]`. All bars share the 0–100 scale, so the column reads as an
+  honest profile — a radar chart unrolled flat.
+- A thin **comparison tick** on each bar marks the group's average
+  (field median on the group card): your fill vs the tick is the
+  "my shape vs the group's shape" read.
+- **Discrete things get discrete marks**, never bars: deaths are red
+  pips, cooldown uses are per-event squares colored by how well that
+  press met a damage spike (**ghost squares** = spikes beyond what your
+  cooldowns could physically reach — the availability cap, drawn),
+  binary signals are single glyphs.
+- **Verdict labels, never sentences.** Each row carries a 2–4 word
+  verdict in muted ink stating what happened — "Lust missed",
+  "Died, CDs ready", "Stayed clean" — so nobody computes a finding
+  from marks. Labels state; marks quantify; tooltips explain. Anything
+  needing a sentence lives in a tooltip.
+
+**Tooltips: one grammar, five lines, no paragraphs.**
+
+`title · marks in the card's own grammar · one number cluster
+("35.6M · 104k/s · spec median 157k/s") · one dim context line · the
+coach line when it applies`. The tooltip reuses the card's visual
+grammar (mini bars, squares, the percentile gauge) so hover feels like
+zooming in, not reading a manual.
+
+**Graphs only where they carry story**: the group card's fight-shape
+sparkline (output per second: opener ramp, Bloodlust burst, death dots,
+the post-call collapse) and the progression staircase (boss % per pull
+across a night, best pull in bracket green). Everything is built from
+flat rectangles, cropped icons, and outlined condensed text — the
+current "quality addon" dialect — because that's all WoW renders
+cleanly, and designs that fight the engine read as janky.
+
 ## Where the data comes from
 
 All Warcraft Logs statistics (percentile curves, kill times, spec
