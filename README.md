@@ -162,12 +162,14 @@ table.
   0–100 bar] [colored number] [signed grey points]`. All bars share the
   0–100 scale, so the column reads as an honest profile — a radar chart
   unrolled flat.
-- **WCL-percentile rows render the bracket gauge itself**: the five
+- **Population-backed rows render the bracket gauge itself**: the five
   bracket zones as segments with a white marker at your position — the
   zone structure IS the judgment, so the row shows the population, not
-  just a fill. One marker, nothing else: the field median is the
-  gauge's own green/blue seam. Non-percentile bars stay solid fills
-  (verdict or quantile-tier colors).
+  just a fill. WCL percentiles mark their percentile; quantile-anchored
+  metrics (Active, Mitigation) mark their population TIER while the
+  number stays the raw %. One marker, nothing else: the field median is
+  the gauge's own green/blue seam. Own-rules bars (coverage, shares)
+  stay solid verdict-colored fills — no population, no brackets.
 - A thin **comparison tick** on solid-fill bars marks the group's
   average: your fill vs the tick is the "my shape vs the group's
   shape" read. Gauges never carry one — two white ticks read as noise.
