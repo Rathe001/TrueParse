@@ -193,6 +193,9 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 	self:StartFight(encounterName)
 	if self.current then
 		self.current.encounterID = encounterID
+		-- StartFight's SEGMENT_CHANGED fired BEFORE the id landed: anything
+		-- gating on "is this a boss" (the wipe-it button) needs a re-poke
+		TP.Addon:SendMessage("TrueParse_SEGMENT_CHANGED")
 		-- WCL's fight bounds ARE the encounter events; anchoring our
 		-- duration here matches their rankings by construction
 		self.current.encounterStartTime = GetTime()

@@ -772,8 +772,10 @@ function FightHistory:AddFromSegment(seg)
 	-- output-collapse heuristic; without one, on a called wipe nothing
 	-- after the detected collapse counts — people stand in bad on purpose
 	-- to reset faster. A wipe fought to the end detects nothing and
-	-- everything counts.
-	local calledAt = seg.manualWipeAt
+	-- everything counts. BOTH paths require an actual wipe (Josh
+	-- 2026-07-26): a called wipe that turns into a kill forgives nothing.
+	local manualCall = seg.encounterWipe and seg.manualWipeAt or nil
+	local calledAt = manualCall
 	if not calledAt and seg.encounterWipe and TP.Spikes and TP.Spikes.DetectWipeCall then
 		local ok, at = pcall(TP.Spikes.DetectWipeCall,
 			seg.group and seg.group.out, seg.duration)
@@ -967,7 +969,7 @@ function FightHistory:AddFromSegment(seg)
 		-- the moment the raid stopped trying (nil = fought to the end);
 		-- wipeCalledBy present = someone pressed the button (ground truth)
 		calledWipeAt = calledAt,
-		wipeCalledBy = seg.manualWipeAt and seg.manualWipeBy or nil,
+		wipeCalledBy = manualCall and seg.manualWipeBy or nil,
 		-- when Bloodlust went out (fight-offset): players dead before
 		-- this can't have "wasted" it
 		lustAt = seg.lustAt,

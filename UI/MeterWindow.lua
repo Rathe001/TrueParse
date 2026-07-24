@@ -287,27 +287,38 @@ local function createWindow()
 	end)
 
 	-- "Wipe it" (Josh 2026-07-26): one press records the exact call moment
-	-- and locks every install out for the rest of the fight. Lives on the
-	-- header so it's reachable while auto-collapsed mid-combat; own mouse
-	-- so click-through-in-combat never eats it. Visibility rules in
-	-- UpdateWipeButton (option off by default; lead/assist-gated).
+	-- and locks every install out for the rest of the fight. A LARGE icon
+	-- button anchored off the window's top/bottom edge (never on the
+	-- header — misclicks there collapse the window), on the side away
+	-- from the screen edge. Own mouse so click-through-in-combat never
+	-- eats it. Visibility rules in UpdateWipeButton.
 	window.wipeBtn = CreateFrame("Button", nil, window, "BackdropTemplate")
-	window.wipeBtn:SetSize(52, 16)
+	window.wipeBtn:SetSize(40, 40)
 	window.wipeBtn:SetBackdrop({
 		bgFile = "Interface\\Buttons\\WHITE8X8",
 		edgeFile = "Interface\\Buttons\\WHITE8X8",
-		edgeSize = 1,
+		edgeSize = 2,
 	})
-	window.wipeBtn:SetBackdropColor(0.55, 0.08, 0.08, 0.95)
-	window.wipeBtn:SetBackdropBorderColor(1, 0.3, 0.3, 0.9)
-	window.wipeBtn.label = window.wipeBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	window.wipeBtn.label:SetPoint("CENTER", 0, 0)
-	window.wipeBtn.label:SetText("WIPE IT")
-	window.wipeBtn:SetPoint("TOPRIGHT", -(PADDING + 18), -((HEADER_HEIGHT - 16) / 2))
+	window.wipeBtn:SetBackdropColor(0.15, 0.02, 0.02, 0.95)
+	window.wipeBtn:SetBackdropBorderColor(1, 0.25, 0.25, 1)
+	window.wipeBtn.icon = window.wipeBtn:CreateTexture(nil, "ARTWORK")
+	window.wipeBtn.icon:SetPoint("TOPLEFT", 4, -4)
+	window.wipeBtn.icon:SetPoint("BOTTOMRIGHT", -4, 4)
+	-- the skull raid marker: the universal "we're dead" glyph
+	window.wipeBtn.icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
 	window.wipeBtn:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
-	window.wipeBtn:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.15)
+	window.wipeBtn:GetHighlightTexture():SetVertexColor(1, 0.4, 0.4, 0.2)
 	window.wipeBtn:EnableMouse(true)
 	window.wipeBtn:Hide()
+	window.wipeBtn:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		GameTooltip:SetText("Wipe it")
+		GameTooltip:AddLine("Marks the call for every TrueParse in the group - nothing after it counts against anyone.", 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	window.wipeBtn:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
 	window.wipeBtn:SetScript("OnClick", function()
 		local seg = TP.Segments and TP.Segments.current
 		if not seg or seg.manualWipeAt then
@@ -329,7 +340,6 @@ local function createWindow()
 	-- header button, a collapse/expand cycle reshuffles mouse priority
 	-- among siblings and the collapse button starts eating the clicks
 	window.cog:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
-	window.wipeBtn:SetFrameLevel(window.headerButton:GetFrameLevel() + 2)
 	window.fightDrop:RegisterForClicks("LeftButtonUp")
 	window.fightDrop:RegisterForDrag("LeftButton")
 	window.fightDrop:SetScript("OnDragStart", startDrag)
@@ -573,6 +583,18 @@ function MeterWindow:UpdateWipeButton()
 		and UnitAffectingCombat("player")
 		and IsInGroup()
 		and TP.Sync and TP.Sync.WipeCallPermitted and TP.Sync:WipeCallPermitted()
+	if show then
+		-- hang off whichever window edge faces screen center, so the
+		-- button never runs off-screen and never sits on the header
+		local btn = window.wipeBtn
+		btn:ClearAllPoints()
+		local _, wy = window:GetCenter()
+		if wy and wy < (UIParent:GetHeight() / 2) then
+			btn:SetPoint("BOTTOM", window, "TOP", 0, 8)
+		else
+			btn:SetPoint("TOP", window, "BOTTOM", 0, -8)
+		end
+	end
 	window.wipeBtn:SetShown(show and true or false)
 end
 
@@ -590,12 +612,15 @@ function MeterWindow:OnEnable()
 	local ctFrame = CreateFrame("Frame")
 	ctFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 	ctFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+	-- lead/assist can change mid-fight: the wipe button's permission moves
+	ctFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 	ctFrame:SetScript("OnEvent", function(_, event)
 		if event == "PLAYER_REGEN_DISABLED" then
 			if db().window.clickThroughCombat then
 				applyClickThrough(true)
 			end
-		else
+		elseif event == "PLAYER_REGEN_ENABLED" then
+			-- roster updates must NOT restore clicks mid-combat
 			applyClickThrough(false)
 		end
 		MeterWindow:UpdateWipeButton()
