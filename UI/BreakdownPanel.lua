@@ -1515,7 +1515,10 @@ function Panel:ShowForGroup(fight, results)
 			local n = #fight.shape
 			local cols = vizPool("shapeCols", n + 12)
 			local H = 32
-			local colW = math.max(1, math.floor((w - (n - 1)) / n))
+			-- fractional steps so the columns span EXACTLY the card width
+			-- (integer column widths dropped the remainder — the graph fell
+			-- short of the strips below it, Josh 2026-07-24)
+			local step = w / n
 			local cellDur = fight.duration / n
 			for i = 1, n do
 				local t = cols[i]
@@ -1529,8 +1532,8 @@ function Panel:ShowForGroup(fight, results)
 					t:SetVertexColor(0.42, 0.44, 0.50, 0.95)
 				end
 				t:ClearAllPoints()
-				t:SetSize(colW, h)
-				t:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 12 + (i - 1) * (colW + 1), y - H)
+				t:SetSize(math.max(1, step - 1), h)
+				t:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 12 + (i - 1) * step, y - H)
 				t:Show()
 			end
 			-- death dots above the columns
