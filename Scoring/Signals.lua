@@ -107,7 +107,9 @@ local function tankingRow(m, b)
 	row.base = true
 	row.tier = anchorTier(v, 30, 55, 75) -- PROVISIONAL, recalibrate from field data
 	row.tipTitle = "Tanking"
-	row.tipText = table.concat(parts, " \194\183 ")
+	-- one ingredient per line (Josh 2026-07-24: the dot-joined line
+	-- overflowed the tip)
+	row.tipText = table.concat(parts, "\n")
 	return row
 end
 

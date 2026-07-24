@@ -157,6 +157,16 @@ local function showMetricTip(anchor, data)
 		end
 	end
 	metricTip.value:SetText(valueText)
+	-- multi-line value blocks (the Tanking ingredients) push everything
+	-- below them down one line per extra row
+	local extraLines = 0
+	for _ in tostring(valueText or ""):gmatch("\n") do
+		extraLines = extraLines + 1
+	end
+	metricTip.median:ClearAllPoints()
+	metricTip.median:SetPoint("TOPLEFT", 10, -(38 + extraLines * 14))
+	metricTip.coach:ClearAllPoints()
+	metricTip.coach:SetPoint("TOPLEFT", 10, -(52 + extraLines * 14))
 
 	if b.specMedian and duration and duration > 0 then
 		-- curveFrom names the comparison population when the evidence
@@ -192,7 +202,7 @@ local function showMetricTip(anchor, data)
 	end
 	metricTip.coach:SetText(coachText or "")
 
-	metricTip:SetHeight(76 + (coachText and 14 or 0))
+	metricTip:SetHeight(76 + extraLines * 14 + (coachText and 14 or 0))
 
 	local footer = data.footerText
 	if not footer and COUNT_METRICS[key] and (b.weight or 0) == 0 then
