@@ -49,6 +49,15 @@ local function onFightCaptured(_, fight)
 		else
 			local label = TP.METRIC_LABELS[advice.key] or advice.key
 			msg = msg .. (" · biggest opportunity: %s (+%.0f potential)"):format(label:lower(), advice.gain)
+			-- the parse coach says HOW: when throughput is the gap, name
+			-- the signature spell top parses lean on that you didn't
+			if advice.key == "damage" or advice.key == "healing" then
+				local p = fight.players[me.guid]
+				local gap = p and TP.Scoring.Insights.ParseGap(p.specID, p.metrics, fight.duration)
+				if gap then
+					msg = msg .. " — " .. gap.text
+				end
+			end
 		end
 	end
 

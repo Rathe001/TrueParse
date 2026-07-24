@@ -54,6 +54,14 @@ local function buildMetricTip()
 	metricTip.median:SetJustifyH("LEFT")
 	metricTip.median:SetWordWrap(false)
 
+	-- the parse coach's line: own signature-spell rate vs top parses
+	-- (one line, only when a real gap exists — never a wall of text)
+	metricTip.coach = metricTip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	metricTip.coach:SetPoint("TOPLEFT", 10, -52)
+	metricTip.coach:SetJustifyH("LEFT")
+	metricTip.coach:SetWordWrap(false)
+	metricTip.coach:SetTextColor(0.4, 0.85, 1)
+
 	metricTip.gauge = CreateFrame("Frame", nil, metricTip)
 	metricTip.gauge:SetSize(GAUGE_W, GAUGE_H)
 	metricTip.gauge:SetPoint("TOPLEFT", 12, -67)
@@ -168,7 +176,18 @@ local function showMetricTip(anchor, data)
 		metricTip.markerText:SetPoint("BOTTOM", metricTip.marker, "TOP", 0, 1)
 		metricTip.markerText:SetText(b.pctile and ("p%.0f"):format(b.pctile) or ("%.0f"):format(pos))
 	end
-	metricTip:SetHeight(wclBacked and 108 or 76)
+	-- the parse coach: on throughput metrics, one line naming the biggest
+	-- signature-spell gap vs top parses of this spec (nil when close)
+	local coachText
+	if (key == "damage" or key == "healing") and TP.Scoring.Insights.ParseGap then
+		local gap = TP.Scoring.Insights.ParseGap(data.specID, data.metrics, duration)
+		if gap then
+			coachText = "coach: " .. gap.text
+		end
+	end
+	metricTip.coach:SetText(coachText or "")
+
+	metricTip:SetHeight((wclBacked and 108 or 76) + (coachText and not wclBacked and 14 or 0))
 
 	local footer = data.footerText
 	if not footer and COUNT_METRICS[key] and (b.weight or 0) == 0 then
@@ -185,7 +204,7 @@ local function showMetricTip(anchor, data)
 	-- fit the tip to its longest line (same rule as the card): text never
 	-- truncates and never spills past the border
 	local needed = GAUGE_W + 24
-	for _, fs in ipairs({ metricTip.title, metricTip.value, metricTip.median, metricTip.footer }) do
+	for _, fs in ipairs({ metricTip.title, metricTip.value, metricTip.median, metricTip.coach, metricTip.footer }) do
 		local w = (fs:GetStringWidth() or 0) + 20
 		if w > needed then
 			needed = w
@@ -519,7 +538,9 @@ function Panel:ShowFor(fight, result)
 		if bullet.kind == "metric" then
 			row.tooltipData = nil
 			row.metricData = { b = result.breakdown[bullet.key], key = bullet.key,
-				duration = fight.duration, role = result.role }
+				duration = fight.duration, role = result.role,
+				specID = player and player.specID,
+				metrics = player and player.metrics }
 		elseif bullet.kind == "penalty" then
 			if bullet.key == "deaths" and player and player.deathRecap then
 				-- WCL-style death recap: the last hits, right on the bullet,

@@ -2220,7 +2220,7 @@ end)()
 -- spent just before Bloodlust is no lust miss; a reported zero-ready
 -- death had nothing to press.
 ;(function()
-	local PLAYER_KEYS = { deathReadyDefensives = true, deathTime = true }
+	local PLAYER_KEYS = { deathReadyDefensives = true, deathTime = true, class = true, specID = true }
 	local function score(patches)
 		local fight = {
 			name = "(!) Avail Boss", isBoss = true, duration = 300,
@@ -2289,6 +2289,47 @@ end)()
 	by = score({ d = { deaths = 1, defensives = 0 } })
 	check((by.Dps.adjustDetail.deathNoDefensives or 0) < 0,
 		"unreported readiness keeps the penalty (counted, not inferred)")
+
+	-- healer interrupts are bonus-only (Josh 2026-07-24): kicking is not
+	-- the healer's job — landing one signals a higher level of play,
+	-- missing them signals nothing
+	by = score({ h = { class = "SHAMAN", specID = 264 }, d = { interrupts = 6 } })
+	check((by.Healer.adjustDetail.kicks or 0) == 0,
+		("kick-capable healer, zero kicks, kick-heavy fight: no penalty (%.1f)"):format(by.Healer.adjustDetail.kicks or 0))
+	check((by.Dps.adjustDetail.kicks or 0) > 0, "the kicker still earns")
+	by = score({ h = { class = "SHAMAN", specID = 264, interrupts = 3 }, d = { interrupts = 3 } })
+	check((by.Healer.adjustDetail.kicks or 0) > 0,
+		("a healer who kicks anyway still gains (%.1f)"):format(by.Healer.adjustDetail.kicks or 0))
+end)()
+
+-- 30. Parse coach: own signature-spell rate vs top parses (one targeted
+-- line; Josh 2026-07-24)
+;(function()
+	local savedProf = TP.SpellProfiles
+	TP.SpellProfiles = {
+		[105] = { n = 38, activity = 98.5, spells = {
+			{ ids = { 774 }, name = "Rejuvenation", cpm = 20.8 },
+			{ ids = { 33763 }, name = "Lifebloom", cpm = 4.4 },
+			-- multi-id morph (Jab-style): player casts land on ANY id
+			{ ids = { 100, 200 }, name = "Splitspell", cpm = 6.0 },
+		} },
+	}
+	local PG = TP.Scoring.Insights.ParseGap
+	-- big Rejuvenation shortfall wins over the smaller Lifebloom one
+	local gap = PG(105, { profCasts = { [774] = 18, [33763] = 6, [100] = 9, [200] = 9 } }, 180)
+	check(gap and gap.spell == "Rejuvenation" and gap.text:find("21x/min", 1, true) and gap.text:find("you 6", 1, true),
+		("biggest shortfall wins, phrased tight (%s)"):format(tostring(gap and gap.text)))
+	-- multi-id casts SUM before comparing (9+9 over 3min = 6/min = at profile)
+	local m2 = { profCasts = { [774] = 63, [33763] = 14, [100] = 9, [200] = 9 } }
+	check(PG(105, m2, 180) == nil, "close to profile on every spell -> no coaching")
+	-- short fights are noise, absent profiles are silence
+	check(PG(105, { profCasts = {} }, 45) == nil, "sub-minute fights aren't coached")
+	check(PG(63, { profCasts = {} }, 180) == nil, "no profile for the spec -> nil")
+	check(PG(105, nil, 180) == nil, "no metrics -> nil")
+	-- zero casts of everything still coaches (the biggest gap of all)
+	local zero = PG(105, { profCasts = {} }, 180)
+	check(zero and zero.spell == "Rejuvenation", "an empty fight coaches the top spell")
+	TP.SpellProfiles = savedProf
 end)()
 
 print("")

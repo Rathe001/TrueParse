@@ -1,5 +1,24 @@
 # TrueParse Changelog
 
+## 1.6.0
+
+**The parse coach.** A new monthly crawl reads the Casts tables of top
+parses and distills, per spec, the signature spells and how often the
+best players press them. In game, your own rate is compared after each
+fight and the single biggest gap surfaces in two quiet places: the
+post-fight coach line, when throughput is your biggest opportunity
+("biggest opportunity: healing — top parses cast Rejuvenation 21x/min
+- you 6"), and one line in the damage/healing breakdown tooltip. No
+wall of text - one targeted line, only when a real gap exists, sourced
+from what the best players of your spec actually do. MoP Classic only
+(cast visibility); spell-rank morphs are merged so every way your
+client fires a button counts.
+
+**Healer interrupts are bonus-only.** Kicking is not the healer's job:
+a healer who lands kicks still earns the full bonus (it signals a
+higher level of play), but a healer who doesn't is no longer docked -
+the below-share penalty now only applies to tanks and DPS.
+
 ## 1.5.5
 
 Resto druids on MoP are no longer marked interrupt-capable. Skull Bash

@@ -1406,6 +1406,13 @@ function Engine.ScoreFight(fight, opts)
 					and ctx.duration and ctx.duration > 0 then
 					lean = lean * math.max(0, math.min(1, p.deathTime / ctx.duration))
 				end
+				-- healers and interrupts (Josh 2026-07-24): kicking is not
+				-- the healer's job, so a healer's kicks are bonus-only —
+				-- landing them signals a higher level of play, missing
+				-- them signals nothing
+				if lean < 0 and key == "interrupts" and role == "HEALER" then
+					lean = 0
+				end
 				b.intensity = intensity
 				put(key == "interrupts" and "kicks" or key, intensity * maxPts * lean)
 				b.adjust = adj[key == "interrupts" and "kicks" or key]

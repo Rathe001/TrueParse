@@ -836,6 +836,10 @@ function FightHistory:AddFromSegment(seg)
 			-- evidence for the engine's miss penalty
 			m.lastOffensiveAt = acc.lust.lastCastAt
 		end
+		-- profile-spell cast counts (parse coach: own rate vs top parses)
+		if acc.profCasts then
+			m.profCasts = acc.profCasts
+		end
 		-- WoWAnalyzer-style basics (post-totals: ratios/counts, not sums).
 		-- Activity on a called wipe measures the TRYING phase only —
 		-- standing still waiting to die isn't inactivity.

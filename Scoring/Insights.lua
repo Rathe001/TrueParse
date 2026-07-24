@@ -292,3 +292,39 @@ function Insights.RunAdvice(fights)
 	end
 	return out
 end
+
+-- The parse coach: compare a player's per-minute rate on their spec's
+-- signature spells against what TOP PARSES of that spec actually do
+-- (Data/SpellProfiles_*, crawled from WCL Casts tables). Returns the
+-- single biggest gap as { text, spell, topCpm, myCpm }, or nil when the
+-- player is close to profile (or no profile/data exists). One targeted
+-- line, never a wall (Josh 2026-07-24).
+function Insights.ParseGap(specID, m, duration)
+	local prof = specID and TP.SpellProfiles and TP.SpellProfiles[specID]
+	if not (prof and prof.spells and m and duration and duration >= 60) then
+		return nil
+	end
+	local durMin = duration / 60
+	local best
+	for _, sp in ipairs(prof.spells) do
+		local mine = 0
+		for _, id in ipairs(sp.ids or {}) do
+			mine = mine + ((m.profCasts and m.profCasts[id]) or 0)
+		end
+		local myCpm = mine / durMin
+		-- a gap worth coaching: under 70% of the top rate AND at least
+		-- one whole missing cast per minute (rounding noise isn't advice)
+		if sp.cpm and sp.cpm > 0 and myCpm < sp.cpm * 0.7 and (sp.cpm - myCpm) >= 1 then
+			local shortfall = sp.cpm - myCpm
+			if not best or shortfall > best.shortfall then
+				best = { spell = sp.name, topCpm = sp.cpm, myCpm = myCpm, shortfall = shortfall }
+			end
+		end
+	end
+	if not best then
+		return nil
+	end
+	best.text = ("top parses cast %s %.0fx/min - you %.0f"):format(
+		best.spell, best.topCpm, best.myCpm)
+	return best
+end
