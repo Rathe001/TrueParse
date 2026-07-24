@@ -1,5 +1,19 @@
 # TrueParse Changelog
 
+## 1.5.4
+
+Boss-percent accuracy on phase bosses. The best-pull sampler tracked
+the running MINIMUM of boss health, which two Garrosh mechanics broke:
+he refills to full between phases (so the minimum stuck at the
+pre-transition floor) and goes untargetable in intermissions where his
+health reads zero (so wipes latched "best 0%" - a contradiction, since
+zero is a kill). The sampler now reports where the boss stood when the
+pull actually ended, matching how Warcraft Logs states wipe
+percentages: phase refills are followed while anyone is alive, a boss
+resetting over a dead raid is frozen out, and zero-HP reads are never
+sampled. Existing sub-0.5%% wipe records from the old sampler are
+dropped at login so they stop poisoning the "best" line.
+
 ## 1.5.3
 
 Availability awareness: "could have, but didn't" now requires the

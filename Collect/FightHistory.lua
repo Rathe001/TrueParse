@@ -962,7 +962,9 @@ function FightHistory:AddFromSegment(seg)
 		-- this can't have "wasted" it
 		lustAt = seg.lustAt,
 		-- lowest boss HP% reached: the progression number on wipes
-		bossPct = seg.encounterWipe and seg.bossPctMin or nil,
+		-- where the boss stood when the pull ended (WCL wipe semantics;
+		-- refill-phase bosses like Garrosh made a running min meaningless)
+		bossPct = seg.encounterWipe and seg.bossPctLast or nil,
 		duration = seg.duration or 0,
 		rawDuration = seg.rawDuration, -- untrimmed window (report matching)
 		capturedAt = time(),
@@ -1165,6 +1167,12 @@ function FightHistory:OnEnable()
 		elseif f.name then
 			-- older captures stored Blizzard's "(!) " prefix in the name
 			f.name = f.name:gsub("^%(!%)%s*", "")
+		end
+		if f and f.wipe and f.bossPct and f.bossPct < 0.5 then
+			-- pre-2026-07-23 sampler latched untargetable transition
+			-- bosses at ~0 HP ("best 0%" on a wipe is a contradiction);
+			-- those readings poison the best-pull line forever — drop them
+			f.bossPct = nil
 		end
 	end
 	self:BackfillRunIDs()

@@ -192,8 +192,12 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 				captureBossGUIDs(seg)
 			end
 		end)
-		-- best-pull tracking: sample boss HP every 2s; the lowest average
-		-- across boss frames is "how far we got" when this ends in a wipe.
+		-- best-pull tracking: sample boss HP every 2s; "how far we got" is
+		-- WHERE THE BOSS STOOD WHEN THE PULL ENDED (WCL's wipe semantics),
+		-- not the running minimum — bosses that refill at phase transitions
+		-- (Garrosh heals to full between phases) made the min read the
+		-- pre-transition floor, and untargetable intermission bosses read
+		-- 0 HP and latched "best 0%" (Josh's report 2026-07-23).
 		-- Cancel any prior ticker FIRST and let the closure cancel its OWN
 		-- handle (audit 2026-07-16: a double ENCOUNTER_START orphaned the
 		-- old ticker, which then assassinated every future fight's sampler
@@ -242,12 +246,34 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 			if mxSum > 0 then
 				-- pool-continuity gate: if the boss leaves the frames
 				-- (realm/intermission phases) an adds-only sample sums a
-				-- fraction of the real pool — don't let it set the min
+				-- fraction of the real pool — don't let it speak. Zero HP
+				-- says nothing either: an untargetable transition boss
+				-- reads 0, and a REAL zero is a kill, not a sample.
 				seg.bossMxPeak = math.max(seg.bossMxPeak or 0, mxSum)
-				if mxSum >= seg.bossMxPeak * 0.5 then
+				if mxSum >= seg.bossMxPeak * 0.5 and hpSum > 0 then
 					local pct = hpSum / mxSum * 100
-					if not seg.bossPctMin or pct < seg.bossPctMin then
-						seg.bossPctMin = pct
+					local prev = seg.bossPctLast
+					if prev and pct > prev + 5 then
+						-- the pool jumped back UP: a phase refill (follow
+						-- it — the pull is still going) or the boss
+						-- resetting over a dead raid (freeze — a reset
+						-- is not the raid losing progress). Living
+						-- raiders tell the two apart; secrets read as
+						-- alive so retail never freezes wrongly.
+						local ok, alive = pcall(function()
+							for _, info in pairs(TP.Roster.players) do
+								if info.unit and UnitExists(info.unit)
+									and not UnitIsDeadOrGhost(info.unit) then
+									return true
+								end
+							end
+							return false
+						end)
+						if not ok or alive then
+							seg.bossPctLast = pct
+						end
+					else
+						seg.bossPctLast = pct
 					end
 				end
 			end
