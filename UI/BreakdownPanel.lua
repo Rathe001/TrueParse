@@ -418,8 +418,18 @@ local function renderSignal(row, sig, groupAvg)
 			row.tick:Show()
 		end
 		-- the number wears the same color the fill chose (verdict or
-		-- bracket) so a row never argues with itself
-		row.num:SetText(sig.num or ("%d"):format(v + 0.5))
+		-- bracket) so a row never argues with itself. With letter grades
+		-- on, graded bars show their letter (from the same tier that
+		-- picked the color); counts stay counts, tooltips stay numeric.
+		local numText = sig.num
+		if not numText then
+			if TP.Addon.db.profile.letterGrades and TP.Scoring.Grades.LetterFor then
+				numText = TP.Scoring.Grades.LetterFor(sig.tier or v)
+			else
+				numText = ("%d"):format(v + 0.5)
+			end
+		end
+		row.num:SetText(numText)
 		row.num:SetTextColor(r, g, b)
 		row.num:Show()
 	elseif sig.kind == "squares" then
