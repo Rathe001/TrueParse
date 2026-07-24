@@ -235,6 +235,33 @@ function Signals.ForResult(result, fight, player)
 	return out
 end
 
+-- Downsample a sparse per-second series ([second] = value) into n cells
+-- for the group card's fight-shape sparkline. Pure; called at capture.
+function Signals.Downsample(buckets, duration, n)
+	if not buckets or not duration or duration <= 0 then
+		return nil
+	end
+	local cells = {}
+	for i = 1, n do
+		cells[i] = 0
+	end
+	local any = false
+	for t, v in pairs(buckets) do
+		if type(t) == "number" and t >= 0 and t <= duration then
+			local i = math.min(n, math.floor(t / duration * n) + 1)
+			cells[i] = cells[i] + v
+			any = v > 0 or any
+		end
+	end
+	if not any then
+		return nil
+	end
+	for i = 1, n do
+		cells[i] = math.floor(cells[i] + 0.5)
+	end
+	return cells
+end
+
 -- Group averages per bar key, for the comparison ticks: [key] = 0-100.
 -- results = the whole fight's engine rows; fight supplies metrics.
 function Signals.GroupAverages(results, fight)

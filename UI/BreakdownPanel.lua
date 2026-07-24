@@ -568,6 +568,27 @@ local function createFrame()
 	frame.total:SetPoint("BOTTOMLEFT", 10, 10)
 end
 
+-- group-card visualization elements (fight shape, team coverage,
+-- staircase) — hidden wholesale when the shared frame shows a player
+local GROUP_VIZ = { "shapeLabel", "shapeCols", "covLabel", "covBands", "stairLabel", "stairCols" }
+local function hideGroupViz()
+	if not frame then
+		return
+	end
+	for _, which in ipairs(GROUP_VIZ) do
+		local o = frame[which]
+		if o then
+			if o.Hide then
+				o:Hide()
+			else
+				for _, t in ipairs(o) do
+					t:Hide()
+				end
+			end
+		end
+	end
+end
+
 -- WCL-style death recap tooltip lines: the last hits, each with a bar
 -- sized by the hit (red = avoidable). Shared by the deaths signal row.
 local function deathRecapLines(player)
@@ -785,15 +806,15 @@ function Panel:ShowFor(fight, result)
 			ruleDrawn = true
 			if not frame.baseRule then
 				frame.baseRule = frame:CreateTexture(nil, "ARTWORK")
-				frame.baseRule:SetColorTexture(0.5, 0.5, 0.55, 0.3)
+				frame.baseRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
 				frame.baseRule:SetHeight(1)
 			end
-			y = y - 2
+			y = y - 4
 			frame.baseRule:ClearAllPoints()
 			frame.baseRule:SetPoint("TOPLEFT", 10, y)
 			frame.baseRule:SetPoint("TOPRIGHT", -10, y)
 			frame.baseRule:Show()
-			y = y - 4
+			y = y - 6
 		end
 		local row = nextRow()
 		renderSignal(row, sig, groupAvg)
@@ -839,6 +860,8 @@ function Panel:ShowFor(fight, result)
 	-- scorecard row, not an extra bullet here)
 	hideRowsFrom(rowIndex + 1)
 	fitWidth(rowIndex)
+
+	hideGroupViz() -- shared frame: group graphs never linger on players
 
 	-- danger-window timeline (Josh 2026-07-24): healers see the GROUP's
 	-- spikes vs their own raid CDs; tanks AND DPS see their PERSONAL
@@ -1170,6 +1193,156 @@ function Panel:ShowForGroup(fight, results)
 		frame.stripLabel:Hide()
 		for _, b in ipairs(frame.stripBands or {}) do
 			b:Hide()
+		end
+	end
+
+	-- ===== group visualizations (2026-07-24 redesign, approved) =====
+	local function vizLabel(which, text)
+		if not frame[which] then
+			frame[which] = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+		end
+		y = y - 6
+		frame[which]:ClearAllPoints()
+		frame[which]:SetPoint("TOPLEFT", 12, y)
+		frame[which]:SetText(text)
+		frame[which]:Show()
+		y = y - 14
+	end
+	local function vizPool(which, n)
+		frame[which] = frame[which] or {}
+		for i = #frame[which] + 1, n do
+			local t = frame:CreateTexture(nil, "OVERLAY")
+			t:SetTexture("Interface\\Buttons\\WHITE8X8")
+			frame[which][i] = t
+		end
+		return frame[which]
+	end
+	hideGroupViz()
+
+	local w = frame:GetWidth() - 24
+
+	-- 1) fight shape: group output/sec — the pull's whole arc. Steel
+	-- columns; cyan inside the Bloodlust window; red after the wipe call;
+	-- red dots above at each death.
+	if fight.shape and #fight.shape > 1 and (fight.duration or 0) > 0 then
+		local peak = 0
+		for _, v in ipairs(fight.shape) do
+			peak = math.max(peak, v)
+		end
+		if peak > 0 then
+			vizLabel("shapeLabel", "output \194\183 |cff66ccfflust|r \194\183 |cffe64d4dafter the call|r")
+			local n = #fight.shape
+			local cols = vizPool("shapeCols", n + 12)
+			local H = 26
+			local colW = math.max(1, math.floor((w - (n - 1)) / n))
+			local cellDur = fight.duration / n
+			for i = 1, n do
+				local t = cols[i]
+				local h = math.max(1, math.floor(fight.shape[i] / peak * H + 0.5))
+				local tMid = (i - 0.5) * cellDur
+				if fight.calledWipeAt and tMid >= fight.calledWipeAt then
+					t:SetVertexColor(0.90, 0.30, 0.30, 0.9)
+				elseif fight.lustAt and tMid >= fight.lustAt and tMid <= fight.lustAt + 40 then
+					t:SetVertexColor(0.40, 0.80, 1.00, 0.95)
+				else
+					t:SetVertexColor(0.42, 0.44, 0.50, 0.95)
+				end
+				t:ClearAllPoints()
+				t:SetSize(colW, h)
+				t:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 12 + (i - 1) * (colW + 1), y - H)
+				t:Show()
+			end
+			-- death dots above the columns
+			local di = n
+			for _, p in pairs(fight.players or {}) do
+				for _, dt in ipairs(p.deathTimes or (p.deathTime and { p.deathTime } or {})) do
+					di = di + 1
+					local t = cols[di]
+					if t then
+						t:SetVertexColor(0.95, 0.30, 0.30, 1)
+						t:ClearAllPoints()
+						t:SetSize(3, 3)
+						t:SetPoint("BOTTOMLEFT", frame, "TOPLEFT",
+							12 + math.min(w - 3, dt / fight.duration * w), y - H + H + 2)
+						t:Show()
+					end
+				end
+			end
+			y = y - 26 - 6
+		end
+	end
+
+	-- 2) team coverage strip: the group's spikes, covered by ANY cooldown
+	-- (the teammate view removed from player cards lives here now)
+	local teamMap
+	for _, r in ipairs(results) do
+		local p = fight.players and fight.players[r.guid]
+		local mmap = p and p.metrics and p.metrics.groupSpikeMap
+		if mmap and #mmap > 0 then
+			teamMap = mmap
+			break
+		end
+	end
+	if teamMap and (fight.duration or 0) > 0 then
+		vizLabel("covLabel", "group spikes \194\183 |cff55cc55a cooldown met it|r / |cffe64d4duncovered|r")
+		local bands = vizPool("covBands", #teamMap)
+		for i, win in ipairs(teamMap) do
+			local t = bands[i]
+			local left = math.min(w - 2, win[1] / fight.duration * w)
+			local bw = math.max(3, (win[2] - win[1] + 1) / fight.duration * w)
+			if win[3] then
+				t:SetVertexColor(0.33, 0.80, 0.33, 1)
+			else
+				t:SetVertexColor(0.90, 0.30, 0.30, 1)
+			end
+			t:ClearAllPoints()
+			t:SetSize(math.min(bw, w - left), 7)
+			t:SetPoint("TOPLEFT", 12 + left, y)
+			t:Show()
+		end
+		y = y - 7 - 4
+	end
+
+	-- 3) progression staircase: boss % remaining per pull tonight, best
+	-- pull in bracket green (only when 2+ measured wipes exist this run)
+	if fight.wipe and fight.runID and TP.FightHistory then
+		local pulls = {}
+		for i = #TP.FightHistory.fights, 1, -1 do -- oldest first
+			local f = TP.FightHistory.fights[i]
+			if f.runID == fight.runID and f.name == fight.name and f.wipe and f.bossPct then
+				pulls[#pulls + 1] = f
+			end
+		end
+		if #pulls >= 2 then
+			while #pulls > 12 do
+				table.remove(pulls, 1)
+			end
+			local best = pulls[1]
+			for _, f in ipairs(pulls) do
+				if f.bossPct < best.bossPct then
+					best = f
+				end
+			end
+			vizLabel("stairLabel", ("pulls tonight \194\183 boss %% left \194\183 |cff1eff00best %.0f%%|r"):format(best.bossPct))
+			local cols = vizPool("stairCols", #pulls)
+			local H = 30
+			local colW = math.max(4, math.floor((w - (#pulls - 1) * 3) / #pulls))
+			for i, f in ipairs(pulls) do
+				local t = cols[i]
+				local h = math.max(2, math.floor(f.bossPct / 100 * H + 0.5))
+				if f == best then
+					t:SetVertexColor(0.12, 1.00, 0.00, 0.95)
+				elseif f == fight then
+					t:SetVertexColor(0.85, 0.85, 0.90, 0.95)
+				else
+					t:SetVertexColor(0.42, 0.44, 0.50, 0.9)
+				end
+				t:ClearAllPoints()
+				t:SetSize(colW, h)
+				t:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 12 + (i - 1) * (colW + 3), y - H)
+				t:Show()
+			end
+			y = y - H - 4
 		end
 	end
 

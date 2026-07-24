@@ -2480,6 +2480,13 @@ end)()
 	local avg = S.GroupAverages({ result, dps }, { players = {} })
 	check(avg.damage and math.abs(avg.damage - 66) < 0.5,
 		("group average per key ((52+80)/2 = %s)"):format(tostring(avg.damage)))
+	-- fight-shape downsampler: sparse seconds -> n cells, values summed
+	local cells = S.Downsample({ [0] = 100, [1] = 100, [59] = 300, [60] = 0 }, 60, 6)
+	check(cells and #cells == 6 and cells[1] == 200 and cells[6] == 300,
+		("downsample sums into the right cells (%s, %s)"):format(
+			tostring(cells and cells[1]), tostring(cells and cells[6])))
+	check(S.Downsample({}, 60, 6) == nil, "an all-zero series downsamples to nil")
+	check(S.Downsample(nil, 60, 6) == nil, "no series, no shape")
 end)()
 
 print("")

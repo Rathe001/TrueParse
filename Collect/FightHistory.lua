@@ -1010,6 +1010,12 @@ function FightHistory:AddFromSegment(seg)
 		totals.kicksLanded = seg.group.kicksLanded or 0
 		totals.kicksThrough = seg.group.kicksThrough or 0
 	end
+	-- fight shape: the group's output/sec downsampled to 40 cells — the
+	-- group card's sparkline (opener ramp, lust burst, the call collapse).
+	-- The wipe-call detector computes this series anyway; now it's drawn.
+	if seg.group and seg.group.out and TP.Scoring.Signals then
+		fight.shape = TP.Scoring.Signals.Downsample(seg.group.out, seg.duration, 40)
+	end
 	-- raid CDs pressed this fight (any at all): the group card's
 	-- assignment line subtracts these from what the comp owns
 	if seg.group and seg.group.raidCdsUsed then
