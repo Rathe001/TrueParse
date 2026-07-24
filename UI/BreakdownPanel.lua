@@ -1395,8 +1395,20 @@ function Panel:ShowForGroup(fight, results)
 					win[6], TP.FormatNumber(win[5]), math.max(1, win[2] - win[1]))
 					or ("%s over %ds"):format(TP.FormatNumber(win[5]), math.max(1, win[2] - win[1])), 1, 1, 1 }
 			end
-			lines[#lines + 1] = win[3] and { "A cooldown met it", 0.33, 0.80, 0.33 }
-				or { "Uncovered", 0.90, 0.35, 0.35 }
+			if win[3] then
+				-- name the coverer when the record knows them
+				local coverText = "A cooldown met it"
+				if win[8] and win[9] then
+					coverText = ("Covered by %s's %s"):format(win[8], win[9])
+				elseif win[8] then
+					coverText = "Covered by " .. win[8]
+				elseif win[9] then
+					coverText = "Covered by " .. win[9]
+				end
+				lines[#lines + 1] = { coverText, 0.33, 0.80, 0.33 }
+			else
+				lines[#lines + 1] = { "Uncovered", 0.90, 0.35, 0.35 }
+			end
 			if not win[5] then
 				lines[#lines + 1] = { "Recorded before hit tracking - new pulls carry the ability and damage.", 0.6, 0.6, 0.6, true }
 			end

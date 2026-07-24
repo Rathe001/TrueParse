@@ -291,12 +291,15 @@ function Spikes.Compute(seg, duration)
 	-- computed as "did ANYONE'S cooldown meet it" and credited to every
 	-- healer (audit 2026-07-18: 3 healers rotating perfectly each read
 	-- 2/6 covered and all three were penalized for 100% team coverage).
-	local groupMet = {}
+	local groupMet, groupWho = {}, {}
 	for i, win in ipairs(groupWindows) do
 		for _, acc in pairs(seg.players) do
 			local s = acc.spikes
 			if s and castCovers(s.casts, win[1], win[2], HEALER_PRE_SLOP, HEALER_SLOP) then
 				groupMet[i] = true
+				-- WHO answered the window, and with what (Josh 2026-07-24:
+				-- the team strip should name the coverer)
+				groupWho[i] = { acc.name, coveringCastName(s, win[1], win[2]) }
 				break
 			end
 		end
@@ -370,8 +373,12 @@ function Spikes.Compute(seg, duration)
 				if mine then
 					used = coveringCastName(s, win[1], win[2]) or coveringSpanName(s, win[1], win[2])
 				end
+				-- 8-9: the covering TEAMMATE and their cooldown (the group
+				-- card's strip names them; personal answers stay in [7])
+				local who = groupWho[i]
 				r.groupSpikeMap[#r.groupSpikeMap + 1] = { math.floor(win[1]), math.floor(win[2]),
-					groupMet[i] or nil, mine, amt, hitName, used }
+					groupMet[i] or nil, mine, amt, hitName, used,
+					who and who[1] or nil, who and who[2] or nil }
 			end
 			if windows > 0 then
 				r.groupSpikeWindows = windows

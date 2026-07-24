@@ -2032,7 +2032,7 @@ end)()
 ;(function()
 	local seg = {
 		players = {
-			h1 = { spikes = { maxHP = 100000, taken = {}, casts = { 24 },
+			h1 = { name = "Hone", spikes = { maxHP = 100000, taken = {}, casts = { 24 },
 				castNames = { "Healing Tide Totem" } } }, -- 6s early: pre-slop credits it
 			h2 = { spikes = { maxHP = 100000, taken = { [30] = 60000 },
 				top = { [30] = { 60000, "Empowered Whirling Corruption" } }, casts = {} } },
@@ -2058,6 +2058,10 @@ end)()
 	check(e1[7] == "Healing Tide Totem",
 		("the covering cast is named (%s)"):format(tostring(e1[7])))
 	check(out.h2.groupSpikeMap[1][7] == nil, "no personal cover, no answer named")
+	-- the TEAM strip names the coverer (fields 8-9, on every player's map)
+	check(out.h2.groupSpikeMap[1][8] == "Hone" and out.h2.groupSpikeMap[1][9] == "Healing Tide Totem",
+		("the covering teammate is named on everyone's map (%s, %s)"):format(
+			tostring(out.h2.groupSpikeMap[1][8]), tostring(out.h2.groupSpikeMap[1][9])))
 
 	-- a DPS defensive AURA riding the window also counts as personal
 	-- coverage (all roles get a consistent personal strip)
