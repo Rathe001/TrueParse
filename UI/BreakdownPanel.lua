@@ -385,7 +385,11 @@ local function renderSignal(row, sig, groupAvg)
 		row.track:Show()
 		local v = sig.value or 0
 		local r, g, b
-		if sig.num or sig.raw then
+		if sig.tier then
+			-- quantile-anchored raw metrics (activity, mitigation): the
+			-- bar's width is the raw %, its color the population tier
+			r, g, b = TP.Scoring.Grades.ColorForScore(sig.tier)
+		elseif sig.num or sig.raw then
 			-- non-percentile bars (coverage, activity, mitigation, share
 			-- scores, unranked throughput): VERDICT colors, never brackets
 			-- — a 68% activity that costs points must not wear parse blue

@@ -2425,6 +2425,21 @@ end)()
 		and rows[1].value == 38, "healer's primary bar leads with its percentile")
 	check(byKey.activity and byKey.activity.points == -4 and byKey.activity.value == 69,
 		"activity bar carries its points")
+	-- quantile-anchored tiers: 69% ≈ p25 boundary (grey, not danger
+	-- red); 97% ≈ p95 (orange — near-perfect reads near-perfect)
+	check(byKey.activity.tier and math.abs(byKey.activity.tier - 24.6) < 0.5,
+		("68-ish activity is bottom-quartile grey (%s)"):format(tostring(byKey.activity.tier)))
+	local hot = S.ForResult({ role = "DAMAGER", adjustDetail = { activity = 4 }, penaltyDetail = {},
+		breakdown = { damage = { applicable = true, pctile = 80 } } }, {},
+		{ metrics = { activityPct = 97 } })
+	local act
+	for _, r in ipairs(hot) do
+		if r.key == "activity" then
+			act = r
+		end
+	end
+	check(act and math.abs(act.tier - 95) < 0.5,
+		("97%% activity reads p95 orange (%s)"):format(tostring(act and act.tier)))
 	local cd = byKey.cdTiming
 	check(cd and cd.kind == "bar" and cd.num == "2/3" and math.abs(cd.value - 66.7) < 0.5
 		and cd.label == "Uncovered" and cd.detail and cd.detail:find("6 spikes", 1, true),

@@ -41,6 +41,22 @@ local function barRow(key, icon, label, value, points)
 		value = math.max(0, math.min(99, value)), points = points }
 end
 
+-- Raw-percentage metrics whose scoring anchors ARE population quantiles
+-- (activity 70/89 = the real p25/p75; top parses ~98) can wear bracket
+-- colors honestly by mapping through those quantiles: 97% activity ≈
+-- p95 (orange), 68% ≈ p24 (grey — bottom quartile, not danger red).
+-- Josh 2026-07-24: "a 97% seems almost perfect / should 68 be red?"
+local function anchorTier(pct, lo, hi, top)
+	if pct <= lo then
+		return math.max(0, pct / lo * 25)
+	elseif pct <= hi then
+		return 25 + (pct - lo) / (hi - lo) * 50
+	elseif pct <= top then
+		return 75 + (pct - hi) / (top - hi) * 20
+	end
+	return math.min(99, 95 + (pct - top))
+end
+
 -- Coverage math shared with GroupAverages: judged windows are capped at
 -- demonstrated capacity (uses+1); zero uses judges everything
 local function coverageOf(windows, covered, uses)
@@ -78,16 +94,18 @@ function Signals.ForResult(result, fight, player)
 		end
 	end
 
-	-- 2) activity (everyone reporting it)
+	-- 2) activity (everyone reporting it): width = the raw %, color = its
+	-- population tier via the scoring anchors
+	local A = TP.Scoring.Weights and TP.Scoring.Weights.adjustments or {}
 	if m.activityPct then
 		out[#out + 1] = barRow("activity", ICONS.activity, "Active", m.activityPct, ad.activity)
-		out[#out].raw = true -- a raw %, judged by anchors, not a parse
+		out[#out].tier = anchorTier(m.activityPct, A.activityLow or 70, A.activityHigh or 89, 97)
 	end
 
-	-- 3) mitigation (tanks)
+	-- 3) mitigation (tanks): same quantile treatment with its anchors
 	if role == "TANK" and m.mitigationPct then
 		out[#out + 1] = barRow("mitigation", ICONS.mitigation, "Mitigation up", m.mitigationPct, ad.mitigation)
-		out[#out].raw = true
+		out[#out].tier = anchorTier(m.mitigationPct, A.mitigationLow or 40, A.mitigationHigh or 70, 85)
 	end
 
 	-- 4) cooldown timing as per-event squares with the availability cap
