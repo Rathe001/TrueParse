@@ -1699,6 +1699,8 @@ function Engine.ScoreFight(fight, opts)
 			name = p.name,
 			class = p.class,
 			role = role,
+			-- Raw-mode results say so: the card strips to throughput only
+			parse = ctx.parseMode or nil,
 			-- 99 cap, WCL semantics: 100 doesn't exist. The base already
 			-- tops at 99.3; without the cap the positive adjustments were
 			-- minting routine 100s (and overflowing the run column).

@@ -795,11 +795,24 @@ function Panel:ShowFor(fight, result)
 			groupAvg = TP.Scoring.Signals.GroupAverages(all, fight)
 		end
 	end
+	-- Raw mode = the WCL view (Josh 2026-07-24): only the throughput
+	-- bars that MAKE the raw score — no adjustments, no rule, no strip
+	local signals = TP.Scoring.Signals.ForResult(result, fight, player)
+	if result.parse then
+		local kept = {}
+		for _, sig in ipairs(signals) do
+			if sig.b then
+				kept[#kept + 1] = sig
+			end
+		end
+		signals = kept
+	end
+
 	-- a light rule after the throughput bars: everything above IS the
 	-- base score (no +/- points by design), everything below adjusts it
 	-- (Josh 2026-07-24)
 	local drewBase, ruleDrawn = false, false
-	for _, sig in ipairs(TP.Scoring.Signals.ForResult(result, fight, player)) do
+	for _, sig in ipairs(signals) do
 		if sig.b then
 			drewBase = true
 		elseif drewBase and not ruleDrawn then
@@ -867,9 +880,11 @@ function Panel:ShowFor(fight, result)
 	-- spikes vs their own raid CDs; tanks AND DPS see their PERSONAL
 	-- intake spikes vs their own defensives. Legacy records without
 	-- personal attribution fall back to team coloring rather than
-	-- rendering everything as falsely uncovered.
+	-- rendering everything as falsely uncovered. Hidden entirely in Raw
+	-- mode — that view is parses and nothing else.
 	local mm = player and player.metrics or {}
-	local map = (result.role == "HEALER") and mm.groupSpikeMap or mm.spikeMap
+	local map = not result.parse
+		and ((result.role == "HEALER") and mm.groupSpikeMap or mm.spikeMap) or nil
 	local hasMine = false
 	for _, win in ipairs(map or {}) do
 		if win[4] ~= nil then
@@ -914,16 +929,30 @@ function Panel:ShowFor(fight, result)
 		frame.stripTrack:Show()
 		for i, win in ipairs(map) do
 			local band = frame.stripBands[i]
-			if not band then
-				band = frame:CreateTexture(nil, "OVERLAY")
-				band:SetTexture("Interface\\Buttons\\WHITE8X8")
+			if not band or not band.tex then
+				-- bands are hoverable frames (Josh 2026-07-24): each tick
+				-- tells its own story — what hit, how hard, your answer
+				band = CreateFrame("Frame", nil, frame)
+				band.tex = band:CreateTexture(nil, "OVERLAY")
+				band.tex:SetAllPoints(band)
+				band.tex:SetTexture("Interface\\Buttons\\WHITE8X8")
+				band:EnableMouse(true)
+				band:SetScript("OnEnter", function(b)
+					if b.tipLines then
+						TP.Tooltip:Show(b, tipSide() == "LEFT" and "FORCE_LEFT" or "FORCE_RIGHT",
+							b.tipTitle, b.tipLines)
+					end
+				end)
+				band:SetScript("OnLeave", function()
+					TP.Tooltip:Hide()
+				end)
 				frame.stripBands[i] = band
 			end
 			local left = math.min(w - 2, win[1] / fight.duration * w)
 			local width = math.max(3, (win[2] - win[1] + 1) / fight.duration * w)
 			band:ClearAllPoints()
-			band:SetPoint("TOPLEFT", frame.stripTrack, "TOPLEFT", left, 0)
-			band:SetSize(math.min(width, w - left), 7)
+			band:SetPoint("TOPLEFT", frame.stripTrack, "TOPLEFT", left, -1)
+			band:SetSize(math.min(width, w - left), 9)
 			-- personal maps carry "you covered it" in [3]; healer group maps
 			-- in [4] (legacy healer records fall back to team coverage [3])
 			local covered
@@ -933,9 +962,28 @@ function Panel:ShowFor(fight, result)
 				covered = hasMine and win[4] or (not hasMine and win[3])
 			end
 			if covered then
-				band:SetVertexColor(0.33, 0.80, 0.33, 1)
+				band.tex:SetVertexColor(0.33, 0.80, 0.33, 1)
 			else
-				band:SetVertexColor(0.90, 0.30, 0.30, 1)
+				band.tex:SetVertexColor(0.90, 0.30, 0.30, 1)
+			end
+			-- the band's own story (fields 5-7; absent on legacy records)
+			band.tipTitle = ("Spike %d:%02d\226\128\147%d:%02d"):format(
+				math.floor(win[1] / 60), win[1] % 60, math.floor(win[2] / 60), win[2] % 60)
+			if win[5] then
+				local lines = {}
+				lines[1] = { win[6] and ("%s \194\183 %s over %ds"):format(
+					win[6], TP.FormatNumber(win[5]), math.max(1, win[2] - win[1]))
+					or ("%s over %ds"):format(TP.FormatNumber(win[5]), math.max(1, win[2] - win[1])), 1, 1, 1 }
+				if covered and win[7] then
+					lines[2] = { "Covered by " .. win[7], 0.33, 0.80, 0.33 }
+				elseif covered then
+					lines[2] = { "Covered", 0.33, 0.80, 0.33 }
+				else
+					lines[2] = { result.role == "TANK" and "No defensive" or "You didn't cover it", 0.90, 0.35, 0.35 }
+				end
+				band.tipLines = lines
+			else
+				band.tipLines = nil
 			end
 			band:Show()
 		end

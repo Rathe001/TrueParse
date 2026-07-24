@@ -46,7 +46,7 @@ local function ensure(seg, dstGUID)
 	return s
 end
 
-local function addTaken(seg, dstGUID, amount)
+local function addTaken(seg, dstGUID, amount, spell)
 	if not amount or amount <= 0 then
 		return
 	end
@@ -56,15 +56,27 @@ local function addTaken(seg, dstGUID, amount)
 	end
 	local i = math.floor(GetTime() - seg.startTime)
 	s.taken[i] = (s.taken[i] or 0) + amount
+	-- the second's hardest single hit, for the strip-band tooltips
+	-- ("what hit us there") — one small record per active second
+	if spell then
+		local top = s.top
+		if not top then
+			top = {}
+			s.top = top
+		end
+		if not top[i] or amount > top[i][1] then
+			top[i] = { amount, spell }
+		end
+	end
 end
 
 -- SWING_DAMAGE suffix: amount, overkill, ...
 tracker.subevents.SWING_DAMAGE = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
-	addTaken(seg, dstGUID, a1)
+	addTaken(seg, dstGUID, a1, "Melee")
 end
 -- SPELL/RANGE prefix adds spellId, spellName, school before the suffix
 local function spellTaken(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4)
-	addTaken(seg, dstGUID, a4)
+	addTaken(seg, dstGUID, a4, a2)
 end
 tracker.subevents.SPELL_DAMAGE = spellTaken
 tracker.subevents.SPELL_PERIODIC_DAMAGE = spellTaken
@@ -72,12 +84,12 @@ tracker.subevents.RANGE_DAMAGE = spellTaken
 tracker.subevents.DAMAGE_SPLIT = spellTaken
 tracker.subevents.DAMAGE_SHIELD = spellTaken
 tracker.subevents.ENVIRONMENTAL_DAMAGE = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2)
-	addTaken(seg, dstGUID, a2)
+	addTaken(seg, dstGUID, a2, a1) -- a1 = environment type ("Falling", ...)
 end
 
 -- defensive aura spans (reference-counted like Mitigation; REFRESH
 -- opens windows the pull started with)
-local function auraOn(seg, dstGUID, spellID, refreshOnly)
+local function auraOn(seg, dstGUID, spellID, refreshOnly, spellName)
 	if not (spellID and TP.DEFENSIVES and TP.DEFENSIVES[spellID]) then
 		return
 	end
@@ -99,14 +111,15 @@ local function auraOn(seg, dstGUID, spellID, refreshOnly)
 	s.n = s.n + 1
 	if s.n == 1 then
 		s.since = GetTime() - seg.startTime
+		s.sinceName = spellName -- names the span for the band tooltips
 	end
 end
 
-tracker.subevents.SPELL_AURA_APPLIED = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
-	auraOn(seg, dstGUID, a1, false)
+tracker.subevents.SPELL_AURA_APPLIED = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2)
+	auraOn(seg, dstGUID, a1, false, a2)
 end
-tracker.subevents.SPELL_AURA_REFRESH = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
-	auraOn(seg, dstGUID, a1, true)
+tracker.subevents.SPELL_AURA_REFRESH = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2)
+	auraOn(seg, dstGUID, a1, true, a2)
 end
 tracker.subevents.SPELL_AURA_REMOVED = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
 	if not (a1 and TP.DEFENSIVES and TP.DEFENSIVES[a1]) then
@@ -120,19 +133,23 @@ tracker.subevents.SPELL_AURA_REMOVED = function(seg, srcGUID, dstGUID, srcFlags,
 	s.counted[a1] = nil
 	s.n = s.n - 1
 	if s.n == 0 and s.since then
-		s.spans[#s.spans + 1] = { s.since, GetTime() - seg.startTime }
+		-- [3] = the defensive's name, for the strip-band tooltips
+		s.spans[#s.spans + 1] = { s.since, GetTime() - seg.startTime, s.sinceName }
 		s.since = nil
+		s.sinceName = nil
 	end
 end
 
 -- healer raid-cooldown casts (timestamps as fight offsets)
-tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
+tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2)
 	if not (a1 and TP.HEALER_CDS and TP.HEALER_CDS[a1]) then
 		return
 	end
 	local s = ensure(seg, srcGUID)
 	if s then
 		s.casts[#s.casts + 1] = GetTime() - seg.startTime
+		s.castNames = s.castNames or {}
+		s.castNames[#s.casts] = a2 -- parallel to casts[]
 	end
 	-- which raid CDs got pressed at all: the group card names the ones
 	-- that sat unused while heavy-damage moments went uncovered
@@ -209,6 +226,39 @@ local function castCovers(casts, ws, we, preSlop, postSlop)
 	return false
 end
 
+-- ===== band-tooltip enrichment (Josh 2026-07-24): what hit, how hard,
+-- and what the player answered with =====
+local function windowStats(taken, top, ws, we)
+	local amt, bigAmt, bigName = 0, 0, nil
+	for t = math.floor(ws), math.ceil(we) do
+		amt = amt + ((taken and taken[t]) or 0)
+		local h = top and top[t]
+		if h and h[1] > bigAmt then
+			bigAmt, bigName = h[1], h[2]
+		end
+	end
+	return amt, bigName
+end
+
+local function coveringCastName(s, ws, we)
+	for i, t in ipairs((s and s.casts) or {}) do
+		if t >= ws - HEALER_PRE_SLOP and t <= we + HEALER_SLOP then
+			return s.castNames and s.castNames[i]
+		end
+	end
+end
+
+local function coveringSpanName(s, ws, we)
+	for _, sp in ipairs((s and s.spans) or {}) do
+		if sp[1] <= we + TANK_SLOP and sp[2] >= ws - TANK_SLOP then
+			return sp[3]
+		end
+	end
+	if s and s.since and s.since <= we + TANK_SLOP then
+		return s.sinceName
+	end
+end
+
 -- Returns [guid] = { spikeWindows, spikeCovered, groupSpikeWindows,
 -- groupSpikeCovered } — fields nil when that player had no windows.
 -- The caller (FightHistory) stamps them; the engine gates by role.
@@ -217,13 +267,18 @@ function Spikes.Compute(seg, duration)
 		return nil
 	end
 	local out = {}
-	local groupTaken, groupHP = {}, 0
+	local groupTaken, groupTop, groupHP = {}, {}, 0
 	for _, acc in pairs(seg.players) do
 		local s = acc.spikes
 		if s and s.maxHP then
 			groupHP = groupHP + s.maxHP
 			for t, v in pairs(s.taken) do
 				groupTaken[t] = (groupTaken[t] or 0) + v
+			end
+			for t, h in pairs(s.top or {}) do
+				if not groupTop[t] or h[1] > groupTop[t][1] then
+					groupTop[t] = h
+				end
 			end
 		end
 	end
@@ -272,8 +327,11 @@ function Spikes.Compute(seg, duration)
 					if met then
 						cov = cov + 1
 					end
-					-- {start, end, met}: the breakdown's timeline strip
-					r.spikeMap[#r.spikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), met or nil }
+					-- {start, end, met, -, amount, what-hit, what-answered}:
+					-- the strip's bands and their hover tooltips
+					local amt, hitName = windowStats(s.taken, s.top, win[1], win[2])
+					r.spikeMap[#r.spikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), met or nil, nil,
+						amt, hitName, met and coveringSpanName(s, win[1], win[2]) or nil }
 				end
 				r.spikeCovered = cov
 				-- demonstrated defensive capacity (completed aura spans,
@@ -305,7 +363,15 @@ function Spikes.Compute(seg, duration)
 				if not mine then
 					mine = nil -- false compresses out of the SavedVariables
 				end
-				r.groupSpikeMap[#r.groupSpikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), groupMet[i] or nil, mine }
+				-- 5-7: group damage in the window, the hardest-hitting
+				-- ability, and what THIS player answered with (band tooltips)
+				local amt, hitName = windowStats(groupTaken, groupTop, win[1], win[2])
+				local used
+				if mine then
+					used = coveringCastName(s, win[1], win[2]) or coveringSpanName(s, win[1], win[2])
+				end
+				r.groupSpikeMap[#r.groupSpikeMap + 1] = { math.floor(win[1]), math.floor(win[2]),
+					groupMet[i] or nil, mine, amt, hitName, used }
 			end
 			if windows > 0 then
 				r.groupSpikeWindows = windows

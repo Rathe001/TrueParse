@@ -2032,8 +2032,10 @@ end)()
 ;(function()
 	local seg = {
 		players = {
-			h1 = { spikes = { maxHP = 100000, taken = {}, casts = { 24 } } }, -- 6s early: pre-slop credits it
-			h2 = { spikes = { maxHP = 100000, taken = { [30] = 60000 }, casts = {} } }, -- 60k >= 18% of 300k group HP
+			h1 = { spikes = { maxHP = 100000, taken = {}, casts = { 24 },
+				castNames = { "Healing Tide Totem" } } }, -- 6s early: pre-slop credits it
+			h2 = { spikes = { maxHP = 100000, taken = { [30] = 60000 },
+				top = { [30] = { 60000, "Empowered Whirling Corruption" } }, casts = {} } },
 			h3 = { spikes = { maxHP = 100000, taken = {}, casts = {} },
 				deaths = { total = 1, lastTime = 20 } },
 		},
@@ -2048,6 +2050,15 @@ end)()
 		"the caster's tape marks the window as theirs")
 	check(out.h2.groupSpikeMap and out.h2.groupSpikeMap[1][3] and not out.h2.groupSpikeMap[1][4],
 		"the non-caster sees teammate coverage, not their own")
+	-- band tooltips: the window carries its damage, hardest hit, and the
+	-- player's answer (fields 5-7)
+	local e1 = out.h1.groupSpikeMap[1]
+	check(e1[5] == 60000 and e1[6] == "Empowered Whirling Corruption",
+		("window carries amount + hardest hit (%s, %s)"):format(tostring(e1[5]), tostring(e1[6])))
+	check(e1[7] == "Healing Tide Totem",
+		("the covering cast is named (%s)"):format(tostring(e1[7])))
+	check(out.h2.groupSpikeMap[1][7] == nil, "no personal cover, no answer named")
+
 	-- a DPS defensive AURA riding the window also counts as personal
 	-- coverage (all roles get a consistent personal strip)
 	local dseg = {
