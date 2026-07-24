@@ -1246,8 +1246,13 @@ local function waitingHere()
 	if not (inInst and (instType == "party" or instType == "raid" or instType == "scenario")) then
 		return nil
 	end
-	local here, _, difficultyID = GetInstanceInfo()
-	local unsupported = instType == "scenario"
+	local here, _, difficultyID, _, maxPlayers = GetInstanceInfo()
+	-- scenario-TYPED content is only unsupported when it's a real MoP
+	-- scenario (difficulty 11/12, 3-man); the Celestial dungeon mode is
+	-- scenario-typed but captures like any dungeon (2026-07-24)
+	local realScenario = instType == "scenario"
+		and (difficultyID == 11 or difficultyID == 12 or (maxPlayers or 0) < 5)
+	local unsupported = realScenario
 		or TP.UNSUPPORTED_DIFFICULTY[difficultyID or 0] or false
 	local newest = TP.FightHistory.fights[1]
 	if unsupported or not newest or newest.zone ~= here then

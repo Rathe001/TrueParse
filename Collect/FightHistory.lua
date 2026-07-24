@@ -663,9 +663,21 @@ function FightHistory:AddFromSegment(seg)
 			return
 		end
 	end
-	local _, itype = GetInstanceInfo()
+	local _, itype, instDiff, _, maxPlayers = GetInstanceInfo()
 	if itype == "scenario" then
-		return -- scenario "bosses" (MoP scenarios): unranked, never captured
+		-- MoP's real scenarios (Arena of Annihilation etc., difficulty
+		-- 11/12, 3-man) stay out: unranked noise. But the Celestial
+		-- dungeon mode runs REAL dungeon encounters inside a
+		-- scenario-typed instance (Josh's Vizier Jin'bak kill vanished
+		-- here, 2026-07-24) — a 5-player group with a real encounter
+		-- verdict is a dungeon boss whatever the instance type says.
+		if instDiff == 11 or instDiff == 12 or (maxPlayers or 0) < 5 then
+			return
+		end
+		-- classify the record as the dungeon it is: "scenario" would get
+		-- swept at login, and a nil instanceType classifies as RAID in
+		-- the curve ladder (the Timewalking cross-type lesson)
+		itype = "party"
 	end
 	local totals = {
 		damage = 0, damageToBoss = 0, healing = 0, selfHealing = 0,
@@ -1045,7 +1057,10 @@ function FightHistory:AddFromSegment(seg)
 		-- practice fights borrow the anchor's bracket so curve resolution
 		-- lands on the intended population
 		difficultyID = practice and TP.PRACTICE_ANCHOR and TP.PRACTICE_ANCHOR.difficultyID
-			or select(3, GetInstanceInfo()),
+			or instDiff,
+		-- content classification for the curve ladder + login sweep
+		-- (celestial dungeon captures arrive here as "party")
+		instanceType = itype,
 		players = players,
 		totals = totals,
 	}
