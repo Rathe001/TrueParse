@@ -35,6 +35,10 @@ local function lineFS(i)
 	if not fs then
 		fs = tip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 		fs:SetJustifyH("LEFT")
+		-- long lines (award descriptions) WRAP, never ellipsize (Josh
+		-- 2026-07-24): explicit, because template defaults clipped
+		fs:SetWordWrap(true)
+		fs:SetMaxLines(0)
 		lines[i] = fs
 	end
 	return fs
