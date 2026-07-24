@@ -12,7 +12,20 @@ local Panel = { pinned = false }
 TP.BreakdownPanel = Panel
 
 local WIDTH = 300
-local ROW_HEIGHT = 15
+local ROW_HEIGHT = 16
+
+-- Mockup type (Josh 2026-07-24): the clean condensed sans of the
+-- quality-addon dialect (Details/WeakAuras ship it too) instead of
+-- Friz Quadrata everywhere. Falls back to the template's face on
+-- clients without ARIALN (CJK), keeping the mockup's sizes.
+local FONT = "Fonts\\ARIALN.TTF"
+local function face(fs, size, flags)
+	if not fs:SetFont(FONT, size, flags or "") then
+		local path, _, fl = fs:GetFont()
+		fs:SetFont(path, size, flags or fl)
+	end
+	return fs
+end
 local FIRST_ROW_Y = -40
 
 local COUNT_METRICS = { interrupts = true, dispels = true }
@@ -59,11 +72,11 @@ local function buildMetricTip()
 	metricTip:SetFrameStrata("TOOLTIP")
 	metricTip:Hide()
 
-	metricTip.title = metricTip:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	metricTip.title = face(metricTip:CreateFontString(nil, "OVERLAY", "GameFontNormal"), 14)
 	metricTip.title:SetPoint("TOPLEFT", 10, -8)
-	metricTip.value = metricTip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	metricTip.value = face(metricTip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
 	metricTip.value:SetPoint("TOPLEFT", 10, -24)
-	metricTip.median = metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	metricTip.median = face(metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 	metricTip.median:SetPoint("TOPLEFT", 10, -38)
 	-- no right anchor: the TIP fits its longest line (fitTipWidth), so
 	-- lines never truncate or spill
@@ -72,7 +85,7 @@ local function buildMetricTip()
 
 	-- the parse coach's line: own signature-spell rate vs top parses
 	-- (one line, only when a real gap exists — never a wall of text)
-	metricTip.coach = metricTip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	metricTip.coach = face(metricTip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
 	metricTip.coach:SetPoint("TOPLEFT", 10, -52)
 	metricTip.coach:SetJustifyH("LEFT")
 	metricTip.coach:SetWordWrap(false)
@@ -81,7 +94,7 @@ local function buildMetricTip()
 	-- (the parse-bracket gauge used to live here; it moved onto the card's
 	-- percentile rows themselves — Josh 2026-07-24 — so the tip is text)
 
-	metricTip.footer = metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	metricTip.footer = face(metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 	metricTip.footer:SetPoint("BOTTOMLEFT", 10, 8)
 end
 
@@ -235,12 +248,12 @@ local function newRow(parent)
 	row:SetScript("OnEnter", rowEnter)
 	row:SetScript("OnLeave", rowLeave)
 
-	row.symbol = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	row.symbol = face(row:CreateFontString(nil, "OVERLAY", "GameFontNormal"), 13)
 	row.symbol:SetPoint("LEFT", 10, 0)
 	row.symbol:SetWidth(14)
 	row.symbol:SetJustifyH("CENTER")
 
-	row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	row.text = face(row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
 	row.text:SetPoint("LEFT", 28, 0)
 	row.text:SetPoint("RIGHT", -8, 0)
 	row.text:SetJustifyH("LEFT")
@@ -266,7 +279,7 @@ local function ensureSignalWidgets(row)
 	row.icon:SetSize(13, 13)
 	row.icon:SetPoint("LEFT", 8, 0)
 	row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- the clean-addon crop
-	row.label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	row.label = face(row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
 	row.label:SetPoint("LEFT", 26, 0)
 	row.label:SetWidth(CONTENT_X - 30)
 	row.label:SetJustifyH("LEFT")
@@ -282,11 +295,11 @@ local function ensureSignalWidgets(row)
 	row.tick = row:CreateTexture(nil, "OVERLAY", nil, 2)
 	row.tick:SetColorTexture(0.92, 0.92, 0.92, 0.85)
 	row.tick:SetSize(1, 11)
-	row.num = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	row.num = face(row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 13)
 	row.num:SetPoint("RIGHT", -(PTS_W + 10), 0)
 	row.num:SetWidth(NUM_W)
 	row.num:SetJustifyH("RIGHT")
-	row.pts = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	row.pts = face(row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 	row.pts:SetPoint("RIGHT", -8, 0)
 	row.pts:SetWidth(PTS_W)
 	row.pts:SetJustifyH("RIGHT")
@@ -569,42 +582,39 @@ local function createFrame()
 
 	-- mockup header (Josh 2026-07-24): NAME then the big bracket-colored
 	-- score right beside it — one hero line, role tag far right
-	frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	local fontPath, _, fontFlags = frame.title:GetFont()
-	frame.title:SetFont(fontPath, 15, fontFlags)
+	frame.title = face(frame:CreateFontString(nil, "OVERLAY", "GameFontNormal"), 17)
 	frame.title:SetPoint("TOPLEFT", 10, -9)
 	frame.title:SetJustifyH("LEFT")
 
-	frame.bigScore = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-	frame.bigScore:SetFont(fontPath, 18, fontFlags)
+	frame.bigScore = face(frame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge"), 21)
 	frame.bigScore:SetPoint("BOTTOMLEFT", frame.title, "BOTTOMRIGHT", 7, -1)
 	frame.bigScore:SetJustifyH("LEFT")
 
 	-- role tag on the title row, right side
-	frame.role = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	frame.role = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 12)
 	frame.role:SetPoint("TOPRIGHT", -10, -12)
 	frame.role:SetJustifyH("RIGHT")
 
-	frame.subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	frame.subtitle = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 	frame.subtitle:SetPoint("TOPLEFT", 10, -24)
 	frame.subtitle:SetJustifyH("LEFT")
 
 	-- subheader: one dim line — boss · wipe % · duration · run avg
-	frame.scoreLine = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	frame.scoreLine:SetPoint("TOPLEFT", 10, -29)
-	frame.scoreLine:SetPoint("TOPRIGHT", -10, -29)
+	frame.scoreLine = face(frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
+	frame.scoreLine:SetPoint("TOPLEFT", 10, -30)
+	frame.scoreLine:SetPoint("TOPRIGHT", -10, -30)
 	frame.scoreLine:SetJustifyH("LEFT")
 
-	frame.runLine = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	frame.runLine:SetPoint("TOPLEFT", 10, -42)
-	frame.runLine:SetPoint("TOPRIGHT", -10, -42)
+	frame.runLine = face(frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 11)
+	frame.runLine:SetPoint("TOPLEFT", 10, -43)
+	frame.runLine:SetPoint("TOPRIGHT", -10, -43)
 	frame.runLine:SetJustifyH("LEFT")
 
 	frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	frame.total:SetPoint("BOTTOMLEFT", 10, 10)
 
 	-- mockup footer: dim closing line (flask/food · pull time)
-	frame.footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	frame.footer = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 	frame.footer:SetPoint("BOTTOMLEFT", 12, 8)
 	frame.footer:SetJustifyH("LEFT")
 end
@@ -979,7 +989,7 @@ function Panel:ShowFor(fight, result)
 	end
 	if map and #map > 0 and (fight.duration or 0) > 0 then
 		if not frame.stripTrack then
-			frame.stripLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+			frame.stripLabel = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 			frame.stripTrack = frame:CreateTexture(nil, "ARTWORK")
 			frame.stripTrack:SetTexture("Interface\\Buttons\\WHITE8X8")
 			frame.stripTrack:SetVertexColor(0.14, 0.14, 0.17, 1)
@@ -1403,7 +1413,7 @@ function Panel:ShowForGroup(fight, results)
 	-- ===== group visualizations (2026-07-24 redesign, approved) =====
 	local function vizLabel(which, text)
 		if not frame[which] then
-			frame[which] = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+			frame[which] = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 		end
 		y = y - 6
 		frame[which]:ClearAllPoints()
