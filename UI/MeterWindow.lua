@@ -1340,10 +1340,16 @@ local function refreshImpl(self, force)
 			window.emptyMsg:SetText("Delves, scenarios, and follower content aren't ranked on Warcraft Logs, so fights here aren't captured. Dungeon and raid bosses record automatically.")
 		elseif here and TP.FightHistory.pending then
 			-- a session exists but its values are still secret-locked:
-			-- "nothing recorded" would be a lie that reads as a bug
+			-- "nothing recorded" would be a lie that reads as a bug. The
+			-- age clock shows the retry is ALIVE (outdoor raids hold the
+			-- lock longest — no leave-the-instance unlock edge)
+			local age = TP.FightHistory.pendingSince
+				and (time() - TP.FightHistory.pendingSince) or 0
+			local ageText = age >= 60
+				and (" Locked for %d min so far."):format(math.floor(age / 60)) or ""
 			window.subtitle:SetText(here .. " · unlocking...")
 			window.emptyTitle:SetText("Fight recorded - numbers still locked.")
-			window.emptyMsg:SetText("Blizzard keeps combat data locked for a while after an encounter (longest in raids). Scores fill in automatically - no reload needed.")
+			window.emptyMsg:SetText("Blizzard keeps combat data locked for a while after an encounter - longest for raids, and outdoor raids hold it longest of all (leaving the area usually releases it). Scores fill in automatically - no reload needed." .. ageText)
 		elseif here then
 			window.subtitle:SetText(here .. " · waiting")
 			window.emptyTitle:SetText("Nothing recorded here yet.")

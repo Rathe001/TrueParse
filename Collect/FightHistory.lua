@@ -444,13 +444,26 @@ function FightHistory:Sweep()
 	end
 
 	-- the window's waiting card reads this: "recorded, still locked" is a
-	-- different story than "nothing happened" (LFR bulk unlocks run late)
+	-- different story than "nothing happened" (LFR bulk unlocks run late).
+	-- pendingSince lets the card show the lock's AGE — outdoor-raid wipes
+	-- hold the lock longest (no leave-the-instance unlock edge), and a
+	-- visible clock reads as progress where a static line read as a bug
+	-- (Josh 2026-07-24, Sporefall heroic wipe)
 	self.pending = anyPending or nil
+	if anyPending then
+		self.pendingSince = self.pendingSince or time()
+	else
+		self.pendingSince = nil
+	end
 
 	if anyPending then
 		if not retryTicker then
 			retryTicker = C_Timer.NewTicker(5, function()
 				FightHistory:Sweep()
+				-- keep the waiting card's lock-age clock ticking
+				if FightHistory.pending and TP.MeterWindow and TP.MeterWindow.Refresh then
+					TP.MeterWindow:Refresh(true)
+				end
 			end)
 		end
 	elseif retryTicker then
