@@ -469,7 +469,17 @@ function Panel:ShowFor(fight, result)
 			spikeCovered = m.spikeCovered,
 			groupSpikeWindows = m.groupSpikeWindows,
 			groupSpikeCovered = m.groupSpikeCovered,
+			-- demonstrated capacity: the "(N coverable)" note (v1.5.3
+			-- referenced these but they were never passed — fixed when the
+			-- coach bullet moved onto the card, 2026-07-24)
+			defensiveUses = m.defensiveUses,
+			groupCdCasts = m.groupCdCasts,
 			died = (m.deaths or 0) > 0,
+			-- the parse coach's inputs (nil profCasts = fight predates
+			-- the cast counter; the coach stays silent rather than lie)
+			profCasts = m.profCasts,
+			specID = player.specID,
+			duration = fight.duration,
 		}
 	end
 	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)

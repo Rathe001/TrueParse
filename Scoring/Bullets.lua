@@ -12,6 +12,7 @@ local GOOD = { 0.30, 0.90, 0.40 }
 local BAD = { 0.95, 0.35, 0.35 }
 local MID = { 0.80, 0.80, 0.55 }
 local GOLD = { 1.00, 0.82, 0.20 }
+local COACH = { 0.40, 0.85, 1.00 } -- the parse coach's cyan
 local MIDDOT = "\194\183"
 
 -- Five tiers matching the parse-bracket colors players already read:
@@ -354,15 +355,30 @@ function Bullets.ForResult(result, awards, extra)
 		end
 	end
 
+	-- The parse coach, on the card (Josh 2026-07-24: "I don't see the
+	-- coach anywhere" — tooltip-only was invisible): the single biggest
+	-- signature-spell gap vs top parses of this spec. Unscored advice,
+	-- one line, only when a real gap exists.
+	if extra and extra.profCasts and extra.specID and extra.duration then
+		local gap = TP.Scoring.Insights.ParseGap(extra.specID,
+			{ profCasts = extra.profCasts }, extra.duration)
+		if gap then
+			out[#out + 1] = { kind = "info", key = "coach", symbol = MIDDOT, color = COACH,
+				text = ("Coach: %s"):format(gap.text) }
+		end
+	end
+
 	-- Impact-only card (2026-07-15, Josh): a bullet earns its line by
 	-- moving the score. Damage and healing anchor the card whatever
 	-- their tier (they ARE the base, and the lowDemand/noInput variants
 	-- explain a pinned score); everything else needs nonzero points.
+	-- The coach line is the deliberate exception: it exists to say how
+	-- to EARN points, so it can't have any yet.
 	local shown = {}
 	for _, b in ipairs(out) do
 		local anchor = b.kind == "metric" and (b.key == "damage" or b.key == "healing")
 		local p = b.points or tonumber((b.text or ""):match("%(([%+%-]%d+)%)$")) or 0
-		if anchor or b.kind == "penalty"
+		if anchor or b.kind == "penalty" or b.key == "coach"
 			or (b.kind ~= "metric" and b.kind ~= "info") or p ~= 0 then
 			shown[#shown + 1] = b
 		end

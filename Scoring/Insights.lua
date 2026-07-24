@@ -301,7 +301,11 @@ end
 -- line, never a wall (Josh 2026-07-24).
 function Insights.ParseGap(specID, m, duration)
 	local prof = specID and TP.SpellProfiles and TP.SpellProfiles[specID]
-	if not (prof and prof.spells and m and duration and duration >= 60) then
+	-- profCasts nil = the fight was recorded before the cast counter
+	-- existed (or the player pressed literally none of the watched
+	-- spells): "you 0" would be a lie in the first case, and the
+	-- activity bullet already owns the second
+	if not (prof and prof.spells and m and m.profCasts and duration and duration >= 60) then
 		return nil
 	end
 	local durMin = duration / 60

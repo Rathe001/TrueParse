@@ -2329,6 +2329,22 @@ end)()
 	-- zero casts of everything still coaches (the biggest gap of all)
 	local zero = PG(105, { profCasts = {} }, 180)
 	check(zero and zero.spell == "Rejuvenation", "an empty fight coaches the top spell")
+	-- profCasts NIL = the fight predates the cast counter: silence, not
+	-- "you 0" (Josh's card 2026-07-24 was such a fight)
+	check(PG(105, {}, 180) == nil, "pre-counter fights are never coached")
+	-- the coach reaches the CARD as a visible bullet (tooltip-only was
+	-- undiscoverable)
+	local res = { role = "HEALER", adjustDetail = {}, penaltyDetail = {},
+		breakdown = { healing = { applicable = true, normalized = 55, effectiveWeight = 0.79, value = 100000 } } }
+	local found
+	for _, b in ipairs(TP.Scoring.Bullets.ForResult(res, nil,
+		{ profCasts = { [774] = 18 }, specID = 105, duration = 180 })) do
+		if b.key == "coach" then
+			found = b.text
+		end
+	end
+	check(found and found:find("Coach: top parses cast Rejuvenation", 1, true),
+		("coach bullet survives the impact filter (%s)"):format(tostring(found)))
 	TP.SpellProfiles = savedProf
 end)()
 

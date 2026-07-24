@@ -1,5 +1,16 @@
 # TrueParse Changelog
 
+## 1.6.1
+
+The coach is now visible. v1.6.0 hid it inside a hover tooltip and a
+conditional chat suffix - undiscoverable in practice. The coach line
+now sits on the breakdown card itself as a cyan bullet ("Coach: top
+parses cast Rejuvenation 21x/min - you 6"), unscored, shown only when
+a real gap exists. Fights recorded before 1.6.0 have no cast counts
+and are never coached ("you 0" would have been a lie). Also restored:
+the "(N coverable)" capacity note on cooldown-timing bullets, which
+1.5.3 introduced but never actually wired to its data.
+
 ## 1.6.0
 
 **The parse coach.** A new monthly crawl reads the Casts tables of top
