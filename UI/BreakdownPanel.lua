@@ -19,6 +19,7 @@ local ROW_HEIGHT = 16
 -- Friz Quadrata everywhere. Falls back to the template's face on
 -- clients without ARIALN (CJK), keeping the mockup's sizes.
 local FONT = "Fonts\\ARIALN.TTF"
+local BAND_MIN = 8 -- spike-strip blocks: floor width so events read discrete
 local function face(fs, size, flags)
 	if not fs:SetFont(FONT, size, flags or "") then
 		local path, _, fl = fs:GetFont()
@@ -1024,6 +1025,7 @@ function Panel:ShowFor(fight, result)
 		frame.stripTrack:SetPoint("TOPLEFT", 12, y)
 		frame.stripTrack:SetSize(w, 7)
 		frame.stripTrack:Show()
+		local lastRight -- chunky-block layout (see BAND_MIN below)
 		for i, win in ipairs(map) do
 			local band = frame.stripBands[i]
 			if not band or not band.tex then
@@ -1045,11 +1047,21 @@ function Panel:ShowFor(fight, result)
 				end)
 				frame.stripBands[i] = band
 			end
-			local left = math.min(w - 2, win[1] / fight.duration * w)
-			local width = math.max(3, (win[2] - win[1] + 1) / fight.duration * w)
+			-- chunky discrete blocks (Josh 2026-07-24: the design-mock strip
+			-- reads as clean event blocks; true-scale 3px slivers packed
+			-- edge-to-edge read as smudge): 8px floor, 2px gap enforced,
+			-- width still stretches for genuinely long spikes
+			local left = win[1] / fight.duration * w
+			local width = math.max(BAND_MIN, (win[2] - win[1] + 1) / fight.duration * w)
+			if lastRight and left < lastRight + 2 then
+				left = lastRight + 2
+			end
+			left = math.min(left, w - BAND_MIN)
+			width = math.min(width, w - left)
+			lastRight = left + width
 			band:ClearAllPoints()
 			band:SetPoint("TOPLEFT", frame.stripTrack, "TOPLEFT", left, -1)
-			band:SetSize(math.min(width, w - left), 9)
+			band:SetSize(width, 9)
 			-- personal maps carry "you covered it" in [3]; group maps in [4]
 			-- (legacy group records fall back to team coverage [3])
 			local covered
@@ -1536,17 +1548,24 @@ function Panel:ShowForGroup(fight, results)
 			end)
 			frame.covBands[i] = band
 		end
+		local lastRight -- same chunky-block layout as the player strip
 		for i, win in ipairs(teamMap) do
 			local band = frame.covBands[i]
-			local left = math.min(w - 2, win[1] / fight.duration * w)
-			local bw = math.max(3, (win[2] - win[1] + 1) / fight.duration * w)
+			local left = win[1] / fight.duration * w
+			local bw = math.max(BAND_MIN, (win[2] - win[1] + 1) / fight.duration * w)
+			if lastRight and left < lastRight + 2 then
+				left = lastRight + 2
+			end
+			left = math.min(left, w - BAND_MIN)
+			bw = math.min(bw, w - left)
+			lastRight = left + bw
 			if win[3] then
 				band.tex:SetVertexColor(0.33, 0.80, 0.33, 1)
 			else
 				band.tex:SetVertexColor(0.90, 0.30, 0.30, 1)
 			end
 			band:ClearAllPoints()
-			band:SetSize(math.min(bw, w - left), 9)
+			band:SetSize(bw, 9)
 			band:SetPoint("TOPLEFT", 12 + left, y + 1)
 			band.tipTitle = ("Spike %d:%02d\226\128\147%d:%02d"):format(
 				math.floor(win[1] / 60), win[1] % 60, math.floor(win[2] / 60), win[2] % 60)
