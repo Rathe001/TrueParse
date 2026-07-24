@@ -11,6 +11,14 @@ and are never coached ("you 0" would have been a lie). Also restored:
 the "(N coverable)" capacity note on cooldown-timing bullets, which
 1.5.3 introduced but never actually wired to its data.
 
+Tooltip rewrite: every hover explanation is now one short line - the
+paragraphs are gone. A language audit fixed every claim that had
+drifted from how scoring actually works: combat rez said
+"informational only" but pays +2; overheal said "not scored" but has
+scored since 1.4.0 (per-spec since 1.4.5); the buffs penalty said
+"capped at -5" but caps at -3; the coach and rez bullets had no
+explanations at all.
+
 ## 1.6.0
 
 **The parse coach.** A new monthly crawl reads the Casts tables of top

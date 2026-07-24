@@ -1596,7 +1596,7 @@ for _, b in ipairs(TP.Scoring.Bullets.ForResult(sustainResult, nil, { selfShare 
 	if b.key == "healing" then offText = b.text end
 end
 check(offText == "Excellent off-healing", ("outward healing keeps off-healing phrase (%s)"):format(tostring(offText)))
-check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 damage%-role players") ~= nil, "group tooltip carries the numbers")
+check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 damage players") ~= nil, "group tooltip carries the numbers")
 
 -- group healing follows the same rules as the healer's own row: the
 -- demand cap holds, and a DPS's self-heal percentile never drags the

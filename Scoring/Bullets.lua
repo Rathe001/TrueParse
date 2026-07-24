@@ -69,7 +69,8 @@ local function pts(points)
 end
 
 -- result: one engine score row; awards: array of award names (optional);
--- extra: optional { defensives = n } peer-reported data (unscored info).
+-- extra: optional peer/CLEU-reported fields (defensives, lust, profCasts,
+-- ...) — several of these back small scored adjustments.
 -- Returns array of { kind = "metric"|"penalty"|"award"|"info", key, symbol,
 -- color = {r,g,b}, text }
 function Bullets.ForResult(result, awards, extra)
@@ -498,7 +499,7 @@ function Bullets.ForGroup(results, fight)
 			text = GROUP_PHRASES.damage[tier],
 			avg = avg, total = dmgTotal, players = dmgN, wclBacked = dmgWcl or nil,
 			tooltip = { title = TP.METRIC_LABELS.damage,
-				lines = { { ("Average percentile of the %d damage-role players, each vs their own spec's population."):format(dmgN), 1, 1, 1 } } },
+				lines = { { ("Average percentile of %d damage players, each vs their own spec."):format(dmgN), 1, 1, 1 } } },
 		}
 	end
 	if healN > 0 then
@@ -508,7 +509,7 @@ function Bullets.ForGroup(results, fight)
 				text = "Little healing needed - group stayed topped",
 				players = healN,
 				tooltip = { title = TP.METRIC_LABELS.healing,
-					lines = { { "Incoming damage never demanded real healing output; healers are not graded on a fight with nothing to heal.", 1, 1, 1 } } },
+					lines = { { "Nothing to heal, nothing to grade.", 1, 1, 1 } } },
 			}
 		else
 			local avg = healSum / healN
@@ -518,7 +519,7 @@ function Bullets.ForGroup(results, fight)
 				text = GROUP_PHRASES.healing[tier],
 				avg = avg, total = healTotal, players = healN, wclBacked = healWcl or nil,
 				tooltip = { title = TP.METRIC_LABELS.healing,
-					lines = { { ("Average percentile of the %d healer(s), each vs their own spec's population."):format(healN), 1, 1, 1 } } },
+					lines = { { ("Average percentile of %d healer(s), each vs their own spec."):format(healN), 1, 1, 1 } } },
 			}
 		end
 	end
@@ -537,16 +538,16 @@ function Bullets.ForGroup(results, fight)
 		out[#out + 1] = { kind = "metric", key = "interrupts", symbol = sym, color = col,
 			text = ("Kicked %d of %d interruptible casts"):format(landed, opps) .. avgAdj("kicks"),
 			tooltip = { title = TP.METRIC_LABELS.interrupts,
-				lines = { { "Opportunities = casts of spells this addon has ever seen interrupted (the list teaches itself). Casts that got through hit somebody.", 1, 1, 1 } } } }
+				lines = { { "Casts of known-kickable spells. Every one that got through hit somebody.", 1, 1, 1 } } } }
 	elseif kicks > 0 then
 		local heavy = kicks >= (A.kicksFullIntensity or 6)
 		-- no opportunity data: say WHY the "kicked X of Y" stat is absent
 		-- instead of a generic shrug — the reason differs by client
 		local why
 		if TP.Compat and TP.Compat.IS_RETAIL then
-			why = "Blizzard hides enemy casts on retail, so interruptible casts can't be counted - landed kicks are all any addon can see here."
+			why = "Retail hides enemy casts - landed kicks are all any addon sees."
 		else
-			why = "Interruptible-cast counting is still learning this content: every spell anyone kicks is tracked forever after, then this reads \"kicked X of Y casts\"."
+			why = "Still learning this content's kickable spells - counts appear once seen."
 		end
 		out[#out + 1] = { kind = "metric", key = "interrupts",
 			symbol = heavy and "+" or MIDDOT, color = heavy and GOOD or MID,
@@ -601,8 +602,7 @@ function Bullets.ForGroup(results, fight)
 				text = ("Bloodlust: %d of %d DPS stacked cooldowns%s"):format(aligned, dps, potPart) .. avgAdj("lust"),
 				tooltip = { title = "Bloodlust discipline",
 					lines = {
-						{ "Those 40 seconds are the fight's damage jackpot: offensive cooldowns and potions multiply inside them. Hover a DPS row's Bloodlust bullet for their part.", 1, 1, 1 },
-						{ "Players dead before the lust went out are excused.", 0.8, 0.8, 0.8, true },
+						{ "Cooldowns and potions multiply inside the window. Dead before it = excused.", 1, 1, 1 },
 					} } }
 		end
 	end
@@ -628,8 +628,7 @@ function Bullets.ForGroup(results, fight)
 					text = ("Ran %d healers - ranked kills mostly run %d"):format(healers, field.mode),
 					tooltip = { title = "Healer count",
 						lines = {
-							{ ("%d%% of ranked kills of this boss bring %d healer(s); the field average is %.1f. Every healer swapped to DPS shortens the fight - and the healing parses split fewer ways."):format(field.modePct, field.mode, field.avg or field.mode), 1, 1, 1 },
-							{ "Advice, not a grade: progression comps run extra healers on purpose.", 0.8, 0.8, 0.8, true },
+							{ ("%d%% of ranked kills bring %d healer(s). Advice, never points."):format(field.modePct, field.mode), 1, 1, 1 },
 						} } }
 			end
 		end
@@ -672,8 +671,7 @@ function Bullets.ForGroup(results, fight)
 						windows - covered, windows, names),
 					tooltip = { title = "Raid cooldown assignment",
 						lines = {
-							{ "These raid-wide cooldowns were in the group's kit and never pressed this fight. Assigning one button per big-damage moment before the pull turns this line green.", 1, 1, 1 },
-							{ "Baseline abilities only - talent cooldowns aren't observable, so they're never listed.", 0.8, 0.8, 0.8, true },
+							{ "Owned, never pressed. Assign one button per big moment.", 1, 1, 1 },
 						} } }
 			end
 		end
@@ -710,7 +708,7 @@ function Bullets.ForGroup(results, fight)
 					or ("%ds slower than the last kill%s")):format(math.floor(math.abs(delta) + 0.5), pctPart),
 				tooltip = { title = "Kill speed trend",
 					lines = {
-						{ "Compared against this group's PREVIOUS kill of the same boss and difficulty. The percentile shift is measured against Warcraft Logs' ranked kills.", 1, 1, 1 },
+						{ "Vs this group's previous kill of this boss.", 1, 1, 1 },
 					} } }
 		end
 	end
@@ -732,7 +730,7 @@ function Bullets.ForGroup(results, fight)
 			text = ("Wipe called, wrapped %ds later%s"):format(tail, suffix),
 			tooltip = { title = "Wipe-call crispness",
 				lines = {
-					{ "Time between the detected wipe call and the end of the fight. A fast wrap means a faster reset and another pull; nothing after the call costs anyone points either way.", 1, 1, 1 },
+					{ "Time from the wipe call to the end. Dying fast IS the reset.", 1, 1, 1 },
 				} } }
 	end
 

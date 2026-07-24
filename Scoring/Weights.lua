@@ -70,7 +70,8 @@ Weights.adjustments = {
 	lustMax = 3, -- DPS cooldown+potion alignment inside lust windows
 	rezBonus = 2, -- per combat rez cast
 	-- every-metric-scores pass (2026-07-15); all data-gated, absent = 0.
-	-- Overheal thresholds are fixed pending a WCL overheal crawl.
+	-- Overheal thresholds below are the FALLBACK; per-spec crawled
+	-- curves (TP.OverhealCurves, v1.4.5) take precedence when present.
 	overhealHigh = 2, overhealHighAt = 60,
 	overhealMid = 1, overhealMidAt = 45,
 	overhealLowBonus = 1, overhealLowAt = 20,

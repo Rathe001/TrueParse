@@ -390,36 +390,42 @@ end
 
 local INFO_HELP -- built on first use (TP.Compat is load-order-safe then)
 local function infoHelp()
+	-- Tooltip doctrine (Josh 2026-07-26): ONE short line, no lectures —
+	-- and every claim must match how the engine actually scores TODAY.
+	-- The points already ride the bullet; the tooltip only says what was
+	-- counted.
 	if not INFO_HELP then
 		INFO_HELP = {
-			adds = "Share of this player's damage that went into non-boss targets. Whether that's right depends on the fight - context, not a judgment.",
-			tankFocus = "Share of this healer's output that landed on tanks.",
+			adds = "Damage into non-boss targets. Context, not a judgment.",
+			tankFocus = "Share of healing that landed on tanks.",
 			defensives = TP.Compat.IS_RETAIL
-				and "Major defensive cooldowns used this fight, reported by the player's own TrueParse. Using 2+ adds a couple of points on top of the base score."
-				or "Major defensive cooldowns used this fight, read from the combat log. Using 2+ adds a couple of points on top of the base score.",
-			consumables = "Long-duration buffs (flask, food, rune) detected on this player at pull start, self-reported by their TrueParse. Full preparation adds a point.",
-			deathReady = "At the moment they died, this many major defensive cooldowns were available and unused. Self-reported by their TrueParse. Dying with 2+ ready costs a few points.",
-			lust = "Offensive cooldowns and DPS potions cast inside the 40s Bloodlust/Heroism window. Stacking them there is free extra output - it adds or costs a few points.",
-			activity = "Share of the fight spent actually doing things (casting, attacking) - the always-be-casting number. Nudges the score a few points either way; movement-heavy fights read lower for everyone.",
-			overheal = "Share of raw healing that landed on already-full health bars. Some overhealing is normal and safe; big numbers on hard fights suggest snipe-heavy targeting. Informational only - not scored.",
-			offensives = "Major offensive cooldowns cast this fight, read from the combat log. Informational only - not scored.",
-			mitigation = "Share of the fight with an active-mitigation buff up (Shuffle, Shield Block/Barrier, Shield of the Righteous, Savage Defense, Blood Shield). Nudges a tank's score a few points either way.",
-			avoidable = "Took at most an even share of the group's avoidable damage while it was actually going out. Clean play earns a few points on top of the base.",
-			cdTiming = "Danger windows are the fight's damage spikes; this counts how many had a defensive or healing cooldown active inside them. Timing beats total usage - it adjusts the score a few points either way.",
+				and "Defensives used, reported by their TrueParse. 2+ earns the bonus."
+				or "Defensives used, from the combat log. 2+ earns the bonus.",
+			consumables = "Flask/food up at the pull.",
+			deathReady = "Defensives sitting unused when they died.",
+			lust = "Cooldowns and potions inside the Bloodlust window.",
+			activity = "Time spent casting or attacking.",
+			overheal = "Healing onto full health bars, judged against this spec's normal range from ranked logs.",
+			offensives = "Offensive cooldowns cast. Softens a missed Bloodlust window.",
+			mitigation = "Time with an active-mitigation buff up.",
+			avoidable = "No more than a fair share of avoidable damage.",
+			cdTiming = "Damage spikes with a cooldown active inside. Judged only on spikes your cooldowns could reach.",
+			rez = "Combat rez cast, from the combat log.",
+			coach = "The biggest gap between this fight and top parses of this spec.",
 		}
 	end
 	return INFO_HELP
 end
 
 local PENALTY_HELP = {
-	avoidable = "Took more than an equal share of the group's avoidable damage (fire, swirls, void zones). A mechanic everyone eats equally penalizes nobody. Capped at -15.",
-	deaths = "Deaths subtract up to -20. Dying late in a fight costs much less than dying early.",
-	buffs = "Your class's raid buff wasn't on the whole group when the pull started. Capped at -5.",
+	avoidable = "More than a fair share of avoidable damage. Capped at -15.",
+	deaths = "Up to -20. Late deaths cost less; wipes charge 40%.",
+	buffs = "Raid buff not on the group at the pull. Capped at -3.",
 	-- threat penalties only exist on captures that HAVE threat data, so no
 	-- "on Classic" disclaimers needed - retail never shows these
-	pull = "Started combat before the tank and held the aggro. -5. An immediate taunt save forgives it.",
-	aggro = "Took a mob off the tank mid-fight. -2.5 each, capped at -8.",
-	aggroLoss = "Time mobs spent beating on a non-tank while a tank was alive: -0.4 per second, capped at -8. Taunt swaps to another tank never count.",
+	pull = "Pulled before the tank. -5; an immediate taunt save forgives it.",
+	aggro = "Ripped aggro off the tank. -2.5 each, capped at -8.",
+	aggroLoss = "Mobs on non-tanks: -0.4/second, capped at -8.",
 }
 
 local ROLE_LABELS = {
@@ -580,7 +586,7 @@ function Panel:ShowFor(fight, result)
 			end
 		elseif bullet.kind == "info" then
 			row.tooltipData = { title = bullet.text, lines = {
-				{ infoHelp()[bullet.key] or "Self-reported by this player's TrueParse. Informational only.", 0.8, 0.8, 0.8, true },
+				{ infoHelp()[bullet.key] or "Reported by this player's TrueParse.", 0.8, 0.8, 0.8, true },
 			} }
 		else
 			row.tooltipData = { title = bullet.text, lines = {
