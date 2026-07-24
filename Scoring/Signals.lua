@@ -118,12 +118,11 @@ function Signals.ForResult(result, fight, player)
 	end
 	if windows then
 		local c, judged = coverageOf(windows, covered, uses)
-		-- labels must survive an ~86px column: verdicts stay short.
-		-- ONE denominator everywhere (Josh 2026-07-26: mixed counts
-		-- created dissonance): bar fill AND the count use judged windows;
-		-- the raw total lives in the tooltip detail.
-		local cdLabel = c >= judged and "Spikes met" or "Uncovered"
-		local row = barRow("cdTiming", icon, cdLabel,
+		-- ONE denominator everywhere, and the label names the COUNTING
+		-- DIRECTION ("Uncovered 2/4" read as 2-of-4-missed — Josh
+		-- 2026-07-24): "Covered 2/4" is unambiguous, color carries the
+		-- verdict. The raw spike total lives in the tooltip detail.
+		local row = barRow("cdTiming", icon, "Covered",
 			judged > 0 and c / judged * 100 or 0, ad.cdTiming)
 		row.num = ("%d/%d"):format(c, judged)
 		if windows > judged then

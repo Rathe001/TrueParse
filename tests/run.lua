@@ -2442,7 +2442,7 @@ end)()
 		("97%% activity reads p95 orange (%s)"):format(tostring(act and act.tier)))
 	local cd = byKey.cdTiming
 	check(cd and cd.kind == "bar" and cd.num == "2/3" and math.abs(cd.value - 66.7) < 0.5
-		and cd.label == "Uncovered" and cd.detail and cd.detail:find("6 spikes", 1, true),
+		and cd.label == "Covered" and cd.detail and cd.detail:find("6 spikes", 1, true),
 		("coverage bar: one denominator everywhere, capacity in the tooltip (%s, %s)"):format(
 			tostring(cd and cd.num), tostring(cd and cd.value)))
 	check(byKey.deaths and byKey.deaths.kind == "pips" and byKey.deaths.count == 1
