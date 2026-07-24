@@ -19,8 +19,12 @@ local NO_KICK_AS_HEALER = {
 	MONK = true,    -- Mistweaver lacks Spear Hand Strike
 }
 
--- MoP Classic: Rebuke/Spear Hand Strike/Skull Bash are available to all
--- specs of their classes; only priests lack an interrupt.
+-- MoP Classic: Rebuke/Spear Hand Strike/Skull Bash are trained class-wide,
+-- but capability means "can interrupt WITHOUT abandoning the role": Skull
+-- Bash needs Bear/Cat form, so a Resto druid would have to stop healing to
+-- kick — not a real assignment (Josh, the resto in question, 2026-07-23).
+-- Holy Paladin (Rebuke while melee-building Holy Power) and Mistweaver
+-- (Spear Hand Strike while fistweaving) stay capable; priests have none.
 local mopRules = false
 
 function Capabilities.SetMoPRules(enabled)
@@ -32,7 +36,10 @@ function Capabilities.CanInterrupt(class, role)
 		return true -- unknown class: don't punish, don't exempt others
 	end
 	if mopRules then
-		return class ~= "PRIEST"
+		if class == "PRIEST" then
+			return false
+		end
+		return not (class == "DRUID" and role == "HEALER")
 	end
 	if NO_KICK[class] then
 		return false

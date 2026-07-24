@@ -1,5 +1,15 @@
 # TrueParse Changelog
 
+## 1.5.5
+
+Resto druids on MoP are no longer marked interrupt-capable. Skull Bash
+is trained class-wide but needs Bear or Cat form, so a Resto druid
+would have to stop healing to kick - that's not an assignment, and
+"did not interrupt" was charging them for a button their role can't
+reach. The kick weight redistributes as it always does for
+incapable specs; Balance (Solar Beam), Feral, and Guardian druids are
+still on the hook.
+
 ## 1.5.4
 
 Boss-percent accuracy on phase bosses. The best-pull sampler tracked

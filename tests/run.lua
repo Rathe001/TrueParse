@@ -107,6 +107,11 @@ Cap.SetMoPRules(true)
 check(Cap.CanInterrupt("PALADIN", "HEALER"), "MoP holy paladin can interrupt (Rebuke)")
 check(Cap.CanInterrupt("MONK", "HEALER"), "MoP mistweaver can interrupt")
 check(not Cap.CanInterrupt("PRIEST", "HEALER"), "MoP priest still cannot interrupt")
+-- Skull Bash needs Bear/Cat form: a resto would have to stop healing
+-- to kick, which is no assignment at all (Josh 2026-07-23)
+check(not Cap.CanInterrupt("DRUID", "HEALER"), "MoP resto druid cannot interrupt")
+check(Cap.CanInterrupt("DRUID", "DAMAGER"), "MoP balance druid can interrupt (Solar Beam)")
+check(Cap.CanInterrupt("DRUID", "TANK"), "MoP guardian can interrupt (Skull Bash)")
 Cap.SetMoPRules(false)
 
 -- Synthetic 5-man modeled on observed real shares
