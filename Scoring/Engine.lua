@@ -1644,14 +1644,27 @@ function Engine.ScoreFight(fight, opts)
 					put("cdTiming", ramp((m.spikeCovered or 0) / judged,
 						A.cdTimingLow or 0.25, A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
 				end
-			elseif role == "HEALER" and (m.groupSpikeWindows or 0) >= 2 then
-				local judged = m.groupSpikeWindows
-				if (m.groupCdCasts or 0) > 0 then
-					judged = math.min(judged, math.max(m.groupCdCasts, m.groupSpikeCovered or 0) + 1)
+			elseif role == "HEALER" then
+				-- one pool, one cap, every healer spec (Josh 2026-07-24):
+				-- group spikes answered by raid CDs, PLUS tank spikes
+				-- answered by single-target externals — but tank windows
+				-- only judge specs that OWN an external (resto shaman has
+				-- none in MoP; their extra raid CDs are the kit's answer)
+				local extW, extC = 0, 0
+				if TP.EXTERNALS_BY_SPEC and p.specID and TP.EXTERNALS_BY_SPEC[p.specID] then
+					extW, extC = m.extWindows or 0, m.extCovered or 0
 				end
-				if judged >= 2 then
-					put("cdTiming", ramp((m.groupSpikeCovered or 0) / judged,
-						A.cdTimingLow or 0.25, A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
+				local windows = (m.groupSpikeWindows or 0) + extW
+				if windows >= 2 then
+					local covered = (m.groupSpikeCovered or 0) + extC
+					local judged = windows
+					if (m.groupCdCasts or 0) > 0 then
+						judged = math.min(judged, math.max(m.groupCdCasts, covered) + 1)
+					end
+					if judged >= 2 then
+						put("cdTiming", ramp(covered / judged,
+							A.cdTimingLow or 0.25, A.cdTimingHigh or 0.75, A.cdTimingMax or 5))
+					end
 				end
 			end
 			-- combat rezzes: casting one is group contribution, full stop

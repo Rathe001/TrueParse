@@ -47,3 +47,24 @@ TP.RAID_CDS = {
 	[115213] = { spec = 268, name = "Avert Harm" },
 	[15286] = { spec = 258, name = "Vampiric Embrace" },
 }
+
+-- Single-target externals and who baseline-owns them (Josh 2026-07-24):
+-- a healer answering a TANK's damage spike with one of these is doing
+-- exactly their job, and it joins the same cdTiming pool as raid CDs so
+-- every healer spec competes on one metric with one cap. Resto shaman
+-- deliberately has no entry — MoP gives them no single-target external
+-- (their extra raid CDs are the kit's answer), so tank windows never
+-- judge them. All IDs already live in HEALER_CDS (cast IDs).
+TP.EXTERNALS = {
+	[33206] = { spec = 256, name = "Pain Suppression" },
+	[47788] = { spec = 257, name = "Guardian Spirit" },
+	[102342] = { spec = 105, name = "Ironbark" },
+	[116849] = { spec = 270, name = "Life Cocoon" },
+	[6940] = { spec = 65, name = "Hand of Sacrifice" },
+}
+
+-- [specID] = external name, for the engine/signals ownership gate
+TP.EXTERNALS_BY_SPEC = {}
+for _, ext in pairs(TP.EXTERNALS) do
+	TP.EXTERNALS_BY_SPEC[ext.spec] = ext.name
+end

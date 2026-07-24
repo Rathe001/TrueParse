@@ -142,11 +142,28 @@ function Signals.ForResult(result, fight, player)
 
 	-- 4) cooldown timing as per-event squares with the availability cap
 	-- drawn: judged windows get good/bad squares, the rest are ghosts
-	local windows, covered, uses, icon
+	local windows, covered, uses, icon, extPart
 	if role == "TANK" and (m.spikeWindows or 0) >= 2 then
 		windows, covered, uses, icon = m.spikeWindows, m.spikeCovered or 0, m.defensiveUses, ICONS.cdTimingTank
-	elseif role == "HEALER" and (m.groupSpikeWindows or 0) >= 2 then
-		windows, covered, uses, icon = m.groupSpikeWindows, m.groupSpikeCovered or 0, m.groupCdCasts, ICONS.cdTimingHealer
+	elseif role == "HEALER" then
+		-- same pool the engine scores: group spikes (raid CDs) + tank
+		-- spikes (single-target externals, specs that own one only)
+		local extW, extC = 0, 0
+		local extName = TP.EXTERNALS_BY_SPEC and player and player.specID
+			and TP.EXTERNALS_BY_SPEC[player.specID]
+		if extName then
+			extW, extC = m.extWindows or 0, m.extCovered or 0
+		end
+		if (m.groupSpikeWindows or 0) + extW >= 2 then
+			windows = (m.groupSpikeWindows or 0) + extW
+			covered = (m.groupSpikeCovered or 0) + extC
+			uses = m.groupCdCasts
+			icon = ICONS.cdTimingHealer
+			if extW > 0 then
+				extPart = ("%d of the pool are tank spikes for your %s (%d covered)."):format(
+					extW, extName, extC)
+			end
+		end
 	end
 	if windows then
 		local c, judged = coverageOf(windows, covered, uses)
@@ -159,6 +176,9 @@ function Signals.ForResult(result, fight, player)
 		row.num = ("%d/%d"):format(c, judged)
 		if windows > judged then
 			row.detail = ("%d spikes this fight; your cooldowns could reach %d."):format(windows, judged)
+		end
+		if extPart then
+			row.detail = row.detail and (row.detail .. " " .. extPart) or extPart
 		end
 		out[#out + 1] = row
 	end
@@ -444,8 +464,16 @@ function Signals.GroupAverages(results, fight)
 			local w, c, u
 			if r.role == "TANK" and (m.spikeWindows or 0) >= 2 then
 				w, c, u = m.spikeWindows, m.spikeCovered or 0, m.defensiveUses
-			elseif r.role == "HEALER" and (m.groupSpikeWindows or 0) >= 2 then
-				w, c, u = m.groupSpikeWindows, m.groupSpikeCovered or 0, m.groupCdCasts
+			elseif r.role == "HEALER" then
+				local extW, extC = 0, 0
+				if TP.EXTERNALS_BY_SPEC and p.specID and TP.EXTERNALS_BY_SPEC[p.specID] then
+					extW, extC = m.extWindows or 0, m.extCovered or 0
+				end
+				if (m.groupSpikeWindows or 0) + extW >= 2 then
+					w = (m.groupSpikeWindows or 0) + extW
+					c = (m.groupSpikeCovered or 0) + extC
+					u = m.groupCdCasts
+				end
 			end
 			if w then
 				local cov, judged = coverageOf(w, c, u)

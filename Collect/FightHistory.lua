@@ -722,6 +722,10 @@ function FightHistory:AddFromSegment(seg)
 						local sp = acc.spikes
 						if sp then
 							sp.taken = shift(sp.taken) or {}
+							-- hardest-hit records ride the same clock (they
+							-- were missed here until audit 2026-07-24: band
+							-- tooltips read the wrong seconds after a trim)
+							sp.top = shift(sp.top)
 							if sp.since then
 								sp.since = sp.since - first
 							end
@@ -730,6 +734,9 @@ function FightHistory:AddFromSegment(seg)
 							end
 							for i, c in ipairs(sp.casts or {}) do
 								sp.casts[i] = c - first
+							end
+							for _, ec in ipairs(sp.extCasts or {}) do
+								ec[1] = math.max(0, ec[1] - first)
 							end
 						end
 						if acc.taken then
@@ -897,6 +904,9 @@ function FightHistory:AddFromSegment(seg)
 			m.spikeWindows, m.spikeCovered = sd.spikeWindows, sd.spikeCovered
 			m.groupSpikeWindows, m.groupSpikeCovered = sd.groupSpikeWindows, sd.groupSpikeCovered
 			m.spikeMap, m.groupSpikeMap = sd.spikeMap, sd.groupSpikeMap
+			-- single-target externals vs tank spikes (engine gates to
+			-- healer specs owning one)
+			m.extWindows, m.extCovered = sd.extWindows, sd.extCovered
 			-- demonstrated capacity: the engine caps judged windows at
 			-- uses+1 so nobody is penalized for physics
 			m.defensiveUses, m.groupCdCasts = sd.defensiveUses, sd.groupCdCasts

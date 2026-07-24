@@ -151,6 +151,16 @@ tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags,
 		s.castNames = s.castNames or {}
 		s.castNames[#s.casts] = a2 -- parallel to casts[]
 	end
+	-- single-target externals also land on the TARGET's record (Josh
+	-- 2026-07-24): Guardian Spirit answering a tank spike is the healer's
+	-- play, so Compute needs to know whose spike it met and who threw it
+	if TP.EXTERNALS and TP.EXTERNALS[a1] and dstGUID and dstGUID ~= srcGUID then
+		local ts = ensure(seg, dstGUID)
+		if ts then
+			ts.extCasts = ts.extCasts or {}
+			ts.extCasts[#ts.extCasts + 1] = { GetTime() - seg.startTime, a2, srcGUID }
+		end
+	end
 	-- which raid CDs got pressed at all: the group card names the ones
 	-- that sat unused while heavy-damage moments went uncovered
 	seg.group = seg.group or {}
@@ -316,6 +326,31 @@ function Spikes.Compute(seg, duration)
 		end
 	end
 
+	-- TANK spike windows as the single-target-external pool (Josh
+	-- 2026-07-24): a Guardian Spirit / Ironbark riding a tank spike is
+	-- the healer's play. Union-credited like group windows (externals
+	-- rotate too); the engine gates the fields to healer specs that OWN
+	-- an external, so shamans are never judged on a button they lack.
+	local tankWins = {}
+	for _, acc in pairs(seg.players) do
+		if acc.role == "TANK" then
+			local s = acc.spikes
+			if s and s.maxHP then
+				for _, win in ipairs(Spikes.FindWindows(s.taken, duration, s.maxHP * Spikes.TANK_3S_SHARE)) do
+					local met, who
+					for _, ec in ipairs(s.extCasts or {}) do
+						if ec[1] >= win[1] - HEALER_PRE_SLOP and ec[1] <= win[2] + HEALER_SLOP then
+							met = true
+							who = ec
+							break
+						end
+					end
+					tankWins[#tankWins + 1] = { win[1], win[2], met, who }
+				end
+			end
+		end
+	end
+
 	for guid, acc in pairs(seg.players) do
 		local s = acc.spikes
 		local r = {}
@@ -331,10 +366,22 @@ function Spikes.Compute(seg, duration)
 						cov = cov + 1
 					end
 					-- {start, end, met, -, amount, what-hit, what-answered}:
-					-- the strip's bands and their hover tooltips
+					-- the strip's bands and their hover tooltips. [8] = an
+					-- EXTERNAL that rode the spike ("Beebcat's Ironbark") —
+					-- context for the hover, never coverage for the score
+					-- (the tank's verdict judges the tank's own buttons)
 					local amt, hitName = windowStats(s.taken, s.top, win[1], win[2])
+					local extWho
+					for _, ec in ipairs(s.extCasts or {}) do
+						if ec[1] >= win[1] - HEALER_PRE_SLOP and ec[1] <= win[2] + HEALER_SLOP then
+							local src = ec[3] and seg.players[ec[3]]
+							extWho = src and src.name and (src.name .. "'s " .. (ec[2] or "external"))
+								or ec[2]
+							break
+						end
+					end
 					r.spikeMap[#r.spikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), met or nil, nil,
-						amt, hitName, met and coveringSpanName(s, win[1], win[2]) or nil }
+						amt, hitName, met and coveringSpanName(s, win[1], win[2]) or nil, extWho }
 				end
 				r.spikeCovered = cov
 				-- demonstrated defensive capacity (completed aura spans,
@@ -384,6 +431,29 @@ function Spikes.Compute(seg, duration)
 				r.groupSpikeWindows = windows
 				r.groupSpikeCovered = cov
 				r.groupCdCasts = teamCasts
+			end
+		end
+		if #tankWins > 0 then
+			-- tank-spike windows this player could still answer (dead
+			-- healers can't Ironbark either); stamped for everyone, the
+			-- engine gates to healer specs owning an external
+			local diedAt = acc.deaths and (acc.deaths.total or 0) > 0
+				and acc.deaths.lastTime or nil
+			local ew, ec = 0, 0
+			for _, win in ipairs(tankWins) do
+				if not (diedAt and win[1] >= diedAt) then
+					ew = ew + 1
+					if win[3] then
+						ec = ec + 1
+					end
+				end
+			end
+			if ew > 0 then
+				r.extWindows = ew
+				r.extCovered = ec
+				-- capacity must ride along even when the fight had no
+				-- group-wide spikes (the cap math reads groupCdCasts)
+				r.groupCdCasts = r.groupCdCasts or teamCasts
 			end
 		end
 		if next(r) then

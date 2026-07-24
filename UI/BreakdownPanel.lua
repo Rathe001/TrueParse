@@ -694,7 +694,7 @@ local function infoHelp()
 			offensives = "Offensive cooldowns cast. Softens a missed Bloodlust window.",
 			mitigation = "Time with an active-mitigation buff up.",
 			avoidable = "No more than a fair share of avoidable damage.",
-			cdTiming = "Damage spikes with a cooldown active inside. Judged only on spikes your cooldowns could reach.",
+			cdTiming = "Damage spikes answered in time: raid CDs on group spikes, your external on tank spikes. Judged only on spikes your cooldowns could reach.",
 			rez = "Combat rez cast, from the combat log.",
 			coach = "The biggest gap between this fight and top parses of this spec.",
 			interrupts = "Casts this player interrupted.",
@@ -1033,6 +1033,12 @@ function Panel:ShowFor(fight, result)
 				lines[#lines + 1] = { "Covered", 0.33, 0.80, 0.33 }
 			else
 				lines[#lines + 1] = { isGroupMap and "You didn't cover it" or "No defensive", 0.90, 0.35, 0.35 }
+			end
+			-- a single-target external that rode the spike ([8], personal
+			-- maps): context for why you lived — the verdict above still
+			-- judges YOUR buttons only
+			if not isGroupMap and win[8] then
+				lines[#lines + 1] = { win[8] .. " rode this spike", 0.40, 0.85, 1.00 }
 			end
 			if not win[5] then
 				-- legacy capture: a dead hover reads as broken, so say why

@@ -2778,6 +2778,77 @@ end)()
 	check(gDeaths and not gDeaths.base, "group deaths pips stay out of Raw")
 end)()
 
+-- 34. Single-target externals (2026-07-24): Guardian Spirit / Ironbark
+-- answering TANK spikes joins the healer cdTiming pool — gated to specs
+-- that own an external, so shamans are never judged on a missing button.
+;(function()
+	local S = TP.Scoring.Signals
+
+	-- (a) Compute: tank windows + external casts -> per-healer ext fields,
+	-- and the tank's band learns who saved them ([8])
+	local seg = { startTime = 0, players = {
+		tank = { guid = "tank", name = "Pickledrot", role = "TANK", spikes = {
+			maxHP = 100000, n = 0, spans = {}, casts = {},
+			taken = { [10] = 46000, [40] = 46000 },
+			extCasts = { { 11, "Guardian Spirit", "hpriest" } },
+		} },
+		hpriest = { guid = "hpriest", name = "Beebcat", role = "HEALER", spikes = {
+			maxHP = 900000, n = 0, spans = {}, taken = {},
+			casts = { 11 }, castNames = { "Guardian Spirit" },
+		} },
+	} }
+	local out = TP.Spikes.Compute(seg, 60)
+	local t, h = out.tank, out.hpriest
+	check(t and t.spikeWindows == 2 and (t.spikeCovered or 0) == 0,
+		("tank fixture: 2 windows, none self-covered (%s/%s)"):format(
+			tostring(t and t.spikeWindows), tostring(t and t.spikeCovered)))
+	check(t and t.spikeMap[1][8] == "Beebcat's Guardian Spirit" and t.spikeMap[2][8] == nil,
+		("tank band [8] names the external (%s)"):format(tostring(t and t.spikeMap[1][8])))
+	check(h and h.extWindows == 2 and h.extCovered == 1,
+		("healer ext pool: 2 windows, 1 covered (%s/%s)"):format(
+			tostring(h and h.extWindows), tostring(h and h.extCovered)))
+	check(h and h.groupCdCasts == 1,
+		"capacity stamps even without group-wide spikes")
+
+	-- (b) engine gate: same metrics, opposite verdicts by kit — a holy
+	-- priest (owns GS) scores the ext pool, a resto shaman (owns none)
+	-- is never judged on it
+	local function healerFight(specID)
+		return { name = "F", isBoss = true, duration = 120, players = {
+			h = { guid = "h", name = "H", class = "PRIEST", role = "HEALER", specID = specID,
+				metrics = { healing = 1000, extWindows = 4, extCovered = 4, groupCdCasts = 4 } },
+			d = { guid = "d", name = "D", class = "MAGE", role = "DAMAGER",
+				metrics = { damage = 1000 } },
+		} }
+	end
+	local function cdAdj(specID)
+		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(healerFight(specID), {})) do
+			if r.guid == "h" then
+				return (r.adjustDetail or {}).cdTiming
+			end
+		end
+	end
+	check((cdAdj(257) or 0) > 0, "holy priest scores the external pool")
+	check(cdAdj(264) == nil, "resto shaman is never judged on a button they lack")
+
+	-- (c) the card row shows the combined pool with one denominator and
+	-- names the externals part in the detail
+	local sigs = S.ForResult({ role = "HEALER", adjustDetail = { cdTiming = 3 },
+		penaltyDetail = {}, breakdown = {} }, {},
+		{ specID = 257, metrics = { extWindows = 4, extCovered = 3,
+			groupSpikeWindows = 2, groupSpikeCovered = 1, groupCdCasts = 4 } })
+	local cdRow
+	for _, r in ipairs(sigs) do
+		if r.key == "cdTiming" then
+			cdRow = r
+		end
+	end
+	check(cdRow and cdRow.num == "4/5",
+		("healer row pools group + tank windows (%s)"):format(tostring(cdRow and cdRow.num)))
+	check(cdRow and cdRow.detail and cdRow.detail:find("Guardian Spirit", 1, true) ~= nil,
+		"detail names the spec's external")
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")
