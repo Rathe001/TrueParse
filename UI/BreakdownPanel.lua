@@ -979,22 +979,25 @@ function Panel:ShowFor(fight, result)
 			-- the band's own story (fields 5-7; absent on legacy records)
 			band.tipTitle = ("Spike %d:%02d\226\128\147%d:%02d"):format(
 				math.floor(win[1] / 60), win[1] % 60, math.floor(win[2] / 60), win[2] % 60)
+			local lines = {}
 			if win[5] then
-				local lines = {}
 				lines[1] = { win[6] and ("%s \194\183 %s over %ds"):format(
 					win[6], TP.FormatNumber(win[5]), math.max(1, win[2] - win[1]))
 					or ("%s over %ds"):format(TP.FormatNumber(win[5]), math.max(1, win[2] - win[1])), 1, 1, 1 }
-				if covered and win[7] then
-					lines[2] = { "Covered by " .. win[7], 0.33, 0.80, 0.33 }
-				elseif covered then
-					lines[2] = { "Covered", 0.33, 0.80, 0.33 }
-				else
-					lines[2] = { result.role == "TANK" and "No defensive" or "You didn't cover it", 0.90, 0.35, 0.35 }
-				end
-				band.tipLines = lines
-			else
-				band.tipLines = nil
 			end
+			if covered and win[7] then
+				lines[#lines + 1] = { "Covered by " .. win[7], 0.33, 0.80, 0.33 }
+			elseif covered then
+				lines[#lines + 1] = { "Covered", 0.33, 0.80, 0.33 }
+			else
+				lines[#lines + 1] = { result.role == "TANK" and "No defensive" or "You didn't cover it", 0.90, 0.35, 0.35 }
+			end
+			if not win[5] then
+				-- legacy capture: a dead hover reads as broken, so say why
+				-- the ability/damage detail is missing instead
+				lines[#lines + 1] = { "Recorded before hit tracking - new pulls carry the ability and damage.", 0.6, 0.6, 0.6, true }
+			end
+			band.tipLines = lines
 			band:Show()
 		end
 		for i = #map + 1, #(frame.stripBands or {}) do
