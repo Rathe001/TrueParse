@@ -839,6 +839,7 @@ function FightHistory:AddFromSegment(seg)
 			selfAbsorbs = acc.absorbs and acc.absorbs.selfTaken or nil,
 			swingsLanded = acc.taken and acc.taken.swings or nil,
 			swingsAvoided = acc.taken and acc.taken.avoided or nil,
+			swingDamageTaken = acc.taken and acc.taken.swingTotal or nil,
 			staggerPurified = acc.taken and acc.taken.staggerPurified or nil,
 			avoidableTaken = (function()
 				local av = acc.taken and acc.taken.avoidable or 0

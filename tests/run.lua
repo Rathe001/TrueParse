@@ -2988,6 +2988,67 @@ end)()
 	end
 	check(rrow and rrow.label == "Soaking", "Raw keeps the plain soak share")
 
+	-- avoidance no longer double-credits: recovery is judged against
+	-- would-have-taken damage (avoided swings priced at the average hit)
+	local dc = {
+		damageTaken = 1000000,
+		swingsLanded = 50, swingsAvoided = 50, -- avg hit 20k -> +1M avoided
+		swingDamageTaken = 1000000,
+		selfHealing = 500000, -- 500k / (1M + 1M) = 25%, not 50%
+		absorbedTaken = 300000, selfAbsorbs = 0,
+	}
+	local dv = S.TankingComposite(dc, nil)
+	-- avoidance 50 + shielded 300/(1000+300)=23.1 + recovery 25 -> /3
+	check(dv and math.abs(dv - (50 + 300 / 13 + 25) / 3) < 0.5,
+		("recovery prices avoided swings into the denominator (%.1f)"):format(dv or -1))
+
+	-- per-spec anchors: the same composite wears a different tier when
+	-- the spec's own population says so
+	local savedTA = TP.TANK_ANCHORS
+	TP.TANK_ANCHORS = { default = { 30, 55, 75 }, [250] = { 20, 40, 60 } }
+	local function tierFor(specID)
+		local sigs2 = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
+			breakdown = { damageTaken = { applicable = true, normalized = 60, value = 1000000 } } },
+			{}, { specID = specID, metrics = m })
+		for _, r in ipairs(sigs2) do
+			if r.key == "damageTaken" then
+				return r.tier
+			end
+		end
+	end
+	local dkTier, defTier = tierFor(250), tierFor(73)
+	check(dkTier and defTier and dkTier > defTier,
+		("spec anchors rank vs their own field (DK %.0f > default %.0f)"):format(
+			dkTier or -1, defTier or -1))
+	TP.TANK_ANCHORS = savedTA
+
+	-- a tank's Healing is others-only (self-sustain lives in Tanking)
+	local thFight = { name = "F", isBoss = true, duration = 120, players = {
+		t = { guid = "t", name = "T", class = "DRUID", role = "TANK", specID = 104,
+			metrics = { damage = 1000, healing = 900000, selfHealing = 600000,
+				selfAbsorbs = 100000, damageTaken = 500000 } },
+		d = { guid = "d", name = "D", class = "MAGE", role = "DAMAGER",
+			metrics = { damage = 1000, healing = 0 } },
+	} }
+	for _, r in ipairs(TP.Scoring.Engine.ScoreFight(thFight, {})) do
+		if r.guid == "t" then
+			check(r.breakdown.healing and r.breakdown.healing.value == 200000,
+				("tank healing subtracts self heal + self absorbs (%s)"):format(
+					tostring(r.breakdown.healing and r.breakdown.healing.value)))
+		end
+	end
+	local ohSigs = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
+		breakdown = { healing = { applicable = true, normalized = 40, pctile = 30, value = 200000 } } },
+		{}, { metrics = {} })
+	local oh
+	for _, r in ipairs(ohSigs) do
+		if r.key == "healing" then
+			oh = r
+		end
+	end
+	check(oh and oh.label == "Off-healing" and oh.raw,
+		("tank healing row reads Off-healing, never brackets (%s)"):format(tostring(oh and oh.label)))
+
 	-- stagger purified counts toward recovery (Josh 2026-07-24)
 	local mm2 = {
 		damageTaken = 1000000,

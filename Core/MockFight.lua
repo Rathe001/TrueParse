@@ -71,7 +71,7 @@ local function roster(duration, full)
 	local p = {}
 
 	p["MOCK-t1"] = player("MOCK-t1", "Thornveil", "DRUID", "TANK", 104, 566, {
-		damage = 112000 * k, healing = 30000 * k, damageTaken = 340000 * k,
+		damage = 112000 * k, healing = 118000 * k, damageTaken = 340000 * k,
 		selfHealing = 95000 * k, selfAbsorbs = 22000 * k,
 		blockedTaken = 30000 * k, absorbedTaken = 88000 * k,
 		swingsLanded = 176, swingsAvoided = 92,
@@ -88,7 +88,7 @@ local function roster(duration, full)
 		groupSpikeMap = team(nil),
 	})
 	p["MOCK-t2"] = player("MOCK-t2", "Ironvale", "MONK", "TANK", 268, 563, {
-		damage = 98000 * k, healing = 8000 * k, damageTaken = 300000 * k,
+		damage = 98000 * k, healing = 58000 * k, damageTaken = 300000 * k,
 		selfHealing = 42000 * k, selfAbsorbs = 8000 * k,
 		absorbedTaken = 60000 * k, staggerPurified = 68000 * k,
 		swingsLanded = 214, swingsAvoided = 71,

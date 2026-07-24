@@ -24,6 +24,10 @@ local function addTaken(seg, dstGUID, amount, spellID, spellName, blocked, isSwi
 		end
 		if isSwing then
 			acc.taken.swings = (acc.taken.swings or 0) + 1
+			-- swing damage sum -> average hit, which prices the AVOIDED
+			-- swings (recovery is judged against would-have-taken damage,
+			-- not taken — otherwise avoidance tanks got credited twice)
+			acc.taken.swingTotal = (acc.taken.swingTotal or 0) + amount
 		end
 		local avoidable = spellID and TP.AVOIDABLE and TP.AVOIDABLE[spellID] or false
 		if spellID then
@@ -165,6 +169,7 @@ tracker.MergePlayer = function(dst, src)
 	dst.taken.swings = (dst.taken.swings or 0) + (src.taken.swings or 0)
 	dst.taken.avoided = (dst.taken.avoided or 0) + (src.taken.avoided or 0)
 	dst.taken.staggerPurified = (dst.taken.staggerPurified or 0) + (src.taken.staggerPurified or 0)
+	dst.taken.swingTotal = (dst.taken.swingTotal or 0) + (src.taken.swingTotal or 0)
 end
 
 TP.Metrics:Register(tracker)

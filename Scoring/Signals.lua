@@ -68,13 +68,17 @@ end
 -- Needs 3+ ingredients (legacy records fall back to the plain Soaking
 -- share bar). ANCHORS ARE PROVISIONAL until field data recalibrates
 -- them — same road activity's anchors traveled.
-local function tankingRow(m, b)
-	local taken = m.damageTaken or b.value or 0
+-- Pure composite math, exported so scripts/analyze-history.lua can rank
+-- field captures with EXACTLY the shipped formula when emitting the
+-- per-spec anchors. Returns value, itemized parts — nil under 3
+-- ingredients (legacy records).
+function Signals.TankingComposite(m, soakNormalized)
+	local taken = m.damageTaken or 0
 	local sum, n, parts = 0, 0, {}
-	if b.normalized then
-		sum = sum + math.min(100, b.normalized)
+	if soakNormalized then
+		sum = sum + math.min(100, soakNormalized)
 		n = n + 1
-		parts[#parts + 1] = ("soak %.0f%%"):format(b.normalized)
+		parts[#parts + 1] = ("soak %.0f%%"):format(soakNormalized)
 	end
 	local swings = (m.swingsLanded or 0) + (m.swingsAvoided or 0)
 	if swings >= 20 then
@@ -96,7 +100,14 @@ local function tankingRow(m, b)
 	local purified = m.staggerPurified or 0
 	local rec = (m.selfHealing or 0) + selfAbs + purified
 	if taken > 0 and rec > 0 then
-		local recPct = math.min(100, rec / taken * 100)
+		-- recovery is judged against WOULD-HAVE-TAKEN damage: avoided
+		-- swings priced at the average landed hit join the denominator,
+		-- else high-avoidance tanks got credited twice (dodging made the
+		-- same self-healing read as a bigger share — Josh 2026-07-24)
+		local avgSwing = (m.swingsLanded or 0) > 0
+			and (m.swingDamageTaken or 0) / m.swingsLanded or 0
+		local wouldHave = taken + avgSwing * (m.swingsAvoided or 0)
+		local recPct = math.min(100, rec / wouldHave * 100)
 		sum = sum + recPct
 		n = n + 1
 		parts[#parts + 1] = ("%s self-recovered (%.0f%%)"):format(TP.FormatNumber(rec), recPct)
@@ -105,13 +116,26 @@ local function tankingRow(m, b)
 		end
 	end
 	if n < 3 then
+		return nil
+	end
+	return sum / n, parts
+end
+
+local function tankingRow(m, b, specID)
+	local v, parts = Signals.TankingComposite(m, b.normalized)
+	if not v then
 		return nil -- legacy record: not enough ingredients for a composite
 	end
-	local v = sum / n
 	local row = barRow("damageTaken", ICONS.damageTaken, "Tanking", v, nil)
 	row.b = b
 	row.base = true
-	row.tier = anchorTier(v, 30, 55, 75) -- PROVISIONAL, recalibrate from field data
+	-- per-spec population anchors (Data/TankAnchors.lua): each tank spec
+	-- ranks against ITS OWN field, so DK recovery and bear avoidance are
+	-- the same skill at the same tier. Uncalibrated specs use the
+	-- provisional default until analyze-history emits theirs.
+	local A = TP.TANK_ANCHORS or {}
+	local a = (specID and A[specID]) or A.default or { 30, 55, 75 }
+	row.tier = anchorTier(v, a[1], a[2], a[3])
 	row.tipTitle = "Tanking"
 	-- one ingredient per line (Josh 2026-07-24: the dot-joined line
 	-- overflowed the tip)
@@ -153,7 +177,7 @@ function Signals.ForResult(result, fight, player)
 			-- the composite is ours, not WCL's)
 			local handled
 			if key == "damageTaken" and role == "TANK" and not result.parse then
-				local trow = tankingRow(m, b)
+				local trow = tankingRow(m, b, player and player.specID)
 				if trow then
 					out[#out + 1] = trow
 					handled = true
@@ -166,12 +190,21 @@ function Signals.ForResult(result, fight, player)
 				if key == "damage" and role == "SUPPORT" and (b.attribution or b.noInput) then
 					label = "Amplified"
 				end
+				-- a tank's healing is others-only now (self-sustain lives in
+				-- Tanking): name it, and never wear WCL brackets — WCL's
+				-- tank-healing population includes self-healing, ours doesn't
+				if key == "healing" and role == "TANK" then
+					label = "Off-healing"
+				end
 				out[#out + 1] = barRow(key, ICONS[key], label, b.pctile or b.normalized or 0, nil)
 				out[#out].b = b -- the tooltip's gauge needs the full breakdown
 				out[#out].base = true -- makes the raw score; Raw mode keeps these
 				-- bracket colors are for PARSES only: a group-relative share
 				-- wears neutral, not purple
 				out[#out].raw = not (b.pctile or b.absolute) or nil
+				if key == "healing" and role == "TANK" then
+					out[#out].raw = true
+				end
 				if b.noInput then
 					-- an Aug with no Ebon Might report: the 50 is a PIN, not
 					-- a measurement — "?" keeps it from reading as mid-pack

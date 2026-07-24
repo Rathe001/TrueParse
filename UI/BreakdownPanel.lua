@@ -77,6 +77,9 @@ local function buildMetricTip()
 	metricTip.title:SetPoint("TOPLEFT", 10, -8)
 	metricTip.value = face(metricTip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
 	metricTip.value:SetPoint("TOPLEFT", 10, -24)
+	-- multi-line value blocks (Tanking) left-align like everything else;
+	-- without this the extra lines centered (Josh 2026-07-24)
+	metricTip.value:SetJustifyH("LEFT")
 	metricTip.median = face(metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 	metricTip.median:SetPoint("TOPLEFT", 10, -38)
 	-- no right anchor: the TIP fits its longest line (fitTipWidth), so
