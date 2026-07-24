@@ -16,6 +16,20 @@ local readyAtDeath = -1 -- -1 = didn't die this fight
 local activeSecs = 0
 local lastCastAt
 local ACTIVITY_CAP = 1.6
+-- Hardcasts and channels credit their real span, not one GCD: a 2s cast
+-- or an 8s channel is that many seconds of activity (capped for sanity).
+local ACTIVITY_SPAN_MAX = 10
+local castStartAt, castSpellID
+local channelStartAt
+
+local function creditActivity(t, span)
+	local cap = ACTIVITY_CAP
+	if span and span > cap and span < ACTIVITY_SPAN_MAX then
+		cap = span
+	end
+	activeSecs = activeSecs + (lastCastAt and math.min(t - lastCastAt, cap) or cap)
+	lastCastAt = t
+end
 
 -- Augmentation buff uptime: group auras are secret on Midnight, but Ebon
 -- Might keeps a personal aura on the Evoker for exactly as long as it runs
@@ -172,6 +186,7 @@ local function startWindow()
 	readyAtDeath = -1
 	activeSecs = 0
 	lastCastAt = nil
+	castStartAt, castSpellID, channelStartAt = nil, nil, nil
 	local ok, count = pcall(countConsumables)
 	consumablesAtPull = ok and count or 0
 	uptimeSeconds = 0
@@ -190,6 +205,9 @@ local frame = CreateFrame("Frame")
 -- unit-filtered: the handler only cares about our own casts, and the
 -- unfiltered event fires for every nameplate cast in a raid
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+frame:RegisterUnitEvent("UNIT_SPELLCAST_START", "player")
+frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
+frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("PLAYER_DEAD")
@@ -202,9 +220,23 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 				defensivesUsed = defensivesUsed + 1
 			end
 			local t = GetTime()
-			activeSecs = activeSecs + (lastCastAt and math.min(t - lastCastAt, ACTIVITY_CAP) or ACTIVITY_CAP)
-			lastCastAt = t
+			local span
+			if castStartAt and spellID == castSpellID then
+				span = t - castStartAt
+			end
+			castStartAt, castSpellID = nil, nil
+			creditActivity(t, span)
 		end
+	elseif event == "UNIT_SPELLCAST_START" then
+		castStartAt, castSpellID = GetTime(), spellID
+	elseif event == "UNIT_SPELLCAST_CHANNEL_START" then
+		channelStartAt = GetTime()
+	elseif event == "UNIT_SPELLCAST_CHANNEL_STOP" then
+		if combatStart and channelStartAt then
+			local t = GetTime()
+			creditActivity(t, t - channelStartAt)
+		end
+		channelStartAt = nil
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		if graceTicker then
 			-- back in combat while the group never left: same fight, keep

@@ -2540,6 +2540,95 @@ end)()
 	check(S.Downsample(nil, 60, 6) == nil, "no series, no shape")
 end)()
 
+-- 32. Activity tracker (2026-07-24): a completed hardcast credits its full
+-- cast time, not one GCD. Chain-casting 1.9s Wraths must read ~100%, not
+-- 84% (the field bug: 83 on a dummy while casting nonstop).
+;(function()
+	local clock = 0
+	GetTime = function()
+		return clock
+	end
+	loadModule("Metrics/Activity.lua", TP)
+	local tracker
+	for _, t in ipairs(TP.Metrics.trackers) do
+		if t.subevents and t.subevents.SPELL_CAST_START then
+			tracker = t
+		end
+	end
+	check(tracker ~= nil, "activity tracker registers a cast-start handler")
+	local start = tracker.subevents.SPELL_CAST_START
+	local success = tracker.subevents.SPELL_CAST_SUCCESS
+	local swing = tracker.subevents.SWING_DAMAGE
+
+	local WRATH, MOONFIRE = 5176, 8921
+	local function freshSeg()
+		local acc = {}
+		tracker.InitPlayer(acc)
+		return { players = { me = acc } }, acc
+	end
+
+	-- chain-hardcast: 10 back-to-back 1.9s Wraths = 19s active over 19s
+	local seg, acc = freshSeg()
+	for i = 0, 9 do
+		clock = i * 1.9
+		start(seg, "me", nil, nil, nil, WRATH)
+		clock = (i + 1) * 1.9
+		success(seg, "me", nil, nil, nil, WRATH)
+	end
+	check(math.abs(acc.activity.active - 19) < 0.01,
+		("chain-cast credits full cast time (%.1f/19)"):format(acc.activity.active))
+
+	-- instant spam still capped at one GCD-ish window per action
+	seg, acc = freshSeg()
+	clock = 0
+	success(seg, "me", nil, nil, nil, MOONFIRE)
+	clock = 1.5
+	success(seg, "me", nil, nil, nil, MOONFIRE)
+	check(math.abs(acc.activity.active - 3.1) < 0.01,
+		("instants credit 1.6 + gap (%.1f)"):format(acc.activity.active))
+
+	-- cancelled cast + idle can't inflate: the later instant's spell id
+	-- doesn't match the dangling cast start
+	seg, acc = freshSeg()
+	clock = 0
+	success(seg, "me", nil, nil, nil, WRATH)
+	clock = 0.5
+	start(seg, "me", nil, nil, nil, WRATH) -- cancelled, never succeeds
+	clock = 9
+	success(seg, "me", nil, nil, nil, MOONFIRE)
+	check(math.abs(acc.activity.active - 3.2) < 0.01,
+		("idle after a cancelled cast stays idle (%.1f)"):format(acc.activity.active))
+
+	-- idle BETWEEN casts only credits the cast itself, never the gap
+	seg, acc = freshSeg()
+	clock = 0
+	success(seg, "me", nil, nil, nil, WRATH)
+	clock = 10
+	start(seg, "me", nil, nil, nil, WRATH)
+	clock = 11.9
+	success(seg, "me", nil, nil, nil, WRATH)
+	check(math.abs(acc.activity.active - 3.5) < 0.01,
+		("cast after idle credits the cast, not the idle (%.1f)"):format(acc.activity.active))
+
+	-- absurd cast spans fall back to the GCD cap (stale-start guard)
+	seg, acc = freshSeg()
+	clock = 0
+	start(seg, "me", nil, nil, nil, WRATH)
+	clock = 30
+	success(seg, "me", nil, nil, nil, WRATH)
+	check(math.abs(acc.activity.active - 1.6) < 0.01,
+		("30s 'cast' credits one GCD window (%.1f)"):format(acc.activity.active))
+
+	-- melee path untouched
+	seg, acc = freshSeg()
+	clock = 0
+	swing(seg, "me")
+	clock = 1
+	swing(seg, "me")
+	check(math.abs(acc.activity.active - 2.6) < 0.01,
+		("swings credit as before (%.1f)"):format(acc.activity.active))
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")
