@@ -10,13 +10,21 @@ TP.TakenSpells = {}
 
 local RECAP_SLOTS = 5 -- last hits kept per player for the death recap
 
-local function addTaken(seg, dstGUID, amount, spellID, spellName)
+local function addTaken(seg, dstGUID, amount, spellID, spellName, blocked, isSwing)
 	if not amount then
 		return
 	end
 	local acc = seg.players[dstGUID] -- players only; pet damage taken ignored
 	if acc then
 		acc.taken.total = acc.taken.total + amount
+		-- tanking-stat ingredients (Josh 2026-07-24): shield-block value
+		-- and the melee-swing denominator for the avoidance rate
+		if blocked and blocked > 0 then
+			acc.taken.blocked = (acc.taken.blocked or 0) + blocked
+		end
+		if isSwing then
+			acc.taken.swings = (acc.taken.swings or 0) + 1
+		end
 		local avoidable = spellID and TP.AVOIDABLE and TP.AVOIDABLE[spellID] or false
 		if spellID then
 			if avoidable then
@@ -75,13 +83,14 @@ function tracker.RecapFor(acc)
 end
 TP.TakenRecap = tracker.RecapFor
 
--- SWING_DAMAGE suffix: amount, ...
-tracker.subevents.SWING_DAMAGE = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
-	addTaken(seg, dstGUID, a1)
+-- SWING_DAMAGE suffix: amount, overkill, school, resisted, blocked, ...
+tracker.subevents.SWING_DAMAGE = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a5)
+	addTaken(seg, dstGUID, a1, nil, nil, a5, true)
 end
--- SPELL/RANGE prefix: spellId, spellName, school, amount, ...
-local function spellTaken(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4)
-	addTaken(seg, dstGUID, a4, a1, a2)
+-- SPELL/RANGE prefix: spellId, spellName, school, then the damage
+-- suffix: amount, overkill, school, resisted, blocked, ...
+local function spellTaken(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a5, a6, a7, a8)
+	addTaken(seg, dstGUID, a4, a1, a2, a8)
 end
 tracker.subevents.SPELL_DAMAGE = spellTaken
 tracker.subevents.SPELL_PERIODIC_DAMAGE = spellTaken
@@ -95,12 +104,38 @@ tracker.subevents.ENVIRONMENTAL_DAMAGE = function(seg, srcGUID, dstGUID, srcFlag
 	addTaken(seg, dstGUID, a2, nil, a1 and ("Environment: " .. tostring(a1)) or "Environment")
 end
 
+-- fully-avoided attacks (dodge/parry/miss): the avoidance half of the
+-- tanking stat. Full absorbs arrive as SPELL_ABSORBED, not here.
+local AVOIDED = { DODGE = true, PARRY = true, MISS = true }
+local function addMiss(seg, dstGUID, missType)
+	if not (missType and AVOIDED[missType]) then
+		return
+	end
+	local acc = seg.players[dstGUID]
+	if acc then
+		acc.taken.avoided = (acc.taken.avoided or 0) + 1
+	end
+end
+-- SWING_MISSED suffix: missType, isOffHand, amountMissed
+tracker.subevents.SWING_MISSED = function(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1)
+	addMiss(seg, dstGUID, a1)
+end
+-- SPELL/RANGE_MISSED prefix spellId, spellName, school, then missType
+local function spellMissed(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4)
+	addMiss(seg, dstGUID, a4)
+end
+tracker.subevents.SPELL_MISSED = spellMissed
+tracker.subevents.RANGE_MISSED = spellMissed
+
 tracker.InitPlayer = function(acc)
 	acc.taken = { total = 0, avoidable = 0, ring = {}, ringAt = 0 }
 end
 tracker.MergePlayer = function(dst, src)
 	dst.taken.total = dst.taken.total + src.taken.total
 	dst.taken.avoidable = (dst.taken.avoidable or 0) + (src.taken.avoidable or 0)
+	dst.taken.blocked = (dst.taken.blocked or 0) + (src.taken.blocked or 0)
+	dst.taken.swings = (dst.taken.swings or 0) + (src.taken.swings or 0)
+	dst.taken.avoided = (dst.taken.avoided or 0) + (src.taken.avoided or 0)
 end
 
 TP.Metrics:Register(tracker)

@@ -104,7 +104,7 @@ local function showMetricTip(anchor, data)
 		buildMetricTip()
 	end
 	local b, key, duration = data.b, data.key, data.duration
-	metricTip.title:SetText(TP.METRIC_LABELS[key] or key)
+	metricTip.title:SetText(data.title or TP.METRIC_LABELS[key] or key)
 
 	-- The parse-bracket gauge implies a ranked population behind the
 	-- number: show it only for WCL-backed comparisons. Share-scored
@@ -901,11 +901,13 @@ function Panel:ShowFor(fight, result)
 		local row = nextRow()
 		renderSignal(row, sig, groupAvg)
 		if sig.b then
-			-- throughput bars keep the full metric tooltip (gauge + coach)
+			-- throughput bars keep the full metric tooltip (gauge + coach);
+			-- composite rows (Tanking) override the title + value line
 			row.metricData = { b = sig.b, key = sig.key,
 				duration = fight.duration, role = result.role,
 				specID = player and player.specID,
-				metrics = player and player.metrics }
+				metrics = player and player.metrics,
+				title = sig.tipTitle, valueText = sig.tipText }
 		elseif sig.kind == "other" and sig.items then
 			-- the rollup row: itemized breakdown in the tooltip
 			local lines = {}
@@ -943,10 +945,15 @@ function Panel:ShowFor(fight, result)
 		local gap = TP.Scoring.Insights.ParseGap(player.specID, player.metrics, fight.duration)
 		if gap then
 			local row = nextRow()
+			ensureSignalWidgets(row)
 			hideSignalWidgets(row)
-			row.symbol:SetText("\194\183")
-			row.symbol:SetTextColor(0.40, 0.85, 1.00)
-			row.text:SetText("Coach: " .. gap.text)
+			-- the coach wears a stopwatch, not a bullet (Josh 2026-07-24:
+			-- "something coach related"); the icon carries identity so the
+			-- text is pure advice
+			row.icon:SetTexture("Interface\\Icons\\INV_Misc_PocketWatch_01")
+			row.icon:Show()
+			row.symbol:SetText("")
+			row.text:SetText(gap.text)
 			row.text:SetTextColor(0.40, 0.85, 1.00)
 			row.tooltipData = { title = "Parse coach", lines = {
 				{ infoHelp().coach, 0.8, 0.8, 0.8, true } } }

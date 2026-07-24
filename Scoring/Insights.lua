@@ -328,7 +328,9 @@ function Insights.ParseGap(specID, m, duration)
 	if not best then
 		return nil
 	end
-	best.text = ("top parses cast %s %.0fx/min - you %.0f"):format(
-		best.spell, best.topCpm, best.myCpm)
+	-- human first (Josh 2026-07-24): lead with the action, then the
+	-- numbers that justify it
+	best.text = ("Cast %s more often - you average %.0f/min, top parses %.0f."):format(
+		best.spell, best.myCpm, best.topCpm)
 	return best
 end

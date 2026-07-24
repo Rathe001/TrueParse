@@ -166,10 +166,12 @@ table.
   bracket zones as segments with a white marker at your position — the
   zone structure IS the judgment, so the row shows the population, not
   just a fill. WCL percentiles mark their percentile; quantile-anchored
-  metrics (Active, Mitigation) mark their population TIER while the
-  number stays the raw %. One marker, nothing else: the field median is
-  the gauge's own green/blue seam. Own-rules bars (coverage, shares)
-  stay solid verdict-colored fills — no population, no brackets.
+  metrics (Active, Mitigation, the composite Tanking gauge) mark their
+  population TIER while the number stays the raw %. One marker, nothing
+  else: the field median is the gauge's own green/blue seam. Own-rules
+  bars (coverage, shares) stay solid verdict-colored fills — no
+  population, no brackets. (Tanking's anchors are provisional until
+  enough field data recalibrates them; Active's traveled the same road.)
 - A thin **comparison tick** on solid-fill bars marks the group's
   average: your fill vs the tick is the "my shape vs the group's
   shape" read. Gauges never carry one — two white ticks read as noise.

@@ -2379,8 +2379,9 @@ end)()
 	local PG = TP.Scoring.Insights.ParseGap
 	-- big Rejuvenation shortfall wins over the smaller Lifebloom one
 	local gap = PG(105, { profCasts = { [774] = 18, [33763] = 6, [100] = 9, [200] = 9 } }, 180)
-	check(gap and gap.spell == "Rejuvenation" and gap.text:find("21x/min", 1, true) and gap.text:find("you 6", 1, true),
-		("biggest shortfall wins, phrased tight (%s)"):format(tostring(gap and gap.text)))
+	check(gap and gap.spell == "Rejuvenation" and gap.text:find("top parses 21", 1, true)
+		and gap.text:find("you average 6/min", 1, true),
+		("biggest shortfall wins, phrased human (%s)"):format(tostring(gap and gap.text)))
 	-- multi-id casts SUM before comparing (9+9 over 3min = 6/min = at profile)
 	local m2 = { profCasts = { [774] = 63, [33763] = 14, [100] = 9, [200] = 9 } }
 	check(PG(105, m2, 180) == nil, "close to profile on every spell -> no coaching")
@@ -2433,7 +2434,7 @@ end)()
 			found = b.text
 		end
 	end
-	check(found and found:find("Coach: top parses cast Rejuvenation", 1, true),
+	check(found and found:find("Cast Rejuvenation more often", 1, true),
 		("coach bullet survives the impact filter (%s)"):format(tostring(found)))
 	TP.SpellProfiles = savedProf
 end)()
@@ -2930,6 +2931,70 @@ end)()
 			end
 		end
 	end
+end)()
+
+-- 36. The extrapolated Tanking gauge (2026-07-24): soak + avoidance +
+-- shielded + recovery, equal-weighted, provisional population anchors.
+;(function()
+	local S = TP.Scoring.Signals
+	local m = {
+		damageTaken = 1000000,
+		swingsLanded = 60, swingsAvoided = 40, -- 40% avoidance
+		blockedTaken = 100000, absorbedTaken = 200000, selfAbsorbs = 50000,
+		-- shielded = 100k + (200k-50k) = 250k -> 250/(1000+250) = 20%
+		selfHealing = 350000, -- recovery = (350k+50k)/1000k = 40%
+	}
+	local sigs = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
+		breakdown = { damageTaken = { applicable = true, normalized = 60, value = 1000000 } } },
+		{}, { metrics = m })
+	local row
+	for _, r in ipairs(sigs) do
+		if r.key == "damageTaken" then
+			row = r
+		end
+	end
+	-- (60 + 40 + 20 + 40) / 4 = 40
+	check(row and row.label == "Tanking" and math.abs(row.value - 40) < 0.5,
+		("tanking composite averages its ingredients (%s, %s)"):format(
+			tostring(row and row.label), tostring(row and row.value)))
+	check(row and row.tier and row.b and row.base,
+		"tanking row is population-tiered, tooltipped, and base")
+	check(row and row.tipText and row.tipText:find("avoided 40%% of 100 attacks") ~= nil
+		and row.tipText:find("self%-recovered") ~= nil,
+		("tanking tooltip itemizes (%s)"):format(tostring(row and row.tipText)))
+
+	-- legacy record (no new fields): plain Soaking share survives
+	local legacy = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
+		breakdown = { damageTaken = { applicable = true, normalized = 60, value = 1000000 } } },
+		{}, { metrics = { damageTaken = 1000000 } })
+	local lrow
+	for _, r in ipairs(legacy) do
+		if r.key == "damageTaken" then
+			lrow = r
+		end
+	end
+	check(lrow and lrow.label == "Soaking" and lrow.raw,
+		"legacy tank records keep the Soaking share bar")
+
+	-- Raw mode: the composite is ours, not WCL's — plain share there too
+	local rawSigs = S.ForResult({ role = "TANK", parse = true, adjustDetail = {}, penaltyDetail = {},
+		breakdown = { damageTaken = { applicable = true, normalized = 60, value = 1000000 } } },
+		{}, { metrics = m })
+	local rrow
+	for _, r in ipairs(rawSigs) do
+		if r.key == "damageTaken" then
+			rrow = r
+		end
+	end
+	check(rrow and rrow.label == "Soaking", "Raw keeps the plain soak share")
+
+	-- the coach speaks human now
+	local savedProf2 = TP.SpellProfiles
+	TP.SpellProfiles = { [105] = { spells = { { ids = { 774 }, name = "Rejuvenation", cpm = 20 } } } }
+	local gap = TP.Scoring.Insights.ParseGap(105, { profCasts = { [774] = 18 } }, 180)
+	check(gap and gap.text == "Cast Rejuvenation more often - you average 6/min, top parses 20.",
+		("coach text is human (%s)"):format(tostring(gap and gap.text)))
+	TP.SpellProfiles = savedProf2
 end)()
 
 print("")

@@ -72,6 +72,9 @@ local function roster(duration, full)
 
 	p["MOCK-t1"] = player("MOCK-t1", "Thornveil", "DRUID", "TANK", 104, 566, {
 		damage = 112000 * k, healing = 30000 * k, damageTaken = 340000 * k,
+		selfHealing = 95000 * k, selfAbsorbs = 22000 * k,
+		blockedTaken = 30000 * k, absorbedTaken = 88000 * k,
+		swingsLanded = 176, swingsAvoided = 92,
 		activityPct = 90, mitigationPct = 57, deaths = 0, defensives = 5,
 		consumables = 2, interrupts = 1,
 		spikeWindows = 4, spikeCovered = 3, defensiveUses = 5,
@@ -86,6 +89,9 @@ local function roster(duration, full)
 	})
 	p["MOCK-t2"] = player("MOCK-t2", "Ironvale", "WARRIOR", "TANK", 73, 563, {
 		damage = 98000 * k, healing = 8000 * k, damageTaken = 300000 * k,
+		selfHealing = 34000 * k, selfAbsorbs = 8000 * k,
+		blockedTaken = 105000 * k, absorbedTaken = 60000 * k,
+		swingsLanded = 214, swingsAvoided = 71,
 		activityPct = 86, mitigationPct = 44, deaths = 0, defensives = 4,
 		consumables = 2, interrupts = 2,
 		spikeWindows = 3, spikeCovered = 2, defensiveUses = 4,

@@ -833,6 +833,12 @@ function FightHistory:AddFromSegment(seg)
 			healingToTanks = acc.healing and acc.healing.toTanks or 0,
 			absorbs = acc.absorbs and acc.absorbs.granted or 0,
 			damageTaken = acc.taken and acc.taken.total or 0,
+			-- tanking-stat ingredients (2026-07-24): sums, so no rebase
+			blockedTaken = acc.taken and acc.taken.blocked or nil,
+			absorbedTaken = acc.absorbs and acc.absorbs.taken or nil,
+			selfAbsorbs = acc.absorbs and acc.absorbs.selfTaken or nil,
+			swingsLanded = acc.taken and acc.taken.swings or nil,
+			swingsAvoided = acc.taken and acc.taken.avoided or nil,
 			avoidableTaken = (function()
 				local av = acc.taken and acc.taken.avoidable or 0
 				-- post-call avoidable was on purpose: subtract it

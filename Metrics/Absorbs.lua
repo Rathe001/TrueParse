@@ -27,6 +27,17 @@ tracker.subevents.SPELL_ABSORBED = function(seg, srcGUID, dstGUID, srcFlags, dst
 	if acc then
 		acc.absorbs.granted = acc.absorbs.granted + amount
 	end
+	-- the VICTIM's view feeds the tanking stat (Josh 2026-07-24): how
+	-- much damage shields ate for them, and how much of that was their
+	-- own shield (self-sufficiency, not healer credit)
+	local vic = TP.Roster:ResolveGUID(dstGUID)
+	local vacc = vic and seg.players[vic]
+	if vacc then
+		vacc.absorbs.taken = (vacc.absorbs.taken or 0) + amount
+		if vic == guid then
+			vacc.absorbs.selfTaken = (vacc.absorbs.selfTaken or 0) + amount
+		end
+	end
 end
 
 tracker.InitPlayer = function(acc)
@@ -34,6 +45,8 @@ tracker.InitPlayer = function(acc)
 end
 tracker.MergePlayer = function(dst, src)
 	dst.absorbs.granted = dst.absorbs.granted + src.absorbs.granted
+	dst.absorbs.taken = (dst.absorbs.taken or 0) + (src.absorbs.taken or 0)
+	dst.absorbs.selfTaken = (dst.absorbs.selfTaken or 0) + (src.absorbs.selfTaken or 0)
 end
 
 TP.Metrics:Register(tracker)

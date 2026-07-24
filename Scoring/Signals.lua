@@ -59,6 +59,58 @@ local function anchorTier(pct, lo, hi, top)
 	return math.min(99, 95 + (pct - top))
 end
 
+-- The extrapolated tanking stat (Josh 2026-07-24): one number from four
+-- honest ingredients, equal-weighted across whichever the record has —
+--   soak    : share of the group's damage taken vs the expected tank share
+--   avoided : dodge/parry/miss rate against attacks that judged it
+--   shielded: blocked + external absorbs, as a share of what WOULD have hit
+--   recovery: self-healing + own absorbs (both effective), vs damage taken
+-- Needs 3+ ingredients (legacy records fall back to the plain Soaking
+-- share bar). ANCHORS ARE PROVISIONAL until field data recalibrates
+-- them — same road activity's anchors traveled.
+local function tankingRow(m, b)
+	local taken = m.damageTaken or b.value or 0
+	local sum, n, parts = 0, 0, {}
+	if b.normalized then
+		sum = sum + math.min(100, b.normalized)
+		n = n + 1
+		parts[#parts + 1] = ("soak %.0f%%"):format(b.normalized)
+	end
+	local swings = (m.swingsLanded or 0) + (m.swingsAvoided or 0)
+	if swings >= 20 then
+		local avoid = (m.swingsAvoided or 0) / swings * 100
+		sum = sum + avoid
+		n = n + 1
+		parts[#parts + 1] = ("avoided %.0f%% of %d attacks"):format(avoid, swings)
+	end
+	local selfAbs = m.selfAbsorbs or 0
+	local shielded = (m.blockedTaken or 0) + math.max(0, (m.absorbedTaken or 0) - selfAbs)
+	if taken > 0 and shielded > 0 then
+		local mitPct = shielded / (taken + shielded) * 100
+		sum = sum + mitPct
+		n = n + 1
+		parts[#parts + 1] = ("%s blocked+shielded (%.0f%%)"):format(TP.FormatNumber(shielded), mitPct)
+	end
+	local rec = (m.selfHealing or 0) + selfAbs
+	if taken > 0 and rec > 0 then
+		local recPct = math.min(100, rec / taken * 100)
+		sum = sum + recPct
+		n = n + 1
+		parts[#parts + 1] = ("%s self-recovered (%.0f%%)"):format(TP.FormatNumber(rec), recPct)
+	end
+	if n < 3 then
+		return nil -- legacy record: not enough ingredients for a composite
+	end
+	local v = sum / n
+	local row = barRow("damageTaken", ICONS.damageTaken, "Tanking", v, nil)
+	row.b = b
+	row.base = true
+	row.tier = anchorTier(v, 30, 55, 75) -- PROVISIONAL, recalibrate from field data
+	row.tipTitle = "Tanking"
+	row.tipText = table.concat(parts, " \194\183 ")
+	return row
+end
+
 -- Coverage math shared with GroupAverages: judged windows are capped at
 -- demonstrated capacity (uses+1); zero uses judges everything
 local function coverageOf(windows, covered, uses)
@@ -88,22 +140,35 @@ function Signals.ForResult(result, fight, player)
 	for _, key in ipairs(order) do
 		local b = result.breakdown[key]
 		if b and b.applicable and not b.lowDemand then
-			local label = key == "damageTaken" and "Soaking"
-				or key:sub(1, 1):upper() .. key:sub(2)
-			-- an Aug's "damage" is what their buffs enabled, not output
-			if key == "damage" and role == "SUPPORT" and (b.attribution or b.noInput) then
-				label = "Amplified"
+			-- tanks with a modern record get the composite Tanking gauge
+			-- instead of the grey soak share (Raw keeps the plain share:
+			-- the composite is ours, not WCL's)
+			local handled
+			if key == "damageTaken" and role == "TANK" and not result.parse then
+				local trow = tankingRow(m, b)
+				if trow then
+					out[#out + 1] = trow
+					handled = true
+				end
 			end
-			out[#out + 1] = barRow(key, ICONS[key], label, b.pctile or b.normalized or 0, nil)
-			out[#out].b = b -- the tooltip's gauge needs the full breakdown
-			out[#out].base = true -- makes the raw score; Raw mode keeps these
-			-- bracket colors are for PARSES only: a group-relative share
-			-- wears neutral, not purple
-			out[#out].raw = not (b.pctile or b.absolute) or nil
-			if b.noInput then
-				-- an Aug with no Ebon Might report: the 50 is a PIN, not a
-				-- measurement — "?" keeps it from reading as mid-pack share
-				out[#out].num = "?"
+			if not handled then
+				local label = key == "damageTaken" and "Soaking"
+					or key:sub(1, 1):upper() .. key:sub(2)
+				-- an Aug's "damage" is what their buffs enabled, not output
+				if key == "damage" and role == "SUPPORT" and (b.attribution or b.noInput) then
+					label = "Amplified"
+				end
+				out[#out + 1] = barRow(key, ICONS[key], label, b.pctile or b.normalized or 0, nil)
+				out[#out].b = b -- the tooltip's gauge needs the full breakdown
+				out[#out].base = true -- makes the raw score; Raw mode keeps these
+				-- bracket colors are for PARSES only: a group-relative share
+				-- wears neutral, not purple
+				out[#out].raw = not (b.pctile or b.absolute) or nil
+				if b.noInput then
+					-- an Aug with no Ebon Might report: the 50 is a PIN, not
+					-- a measurement — "?" keeps it from reading as mid-pack
+					out[#out].num = "?"
+				end
 			end
 		elseif b and b.applicable and b.lowDemand and key == "healing" and role == "HEALER" then
 			-- a healer's primary metric can't just vanish: the base sits
