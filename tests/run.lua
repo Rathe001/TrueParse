@@ -2885,6 +2885,51 @@ end)()
 	end
 	check(pulls[4].shape and #pulls[4].shape == 40 and pulls[4].calledWipeAt == 330,
 		"mock wipe carries shape + call for the collapse view")
+
+	-- the RETAIL night: meter + self-report surfaces only, incl. the Aug
+	local rp = TP.MockFight.BuildRetail(1000000)
+	check(#rp == 4 and rp[4].wipe == nil and rp[1].wipe, "retail mock: 3 wipes + a kill")
+	local rkill = rp[4]
+	check(rkill.shape == nil and rkill.totals.kickOpportunities == nil,
+		"retail mock carries no CLEU-only surfaces")
+	local rok, rres = pcall(TP.Scoring.Engine.ScoreFight, rkill, {})
+	check(rok and rres and #rres == 12,
+		("retail mock kill scores all 12 (%s)"):format(rok and #rres or tostring(rres)))
+	if rok then
+		local aug, augSigs
+		for _, r in ipairs(rres) do
+			if r.name == "Emberweave" then
+				aug = r
+			end
+			local sok, sigs = pcall(TP.Scoring.Signals.ForResult, r, rkill, rkill.players[r.guid])
+			check(sok and #sigs > 0, ("retail mock signals render for %s"):format(r.name))
+			if r.name == "Emberweave" and sok then
+				augSigs = sigs
+			end
+		end
+		check(aug and aug.role == "SUPPORT" and aug.breakdown.buffUptime
+			and aug.breakdown.buffUptime.applicable,
+			"retail mock Aug scores Ebon Might")
+		local sawEbon = false
+		for _, s in ipairs(augSigs or {}) do
+			if s.key == "buffUptime" then
+				sawEbon = true
+			end
+		end
+		check(sawEbon, "retail mock Aug card shows the Ebon Might row")
+		local gok2, grows2 = pcall(TP.Scoring.Signals.GroupRows, rres, rkill)
+		check(gok2 and #grows2 > 0, "retail mock group rows build")
+	end
+	-- wipe pulls withhold the Aug report: the "Amplified ?" pin path
+	local wok, wres = pcall(TP.Scoring.Engine.ScoreFight, rp[1], {})
+	if wok then
+		for _, r in ipairs(wres) do
+			if r.name == "Emberweave" then
+				check(r.breakdown.damage and r.breakdown.damage.noInput,
+					"retail mock wipe Aug pins no-input")
+			end
+		end
+	end
 end)()
 
 print("")

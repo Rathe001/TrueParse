@@ -215,6 +215,118 @@ local function mockFight(at, duration, over)
 	return f
 end
 
+-- ===== retail night (Midnight / C_DamageMeter) =====
+-- Only what retail can actually capture: meter metrics (damage, healing,
+-- taken, avoidable, interrupt/dispel COUNTS) plus self-reports (activity,
+-- defensives, consumables, death readiness, Aug uptime). Deliberately NO
+-- spike maps, kick opportunities, coach casts, lust tracking, raid-CD
+-- attribution, or fight shape — testing retail means seeing what retail
+-- really shows. Manual wipe calls and boss % survive (both retail-legit).
+local RBOSS = "Belo'ren, Child of Al'ar" -- uncapped Normal curve (n=921)
+local RZONE = "Sunfall Spire"
+
+local function rplayer(guid, name, class, role, specID, dmgRate, healRate, k, m)
+	m = m or {}
+	m.damage = dmgRate * k
+	m.healing = healRate * k
+	m.damageTaken = m.damageTaken or 90000 * k
+	return {
+		guid = guid, name = name, class = class, role = role,
+		specID = specID, ilvl = 720, metrics = m,
+	}
+end
+
+local function retailRoster(duration, full)
+	local k = duration
+	local p = {}
+	local function add(...)
+		local pl = rplayer(...)
+		p[pl.guid] = pl
+	end
+	add("MOCK-t1", "Bramblehold", "PALADIN", "TANK", 66, 2100000, 480000, k,
+		{ damageTaken = 340000 * k, avoidableTaken = 9000 * k,
+			activityPct = 92, defensives = 6, consumables = 2, interrupts = 4, deaths = 0 })
+	add("MOCK-t2", "Gravemarch", "DEATHKNIGHT", "TANK", 250, 1950000, 610000, k,
+		{ damageTaken = 310000 * k, avoidableTaken = 26000 * k,
+			activityPct = 88, defensives = 5, consumables = 2, interrupts = 3, deaths = 0 })
+	add("MOCK-h1", "Dawnmere", "PRIEST", "HEALER", 257, 260000, 3300000, k,
+		{ activityPct = 94, defensives = 2, consumables = 2, dispels = 5, deaths = 0 })
+	add("MOCK-h2", "Rootsong", "DRUID", "HEALER", 105, 310000, 3100000, k,
+		{ activityPct = 90, defensives = 1, consumables = 2, dispels = 7, deaths = 0 })
+	add("MOCK-h3", "Tidebound", "EVOKER", "HEALER", 1468, 420000, 3500000, k,
+		{ activityPct = 96, defensives = 2, consumables = 1, dispels = 3, deaths = 0 })
+	-- the Aug: their "damage" is what their buffs enabled; buffUptime is
+	-- the self-reported Ebon Might ratio (35% of the grade). On wipe
+	-- pulls the report is withheld so the "Amplified ?" pin shows too.
+	add("MOCK-s1", "Emberweave", "EVOKER", "SUPPORT", 1473, 1400000, 300000, k,
+		{ activityPct = 91, defensives = 1, consumables = 2, deaths = 0,
+			buffUptime = full and 0.68 or nil })
+	add("MOCK-d1", "Starveil", "MAGE", "DAMAGER", 63, 4300000, 90000, k,
+		{ avoidableTaken = 4000 * k, activityPct = 97, defensives = 3, consumables = 2,
+			interrupts = 2, deaths = 0 })
+	add("MOCK-d2", "Duskfang", "ROGUE", "DAMAGER", 259, 4100000, 80000, k,
+		{ avoidableTaken = 48000 * k, activityPct = 84, defensives = 0, consumables = 1,
+			interrupts = 5, deaths = full and 1 or 0 })
+	add("MOCK-d3", "Stormsower", "SHAMAN", "DAMAGER", 262, 3900000, 240000, k,
+		{ avoidableTaken = 7000 * k, activityPct = 93, defensives = 2, consumables = 2,
+			interrupts = 1, dispels = 2, deaths = 0 })
+	add("MOCK-d4", "Ashwhisper", "WARLOCK", "DAMAGER", 267, 4450000, 110000, k,
+		{ avoidableTaken = 11000 * k, activityPct = 95, defensives = 2, consumables = 2,
+			interrupts = 0, deaths = 0 })
+	add("MOCK-d5", "Wildmark", "HUNTER", "DAMAGER", 253, 4000000, 70000, k,
+		{ avoidableTaken = 6000 * k, activityPct = 89, defensives = 1, consumables = 2,
+			interrupts = 2, deaths = 0 })
+	add("MOCK-d6", "Moonscribe", "DRUID", "DAMAGER", 102, 3750000, 260000, k,
+		{ avoidableTaken = 9000 * k, activityPct = 87, defensives = 1,
+			interrupts = 0, deaths = 0 }) -- no consumables report: not running TrueParse
+	if full then
+		local d = p["MOCK-d2"]
+		d.deathTime = math.floor(duration * 0.8)
+		d.deathReadyDefensives = 2
+	end
+	return p
+end
+
+local function retailTotals(players)
+	local t = { damage = 0, healing = 0, interrupts = 0, dispels = 0 }
+	for _, pl in pairs(players) do
+		local m = pl.metrics
+		t.damage = t.damage + (m.damage or 0)
+		t.healing = t.healing + (m.healing or 0)
+		t.interrupts = t.interrupts + (m.interrupts or 0)
+		t.dispels = t.dispels + (m.dispels or 0)
+	end
+	t.dispelTypes = { Magic = true }
+	return t
+end
+
+local function retailFight(at, duration, over)
+	local full = not over.wipe
+	local players = retailRoster(duration, full)
+	local f = {
+		mock = true,
+		name = RBOSS, zone = RZONE, isBoss = true, hadVerdict = true,
+		encounterID = 3001, difficultyID = 14,
+		sessionID = "MOCK", runID = "MOCK",
+		duration = duration, capturedAt = at,
+		players = players,
+		totals = retailTotals(players),
+	}
+	for key, value in pairs(over) do
+		f[key] = value
+	end
+	return f
+end
+
+function MockFight.BuildRetail(now)
+	return {
+		retailFight(now - 5400, 55, { wipe = true, bossPct = 64 }),
+		retailFight(now - 4700, 88, { wipe = true, bossPct = 31 }),
+		retailFight(now - 3900, 104, { wipe = true, bossPct = 12, calledWipeAt = 92, wipeCalledBy = "Bramblehold" }),
+		retailFight(now - 3100, 122, { prevKillDuration = 141, prevKillAt = now - 7 * 86400 }),
+	}
+end
+
 -- oldest first; pure (headless tests validate the whole night scores)
 function MockFight.Build(now)
 	return {
@@ -233,13 +345,19 @@ function MockFight:Inject()
 		return
 	end
 	self:Clear(true)
-	for _, f in ipairs(MockFight.Build(time())) do
+	-- each client gets ITS OWN shape of night: injecting CLEU-only
+	-- surfaces on retail would show cards retail can never produce
+	local retail = TP.Compat and TP.Compat.IS_RETAIL
+	local pulls = retail and MockFight.BuildRetail(time()) or MockFight.Build(time())
+	for _, f in ipairs(pulls) do
 		-- inserted at index 1 each time = newest ends on top
 		table.insert(FH.fights, 1, f)
 	end
 	FH:Persist()
 	TP.MeterWindow:Refresh(true)
-	TP.Addon:Print("Injected a mock raid night: 4 Garrosh wipes + a kill (10 players, every card surface loaded). Click the group row for the graphs; '/tp mock clear' removes it.")
+	TP.Addon:Print(retail
+		and "Injected a mock retail night: 3 Belo'ren wipes + a kill (12 players, meter + self-report surfaces incl. the Aug). '/tp mock clear' removes it."
+		or "Injected a mock raid night: 4 Garrosh wipes + a kill (10 players, every card surface loaded). Click the group row for the graphs; '/tp mock clear' removes it.")
 end
 
 function MockFight:Clear(silent)
