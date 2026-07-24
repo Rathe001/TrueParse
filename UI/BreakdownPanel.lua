@@ -385,11 +385,19 @@ local function renderSignal(row, sig, groupAvg)
 		row.track:Show()
 		local v = sig.value or 0
 		local r, g, b
-		if sig.num then
-			-- coverage bars: verdict green/red, never bracket colors — a
-			-- 67% coverage is not a blue parse
-			local c = (sig.points or 0) >= 0 and MARK_GOOD or MARK_BAD
-			r, g, b = c[1], c[2], c[3]
+		if sig.num or sig.raw then
+			-- non-percentile bars (coverage, activity, mitigation, share
+			-- scores, unranked throughput): VERDICT colors, never brackets
+			-- — a 68% activity that costs points must not wear parse blue
+			-- (Josh 2026-07-24). Green earned, red cost, neutral otherwise.
+			local pts = sig.points or 0
+			if pts >= 0.5 then
+				r, g, b = MARK_GOOD[1], MARK_GOOD[2], MARK_GOOD[3]
+			elseif pts <= -0.5 then
+				r, g, b = MARK_BAD[1], MARK_BAD[2], MARK_BAD[3]
+			else
+				r, g, b = 0.58, 0.58, 0.63
+			end
 		else
 			r, g, b = TP.Scoring.Grades.ColorForScore(v)
 		end
@@ -405,19 +413,10 @@ local function renderSignal(row, sig, groupAvg)
 			row.tick:SetPoint("LEFT", row.track, "LEFT", w * math.min(99, avg) / 100, 0)
 			row.tick:Show()
 		end
-		if sig.num then
-			-- count bars ("2/3", "0/1") keep exact facts in the number and
-			-- color by verdict, not bracket (a coverage % isn't a parse)
-			row.num:SetText(sig.num)
-			if (sig.points or 0) >= 0 then
-				row.num:SetTextColor(MARK_GOOD[1], MARK_GOOD[2], MARK_GOOD[3])
-			else
-				row.num:SetTextColor(MARK_BAD[1], MARK_BAD[2], MARK_BAD[3])
-			end
-		else
-			row.num:SetText(("%d"):format(v + 0.5))
-			row.num:SetTextColor(r, g, b)
-		end
+		-- the number wears the same color the fill chose (verdict or
+		-- bracket) so a row never argues with itself
+		row.num:SetText(sig.num or ("%d"):format(v + 0.5))
+		row.num:SetTextColor(r, g, b)
 		row.num:Show()
 	elseif sig.kind == "squares" then
 		-- fixed 10-segment gauge, filled proportionally (Josh 2026-07-26:

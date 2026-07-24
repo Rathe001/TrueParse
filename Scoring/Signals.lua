@@ -72,17 +72,22 @@ function Signals.ForResult(result, fight, player)
 				or key:sub(1, 1):upper() .. key:sub(2)
 			out[#out + 1] = barRow(key, ICONS[key], label, b.pctile or b.normalized or 0, nil)
 			out[#out].b = b -- the tooltip's gauge needs the full breakdown
+			-- bracket colors are for PARSES only: a group-relative share
+			-- wears neutral, not purple
+			out[#out].raw = not (b.pctile or b.absolute) or nil
 		end
 	end
 
 	-- 2) activity (everyone reporting it)
 	if m.activityPct then
 		out[#out + 1] = barRow("activity", ICONS.activity, "Active", m.activityPct, ad.activity)
+		out[#out].raw = true -- a raw %, judged by anchors, not a parse
 	end
 
 	-- 3) mitigation (tanks)
 	if role == "TANK" and m.mitigationPct then
 		out[#out + 1] = barRow("mitigation", ICONS.mitigation, "Mitigation up", m.mitigationPct, ad.mitigation)
+		out[#out].raw = true
 	end
 
 	-- 4) cooldown timing as per-event squares with the availability cap
@@ -127,6 +132,7 @@ function Signals.ForResult(result, fight, player)
 	if bd and bd.applicable and (bd.value or 0) > 0 then
 		out[#out + 1] = barRow("dispels", ICONS.dispels, "Dispels", bd.normalized or 0, ad.dispels)
 		out[#out].count = bd.value
+		out[#out].raw = true -- share score, not a percentile
 	end
 
 	-- 7-9) everything WITHOUT a visualization rolls into one "Other" row
