@@ -644,7 +644,8 @@ end
 
 -- group-card visualization elements (fight shape, team coverage,
 -- staircase) — hidden wholesale when the shared frame shows a player
-local GROUP_VIZ = { "shapeLabel", "shapeCols", "covLabel", "covTrack", "covBands", "stairLabel", "stairCols" }
+local GROUP_VIZ = { "shapeLabel", "shapeCols", "covLabel", "covTrack", "covBands",
+	"stairLabel", "stairCols", "pShapeLabel", "pShapeCols" }
 local function hideGroupViz()
 	if not frame then
 		return
@@ -1000,6 +1001,80 @@ function Panel:ShowFor(fight, result)
 	fitWidth(rowIndex)
 
 	hideGroupViz() -- shared frame: group graphs never linger on players
+
+	-- the player's OWN fight shape (Josh 2026-07-24): healers healing/sec,
+	-- tanks intake/sec, dps damage/sec — low output and downtime read at a
+	-- glance. Hidden in Raw (our viz, not WCL's).
+	local pshape = not result.parse and player and player.metrics
+		and player.metrics.shape or nil
+	if pshape and #pshape > 1 and (fight.duration or 0) > 0 then
+		local peak = 0
+		for _, v in ipairs(pshape) do
+			peak = math.max(peak, v)
+		end
+		if peak > 0 then
+			if not frame.pShapeLabel then
+				frame.pShapeLabel = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
+			end
+			local series = result.role == "HEALER" and "your healing/sec"
+				or result.role == "TANK" and "damage intake/sec" or "your damage/sec"
+			if fight.lustAt and result.role ~= "TANK" then
+				series = series .. " \194\183 |cff66ccfflust|r"
+			end
+			if fight.calledWipeAt then
+				series = series .. " \194\183 |cffe64d4dafter the call|r"
+			end
+			y = y - 6
+			frame.pShapeLabel:ClearAllPoints()
+			frame.pShapeLabel:SetPoint("TOPLEFT", 12, y)
+			frame.pShapeLabel:SetText(series)
+			frame.pShapeLabel:Show()
+			y = y - 14
+			local n = #pshape
+			frame.pShapeCols = frame.pShapeCols or {}
+			for i = #frame.pShapeCols + 1, n + 4 do
+				local t = frame:CreateTexture(nil, "OVERLAY")
+				t:SetTexture("Interface\\Buttons\\WHITE8X8")
+				frame.pShapeCols[i] = t
+			end
+			local w = frame:GetWidth() - 24
+			local H = 22
+			local step = w / n
+			local cellDur = fight.duration / n
+			for i = 1, n do
+				local t = frame.pShapeCols[i]
+				local h = math.max(1, math.floor(pshape[i] / peak * H + 0.5))
+				local tMid = (i - 0.5) * cellDur
+				if fight.calledWipeAt and tMid >= fight.calledWipeAt then
+					t:SetVertexColor(0.90, 0.30, 0.30, 0.9)
+				elseif result.role ~= "TANK" and fight.lustAt
+					and tMid >= fight.lustAt and tMid <= fight.lustAt + 40 then
+					t:SetVertexColor(0.40, 0.80, 1.00, 0.95)
+				else
+					t:SetVertexColor(0.42, 0.44, 0.50, 0.95)
+				end
+				t:ClearAllPoints()
+				t:SetSize(math.max(1, step - 1), h)
+				t:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 12 + (i - 1) * step, y - H)
+				t:Show()
+			end
+			-- own death, marked where it happened
+			local di = n
+			for _, dt in ipairs(player.deathTimes or (player.deathTime and { player.deathTime } or {})) do
+				di = di + 1
+				local t = frame.pShapeCols[di]
+				if t then
+					t:SetVertexColor(0.95, 0.30, 0.30, 1)
+					t:ClearAllPoints()
+					t:SetSize(3, 3)
+					t:SetPoint("BOTTOMLEFT", frame, "TOPLEFT",
+						12 + math.min(w - 3, dt / fight.duration * w), y - H + H + 2)
+					t:Show()
+				end
+			end
+			y = y - H - 4
+		end
+	end
 
 	-- danger-window timeline (Josh 2026-07-24): healers see the GROUP's
 	-- spikes vs their own raid CDs; tanks AND DPS see their PERSONAL

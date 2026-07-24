@@ -746,6 +746,13 @@ function FightHistory:AddFromSegment(seg)
 								ec[1] = math.max(0, ec[1] - first)
 							end
 						end
+						-- per-player output series ride the trimmed clock too
+						if acc.damage then
+							acc.damage.out = shift(acc.damage.out)
+						end
+						if acc.healing then
+							acc.healing.out = shift(acc.healing.out)
+						end
 						if acc.taken then
 							acc.taken.avB = shift(acc.taken.avB)
 							for _, slot in ipairs(acc.taken.ring or {}) do
@@ -925,6 +932,21 @@ function FightHistory:AddFromSegment(seg)
 			-- demonstrated capacity: the engine caps judged windows at
 			-- uses+1 so nobody is penalized for physics
 			m.defensiveUses, m.groupCdCasts = sd.defensiveUses, sd.groupCdCasts
+		end
+		-- the player's OWN fight shape (Josh 2026-07-24): healers healing,
+		-- tanks intake, everyone else damage — downtime made visible
+		if TP.Scoring.Signals and (seg.duration or 0) > 0 then
+			local series
+			if acc.role == "HEALER" then
+				series = acc.healing and acc.healing.out
+			elseif acc.role == "TANK" then
+				series = acc.spikes and acc.spikes.taken
+			else
+				series = acc.damage and acc.damage.out
+			end
+			if series then
+				m.shape = TP.Scoring.Signals.Downsample(series, seg.duration, 40)
+			end
 		end
 		-- dispel reaction time (avg seconds a dispelled debuff sat there)
 		if acc.dispels and (acc.dispels.reactN or 0) > 0 then

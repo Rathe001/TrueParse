@@ -42,11 +42,11 @@ local function groupMap(mineSet, whoName, whoSpell)
 	return wins
 end
 
-local function shape(duration, lustAt, collapseAt)
+local function shape(duration, lustAt, collapseAt, seed)
 	local cells = {}
 	for i = 1, 40 do
 		local t = (i - 0.5) / 40 * duration
-		local v = 420 + 40 * math.sin(i * 1.7) + (i % 3) * 25
+		local v = 420 + 40 * math.sin(i * 1.7 + (seed or 0)) + (i % 3) * 25
 		if t < 8 then
 			v = v * (t / 8) -- opener ramp
 		end
@@ -166,6 +166,16 @@ local function roster(duration, full)
 		activityPct = 88, deaths = 0, defensives = 1, consumables = 2,
 		lustCasts = 1, lustPotion = 1, interrupts = 1,
 	})
+
+	-- per-player fight shapes (healers healing, tanks intake, dps damage)
+	if full then
+		local idx = 0
+		for _, pl in pairs(p) do
+			idx = idx + 1
+			pl.metrics.shape = shape(duration,
+				pl.role == "DAMAGER" and 14 or nil, nil, idx * 1.3)
+		end
+	end
 
 	-- the rogue's death gets the full treatment: recap hover + "CDs
 	-- unused" (2 defensives sat ready at the moment of death)

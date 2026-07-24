@@ -49,6 +49,17 @@ local function addDamage(seg, srcGUID, dstGUID, dstFlags, amount, overkill)
 	local d = acc.damage
 	d.total = d.total + amount
 	d.useful = d.useful + amount - max(overkill or 0, 0)
+	-- per-second OWN output: the player card's fight-shape line shows
+	-- each player's downtime (Josh 2026-07-24)
+	if seg.startTime then
+		local ob = d.out
+		if not ob then
+			ob = {}
+			d.out = ob
+		end
+		local ot = math.floor(GetTime() - seg.startTime)
+		ob[ot] = (ob[ot] or 0) + amount
+	end
 	-- boss vs adds split, when the encounter told us who the boss is
 	if seg.bossGUIDs and seg.bossGUIDs[dstGUID] then
 		d.toBoss = d.toBoss + amount - max(overkill or 0, 0)

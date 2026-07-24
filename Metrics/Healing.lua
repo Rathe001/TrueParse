@@ -35,6 +35,17 @@ local function heal(seg, srcGUID, dstGUID, srcFlags, dstFlags, a1, a2, a3, a4, a
 	local effective = a4 - (a5 or 0)
 	acc.healing.effective = acc.healing.effective + effective
 	acc.healing.overheal = acc.healing.overheal + (a5 or 0)
+	-- per-second OWN effective healing: the healer card's fight-shape
+	-- line (Josh 2026-07-24)
+	if seg.startTime and effective > 0 then
+		local ob = acc.healing.out
+		if not ob then
+			ob = {}
+			acc.healing.out = ob
+		end
+		local ot = math.floor(GetTime() - seg.startTime)
+		ob[ot] = (ob[ot] or 0) + effective
+	end
 	-- self vs others: "Great off-healing" and "Great self-sustain" are
 	-- different compliments (pet heals landing on the owner count as self)
 	local dstPlayer = TP.Roster:ResolveGUID(dstGUID)
