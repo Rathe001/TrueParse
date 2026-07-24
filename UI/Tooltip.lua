@@ -40,8 +40,10 @@ local function lineFS(i)
 	return fs
 end
 
--- owner: frame to anchor to. anchor: "TOP" (above the owner) or "RIGHT"
--- (beside it, flipping to whichever side has screen room).
+-- owner: frame to anchor to. anchor: "TOP" (above the owner), "RIGHT"
+-- (beside it, flipping to whichever side has screen room), or
+-- "FORCE_LEFT"/"FORCE_RIGHT" (a fixed side — the breakdown panel uses
+-- these so its tooltips never flip and never cover the meter window).
 -- data: array of { text, r, g, b } lines; text wraps to the card width.
 function Tooltip:Show(owner, anchor, title, data)
 	if not tip then
@@ -68,6 +70,10 @@ function Tooltip:Show(owner, anchor, title, data)
 	tip:ClearAllPoints()
 	if anchor == "TOP" then
 		tip:SetPoint("BOTTOM", owner, "TOP", 0, 6)
+	elseif anchor == "FORCE_LEFT" then
+		tip:SetPoint("RIGHT", owner, "LEFT", -14, 0)
+	elseif anchor == "FORCE_RIGHT" then
+		tip:SetPoint("LEFT", owner, "RIGHT", 14, 0)
 	elseif (owner:GetRight() or 0) + WIDTH + 12 <= UIParent:GetWidth() then
 		tip:SetPoint("LEFT", owner, "RIGHT", 8, 0)
 	else

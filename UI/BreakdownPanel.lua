@@ -19,6 +19,22 @@ local PERCENT_METRICS = { buffUptime = true }
 local frame
 local rows = {}
 
+-- Tooltips from panel rows always open on the panel's FAR side — away
+-- from the meter window — so they never cover it and never flip
+-- direction mid-session (Josh 2026-07-26: "they randomly open either
+-- left or right"). The side only changes if the window itself moves.
+local function tipSide()
+	local win = _G.TrueParseWindow
+	if win and frame then
+		local wx = win:GetCenter()
+		local fx = frame:GetCenter()
+		if wx and fx then
+			return fx <= wx and "LEFT" or "RIGHT"
+		end
+	end
+	return "LEFT"
+end
+
 -- Compact visual tooltip for METRIC bullets: what you did, the spec median,
 -- and a parse-bracket gauge with a tick at your position — glanceable where
 -- the old paragraph wasn't. Non-metric bullets use TP.Tooltip (same card).
@@ -213,13 +229,8 @@ local function showMetricTip(anchor, data)
 	metricTip:SetWidth(math.min(needed, 430))
 
 	metricTip:ClearAllPoints()
-	-- flip to whichever side of the row has room (the panel itself may sit
-	-- left of the meter window near the screen edge)
-	if (anchor:GetRight() or 0) + metricTip:GetWidth() + 12 <= UIParent:GetWidth() then
-		metricTip:SetPoint("LEFT", anchor, "RIGHT", 8, 0)
-	else
-		metricTip:SetPoint("RIGHT", anchor, "LEFT", -8, 0)
-	end
+	metricTip:SetPoint(tipSide() == "LEFT" and "RIGHT" or "LEFT", anchor,
+		tipSide() == "LEFT" and "LEFT" or "RIGHT", tipSide() == "LEFT" and -14 or 14, 0)
 	metricTip:Show()
 end
 
@@ -232,7 +243,7 @@ local function rowEnter(self)
 	if not d then
 		return
 	end
-	TP.Tooltip:Show(self, "RIGHT", d.title, d.lines)
+	TP.Tooltip:Show(self, tipSide() == "LEFT" and "FORCE_LEFT" or "FORCE_RIGHT", d.title, d.lines)
 end
 
 local function rowLeave()

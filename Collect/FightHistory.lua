@@ -1172,10 +1172,12 @@ function FightHistory:OnEnable()
 			-- older captures stored Blizzard's "(!) " prefix in the name
 			f.name = f.name:gsub("^%(!%)%s*", "")
 		end
-		if f and f.wipe and f.bossPct and f.bossPct < 0.5 then
-			-- pre-2026-07-23 sampler latched untargetable transition
-			-- bosses at ~0 HP ("best 0%" on a wipe is a contradiction);
-			-- those readings poison the best-pull line forever — drop them
+		-- Records captured before the v1.5.4 sampler rewrite (epoch below =
+		-- its exact commit) carry running-MIN percentages that phase bosses
+		-- poisoned (Garrosh min-latched 3% on pulls that died in phase 2).
+		-- Untrustworthy by definition — show plain (wipe) for those and let
+		-- percentages mean "measured by the honest sampler".
+		if f and f.wipe and f.bossPct and (f.capturedAt or 0) < 1784858547 then
 			f.bossPct = nil
 		end
 	end
