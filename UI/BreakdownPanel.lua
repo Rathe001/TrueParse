@@ -279,9 +279,11 @@ end
 -- Each row: [icon][verdict label][marks: bar/squares/pips/glyph][num][pts]
 -- Widgets are created lazily and shared with the legacy bullet layout
 -- (awards and the group card still render symbol+text rows).
-local MARK_POOL = 12
+local MARK_POOL = 10 -- fixed segment count: gauges always span the area
 local CONTENT_X = 116 -- marks start after icon(16) + label(~80)
 local NUM_W, PTS_W = 30, 26
+local BAR_W = 300 - 12 - CONTENT_X - (NUM_W + PTS_W + 14) -- content width
+local SEG_W = math.floor((BAR_W - (MARK_POOL - 1) * 2) / MARK_POOL)
 
 local function ensureSignalWidgets(row)
 	if row.icon then
@@ -318,8 +320,8 @@ local function ensureSignalWidgets(row)
 	row.marks = {}
 	for i = 1, MARK_POOL do
 		local t = row:CreateTexture(nil, "OVERLAY")
-		t:SetSize(10, 10)
-		t:SetPoint("LEFT", CONTENT_X + (i - 1) * 13, 0)
+		t:SetSize(SEG_W, 9)
+		t:SetPoint("LEFT", CONTENT_X + (i - 1) * (SEG_W + 2), 0)
 		row.marks[i] = t
 	end
 end
@@ -386,7 +388,7 @@ local function renderSignal(row, sig, groupAvg)
 		row.fill:SetColorTexture(r, g, b, 0.9)
 		-- fixed geometry: anchors haven't settled on first render, so
 		-- GetWidth() lies — the card is WIDTH wide by construction
-		local w = WIDTH - 12 - CONTENT_X - (NUM_W + PTS_W + 14)
+		local w = BAR_W
 		row.fill:SetWidth(math.max(1, w * math.min(99, v) / 100))
 		row.fill:Show()
 		local avg = groupAvg and groupAvg[sig.key]
@@ -398,51 +400,62 @@ local function renderSignal(row, sig, groupAvg)
 		row.num:SetText(("%d"):format(v + 0.5))
 		row.num:SetTextColor(r, g, b)
 		row.num:Show()
-	elseif sig.kind == "squares" or sig.kind == "pips" or sig.kind == "glyph" then
-		local seq = {}
-		if sig.kind == "squares" then
-			for _ = 1, sig.good or 0 do seq[#seq + 1] = MARK_GOOD end
-			for _ = 1, sig.bad or 0 do seq[#seq + 1] = MARK_BAD end
-			for _ = 1, sig.ghost or 0 do seq[#seq + 1] = MARK_GHOST end
-		elseif sig.kind == "pips" then
-			for _ = 1, math.min(5, sig.count or 0) do seq[#seq + 1] = MARK_BAD end
+	elseif sig.kind == "squares" then
+		-- fixed 10-segment gauge, filled proportionally (Josh 2026-07-26:
+		-- raw per-event squares looked lonely at 1 and overflowed at 12+).
+		-- Every nonzero share gets at least one segment; exact counts ride
+		-- the number column.
+		local good, bad, ghost = sig.good or 0, sig.bad or 0, sig.ghost or 0
+		local total = good + bad + ghost
+		if total > 0 then
+			local cells = { 0, 0, 0 }
+			local shares = { good, bad, ghost }
+			local assigned = 0
+			for i = 1, 3 do
+				if shares[i] > 0 then
+					cells[i] = math.max(1, math.floor(shares[i] / total * MARK_POOL + 0.5))
+					assigned = assigned + cells[i]
+				end
+			end
+			-- trim/pad the largest share so cells sum to the pool exactly
+			local bigI = 1
+			for i = 2, 3 do
+				if cells[i] > cells[bigI] then
+					bigI = i
+				end
+			end
+			cells[bigI] = math.max(1, cells[bigI] + (MARK_POOL - assigned))
+			local colors = { MARK_GOOD, MARK_BAD, MARK_GHOST }
+			local idx = 0
+			for i = 1, 3 do
+				for _ = 1, cells[i] do
+					idx = idx + 1
+					local t = row.marks[idx]
+					if t then
+						t:SetColorTexture(colors[i][1], colors[i][2], colors[i][3], 1)
+						t:Show()
+					end
+				end
+			end
+		end
+		row.num:SetText(("%d/%d"):format(good, total))
+		if (sig.points or 0) >= 0 then
+			row.num:SetTextColor(MARK_GOOD[1], MARK_GOOD[2], MARK_GOOD[3])
 		else
-			seq[1] = sig.good and MARK_GOOD or MARK_BAD
+			row.num:SetTextColor(MARK_BAD[1], MARK_BAD[2], MARK_BAD[3])
 		end
-		local overflow = #seq - MARK_POOL
-		for i, t in ipairs(row.marks) do
-			local c = seq[i]
-			if c then
-				t:SetColorTexture(c[1], c[2], c[3], 1)
-				t:Show()
-			else
-				t:Hide()
-			end
-		end
-		local numText, nr, ng, nb
-		if sig.kind == "squares" then
-			local total = (sig.good or 0) + (sig.bad or 0) + (sig.ghost or 0)
-			numText = ("%d/%d"):format(sig.good or 0, total)
-			if (sig.points or 0) >= 0 then
-				nr, ng, nb = MARK_GOOD[1], MARK_GOOD[2], MARK_GOOD[3]
-			else
-				nr, ng, nb = MARK_BAD[1], MARK_BAD[2], MARK_BAD[3]
-			end
-		elseif sig.kind == "pips" then
-			numText = tostring(sig.count or 0)
-			if overflow > 0 then
-				numText = numText -- count already says it; pips just cap
-			end
-			nr, ng, nb = MARK_BAD[1], MARK_BAD[2], MARK_BAD[3]
-		else
-			numText = ""
-		end
-		if numText ~= "" then
-			row.num:SetText(numText)
-			row.num:SetTextColor(nr, ng, nb)
+		row.num:Show()
+	elseif sig.kind == "pips" then
+		-- counts need no marks: the red label + number carry it
+		row.num:SetText(tostring(sig.count or 0))
+		row.num:SetTextColor(MARK_BAD[1], MARK_BAD[2], MARK_BAD[3])
+		row.num:Show()
+	elseif sig.kind == "glyph" then
+		-- binaries need no marks either: verdict label + points say it
+		if sig.count then
+			row.num:SetText(tostring(sig.count))
+			row.num:SetTextColor(LABEL_INK[1], LABEL_INK[2], LABEL_INK[3])
 			row.num:Show()
-		else
-			row.num:SetText("")
 		end
 	end
 end

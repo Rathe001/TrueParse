@@ -120,12 +120,15 @@ function Signals.ForResult(result, fight, player)
 		out[#out].count = bd.value
 	end
 
-	-- 7) defensives + rez: plain good-square counts
+	-- 7) defensives + rez: plain counts — no marks (a gauge of all-good
+	-- for "2/2" decorated nothing; label + count + points carry it)
 	if (m.defensives or 0) > 0 then
-		out[#out + 1] = squareRow("defensives", ICONS.defensives, "Defensives", m.defensives, 0, 0, ad.defensives)
+		out[#out + 1] = { key = "defensives", kind = "glyph", icon = ICONS.defensives,
+			label = "Defensives", good = true, count = m.defensives, points = ad.defensives }
 	end
 	if (m.combatRezzes or 0) > 0 then
-		out[#out + 1] = squareRow("rez", ICONS.rez, "Combat rez", m.combatRezzes, 0, 0, ad.rez)
+		out[#out + 1] = { key = "rez", kind = "glyph", icon = ICONS.rez,
+			label = "Combat rez", good = true, count = m.combatRezzes, points = ad.rez }
 	end
 
 	-- 8) lust alignment glyph (DPS with an observed window)
