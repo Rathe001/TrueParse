@@ -1087,13 +1087,15 @@ function Panel:ShowFor(fight, result)
 			-- chunky discrete blocks (Josh 2026-07-24: the design-mock strip
 			-- reads as clean event blocks; true-scale 3px slivers packed
 			-- edge-to-edge read as smudge): 8px floor, 2px gap enforced,
-			-- width still stretches for genuinely long spikes
-			local left = win[1] / fight.duration * w
+			-- width still stretches for genuinely long spikes. Blocks
+			-- CENTER on the spike's true moment so they line up with the
+			-- fight-shape graph above (left-anchoring drifted them right)
 			local width = math.max(BAND_MIN, (win[2] - win[1] + 1) / fight.duration * w)
+			local left = (win[1] + win[2] + 1) / 2 / fight.duration * w - width / 2
 			if lastRight and left < lastRight + 2 then
 				left = lastRight + 2
 			end
-			left = math.min(left, w - BAND_MIN)
+			left = math.max(0, math.min(left, w - BAND_MIN))
 			width = math.min(width, w - left)
 			lastRight = left + width
 			band:ClearAllPoints()
@@ -1601,15 +1603,16 @@ function Panel:ShowForGroup(fight, results)
 			end)
 			frame.covBands[i] = band
 		end
-		local lastRight -- same chunky-block layout as the player strip
+		local lastRight -- same chunky-block layout as the player strip:
+		-- centered on the spike's true moment, collisions resolved after
 		for i, win in ipairs(teamMap) do
 			local band = frame.covBands[i]
-			local left = win[1] / fight.duration * w
 			local bw = math.max(BAND_MIN, (win[2] - win[1] + 1) / fight.duration * w)
+			local left = (win[1] + win[2] + 1) / 2 / fight.duration * w - bw / 2
 			if lastRight and left < lastRight + 2 then
 				left = lastRight + 2
 			end
-			left = math.min(left, w - BAND_MIN)
+			left = math.max(0, math.min(left, w - BAND_MIN))
 			bw = math.min(bw, w - left)
 			lastRight = left + bw
 			if win[3] then
