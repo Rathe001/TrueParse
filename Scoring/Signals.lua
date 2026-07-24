@@ -30,7 +30,9 @@ local ICONS = {
 	mitigation = ICON .. "Ability_Defend",
 	avoidable = ICON .. "Spell_Fire_SelfDestruct",
 	buffUptime = ICON .. "Spell_Nature_UnyieldingStamina",
+	speed = ICON .. "Ability_Rogue_Sprint",
 }
+Signals.ICONS = ICONS -- the panel constructs a few group rows itself
 
 -- Verdict labels (Josh 2026-07-26: marks alone hide findings like
 -- "missed the Bloodlust window" — users must never have to compute the
@@ -232,6 +234,101 @@ function Signals.ForResult(result, fight, player)
 	end
 
 	return out
+end
+
+-- Group-card signal rows (the redesign's last surface): transforms
+-- Bullets.ForGroup's TESTED output into the card's row model — bars
+-- for coverage stories, glyph verdicts for the advisors, one Other
+-- rollup. Parsing the strings ForGroup already builds keeps a single
+-- source of truth and its whole test suite intact.
+function Signals.GroupRows(results, fight)
+	local rows, others = {}, {}
+	local function ptsOf(text)
+		return tonumber((text or ""):match("%(([%+%-]%d+)%)%s*$"))
+	end
+	local function stripPts(text)
+		return (text or ""):gsub("%s*%([%+%-]%d+%)%s*$", "")
+	end
+	for _, bl in ipairs(TP.Scoring.Bullets.ForGroup(results, fight)) do
+		local text = bl.text or ""
+		local pts = ptsOf(text)
+		if bl.kind == "metric" and (bl.key == "damage" or bl.key == "healing") and bl.avg then
+			local row = barRow(bl.key, ICONS[bl.key],
+				bl.key == "damage" and "Damage" or "Healing", bl.avg, nil)
+			row.raw = not bl.wclBacked or nil
+			row.groupB = { value = bl.total, normalized = bl.avg, wclBacked = bl.wclBacked }
+			row.players = bl.players
+			rows[#rows + 1] = row
+		elseif bl.key == "healing" then
+			others[#others + 1] = { label = "Little to heal" }
+		elseif bl.key == "interrupts" then
+			local landed, opps = text:match("(%d+) of (%d+)")
+			if landed then
+				local row = barRow("interrupts", ICONS.interrupts, "Kicks",
+					tonumber(landed) / tonumber(opps) * 100, pts)
+				row.num = landed .. "/" .. opps
+				row.tooltip = bl.tooltip
+				rows[#rows + 1] = row
+			else
+				others[#others + 1] = { label = stripPts(text), points = pts }
+			end
+		elseif bl.key == "lust" then
+			local a, b2 = text:match("(%d+) of (%d+)")
+			if a then
+				local row = barRow("lust", ICONS.lust, "Lust aligned",
+					tonumber(a) / tonumber(b2) * 100, pts)
+				row.num = a .. "/" .. b2
+				row.tooltip = bl.tooltip
+				rows[#rows + 1] = row
+			end
+		elseif bl.key == "healerComp" then
+			local ran, mode = text:match("Ran (%d+) healers %- ranked kills mostly run (%d+)")
+			rows[#rows + 1] = { key = "healerComp", kind = "glyph", icon = ICONS.healing,
+				label = "Heavy comp", good = false,
+				count = ran and (ran .. " vs " .. mode) or nil, tooltip = bl.tooltip }
+		elseif bl.key == "raidCds" then
+			local names = text:match("%- (.+) sat unused")
+			local row = { key = "raidCds", kind = "glyph", icon = ICONS.cdTimingHealer,
+				label = "CDs unused", good = false, count = names, tooltip = bl.tooltip }
+			rows[#rows + 1] = row
+		elseif bl.key == "speedTrend" then
+			local fasterS = text:match("(%d+)s faster")
+			local slowerS = text:match("(%d+)s slower")
+			rows[#rows + 1] = { key = "speedTrend", kind = "glyph", icon = ICONS.activity,
+				label = fasterS and "Faster kill" or "Slower kill",
+				good = fasterS ~= nil,
+				count = (fasterS or slowerS) and ((fasterS or slowerS) .. "s") or nil,
+				tooltip = bl.tooltip }
+		elseif bl.key == "wipeWrap" then
+			local tail = text:match("wrapped (%d+)s")
+			rows[#rows + 1] = { key = "wipeWrap", kind = "glyph", icon = ICONS.deaths,
+				label = text:find("crisp") and "Crisp wrap" or "Slow wrap",
+				good = text:find("crisp") ~= nil,
+				count = tail and (tail .. "s") or nil, tooltip = bl.tooltip }
+		elseif bl.key == "deaths" then
+			local died = text:match("^(%d+) player")
+				or (text:find("^1 player died") and "1")
+			if text:find("Nobody died") then
+				others[#others + 1] = { label = "Nobody died" }
+			elseif died then
+				rows[#rows + 1] = { key = "deaths", kind = "pips", icon = ICONS.deaths,
+					label = "Died", count = tonumber(died), points = pts }
+			end
+		else
+			-- dispels volume, avoidable, aggro, buffs, anything future:
+			-- verdicts into the rollup, points preserved
+			others[#others + 1] = { label = stripPts(text), points = pts }
+		end
+	end
+	if #others > 0 then
+		local net = 0
+		for _, it in ipairs(others) do
+			net = net + (it.points or 0)
+		end
+		rows[#rows + 1] = { key = "other", kind = "other", icon = ICON .. "INV_Misc_Note_01",
+			label = "Other", points = net ~= 0 and net or nil, items = others }
+	end
+	return rows
 end
 
 -- Downsample a sparse per-second series ([second] = value) into n cells

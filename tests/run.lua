@@ -2141,6 +2141,16 @@ end)()
 	wf.wipe = true
 	local _, wiped = lines(wf)
 	check(wiped == nil, "advisor quiet on wipes")
+	-- the group card's Signal rows transform ForGroup's tested output
+	local grows = TP.Scoring.Signals.GroupRows({}, mkFight())
+	local g = {}
+	for _, r in ipairs(grows) do
+		g[r.key] = r
+	end
+	check(g.lust and g.lust.kind == "bar" and g.lust.num == "2/3",
+		("group lust becomes a coverage bar (%s)"):format(tostring(g.lust and g.lust.num)))
+	check(g.healerComp and g.healerComp.kind == "glyph" and g.healerComp.count == "3 vs 2",
+		("comp advisor becomes a verdict glyph (%s)"):format(tostring(g.healerComp and g.healerComp.count)))
 	-- run-level pointer needs the pattern across 2+ kills
 	local tips = TP.Scoring.Insights.RunAdvice({ mkFight(), mkFight() })
 	local saw = false

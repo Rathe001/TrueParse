@@ -1128,71 +1128,73 @@ function Panel:ShowForGroup(fight, results)
 	if frame.baseRule then
 		frame.baseRule:Hide() -- player-card element; the group card has none
 	end
-	local bullets = TP.Scoring.Bullets.ForGroup(results, fight)
+	-- the group card speaks the Signal Column language too (redesign's
+	-- last surface): bars/glyphs/pips from the tested ForGroup logic
 	local y = self.groupRunScore and -50 or -37 -- below the header lines
-	for i, bullet in ipairs(bullets) do
-		local row = getRow(i, y)
-		y = y - ROW_HEIGHT
-		hideSignalWidgets(row) -- rows are shared with the signal card
-		row.symbol:SetText(bullet.symbol)
-		row.symbol:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
-		row.text:SetText(bullet.text)
-		row.text:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
-		if bullet.kind == "metric" and bullet.avg then
-			-- same gauge the player bullets get: marker at the group
-			-- average, value line from the group total. ForGroup already
-			-- says whether the average is WCL-backed (role-filtered,
-			-- own-spec percentiles) — share-scored rows carry no gauge.
-			row.tooltipData = nil
-			row.metricData = {
-				b = { value = bullet.total, normalized = bullet.avg, wclBacked = bullet.wclBacked },
-				key = bullet.key,
-				duration = fight.duration,
-				footerText = ("group average %d · %d players"):format(
-					bullet.avg, bullet.players or #results),
-			}
-		else
-			row.tooltipData = bullet.tooltip
-			row.metricData = nil
-		end
-	end
-	local total = #bullets
-
-	-- Group-vs-group: kill speed against WCL's ranked kills for this
-	-- encounter+bracket (the one number that compares GROUPS, not players)
-	local speedPct, speedN, speedMedian, speedBounded = TP.Scoring.Engine.KillSpeedPercentile(fight)
-	if speedPct then
+	local total = 0
+	local function groupRow(sig)
 		total = total + 1
 		local row = getRow(total, y)
 		y = y - ROW_HEIGHT
-		local function mmss(s)
-			return ("%d:%02d"):format(math.floor(s / 60), s % 60)
+		renderSignal(row, sig, nil)
+		row.metricData = nil
+		row.tooltipData = nil
+		if sig.groupB then
+			row.metricData = {
+				b = sig.groupB, key = sig.key, duration = fight.duration,
+				footerText = ("group average %d \194\183 %d players"):format(
+					sig.value or 0, sig.players or #results),
+			}
+		elseif sig.kind == "other" and sig.items then
+			local lines = {}
+			for _, it in ipairs(sig.items) do
+				local pts = ""
+				if it.points then
+					local n = it.points >= 0 and math.floor(it.points + 0.5)
+						or -math.floor(-it.points + 0.5)
+					pts = (" (%+d)"):format(n)
+				end
+				local bad = (it.points or 0) < 0
+				lines[#lines + 1] = { it.label .. pts,
+					bad and 0.9 or 0.8, bad and 0.45 or 0.8, bad and 0.45 or 0.75 }
+			end
+			row.tooltipData = { title = "Other", lines = lines }
+		else
+			row.tooltipData = sig.tooltip or { title = sig.label, lines = {} }
 		end
+		return row
+	end
+	for _, sig in ipairs(TP.Scoring.Signals.GroupRows(results, fight)) do
+		groupRow(sig)
+	end
+
+	-- Group-vs-group: kill speed against WCL's ranked kills for this
+	-- encounter+bracket (the one number that compares GROUPS, not players)
+	local GICONS = TP.Scoring.Signals.ICONS
+	local speedPct, speedN, speedMedian, speedBounded = TP.Scoring.Engine.KillSpeedPercentile(fight)
+	local function mmss(s)
+		return ("%d:%02d"):format(math.floor(s / 60), s % 60)
+	end
+	if speedPct then
 		if speedBounded then
 			-- slower than WCL's served fastest 1000: we can't rank it, only
 			-- say it fell outside that field (a precise % would be invented)
-			row.symbol:SetText("\194\183")
-			row.symbol:SetTextColor(0.6, 0.6, 0.6)
-			row.text:SetText("Outside WCL's 1000 fastest kills")
-			row.text:SetTextColor(0.6, 0.6, 0.6)
-			row.metricData = nil
-			row.tooltipData = { title = "Kill speed", lines = {
-				{ ("Killed in %s. WCL only ranks the fastest 1000 kills, and this was slower than all of them - so the exact speed percentile can't be known."):format(mmss(fight.duration or 0)), 0.8, 0.8, 0.8, true },
-			} }
+			groupRow({ key = "killSpeed", kind = "glyph", icon = GICONS.speed,
+				label = "Past fastest 1000", good = true,
+				tooltip = { title = "Kill speed", lines = {
+					{ ("Killed in %s. WCL only ranks the fastest 1000 kills, and this was slower than all of them - so the exact speed percentile can't be known."):format(mmss(fight.duration or 0)), 0.8, 0.8, 0.8, true },
+				} } })
 		else
-			local sr, sg, sb = TP.Scoring.Grades.ColorForScore(speedPct)
-			row.symbol:SetText(speedPct >= 50 and "+" or "\194\183")
-			row.symbol:SetTextColor(sr, sg, sb)
-			row.text:SetText(("Killed faster than %d%% of groups"):format(speedPct))
-			row.text:SetTextColor(sr, sg, sb)
-			-- gauge with the marker at the speed percentile
+			-- a REAL population percentile: bracket colors with authority
+			local row = groupRow({ key = "killSpeed", kind = "bar", icon = GICONS.speed,
+				label = "Kill speed", value = speedPct })
 			row.tooltipData = nil
 			row.metricData = {
 				b = { value = fight.duration or 0, normalized = speedPct, pctile = speedPct },
 				key = "Kill speed",
 				duration = fight.duration,
 				valueText = speedMedian
-					and ("Killed in %s · median ranked kill %s"):format(mmss(fight.duration or 0), mmss(speedMedian))
+					and ("Killed in %s \194\183 median ranked kill %s"):format(mmss(fight.duration or 0), mmss(speedMedian))
 					or ("Killed in %s"):format(mmss(fight.duration or 0)),
 				footerText = ("faster than %d%% of ~%s ranked kills"):format(
 					speedPct, TP.FormatNumber(speedN or 0)),
@@ -1206,22 +1208,14 @@ function Panel:ShowForGroup(fight, results)
 	if speedPct and not speedBounded then
 		local ga = TP.Scoring.Insights.GroupAnalysis(results, {}, speedPct)
 		if ga.executionGap and math.abs(ga.executionGap) >= 20 then
-			total = total + 1
-			local row = getRow(total, y)
-			y = y - ROW_HEIGHT
 			local up = ga.executionGap > 0
-			row.symbol:SetText(up and "+" or "\194\183")
-			local cr2, cg2, cb2 = up and 0.30 or 0.80, up and 0.90 or 0.80, up and 0.40 or 0.55
-			row.symbol:SetTextColor(cr2, cg2, cb2)
-			row.text:SetText(up
-				and ("Execution beat the meters (speed p%d vs output p%d)"):format(ga.killPct + 0.5, ga.outputPct + 0.5)
-				or ("Output outran the kill (output p%d, speed p%d)"):format(ga.outputPct + 0.5, ga.killPct + 0.5))
-			row.text:SetTextColor(cr2, cg2, cb2)
-			row.metricData = nil
-			row.tooltipData = { title = "The whole vs the parts", lines = {
-				{ up and "The group killed faster than its individual parses predict: target discipline, mechanics, and cooldown timing carried beyond raw output."
-					or "Individual parses outran the kill speed: output went somewhere other than winning - time off target, deaths, or damage that didn't matter.", 0.8, 0.8, 0.8, true },
-			} }
+			groupRow({ key = "execGap", kind = "glyph", icon = GICONS.speed,
+				label = up and "Execution carried" or "Output outran kill", good = up,
+				tooltip = { title = "The whole vs the parts", lines = {
+					{ ("speed p%d \194\183 output p%d"):format(ga.killPct + 0.5, ga.outputPct + 0.5), 1, 1, 1 },
+					{ up and "The group killed faster than its parses predict: mechanics and timing carried beyond raw output."
+						or "Parses outran the kill: output went somewhere other than winning.", 0.8, 0.8, 0.8, true },
+				} } })
 		end
 	end
 
@@ -1232,18 +1226,12 @@ function Panel:ShowForGroup(fight, results)
 		toughness, bosses = TP.Scoring.Engine.EncounterToughness(fight)
 	end
 	if toughness and toughness >= 0.7 then
-		total = total + 1
-		local row = getRow(total, y)
-		y = y - ROW_HEIGHT
-		row.symbol:SetText("\194\183")
-		row.symbol:SetTextColor(0.8, 0.8, 0.55)
-		row.text:SetText(("One of the tier's tougher bosses (top %d%% by kill time)"):format(
-			(1 - toughness) * 100 + 1))
-		row.text:SetTextColor(0.8, 0.8, 0.55)
-		row.metricData = nil
-		row.tooltipData = { title = "Encounter toughness", lines = {
-			{ ("This boss's median ranked kill is among the longest of the %d bosses with kill-time data at this difficulty. Context, not a judgment."):format(bosses or 0), 0.8, 0.8, 0.8, true },
-		} }
+		groupRow({ key = "toughness", kind = "glyph", icon = GICONS.avoidable,
+			label = "Tough boss", good = true,
+			tooltip = { title = "Encounter toughness", lines = {
+				{ ("Top %d%% of the tier's %d bosses by kill time. Context, not a judgment."):format(
+					(1 - toughness) * 100 + 1, bosses or 0), 0.8, 0.8, 0.8, true },
+			} } })
 	end
 	hideRowsFrom(total + 1)
 	fitWidth(total)
