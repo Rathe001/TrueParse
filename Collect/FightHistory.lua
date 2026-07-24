@@ -327,7 +327,8 @@ end
 -- BEFORE the new fight enters the list — history access lives here so
 -- Scoring stays pure. Fights are newest-first, so the first match wins.
 function FightHistory:StampPrevKill(fight)
-	if not fight.isBoss or fight.wipe then
+	-- practice sessions have no kill to trend (duration = attention span)
+	if not fight.isBoss or fight.wipe or fight.practice then
 		return
 	end
 	for _, old in ipairs(self.fights) do
@@ -641,9 +642,19 @@ function FightHistory:AddFromSegment(seg)
 		return
 	end
 	-- Encounter fights only: instance trash and open-world quest mobs are
-	-- noise in history (world bosses still fire ENCOUNTER events)
+	-- noise in history (world bosses still fire ENCOUNTER events).
+	-- EXCEPTION (Josh 2026-07-26): a raider's-training-dummy session of
+	-- 60s+ captures as a labeled PRACTICE fight, scored against the
+	-- tier's patchwerk anchor — real practice with real curves. Detection
+	-- is the segment name (from the pull target), so target the dummy.
+	local practice = false
 	if not seg.encounterID then
-		return
+		practice = TP.Addon.db.profile.practiceDummies
+			and (seg.name or ""):find("Training Dummy", 1, true) ~= nil
+			and (seg.duration or 0) >= 60
+		if not practice then
+			return
+		end
 	end
 	local _, itype = GetInstanceInfo()
 	if itype == "scenario" then
@@ -958,7 +969,10 @@ function FightHistory:AddFromSegment(seg)
 
 	local fight = {
 		name = seg.name or "Fight",
-		isBoss = seg.encounterID and true or false,
+		-- practice fights ride the boss pipeline (curves, coach, card)
+		-- but flag themselves so kill-speed/comp/career logic steps aside
+		isBoss = (seg.encounterID or practice) and true or false,
+		practice = practice or nil,
 		encounterID = seg.encounterID,
 		-- explicit verdict, else the retail-style heuristic: a boss pull
 		-- with no ENCOUNTER_END where every participant died is a wipe
@@ -981,7 +995,10 @@ function FightHistory:AddFromSegment(seg)
 		rawDuration = seg.rawDuration, -- untrimmed window (report matching)
 		capturedAt = time(),
 		zone = GetZoneText(),
-		difficultyID = select(3, GetInstanceInfo()),
+		-- practice fights borrow the anchor's bracket so curve resolution
+		-- lands on the intended population
+		difficultyID = practice and TP.PRACTICE_ANCHOR and TP.PRACTICE_ANCHOR.difficultyID
+			or select(3, GetInstanceInfo()),
 		players = players,
 		totals = totals,
 	}
@@ -1034,7 +1051,7 @@ function FightHistory.WeekKey(t)
 end
 
 function FightHistory:AccumulateWeek(fight)
-	if not fight.isBoss then
+	if not fight.isBoss or fight.practice then
 		return
 	end
 	local g = TP.Addon.db.global

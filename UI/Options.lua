@@ -70,6 +70,13 @@ local optionsTable = {
 					get = function() return profile().wipeDebrief end,
 					set = function(_, v) profile().wipeDebrief = v end,
 				},
+				practiceDummies = {
+					type = "toggle", order = 2.7, name = "Score training dummies",
+					desc = "Raider's-dummy sessions of a minute or more get a practice card, scored against Iron Juggernaut's ranked parses (the tier's stand-and-hit fight). Never touches career stats. Target the dummy when you start.",
+					hidden = function() return TP.Compat.IS_RETAIL end,
+					get = function() return profile().practiceDummies end,
+					set = function(_, v) profile().practiceDummies = v end,
+				},
 				wipeButton = {
 					type = "toggle", order = 2.5, name = "\"Wipe it\" button",
 					desc = "A red button on the window header during boss fights. One press marks the exact wipe-call moment for every TrueParse in the group - nothing after it counts against anyone. If the raid lead or an assist runs TrueParse, only they see it. Classic only.",

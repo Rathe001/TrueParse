@@ -226,6 +226,16 @@ local function encounterCurvesFor(P, fight)
 	if not (fight.isBoss or fight.isRun) or not P.encounters then
 		return nil
 	end
+	-- practice-dummy sessions score against the tier's patchwerk anchor
+	-- (the fight parses are compared on); the record's difficultyID
+	-- already carries the anchor's bracket
+	if fight.practice and TP.PRACTICE_ANCHOR then
+		local enc = encounterByName(P, TP.PRACTICE_ANCHOR.name)
+		if enc then
+			return sanitizeEncounter(enc)
+		end
+		return nil
+	end
 	-- encounterID first: locale-proof. A non-English client's
 	-- ENCOUNTER_START name can never string-match the English WCL keys,
 	-- but the numeric id is identical on every locale. P.ids is emitted
@@ -955,7 +965,8 @@ local SPEED_RANK_CAP = 1000
 -- bounded=true means the kill was slower than the 1000th-fastest: its true
 -- rank is past the served data, so pct is only a ceiling.
 function Engine.KillSpeedPercentile(fight)
-	if fight.wipe or not fight.duration or fight.duration <= 0 then
+	-- a dummy session's duration is attention span, not a kill time
+	if fight.wipe or fight.practice or not fight.duration or fight.duration <= 0 then
 		return nil
 	end
 	local P = TP.Percentiles
@@ -1012,8 +1023,8 @@ end
 -- when the data (or the fight's bracket) is absent.
 function Engine.HealerCountField(fight)
 	local P = TP.Percentiles
-	if not P then
-		return nil
+	if not P or fight.practice then
+		return nil -- nobody comps for a dummy
 	end
 	local enc = encounterCurvesFor(P, fight)
 	if not enc then
@@ -1034,7 +1045,7 @@ end
 -- reads fairly. Returns rank, bossesCompared — nil without enough peers.
 function Engine.EncounterToughness(fight)
 	local P = TP.Percentiles
-	if not (P and P.encounters and fight.isBoss) then
+	if not (P and P.encounters and fight.isBoss) or fight.practice then
 		return nil
 	end
 	local enc = encounterCurvesFor(P, fight)

@@ -2332,6 +2332,34 @@ end)()
 	-- profCasts NIL = the fight predates the cast counter: silence, not
 	-- "you 0" (Josh's card 2026-07-24 was such a fight)
 	check(PG(105, {}, 180) == nil, "pre-counter fights are never coached")
+	-- practice-dummy fights (Josh 2026-07-26) score against the tier's
+	-- patchwerk anchor and suppress everything kill-shaped
+	local savedP2 = TP.Percentiles
+	TP.Percentiles = { encounters = { ["Iron Juggernaut"] = { ["3x10"] = {
+		dps = { [63] = { n = 500, curve = { { 99, 400000 }, { 75, 300000 }, { 50, 250000 }, { 10, 150000 } } } },
+		hps = {},
+		killTime = { n = 500, curve = { { 99, 100 }, { 50, 200 }, { 10, 300 } } },
+	} } } }
+	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+	local dummyFight = {
+		name = "Raider's Training Dummy", isBoss = true, practice = true,
+		duration = 180, difficultyID = 3,
+		players = { d = { guid = "d", name = "Dps", class = "MAGE", role = "DAMAGER", specID = 63,
+			metrics = { damage = 45000000, healing = 0, interrupts = 0, dispels = 0,
+				deaths = 0, avoidableTaken = 0, damageTaken = 0 } } },
+	}
+	local rs = TP.Scoring.Engine.ScoreFight(dummyFight, { normalizeIlvl = false, mode = "parse" })
+	check(rs[1] and rs[1].breakdown.damage and rs[1].breakdown.damage.pctile
+		and math.abs(rs[1].breakdown.damage.pctile - 50) < 3,
+		("practice fight parses against the anchor's curves (%s)"):format(
+			tostring(rs[1] and rs[1].breakdown.damage and rs[1].breakdown.damage.pctile)))
+	check(TP.Scoring.Engine.KillSpeedPercentile(dummyFight) == nil,
+		"practice sessions have no kill speed")
+	check(TP.Scoring.Engine.HealerCountField(dummyFight) == nil,
+		"practice sessions get no comp advice")
+	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+	TP.Percentiles = savedP2
+
 	-- the coach reaches the CARD as a visible bullet (tooltip-only was
 	-- undiscoverable)
 	local res = { role = "HEALER", adjustDetail = {}, penaltyDetail = {},

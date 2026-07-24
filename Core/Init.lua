@@ -22,6 +22,9 @@ local defaults = {
 		-- syncs it to every TrueParse in the group (heuristic detection
 		-- stays as the fallback). Off by default; Classic only.
 		wipeButton = false,
+		-- Score raider's-training-dummy sessions as labeled practice
+		-- fights (vs the tier's patchwerk anchor). Classic only.
+		practiceDummies = true,
 		toasts = true, -- on-screen flash when you earn an award
 		letterGrades = false, -- show D-/C/B+/S letter tiers instead of numbers
 		announce = false, -- opt-in: one MVP line to group chat on run completion

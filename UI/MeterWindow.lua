@@ -359,6 +359,8 @@ local function createWindow()
 			tag = fight.bossPct
 				and (" |cffe64d4d(wipe %.0f%%)|r"):format(fight.bossPct)
 				or " |cffe64d4d(wipe)|r"
+		elseif fight.practice then
+			tag = " |cff66ccff(practice)|r"
 		end
 		return ("%s · %d:%02d%s"):format(name, math.floor(d / 60), d % 60, tag)
 	end
@@ -864,6 +866,8 @@ function MeterWindow:RenderScorecard(fight)
 			label = fight.bossPct
 				and ("|cffe64d4dwipe %.0f%%|r · "):format(fight.bossPct) .. label
 				or "|cffe64d4dwipe|r · " .. label
+		elseif fight.practice then
+			label = "|cff66ccffpractice|r · " .. label
 		end
 		if UnitAffectingCombat("player") then
 			label = label .. " |cffff8888· fighting…|r"

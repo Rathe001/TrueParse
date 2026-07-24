@@ -681,7 +681,7 @@ function Bullets.ForGroup(results, fight)
 	-- boss+difficulty (stamped at capture by FightHistory). The percentile
 	-- move rides along when curves cover the fight; ties within 5s stay
 	-- silent (that's variance, not a trend).
-	if fight and fight.isBoss and not fight.wipe
+	if fight and fight.isBoss and not fight.wipe and not fight.practice
 		and fight.prevKillDuration and (fight.duration or 0) > 0 then
 		local delta = fight.prevKillDuration - fight.duration
 		if math.abs(delta) >= 5 then

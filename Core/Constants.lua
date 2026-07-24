@@ -77,3 +77,12 @@ TP.METRIC_DEFS = {
 	{ key = "dispels",        enum = "Dispels" },
 	{ key = "deaths",         enum = "Deaths" },
 }
+
+-- Practice-dummy scoring (Josh 2026-07-26): raider's-training-dummy
+-- sessions capture as labeled practice fights and score against this
+-- boss's curves — the tier's "patchwerk" (pure single-target, the fight
+-- parses are compared on). SoO: Iron Juggernaut, the community's
+-- stand-and-hit fight; Malkorok's absorb phase and Thok's frenzy skew
+-- rates. difficultyID picks the anchor bracket (3 = 10 Normal, the
+-- most-parsed). Update per tier alongside the zone ids.
+TP.PRACTICE_ANCHOR = { name = "Iron Juggernaut", difficultyID = 3 }
