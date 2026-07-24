@@ -1,9 +1,11 @@
--- Breakdown panel: plain-language bullets explaining the grade.
--- Green + earned points, red - cost points (weak metrics and penalties),
--- dim mid-marks for middling contributions, gold + for awards — biggest
--- weight first. Hovering any bullet shows the full numeric derivation.
--- The panel IS the scorecard's tooltip: hovering a row shows it, clicking
--- a row pins it open (so bullets can be explored), close/click unpins.
+-- Breakdown panel — the Signal Column (2026-07-26 redesign): each scored
+-- signal is a micro-row of [icon][verdict label][marks][number][points].
+-- Bars are 0-100 tinted by their own WCL bracket with a comparison tick
+-- at the group average; counts are squares/pips (ghost squares = beyond
+-- capacity); binaries are glyphs. Verdict labels state findings in <= 4
+-- words; sentences live only in tooltips. Awards and the group card
+-- keep gold/text rows. The panel IS the scorecard's tooltip: hovering a
+-- row shows it, clicking pins it open, close/click unpins.
 local _, TP = ...
 
 local Panel = { pinned = false }
@@ -273,6 +275,167 @@ local function newRow(parent)
 	return row
 end
 
+-- ===== Signal Column rendering (2026-07-26 redesign) =====
+-- Each row: [icon][verdict label][marks: bar/squares/pips/glyph][num][pts]
+-- Widgets are created lazily and shared with the legacy bullet layout
+-- (awards and the group card still render symbol+text rows).
+local MARK_POOL = 12
+local CONTENT_X = 116 -- marks start after icon(16) + label(~80)
+local NUM_W, PTS_W = 30, 26
+
+local function ensureSignalWidgets(row)
+	if row.icon then
+		return
+	end
+	row.icon = row:CreateTexture(nil, "ARTWORK")
+	row.icon:SetSize(13, 13)
+	row.icon:SetPoint("LEFT", 8, 0)
+	row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- the clean-addon crop
+	row.label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	row.label:SetPoint("LEFT", 26, 0)
+	row.label:SetWidth(CONTENT_X - 30)
+	row.label:SetJustifyH("LEFT")
+	row.label:SetWordWrap(false)
+	row.track = row:CreateTexture(nil, "ARTWORK")
+	row.track:SetColorTexture(0.12, 0.12, 0.14, 1)
+	row.track:SetPoint("LEFT", CONTENT_X, 0)
+	row.track:SetPoint("RIGHT", -(NUM_W + PTS_W + 14), 0)
+	row.track:SetHeight(7)
+	row.fill = row:CreateTexture(nil, "OVERLAY")
+	row.fill:SetPoint("TOPLEFT", row.track, "TOPLEFT", 0, 0)
+	row.fill:SetPoint("BOTTOMLEFT", row.track, "BOTTOMLEFT", 0, 0)
+	row.tick = row:CreateTexture(nil, "OVERLAY", nil, 2)
+	row.tick:SetColorTexture(0.92, 0.92, 0.92, 0.85)
+	row.tick:SetSize(1, 11)
+	row.num = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	row.num:SetPoint("RIGHT", -(PTS_W + 10), 0)
+	row.num:SetWidth(NUM_W)
+	row.num:SetJustifyH("RIGHT")
+	row.pts = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	row.pts:SetPoint("RIGHT", -8, 0)
+	row.pts:SetWidth(PTS_W)
+	row.pts:SetJustifyH("RIGHT")
+	row.marks = {}
+	for i = 1, MARK_POOL do
+		local t = row:CreateTexture(nil, "OVERLAY")
+		t:SetSize(10, 10)
+		t:SetPoint("LEFT", CONTENT_X + (i - 1) * 13, 0)
+		row.marks[i] = t
+	end
+end
+
+local function hideSignalWidgets(row)
+	if not row.icon then
+		return
+	end
+	row.icon:Hide()
+	row.label:Hide()
+	row.track:Hide()
+	row.fill:Hide()
+	row.tick:Hide()
+	row.num:Hide()
+	row.pts:Hide()
+	for _, t in ipairs(row.marks) do
+		t:Hide()
+	end
+end
+
+local MARK_GOOD = { 0.18, 0.70, 0.32 }
+local MARK_BAD = { 0.90, 0.30, 0.30 }
+local MARK_GHOST = { 0.16, 0.16, 0.19 }
+local LABEL_INK = { 0.62, 0.61, 0.55 }
+
+local function renderSignal(row, sig, groupAvg)
+	ensureSignalWidgets(row)
+	row.symbol:SetText("")
+	row.text:SetText("")
+	row.icon:SetTexture(sig.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+	row.icon:Show()
+	row.label:SetText(sig.label or "")
+	row.label:Show()
+	local warn = (sig.points or 0) < 0 or (sig.kind == "pips")
+		or (sig.kind == "glyph" and not sig.good)
+	if warn then
+		row.label:SetTextColor(0.85, 0.42, 0.42)
+	else
+		row.label:SetTextColor(LABEL_INK[1], LABEL_INK[2], LABEL_INK[3])
+	end
+	if sig.points and math.abs(sig.points) >= 0.5 then
+		row.pts:SetText(("%+d"):format(sig.points >= 0
+			and math.floor(sig.points + 0.5) or -math.floor(-sig.points + 0.5)))
+		row.pts:Show()
+	else
+		row.pts:SetText("")
+	end
+
+	if sig.kind == "bar" then
+		row.track:Show()
+		local v = sig.value or 0
+		local r, g, b = TP.Scoring.Grades.ColorForScore(v)
+		row.fill:SetColorTexture(r, g, b, 0.9)
+		-- fixed geometry: anchors haven't settled on first render, so
+		-- GetWidth() lies — the card is WIDTH wide by construction
+		local w = WIDTH - 12 - CONTENT_X - (NUM_W + PTS_W + 14)
+		row.fill:SetWidth(math.max(1, w * math.min(99, v) / 100))
+		row.fill:Show()
+		local avg = groupAvg and groupAvg[sig.key]
+		if avg then
+			row.tick:ClearAllPoints()
+			row.tick:SetPoint("LEFT", row.track, "LEFT", w * math.min(99, avg) / 100, 0)
+			row.tick:Show()
+		end
+		row.num:SetText(("%d"):format(v + 0.5))
+		row.num:SetTextColor(r, g, b)
+		row.num:Show()
+	elseif sig.kind == "squares" or sig.kind == "pips" or sig.kind == "glyph" then
+		local seq = {}
+		if sig.kind == "squares" then
+			for _ = 1, sig.good or 0 do seq[#seq + 1] = MARK_GOOD end
+			for _ = 1, sig.bad or 0 do seq[#seq + 1] = MARK_BAD end
+			for _ = 1, sig.ghost or 0 do seq[#seq + 1] = MARK_GHOST end
+		elseif sig.kind == "pips" then
+			for _ = 1, math.min(5, sig.count or 0) do seq[#seq + 1] = MARK_BAD end
+		else
+			seq[1] = sig.good and MARK_GOOD or MARK_BAD
+		end
+		local overflow = #seq - MARK_POOL
+		for i, t in ipairs(row.marks) do
+			local c = seq[i]
+			if c then
+				t:SetColorTexture(c[1], c[2], c[3], 1)
+				t:Show()
+			else
+				t:Hide()
+			end
+		end
+		local numText, nr, ng, nb
+		if sig.kind == "squares" then
+			local total = (sig.good or 0) + (sig.bad or 0) + (sig.ghost or 0)
+			numText = ("%d/%d"):format(sig.good or 0, total)
+			if (sig.points or 0) >= 0 then
+				nr, ng, nb = MARK_GOOD[1], MARK_GOOD[2], MARK_GOOD[3]
+			else
+				nr, ng, nb = MARK_BAD[1], MARK_BAD[2], MARK_BAD[3]
+			end
+		elseif sig.kind == "pips" then
+			numText = tostring(sig.count or 0)
+			if overflow > 0 then
+				numText = numText -- count already says it; pips just cap
+			end
+			nr, ng, nb = MARK_BAD[1], MARK_BAD[2], MARK_BAD[3]
+		else
+			numText = ""
+		end
+		if numText ~= "" then
+			row.num:SetText(numText)
+			row.num:SetTextColor(nr, ng, nb)
+			row.num:Show()
+		else
+			row.num:SetText("")
+		end
+	end
+end
+
 -- Side-aware anchoring: the panel takes the roomier side of the meter
 -- window (clamping used to slide it back OVER the window at the screen
 -- edge), and top-aligns unless that would clip the bottom of the screen.
@@ -357,6 +520,31 @@ local function createFrame()
 
 	frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	frame.total:SetPoint("BOTTOMLEFT", 10, 10)
+end
+
+-- WCL-style death recap tooltip lines: the last hits, each with a bar
+-- sized by the hit (red = avoidable). Shared by the deaths signal row.
+local function deathRecapLines(player)
+	local maxHit = 1
+	for _, hit in ipairs(player.deathRecap) do
+		maxHit = math.max(maxHit, hit.amount or 0)
+	end
+	local lines = { { "The last hits before the death:", 0.8, 0.8, 0.8 } }
+	for _, hit in ipairs(player.deathRecap) do
+		local w = math.max(2, math.floor((hit.amount or 0) / maxHit * 50))
+		local bar = hit.avoidable
+			and ("|TInterface\\Buttons\\WHITE8X8:8:%d:0:0:8:8:0:8:0:8:230:77:77|t"):format(w)
+			or ("|TInterface\\Buttons\\WHITE8X8:8:%d:0:0:8:8:0:8:0:8:120:120:130|t"):format(w)
+		lines[#lines + 1] = {
+			("%d:%02d %s %s  %s%s"):format(
+				math.floor((hit.t or 0) / 60), (hit.t or 0) % 60,
+				bar, hit.spell or "?", TP.FormatNumber(hit.amount or 0),
+				hit.avoidable and "  (avoidable)" or ""),
+			hit.avoidable and 0.95 or 0.75,
+			hit.avoidable and 0.45 or 0.75,
+			hit.avoidable and 0.45 or 0.75 }
+	end
+	return lines
 end
 
 local function getRow(i, y)
@@ -457,49 +645,6 @@ function Panel:ShowFor(fight, result)
 
 	local myAwards = TP.Scoring.Awards.Compute(fight)[result.guid]
 	local player = fight.players[result.guid]
-	local extra
-	if player then
-		local m = player.metrics or {}
-		extra = {
-			defensives = m.defensives,
-			consumables = m.consumables,
-			deathReady = player.deathReadyDefensives,
-			isRetail = TP.Compat.IS_RETAIL, -- consumable expectations differ
-			-- how much of their healing landed on themselves (Classic data)
-			selfShare = (m.healing and m.healing > 0 and m.selfHealing)
-				and (m.selfHealing / m.healing) or nil,
-			-- target splits (Classic data; boss GUIDs from ENCOUNTER_START)
-			addsShare = (fight.isBoss and m.damageToBoss ~= nil and m.damage and m.damage > 0)
-				and math.max(0, (m.damage - m.damageToBoss) / m.damage) or nil,
-			tankFocus = (m.healingToTanks ~= nil and m.healing and m.healing > 0)
-				and (m.healingToTanks / m.healing) or nil,
-			-- Bloodlust-window usage (CLEU; nil when no lust this fight)
-			lustCasts = m.lustCasts,
-			lustPotion = m.lustPotion,
-			-- WoWAnalyzer-style basics
-			activityPct = m.activityPct,
-			overhealPct = m.overhealPct,
-			offensiveCDs = m.offensiveCDs,
-			mitigationPct = m.mitigationPct,
-			-- cooldown timing vs danger windows + death context
-			spikeWindows = m.spikeWindows,
-			spikeCovered = m.spikeCovered,
-			groupSpikeWindows = m.groupSpikeWindows,
-			groupSpikeCovered = m.groupSpikeCovered,
-			-- demonstrated capacity: the "(N coverable)" note (v1.5.3
-			-- referenced these but they were never passed — fixed when the
-			-- coach bullet moved onto the card, 2026-07-24)
-			defensiveUses = m.defensiveUses,
-			groupCdCasts = m.groupCdCasts,
-			died = (m.deaths or 0) > 0,
-			-- the parse coach's inputs (nil profCasts = fight predates
-			-- the cast counter; the coach stays silent rather than lie)
-			profCasts = m.profCasts,
-			specID = player.specID,
-			duration = fight.duration,
-		}
-	end
-	local bullets = TP.Scoring.Bullets.ForResult(result, myAwards, extra)
 
 	-- compact score lines under the name; ~ marks estimates like the rows do
 	local rawShaped = TP.Addon.db.profile.scoring.mode == "parse"
@@ -553,63 +698,58 @@ function Panel:ShowFor(fight, result)
 	end
 
 	local y = (runR or histText) and -50 or -37
-	for i, bullet in ipairs(bullets) do
-		local row = getRow(i, y)
-		y = y - ROW_HEIGHT
-		row.symbol:SetText(bullet.symbol)
-		row.symbol:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
-		row.text:SetText(bullet.text)
-		row.text:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
 
+	-- Signal Column (2026-07-26 redesign): awards keep their gold text
+	-- rows; every scored signal renders as icon + verdict + marks.
+	local rowIndex = 0
+	local function nextRow()
+		rowIndex = rowIndex + 1
+		local row = getRow(rowIndex, y)
+		y = y - ROW_HEIGHT
 		row.metricData = nil
-		if bullet.kind == "metric" then
-			row.tooltipData = nil
-			row.metricData = { b = result.breakdown[bullet.key], key = bullet.key,
+		row.tooltipData = nil
+		return row
+	end
+	for _, award in ipairs(myAwards or {}) do
+		local row = nextRow()
+		hideSignalWidgets(row)
+		row.symbol:SetText(TP.STAR)
+		row.symbol:SetTextColor(1, 0.82, 0.2)
+		row.text:SetText(award)
+		row.text:SetTextColor(1, 0.82, 0.2)
+		row.tooltipData = { title = award, lines = {
+			{ TP.Scoring.Awards.DESCRIPTIONS[award] or "Fight award.", 1, 1, 1 } } }
+	end
+	-- comparison ticks come from the whole card's results
+	local groupAvg
+	do
+		local ok, all = pcall(TP.Scoring.Engine.ScoreFight, fight, TP.GetScoringOptions())
+		if ok and all then
+			groupAvg = TP.Scoring.Signals.GroupAverages(all, fight)
+		end
+	end
+	for _, sig in ipairs(TP.Scoring.Signals.ForResult(result, fight, player)) do
+		local row = nextRow()
+		renderSignal(row, sig, groupAvg)
+		if sig.b then
+			-- throughput bars keep the full metric tooltip (gauge + coach)
+			row.metricData = { b = sig.b, key = sig.key,
 				duration = fight.duration, role = result.role,
 				specID = player and player.specID,
 				metrics = player and player.metrics }
-		elseif bullet.kind == "penalty" then
-			if bullet.key == "deaths" and player and player.deathRecap then
-				-- WCL-style death recap: the last hits, right on the bullet,
-				-- each with a bar sized by the hit (red = avoidable)
-				local maxHit = 1
-				for _, hit in ipairs(player.deathRecap) do
-					maxHit = math.max(maxHit, hit.amount or 0)
-				end
-				local lines = { { "The last hits before the death:", 0.8, 0.8, 0.8 } }
-				for _, hit in ipairs(player.deathRecap) do
-					local w = math.max(2, math.floor((hit.amount or 0) / maxHit * 50))
-					local bar = hit.avoidable
-						and ("|TInterface\\Buttons\\WHITE8X8:8:%d:0:0:8:8:0:8:0:8:230:77:77|t"):format(w)
-						or ("|TInterface\\Buttons\\WHITE8X8:8:%d:0:0:8:8:0:8:0:8:120:120:130|t"):format(w)
-					lines[#lines + 1] = {
-						("%d:%02d %s %s  %s%s"):format(
-							math.floor((hit.t or 0) / 60), (hit.t or 0) % 60,
-							bar, hit.spell or "?", TP.FormatNumber(hit.amount or 0),
-							hit.avoidable and "  (avoidable)" or ""),
-						hit.avoidable and 0.95 or 0.75,
-						hit.avoidable and 0.45 or 0.75,
-						hit.avoidable and 0.45 or 0.75 }
-				end
-				row.tooltipData = { title = bullet.text, lines = lines }
-			else
-				row.tooltipData = { title = bullet.text, lines = { { PENALTY_HELP[bullet.key] or "", 0.95, 0.5, 0.5 } } }
-			end
-		elseif bullet.kind == "info" then
-			row.tooltipData = { title = bullet.text, lines = {
-				{ infoHelp()[bullet.key] or "Reported by this player's TrueParse.", 0.8, 0.8, 0.8, true },
-			} }
+		elseif sig.key == "deaths" and player and player.deathRecap then
+			row.tooltipData = { title = sig.label, lines = deathRecapLines(player) }
 		else
-			row.tooltipData = { title = bullet.text, lines = {
-				{ TP.Scoring.Awards.DESCRIPTIONS[bullet.text] or "Fight award.", 1, 1, 1 },
-			} }
+			row.tooltipData = { title = sig.label, lines = {
+				{ infoHelp()[sig.key] or PENALTY_HELP[sig.key]
+					or "Reported by this player's TrueParse.", 0.8, 0.8, 0.8, true } } }
 		end
 	end
 
 	-- (players without TrueParse are flagged by the red X on their
 	-- scorecard row, not an extra bullet here)
-	hideRowsFrom(#bullets + 1)
-	fitWidth(#bullets)
+	hideRowsFrom(rowIndex + 1)
+	fitWidth(rowIndex)
 
 	-- danger-window timeline: one strip for the whole fight, a band per
 	-- damage spike — green if their cooldown met it, red if not. Tanks
@@ -794,6 +934,7 @@ function Panel:ShowForGroup(fight, results)
 	for i, bullet in ipairs(bullets) do
 		local row = getRow(i, y)
 		y = y - ROW_HEIGHT
+		hideSignalWidgets(row) -- rows are shared with the signal card
 		row.symbol:SetText(bullet.symbol)
 		row.symbol:SetTextColor(bullet.color[1], bullet.color[2], bullet.color[3])
 		row.text:SetText(bullet.text)

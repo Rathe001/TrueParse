@@ -146,6 +146,36 @@ function Signals.ForResult(result, fight, player)
 			label = "Stood in bad", good = false, points = -pd.avoidable }
 	end
 
+	-- 9b) every remaining scored adjustment gets a verdict glyph — the
+	-- card must account for every point (nothing silently vanishes just
+	-- because it has no dedicated mark kind)
+	local REMAINDER = {
+		{ key = "overheal", up = "Lean healing", down = "Overhealed", icon = ICONS.healing },
+		{ key = "overkill", up = nil, down = "Overkill heavy", icon = ICONS.damage },
+		{ key = "manaDry", up = nil, down = "Mana ran dry", icon = ICONS.activity },
+		{ key = "prepared", up = "Flask + food", down = nil, icon = ICONS.buffUptime },
+		{ key = "buffs", up = nil, down = "Buff missing", icon = ICONS.buffUptime },
+		{ key = "pull", up = nil, down = "Pulled early", icon = ICONS.avoidable },
+		{ key = "aggro", up = nil, down = "Ripped aggro", icon = ICONS.avoidable },
+		{ key = "aggroLoss", up = nil, down = "Lost aggro", icon = ICONS.avoidable },
+		{ key = "kicks", up = "Kicked anyway", down = nil, icon = ICONS.interrupts, healerOnly = true },
+	}
+	local shown = {}
+	for _, row in ipairs(out) do
+		shown[row.key] = true
+	end
+	shown.kicks = shown.interrupts
+	for _, def in ipairs(REMAINDER) do
+		local v = ad[def.key] or 0
+		if v ~= 0 and not shown[def.key] and (not def.healerOnly or role == "HEALER") then
+			local label = v > 0 and def.up or v < 0 and def.down
+			if label then
+				out[#out + 1] = { key = def.key, kind = "glyph", icon = def.icon,
+					label = label, good = v > 0, points = v }
+			end
+		end
+	end
+
 	-- 10) deaths: red pips, capped at 5 shown (the count rides the row)
 	local deaths = m.deaths or 0
 	if deaths > 0 then
