@@ -305,8 +305,15 @@ local function createWindow()
 	local function fightLabel(fight)
 		local name = (fight.name or "Fight"):gsub("^%(!%)%s*", "")
 		local d = fight.duration or 0
-		return ("%s · %d:%02d%s"):format(name, math.floor(d / 60), d % 60,
-			fight.wipe and " |cffe64d4d(wipe)|r" or "")
+		-- boss % on every wipe entry, matching the header ("wipe 41%"):
+		-- the progression story reads straight off the pull list
+		local tag = ""
+		if fight.wipe then
+			tag = fight.bossPct
+				and (" |cffe64d4d(wipe %.0f%%)|r"):format(fight.bossPct)
+				or " |cffe64d4d(wipe)|r"
+		end
+		return ("%s · %d:%02d%s"):format(name, math.floor(d / 60), d % 60, tag)
 	end
 	local function selectFight(f)
 		pinnedFight = f -- nil = back to Current

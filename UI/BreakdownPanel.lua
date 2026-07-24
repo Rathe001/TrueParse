@@ -515,7 +515,7 @@ function Panel:ShowFor(fight, result)
 	end
 	frame.scoreLine:SetText(("%s%s vs %s%s%s"):format(
 		approx and "~" or "", TP.Scoring.Grades.ColoredScore(result.score),
-		fight.name or "this fight", fight.wipe and " |cffe64d4d(wipe)|r" or "", pbTag))
+		fight.name or "this fight", fight.wipe and (fight.bossPct and (" |cffe64d4d(wipe %.0f%%)|r"):format(fight.bossPct) or " |cffe64d4d(wipe)|r") or "", pbTag))
 	local runR = self.runScores and self.runScores[result.guid]
 	-- progression line: this player's last kills of this boss, oldest
 	-- first, the PB pattern's memo keeps it cheap
@@ -771,7 +771,7 @@ function Panel:ShowForGroup(fight, results)
 	local groupScore = groupSum / #results
 	frame.scoreLine:SetText(("%s vs %s%s"):format(
 		TP.Scoring.Grades.ColoredScore(groupScore),
-		fight.name or "this fight", fight.wipe and " |cffe64d4d(wipe)|r" or ""))
+		fight.name or "this fight", fight.wipe and (fight.bossPct and (" |cffe64d4d(wipe %.0f%%)|r"):format(fight.bossPct) or " |cffe64d4d(wipe)|r") or ""))
 	if self.groupRunScore then
 		frame.runLine:SetText(TP.Scoring.Grades.ColoredScore(self.groupRunScore) .. " avg this run")
 	else
