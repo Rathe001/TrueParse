@@ -205,7 +205,12 @@ local function showMetricTip(anchor, data)
 	end
 	metricTip.coach:SetText(coachText or "")
 
-	metricTip:SetHeight((wclBacked and 108 or 76) + (coachText and not wclBacked and 14 or 0))
+	-- design rule (Josh 2026-07-24): a floating marker label ("p97") always
+	-- gets its own vertical band — with a coach line present the gauge (and
+	-- the tip) shift down one line instead of letting the label overlap it
+	metricTip.gauge:ClearAllPoints()
+	metricTip.gauge:SetPoint("TOPLEFT", 12, coachText and -84 or -67)
+	metricTip:SetHeight((wclBacked and 108 or 76) + (coachText and 17 or 0))
 
 	local footer = data.footerText
 	if not footer and COUNT_METRICS[key] and (b.weight or 0) == 0 then

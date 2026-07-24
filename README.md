@@ -184,6 +184,11 @@ coach line when it applies`. The tooltip reuses the card's visual
 grammar (mini bars, squares, the percentile gauge) so hover feels like
 zooming in, not reading a manual.
 
+**Floating marker labels own their vertical band.** A label that rides
+a mark (the gauge's "p97" tick label) always reserves a full line of
+empty space above the mark — layouts that add lines (the coach) push
+the mark down rather than letting text and label share pixels.
+
 **Graphs only where they carry story**: the group card's fight-shape
 sparkline (output per second: opener ramp, Bloodlust burst, death dots,
 the post-call collapse) and the progression staircase (boss % per pull
