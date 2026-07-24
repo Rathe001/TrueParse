@@ -439,7 +439,15 @@ local function renderSignal(row, sig, groupAvg)
 			row.marker:ClearAllPoints()
 			row.marker:SetPoint("CENTER", row.track, "LEFT", math.min(99, markerAt) / 100 * w, 0)
 			row.marker:Show()
+		elseif sig.num then
+			-- counts and coverage ("1/3", "0/10", dispel counts) are
+			-- MARKLESS like Died (Josh 2026-07-24): a bar under a count
+			-- implied a continuous scale that isn't there — the colored
+			-- count + points carry the whole verdict
+			row.track:Hide()
 		else
+			-- continuous 0-100 shares without a population (Soaking,
+			-- unranked throughput, Ebon Might): solid verdict-colored fill
 			row.fill:SetColorTexture(r, g, b, 0.9)
 			row.fill:SetWidth(math.max(1, w * math.min(99, v) / 100))
 			row.fill:Show()
@@ -447,7 +455,7 @@ local function renderSignal(row, sig, groupAvg)
 		-- gauge rows carry only the player's marker (Josh 2026-07-24: two
 		-- white ticks on one gauge read as noise) — comparison ticks are
 		-- for solid-fill bars, where the fill end isn't a marker
-		local avg = not gauge and groupAvg and groupAvg[sig.key]
+		local avg = not gauge and not sig.num and groupAvg and groupAvg[sig.key]
 		if avg then
 			row.tick:ClearAllPoints()
 			row.tick:SetPoint("LEFT", row.track, "LEFT", w * math.min(99, avg) / 100, 0)
