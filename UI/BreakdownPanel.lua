@@ -427,7 +427,10 @@ local function renderSignal(row, sig, groupAvg)
 			row.fill:SetWidth(math.max(1, w * math.min(99, v) / 100))
 			row.fill:Show()
 		end
-		local avg = groupAvg and groupAvg[sig.key]
+		-- gauge rows carry only the player's marker (Josh 2026-07-24: two
+		-- white ticks on one gauge read as noise) — comparison ticks are
+		-- for solid-fill bars, where the fill end isn't a marker
+		local avg = not gauge and groupAvg and groupAvg[sig.key]
 		if avg then
 			row.tick:ClearAllPoints()
 			row.tick:SetPoint("LEFT", row.track, "LEFT", w * math.min(99, avg) / 100, 0)
@@ -1199,16 +1202,10 @@ function Panel:ShowForGroup(fight, results)
 		total = total + 1
 		local row = getRow(total, y)
 		y = y - ROW_HEIGHT
-		-- comparison tick, group-card meaning (per the design guide): the
-		-- player card's ticks mark YOUR group's average; here the peer is
-		-- the ranked FIELD, so WCL-backed bars tick at the field median
-		-- (p50). Share-scored bars have no field and get no tick.
-		local fieldAvg
-		if sig.kind == "bar" and not sig.raw
-			and (sig.groupB or sig.key == "killSpeed") then
-			fieldAvg = { [sig.key] = 50 }
-		end
-		renderSignal(row, sig, fieldAvg)
+		-- no comparison ticks here: the WCL-backed rows render as bracket
+		-- gauges (only the player's marker — Josh 2026-07-24), and the
+		-- field median is the gauge's own green/blue seam at 50
+		renderSignal(row, sig, nil)
 		row.metricData = nil
 		row.tooltipData = nil
 		if sig.groupB then
