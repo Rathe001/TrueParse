@@ -300,9 +300,11 @@ function Signals.GroupRows(results, fight)
 				count = (fasterS or slowerS) and ((fasterS or slowerS) .. "s") or nil,
 				tooltip = bl.tooltip }
 		elseif bl.key == "wipeWrap" then
+			-- "reset" is the raider's word for exactly this ("crisp wrap"
+			-- sounded like a sandwich — Josh 2026-07-24)
 			local tail = text:match("wrapped (%d+)s")
 			rows[#rows + 1] = { key = "wipeWrap", kind = "glyph", icon = ICONS.deaths,
-				label = text:find("crisp") and "Crisp wrap" or "Slow wrap",
+				label = text:find("crisp") and "Fast reset" or "Slow reset",
 				good = text:find("crisp") ~= nil,
 				count = tail and (tail .. "s") or nil, tooltip = bl.tooltip }
 		elseif bl.key == "deaths" then
