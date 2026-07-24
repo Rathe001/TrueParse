@@ -1231,15 +1231,22 @@ function Panel:ShowForGroup(fight, results)
 			} } }
 	end
 
-	-- kind order (Josh 2026-07-24): visual rows above non-visual — bars
-	-- first, then counts, then verdicts, the Other rollup last. Stable
-	-- within a kind so related stories keep their sequence.
-	local KIND_RANK = { bar = 1, squares = 2, pips = 3, glyph = 4, other = 5 }
+	-- kind order (Josh 2026-07-24): the base WCL metrics (damage/healing)
+	-- together on top, then the other bars, then counts, verdicts, and
+	-- the Other rollup last. Stable within a tier so related stories
+	-- keep their sequence.
+	local KIND_RANK = { bar = 2, squares = 3, pips = 4, glyph = 5, other = 6 }
+	local function rankOf(s)
+		if s.kind == "bar" and (s.key == "damage" or s.key == "healing") then
+			return 1
+		end
+		return KIND_RANK[s.kind] or 5
+	end
 	for i, s in ipairs(sigs) do
 		s._i = i
 	end
 	table.sort(sigs, function(a, b)
-		local ra, rb = KIND_RANK[a.kind] or 4, KIND_RANK[b.kind] or 4
+		local ra, rb = rankOf(a), rankOf(b)
 		if ra ~= rb then
 			return ra < rb
 		end
