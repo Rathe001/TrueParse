@@ -1182,7 +1182,16 @@ function Panel:ShowForGroup(fight, results)
 		total = total + 1
 		local row = getRow(total, y)
 		y = y - ROW_HEIGHT
-		renderSignal(row, sig, nil)
+		-- comparison tick, group-card meaning (per the design guide): the
+		-- player card's ticks mark YOUR group's average; here the peer is
+		-- the ranked FIELD, so WCL-backed bars tick at the field median
+		-- (p50). Share-scored bars have no field and get no tick.
+		local fieldAvg
+		if sig.kind == "bar" and not sig.raw
+			and (sig.groupB or sig.key == "killSpeed") then
+			fieldAvg = { [sig.key] = 50 }
+		end
+		renderSignal(row, sig, fieldAvg)
 		row.metricData = nil
 		row.tooltipData = nil
 		if sig.groupB then
