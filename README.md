@@ -165,11 +165,12 @@ table.
 - **WCL-percentile rows render the bracket gauge itself**: the five
   bracket zones as segments with a white marker at your position — the
   zone structure IS the judgment, so the row shows the population, not
-  just a fill. Non-percentile bars stay solid fills (verdict or
-  quantile-tier colors).
-- A thin **comparison tick** on each bar marks the group's average
-  (field median on the group card): your fill/marker vs the tick is the
-  "my shape vs the group's shape" read.
+  just a fill. One marker, nothing else: the field median is the
+  gauge's own green/blue seam. Non-percentile bars stay solid fills
+  (verdict or quantile-tier colors).
+- A thin **comparison tick** on solid-fill bars marks the group's
+  average: your fill vs the tick is the "my shape vs the group's
+  shape" read. Gauges never carry one — two white ticks read as noise.
 - **Discrete things get discrete marks**, never bars: deaths are red
   pips, cooldown uses are per-event squares colored by how well that
   press met a damage spike (**ghost squares** = spikes beyond what your
