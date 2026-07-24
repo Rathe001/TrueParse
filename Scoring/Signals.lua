@@ -88,12 +88,27 @@ function Signals.ForResult(result, fight, player)
 		if b and b.applicable and not b.lowDemand then
 			local label = key == "damageTaken" and "Soaking"
 				or key:sub(1, 1):upper() .. key:sub(2)
+			-- an Aug's "damage" is what their buffs enabled, not output
+			if key == "damage" and role == "SUPPORT" and b.attribution then
+				label = "Amplified"
+			end
 			out[#out + 1] = barRow(key, ICONS[key], label, b.pctile or b.normalized or 0, nil)
 			out[#out].b = b -- the tooltip's gauge needs the full breakdown
 			-- bracket colors are for PARSES only: a group-relative share
 			-- wears neutral, not purple
 			out[#out].raw = not (b.pctile or b.absolute) or nil
 		end
+	end
+
+	-- SUPPORT's signature metric: Ebon Might uptime (retail Aug — 35% of
+	-- the grade; the old bullets showed it and the redesign lost it)
+	local bu = result.breakdown.buffUptime
+	if role == "SUPPORT" and bu and bu.applicable then
+		local row = barRow("buffUptime", ICONS.buffUptime, "Ebon Might",
+			bu.normalized or 0, nil)
+		row.b = bu
+		row.raw = true -- scored vs its own anchor, not a parse population
+		out[#out + 1] = row
 	end
 
 	-- 2) activity (everyone reporting it): width = the raw %, color = its
@@ -137,13 +152,23 @@ function Signals.ForResult(result, fight, player)
 	-- somebody); only when the fight offered opportunity data. Healers
 	-- are bonus-only, so they only get the row when they landed some.
 	local bi = result.breakdown.interrupts
-	if bi and bi.applicable and bi.opportunities and bi.opportunities > 0
-		and (role ~= "HEALER" or (bi.value or 0) > 0) then
-		local landed = bi.value or 0
-		local row = barRow("interrupts", ICONS.interrupts, "Kicks",
-			landed / bi.opportunities * 100, ad.kicks)
-		row.num = ("%d/%d"):format(landed, bi.opportunities)
-		out[#out + 1] = row
+	if bi and bi.applicable and (role ~= "HEALER" or (bi.value or 0) > 0) then
+		if bi.opportunities and bi.opportunities > 0 then
+			local landed = bi.value or 0
+			local row = barRow("interrupts", ICONS.interrupts, "Kicks",
+				landed / bi.opportunities * 100, ad.kicks)
+			row.num = ("%d/%d"):format(landed, bi.opportunities)
+			out[#out + 1] = row
+		elseif (bi.value or 0) > 0 then
+			-- no opportunity data (retail hides enemy casts; Classic still
+			-- learning the content): share bar with the landed count, like
+			-- dispels — the old bullets showed this and the redesign lost it
+			local row = barRow("interrupts", ICONS.interrupts, "Kicks",
+				bi.normalized or 0, ad.kicks)
+			row.num = tostring(bi.value)
+			row.raw = true
+			out[#out + 1] = row
+		end
 	end
 
 	-- 6) dispels: share bar (volleys, not per-event quality)

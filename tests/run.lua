@@ -2501,6 +2501,32 @@ end)()
 		breakdown = { damage = { applicable = true, pctile = 80 } } }, {},
 		{ metrics = { lustCasts = 2, lustPotion = 1 } })
 	check(otherItem(drows, "Lust + potion") ~= nil, "full alignment reads as the best verdict")
+	-- retail shapes (no CLEU): kicks without opportunity data keep a
+	-- share bar with the landed count; SUPPORT keeps Ebon Might + the
+	-- amplification label (cross-scenario audit 2026-07-24)
+	local retail = S.ForResult({ role = "DAMAGER", adjustDetail = { kicks = 2 }, penaltyDetail = {},
+		breakdown = { damage = { applicable = true, pctile = 60 },
+			interrupts = { applicable = true, value = 3, normalized = 80 } } }, {}, { metrics = {} })
+	local rk
+	for _, r in ipairs(retail) do
+		if r.key == "interrupts" then
+			rk = r
+		end
+	end
+	check(rk and rk.raw and rk.num == "3" and rk.value == 80,
+		("retail kicks: share bar + landed count (%s)"):format(tostring(rk and rk.num)))
+	local aug = S.ForResult({ role = "SUPPORT", adjustDetail = {}, penaltyDetail = {},
+		breakdown = { damage = { applicable = true, normalized = 70, attribution = { own = 1, attributed = 2 } },
+			buffUptime = { applicable = true, normalized = 85, value = 0.62 } } }, {}, { metrics = {} })
+	local byK = {}
+	for _, r in ipairs(aug) do
+		byK[r.key] = r
+	end
+	check(byK.damage and byK.damage.label == "Amplified",
+		"Aug damage row reads Amplified")
+	check(byK.buffUptime and byK.buffUptime.value == 85 and byK.buffUptime.raw,
+		"Ebon Might keeps its row")
+
 	-- group averages feed the comparison ticks
 	local avg = S.GroupAverages({ result, dps }, { players = {} })
 	check(avg.damage and math.abs(avg.damage - 66) < 0.5,
