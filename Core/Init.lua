@@ -149,6 +149,12 @@ function Addon:HandleSlash(input)
 	elseif cmd == "debug" then
 		self.db.profile.debug = not self.db.profile.debug
 		self:Print("Debug " .. (self.db.profile.debug and "on." or "off."))
+	elseif cmd == "mock" then
+		if rest == "clear" then
+			TP.MockFight:Clear()
+		else
+			TP.MockFight:Inject()
+		end
 	elseif cmd == "fights" then
 		local fights = TP.FightHistory.fights
 		if #fights == 0 then

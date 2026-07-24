@@ -2849,6 +2849,44 @@ end)()
 		"detail names the spec's external")
 end)()
 
+-- 35. /tp mock: the synthetic raid night must flow through the whole
+-- pipeline clean — if the schema drifts, this catches it before Josh
+-- clicks a broken card in-game.
+;(function()
+	loadModule("Data/SpellProfiles_Mists.lua", TP)
+	loadModule("Core/MockFight.lua", TP)
+	local pulls = TP.MockFight.Build(1000000)
+	check(#pulls == 5 and pulls[5].wipe == nil and pulls[4].wipe,
+		"mock night: 4 wipes + a kill")
+	local kill = pulls[5]
+	local ok, results = pcall(TP.Scoring.Engine.ScoreFight, kill, {})
+	check(ok and results and #results == 10,
+		("mock kill scores all 10 players (%s)"):format(ok and #results or tostring(results)))
+	if ok then
+		local byName = {}
+		for _, r in ipairs(results) do
+			byName[r.name] = r
+			local sok, sigs = pcall(TP.Scoring.Signals.ForResult, r, kill, kill.players[r.guid])
+			check(sok and #sigs > 0, ("mock signals render for %s"):format(r.name))
+		end
+		-- the healer external pool and the rogue's death treatment survive
+		local h = byName.Grimshade
+		check(h and (h.adjustDetail or {}).cdTiming ~= nil,
+			"mock holy priest scores cooldown timing")
+		local rog = byName.Nightbriar
+		check(rog and (rog.penaltyDetail or {}).deaths and rog.penaltyDetail.deaths > 0,
+			"mock rogue death is charged")
+		local gok, grows = pcall(TP.Scoring.Signals.GroupRows, results, kill)
+		check(gok and #grows > 0, "mock group card rows build")
+		local cok, gap = pcall(TP.Scoring.Insights.ParseGap, 64,
+			kill.players["MOCK-d1"].metrics, kill.duration)
+		check(cok and gap and gap.spell == "Ice Lance",
+			("mock coach names Ice Lance (%s)"):format(tostring(gap and gap.spell)))
+	end
+	check(pulls[4].shape and #pulls[4].shape == 40 and pulls[4].calledWipeAt == 330,
+		"mock wipe carries shape + call for the collapse view")
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")

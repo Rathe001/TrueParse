@@ -332,7 +332,7 @@ function FightHistory:StampPrevKill(fight)
 		return
 	end
 	for _, old in ipairs(self.fights) do
-		if old.isBoss and not old.wipe and old.name == fight.name
+		if old.isBoss and not old.wipe and not old.mock and old.name == fight.name
 			and old.difficultyID == fight.difficultyID and (old.duration or 0) > 0 then
 			fight.prevKillDuration = old.duration
 			fight.prevKillAt = old.capturedAt
@@ -372,7 +372,14 @@ local function sameRun(prev, fight)
 end
 
 function FightHistory:StampRunID(fight)
-	local prev = self.fights[1]
+	-- /tp mock records must never chain a real pull into their fake run
+	local prev
+	for _, f in ipairs(self.fights) do
+		if not f.mock then
+			prev = f
+			break
+		end
+	end
 	if prev and sameRun(prev, fight) then
 		fight.runID = prev.runID
 	else
