@@ -780,6 +780,21 @@ function Panel:ShowFor(fight, result)
 				duration = fight.duration, role = result.role,
 				specID = player and player.specID,
 				metrics = player and player.metrics }
+		elseif sig.kind == "other" and sig.items then
+			-- the rollup row: itemized breakdown in the tooltip
+			local lines = {}
+			for _, it in ipairs(sig.items) do
+				local pts = ""
+				if it.points then
+					local n = it.points >= 0 and math.floor(it.points + 0.5)
+						or -math.floor(-it.points + 0.5)
+					pts = (" (%+d)"):format(n)
+				end
+				local bad = (it.points or 0) < 0
+				lines[#lines + 1] = { it.label .. pts,
+					bad and 0.9 or 0.8, bad and 0.45 or 0.8, bad and 0.45 or 0.75 }
+			end
+			row.tooltipData = { title = "Other", lines = lines }
 		elseif sig.key == "deaths" and player and player.deathRecap then
 			row.tooltipData = { title = sig.label, lines = deathRecapLines(player) }
 		else
@@ -798,13 +813,20 @@ function Panel:ShowFor(fight, result)
 	hideRowsFrom(rowIndex + 1)
 	fitWidth(rowIndex)
 
-	-- danger-window timeline: one strip for the whole fight, a band per
-	-- damage spike, PERSONAL for every role (Josh 2026-07-24): tanks see
-	-- their own intake spikes vs their defensives; healers and DPS see
-	-- the group's spikes vs THEIR OWN cooldown/defensive. Team coverage
-	-- lives on the group card, not here.
+	-- danger-window timeline (Josh 2026-07-24): healers see the GROUP's
+	-- spikes vs their own raid CDs; tanks AND DPS see their PERSONAL
+	-- intake spikes vs their own defensives. Legacy records without
+	-- personal attribution fall back to team coloring rather than
+	-- rendering everything as falsely uncovered.
 	local mm = player and player.metrics or {}
-	local map = (result.role == "TANK" and mm.spikeMap) or mm.groupSpikeMap
+	local map = (result.role == "HEALER") and mm.groupSpikeMap or mm.spikeMap
+	local hasMine = false
+	for _, win in ipairs(map or {}) do
+		if win[4] ~= nil then
+			hasMine = true
+			break
+		end
+	end
 	if frame.stripTrack then
 		frame.stripTrack:Hide()
 		frame.stripLabel:Hide()
@@ -823,9 +845,16 @@ function Panel:ShowFor(fight, result)
 		y = y - 6
 		frame.stripLabel:ClearAllPoints()
 		frame.stripLabel:SetPoint("TOPLEFT", 12, y)
-		frame.stripLabel:SetText(result.role == "TANK"
-			and "your damage spikes \194\183 |cff55cc55defensive met it|r / |cffe64d4dno defensive|r"
-			or "group spikes \194\183 |cff55cc55you covered it|r / |cffe64d4dyou didn't|r")
+		local lbl
+		if result.role ~= "HEALER" then
+			lbl = "your damage spikes \194\183 |cff55cc55defensive met it|r / |cffe64d4dno defensive|r"
+		elseif hasMine then
+			lbl = "group spikes \194\183 |cff55cc55you covered it|r / |cffe64d4dyou didn't|r"
+		else
+			-- pre-attribution record: team coloring, honestly labeled
+			lbl = "group spikes \194\183 |cff55cc55a cooldown met it|r / |cffe64d4duncovered|r"
+		end
+		frame.stripLabel:SetText(lbl)
 		frame.stripLabel:Show()
 		y = y - 14
 		local w = frame:GetWidth() - 24
@@ -845,10 +874,15 @@ function Panel:ShowFor(fight, result)
 			band:ClearAllPoints()
 			band:SetPoint("TOPLEFT", frame.stripTrack, "TOPLEFT", left, 0)
 			band:SetSize(math.min(width, w - left), 7)
-			-- personal only: green = YOU covered it (tank maps carry that in
-			-- [3], group maps in [4]); everything else is red — teammate
-			-- coverage was visual pollution here (it's the group card's job)
-			if (result.role == "TANK" and win[3]) or win[4] then
+			-- personal maps carry "you covered it" in [3]; healer group maps
+			-- in [4] (legacy healer records fall back to team coverage [3])
+			local covered
+			if result.role ~= "HEALER" then
+				covered = win[3]
+			else
+				covered = hasMine and win[4] or (not hasMine and win[3])
+			end
+			if covered then
 				band:SetVertexColor(0.33, 0.80, 0.33, 1)
 			else
 				band:SetVertexColor(0.90, 0.30, 0.30, 1)

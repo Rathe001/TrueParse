@@ -129,34 +129,32 @@ function Signals.ForResult(result, fight, player)
 		out[#out].count = bd.value
 	end
 
-	-- 7) defensives + rez: plain counts — no marks (a gauge of all-good
-	-- for "2/2" decorated nothing; label + count + points carry it)
+	-- 7-9) everything WITHOUT a visualization rolls into one "Other" row
+	-- (Josh 2026-07-24): the net points ride the row, the itemized
+	-- breakdown lives in its tooltip. Collect first, emit after.
+	local others = {}
+	local function other(label, pts, count)
+		if pts and math.abs(pts) < 0.5 then
+			pts = nil
+		end
+		others[#others + 1] = { label = label, points = pts, count = count }
+	end
 	if (m.defensives or 0) > 0 then
-		out[#out + 1] = { key = "defensives", kind = "glyph", icon = ICONS.defensives,
-			label = "Defensives", good = true, count = m.defensives, points = ad.defensives }
+		other(("Defensives x%d"):format(m.defensives), ad.defensives)
 	end
 	if (m.combatRezzes or 0) > 0 then
-		out[#out + 1] = { key = "rez", kind = "glyph", icon = ICONS.rez,
-			label = "Combat rez", good = true, count = m.combatRezzes, points = ad.rez }
+		other(m.combatRezzes > 1 and ("Combat rez x%d"):format(m.combatRezzes)
+			or "Combat rez", ad.rez)
 	end
-
-	-- 8) lust alignment glyph (DPS with an observed window)
 	if role == "DAMAGER" and m.lustCasts ~= nil then
 		local aligned = m.lustCasts > 0
-		local lustLabel = aligned
-			and ((m.lustPotion or 0) > 0 and "Lust + potion" or "Lust aligned")
-			or ((ad.lust or 0) == 0 and "Lust excused" or "Lust missed")
-		out[#out + 1] = { key = "lust", kind = "glyph", icon = ICONS.lust,
-			label = lustLabel, good = aligned, points = ad.lust }
+		other(aligned and ((m.lustPotion or 0) > 0 and "Lust + potion" or "Lust aligned")
+			or ((ad.lust or 0) == 0 and "Lust excused" or "Lust missed"), ad.lust)
 	end
-
-	-- 9) avoidable: a glyph when it moved the score either way
 	if (ad.avoidable or 0) > 0 then
-		out[#out + 1] = { key = "avoidable", kind = "glyph", icon = ICONS.avoidable,
-			label = "Stayed clean", good = true, points = ad.avoidable }
+		other("Stayed clean", ad.avoidable)
 	elseif (pd.avoidable or 0) > 0 then
-		out[#out + 1] = { key = "avoidable", kind = "glyph", icon = ICONS.avoidable,
-			label = "Stood in bad", good = false, points = -pd.avoidable }
+		other("Stood in bad", -pd.avoidable)
 	end
 
 	-- 9b) every remaining scored adjustment gets a verdict glyph — the
@@ -183,10 +181,17 @@ function Signals.ForResult(result, fight, player)
 		if v ~= 0 and not shown[def.key] and (not def.healerOnly or role == "HEALER") then
 			local label = v > 0 and def.up or v < 0 and def.down
 			if label then
-				out[#out + 1] = { key = def.key, kind = "glyph", icon = def.icon,
-					label = label, good = v > 0, points = v }
+				other(label, v)
 			end
 		end
+	end
+	if #others > 0 then
+		local net = 0
+		for _, it in ipairs(others) do
+			net = net + (it.points or 0)
+		end
+		out[#out + 1] = { key = "other", kind = "other", icon = ICON .. "INV_Misc_Note_01",
+			label = "Other", points = net, items = others }
 	end
 
 	-- 10) deaths: red pips, capped at 5 shown (the count rides the row)

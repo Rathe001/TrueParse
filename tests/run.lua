@@ -2433,28 +2433,34 @@ end)()
 	check(byKey.deaths and byKey.deaths.kind == "pips" and byKey.deaths.count == 1
 		and byKey.deaths.label == "Died", "deaths are pips with a verdict label")
 	check(byKey.lust == nil, "healers get no lust row")
+	-- unvisualized signals roll into ONE "Other" row: net points on the
+	-- row, itemized verdicts in its tooltip (Josh 2026-07-24)
+	check(byKey.other and byKey.other.kind == "other" and byKey.other.points == 2
+		and byKey.other.items[1].label == "Defensives x2",
+		("Other row nets the markless points (%s)"):format(tostring(byKey.other and byKey.other.points)))
+	local function otherItem(rows2, want)
+		for _, r in ipairs(rows2) do
+			if r.key == "other" then
+				for _, it in ipairs(r.items) do
+					if it.label == want then
+						return it
+					end
+				end
+			end
+		end
+	end
 	-- DPS lust verdicts spell out the finding (Josh: never make the
 	-- user compute "missed the window")
 	local dps = { role = "DAMAGER", adjustDetail = { lust = -3 }, penaltyDetail = {},
 		breakdown = { damage = { applicable = true, pctile = 80 } } }
 	local drows = S.ForResult(dps, {}, { metrics = { lustCasts = 0 } })
-	local lust
-	for _, r in ipairs(drows) do
-		if r.key == "lust" then
-			lust = r
-		end
-	end
-	check(lust and lust.kind == "glyph" and lust.label == "Lust missed" and not lust.good,
-		("a missed window says so in words (%s)"):format(tostring(lust and lust.label)))
+	local missed = otherItem(drows, "Lust missed")
+	check(missed and missed.points == -3,
+		"a missed window says so in words inside Other")
 	drows = S.ForResult({ role = "DAMAGER", adjustDetail = { lust = 3 }, penaltyDetail = {},
 		breakdown = { damage = { applicable = true, pctile = 80 } } }, {},
 		{ metrics = { lustCasts = 2, lustPotion = 1 } })
-	for _, r in ipairs(drows) do
-		if r.key == "lust" then
-			lust = r
-		end
-	end
-	check(lust and lust.label == "Lust + potion" and lust.good, "full alignment reads as the best verdict")
+	check(otherItem(drows, "Lust + potion") ~= nil, "full alignment reads as the best verdict")
 	-- group averages feed the comparison ticks
 	local avg = S.GroupAverages({ result, dps }, { players = {} })
 	check(avg.damage and math.abs(avg.damage - 66) < 0.5,
