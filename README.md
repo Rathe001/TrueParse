@@ -159,11 +159,16 @@ table.
 - The **score is the hero** — one large bracket-colored number. Nothing
   else competes at that size.
 - Every continuous signal is an identical micro-row: `[icon] [thin
-  0–100 bar tinted by its own bracket] [colored number] [signed grey
-  points]`. All bars share the 0–100 scale, so the column reads as an
-  honest profile — a radar chart unrolled flat.
+  0–100 bar] [colored number] [signed grey points]`. All bars share the
+  0–100 scale, so the column reads as an honest profile — a radar chart
+  unrolled flat.
+- **WCL-percentile rows render the bracket gauge itself**: the five
+  bracket zones as segments with a white marker at your position — the
+  zone structure IS the judgment, so the row shows the population, not
+  just a fill. Non-percentile bars stay solid fills (verdict or
+  quantile-tier colors).
 - A thin **comparison tick** on each bar marks the group's average
-  (field median on the group card): your fill vs the tick is the
+  (field median on the group card): your fill/marker vs the tick is the
   "my shape vs the group's shape" read.
 - **Discrete things get discrete marks**, never bars: deaths are red
   pips, cooldown uses are per-event squares colored by how well that
@@ -178,16 +183,16 @@ table.
 
 **Tooltips: one grammar, five lines, no paragraphs.**
 
-`title · marks in the card's own grammar · one number cluster
-("35.6M · 104k/s · spec median 157k/s") · one dim context line · the
-coach line when it applies`. The tooltip reuses the card's visual
-grammar (mini bars, squares, the percentile gauge) so hover feels like
-zooming in, not reading a manual.
+`title · one number cluster ("35.6M · 104k/s · spec median 157k/s") ·
+one dim context line · the coach line when it applies`. Tooltips are
+text that explains — they never duplicate a visualization the card
+already shows (the percentile gauge lived in both places once; the
+card won).
 
 **Floating marker labels own their vertical band.** A label that rides
-a mark (the gauge's "p97" tick label) always reserves a full line of
-empty space above the mark — layouts that add lines (the coach) push
-the mark down rather than letting text and label share pixels.
+a mark always reserves a full line of empty space above the mark —
+layouts that add lines (the coach) push the mark down rather than
+letting text and label share pixels.
 
 **Graphs only where they carry story**: the group card's fight-shape
 sparkline (output per second: opener ramp, Bloodlust burst, death dots,

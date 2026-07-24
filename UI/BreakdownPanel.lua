@@ -41,7 +41,7 @@ end
 -- and a parse-bracket gauge with a tick at your position — glanceable where
 -- the old paragraph wasn't. Non-metric bullets use TP.Tooltip (same card).
 local metricTip
-local GAUGE_W, GAUGE_H = 190, 10
+local GAUGE_W = 190 -- also the metric tip's base width
 local GAUGE_ZONES = { { 0, 25 }, { 25, 50 }, { 50, 75 }, { 75, 95 }, { 95, 100 } }
 
 local function buildMetricTip()
@@ -54,9 +54,7 @@ local function buildMetricTip()
 	})
 	metricTip:SetBackdropColor(0.04, 0.04, 0.05, 1)
 	metricTip:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
-	-- tall enough that the marker label gets its own band between the
-	-- median line and the gauge (it used to overlap both)
-	metricTip:SetSize(GAUGE_W + 24, 108)
+	metricTip:SetSize(GAUGE_W + 24, 76)
 	metricTip:SetClampedToScreen(true)
 	metricTip:SetFrameStrata("TOOLTIP")
 	metricTip:Hide()
@@ -80,21 +78,8 @@ local function buildMetricTip()
 	metricTip.coach:SetWordWrap(false)
 	metricTip.coach:SetTextColor(0.4, 0.85, 1)
 
-	metricTip.gauge = CreateFrame("Frame", nil, metricTip)
-	metricTip.gauge:SetSize(GAUGE_W, GAUGE_H)
-	metricTip.gauge:SetPoint("TOPLEFT", 12, -67)
-	for _, z in ipairs(GAUGE_ZONES) do
-		local t = metricTip.gauge:CreateTexture(nil, "ARTWORK")
-		t:SetPoint("TOPLEFT", z[1] / 100 * GAUGE_W, 0)
-		t:SetSize((z[2] - z[1]) / 100 * GAUGE_W, GAUGE_H)
-		local mid = (z[1] + z[2]) / 2
-		local r, g, b = TP.Scoring.Grades.ColorForScore(mid > 95 and 96 or mid)
-		t:SetColorTexture(r, g, b, 0.55)
-	end
-	metricTip.marker = metricTip.gauge:CreateTexture(nil, "OVERLAY")
-	metricTip.marker:SetSize(2, GAUGE_H + 6)
-	metricTip.marker:SetColorTexture(1, 1, 1, 1)
-	metricTip.markerText = metricTip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	-- (the parse-bracket gauge used to live here; it moved onto the card's
+	-- percentile rows themselves — Josh 2026-07-24 — so the tip is text)
 
 	metricTip.footer = metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	metricTip.footer:SetPoint("BOTTOMLEFT", 10, 8)
@@ -182,18 +167,6 @@ local function showMetricTip(anchor, data)
 		metricTip.median:SetText("")
 	end
 
-	-- tick at your percentile when known, else at the normalized score
-	metricTip.gauge:SetShown(wclBacked)
-	metricTip.markerText:SetShown(wclBacked)
-	if wclBacked then
-		local pos = b.pctile or b.normalized or 0
-		local frac = math.max(0, math.min(99, pos)) / 100
-		metricTip.marker:ClearAllPoints()
-		metricTip.marker:SetPoint("CENTER", metricTip.gauge, "LEFT", frac * GAUGE_W, 0)
-		metricTip.markerText:ClearAllPoints()
-		metricTip.markerText:SetPoint("BOTTOM", metricTip.marker, "TOP", 0, 1)
-		metricTip.markerText:SetText(b.pctile and ("p%.0f"):format(b.pctile) or ("%.0f"):format(pos))
-	end
 	-- the parse coach: on throughput metrics, one line naming the biggest
 	-- signature-spell gap vs top parses of this spec (nil when close)
 	local coachText
@@ -205,12 +178,7 @@ local function showMetricTip(anchor, data)
 	end
 	metricTip.coach:SetText(coachText or "")
 
-	-- design rule (Josh 2026-07-24): a floating marker label ("p97") always
-	-- gets its own vertical band — with a coach line present the gauge (and
-	-- the tip) shift down one line instead of letting the label overlap it
-	metricTip.gauge:ClearAllPoints()
-	metricTip.gauge:SetPoint("TOPLEFT", 12, coachText and -84 or -67)
-	metricTip:SetHeight((wclBacked and 108 or 76) + (coachText and 17 or 0))
+	metricTip:SetHeight(76 + (coachText and 14 or 0))
 
 	local footer = data.footerText
 	if not footer and COUNT_METRICS[key] and (b.weight or 0) == 0 then
@@ -329,6 +297,18 @@ local function ensureSignalWidgets(row)
 		t:SetPoint("LEFT", CONTENT_X + (i - 1) * (SEG_W + 2), 0)
 		row.marks[i] = t
 	end
+	-- WCL-percentile rows render the bracket gauge itself (Josh
+	-- 2026-07-24: the card shows what the tooltip used to duplicate):
+	-- five zone segments + a marker at your position
+	row.zones = {}
+	for i = 1, #GAUGE_ZONES do
+		local t = row:CreateTexture(nil, "OVERLAY")
+		t:SetHeight(7)
+		row.zones[i] = t
+	end
+	row.marker = row:CreateTexture(nil, "OVERLAY", nil, 3)
+	row.marker:SetColorTexture(1, 1, 1, 1)
+	row.marker:SetSize(2, 11)
 end
 
 local function hideSignalWidgets(row)
@@ -344,6 +324,12 @@ local function hideSignalWidgets(row)
 	row.pts:Hide()
 	for _, t in ipairs(row.marks) do
 		t:Hide()
+	end
+	for _, t in ipairs(row.zones or {}) do
+		t:Hide()
+	end
+	if row.marker then
+		row.marker:Hide()
 	end
 end
 
@@ -364,6 +350,10 @@ local function renderSignal(row, sig, groupAvg)
 	for _, t in ipairs(row.marks) do
 		t:Hide()
 	end
+	for _, t in ipairs(row.zones) do
+		t:Hide()
+	end
+	row.marker:Hide()
 	row.num:SetText("")
 	row.num:Hide()
 	row.pts:Hide()
@@ -390,6 +380,7 @@ local function renderSignal(row, sig, groupAvg)
 		row.track:Show()
 		local v = sig.value or 0
 		local r, g, b
+		local gauge = false
 		if sig.tier then
 			-- quantile-anchored raw metrics (activity, mitigation): the
 			-- bar's width is the raw %, its color the population tier
@@ -408,14 +399,34 @@ local function renderSignal(row, sig, groupAvg)
 				r, g, b = 0.58, 0.58, 0.63
 			end
 		else
+			-- a real WCL percentile: render the bracket gauge itself with
+			-- a marker at your position (Josh 2026-07-24 — the card now
+			-- shows what the tooltip used to duplicate)
 			r, g, b = TP.Scoring.Grades.ColorForScore(v)
+			gauge = true
 		end
-		row.fill:SetColorTexture(r, g, b, 0.9)
 		-- fixed geometry: anchors haven't settled on first render, so
 		-- GetWidth() lies — the card is WIDTH wide by construction
 		local w = BAR_W
-		row.fill:SetWidth(math.max(1, w * math.min(99, v) / 100))
-		row.fill:Show()
+		if gauge then
+			for i, z in ipairs(GAUGE_ZONES) do
+				local t = row.zones[i]
+				local mid = (z[1] + z[2]) / 2
+				local zr, zg, zb = TP.Scoring.Grades.ColorForScore(mid > 95 and 96 or mid)
+				t:SetColorTexture(zr, zg, zb, 0.55)
+				t:ClearAllPoints()
+				t:SetPoint("LEFT", row.track, "LEFT", z[1] / 100 * w, 0)
+				t:SetWidth(math.max(1, (z[2] - z[1]) / 100 * w))
+				t:Show()
+			end
+			row.marker:ClearAllPoints()
+			row.marker:SetPoint("CENTER", row.track, "LEFT", math.min(99, v) / 100 * w, 0)
+			row.marker:Show()
+		else
+			row.fill:SetColorTexture(r, g, b, 0.9)
+			row.fill:SetWidth(math.max(1, w * math.min(99, v) / 100))
+			row.fill:Show()
+		end
 		local avg = groupAvg and groupAvg[sig.key]
 		if avg then
 			row.tick:ClearAllPoints()
