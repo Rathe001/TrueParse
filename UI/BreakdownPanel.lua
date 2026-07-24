@@ -248,13 +248,14 @@ local function newRow(parent)
 	row:SetScript("OnEnter", rowEnter)
 	row:SetScript("OnLeave", rowLeave)
 
+	-- aligned to the signal rows: icon column at 8 (13px), labels at 26
 	row.symbol = face(row:CreateFontString(nil, "OVERLAY", "GameFontNormal"), 13)
-	row.symbol:SetPoint("LEFT", 10, 0)
-	row.symbol:SetWidth(14)
+	row.symbol:SetPoint("LEFT", 8, 0)
+	row.symbol:SetWidth(13)
 	row.symbol:SetJustifyH("CENTER")
 
 	row.text = face(row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
-	row.text:SetPoint("LEFT", 28, 0)
+	row.text:SetPoint("LEFT", 26, 0)
 	row.text:SetPoint("RIGHT", -8, 0)
 	row.text:SetJustifyH("LEFT")
 	row.text:SetWordWrap(false)
