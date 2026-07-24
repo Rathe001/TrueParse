@@ -80,8 +80,10 @@ function Signals.ForResult(result, fight, player)
 
 	-- 1) throughput bars, primary metric first (percentile when curve-
 	-- backed, normalized otherwise — both are 0-100 by construction)
+	-- damage and healing stay adjacent everywhere (they're the WCL base
+	-- pair — Josh 2026-07-24); a tank's Soaking follows them
 	local order = role == "HEALER" and { "healing", "damage" }
-		or role == "TANK" and { "damage", "damageTaken", "healing" }
+		or role == "TANK" and { "damage", "healing", "damageTaken" }
 		or { "damage", "healing" }
 	for _, key in ipairs(order) do
 		local b = result.breakdown[key]
