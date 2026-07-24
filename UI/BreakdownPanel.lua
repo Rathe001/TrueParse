@@ -1164,9 +1164,7 @@ function Panel:ShowForGroup(fight, results)
 		end
 		return row
 	end
-	for _, sig in ipairs(TP.Scoring.Signals.GroupRows(results, fight)) do
-		groupRow(sig)
-	end
+	local sigs = TP.Scoring.Signals.GroupRows(results, fight)
 
 	-- Group-vs-group: kill speed against WCL's ranked kills for this
 	-- encounter+bracket (the one number that compares GROUPS, not players)
@@ -1179,26 +1177,25 @@ function Panel:ShowForGroup(fight, results)
 		if speedBounded then
 			-- slower than WCL's served fastest 1000: we can't rank it, only
 			-- say it fell outside that field (a precise % would be invented)
-			groupRow({ key = "killSpeed", kind = "glyph", icon = GICONS.speed,
+			sigs[#sigs + 1] = { key = "killSpeed", kind = "glyph", icon = GICONS.speed,
 				label = "Past fastest 1000", good = true,
 				tooltip = { title = "Kill speed", lines = {
 					{ ("Killed in %s. WCL only ranks the fastest 1000 kills, and this was slower than all of them - so the exact speed percentile can't be known."):format(mmss(fight.duration or 0)), 0.8, 0.8, 0.8, true },
-				} } })
+				} } }
 		else
 			-- a REAL population percentile: bracket colors with authority
-			local row = groupRow({ key = "killSpeed", kind = "bar", icon = GICONS.speed,
-				label = "Kill speed", value = speedPct })
-			row.tooltipData = nil
-			row.metricData = {
-				b = { value = fight.duration or 0, normalized = speedPct, pctile = speedPct },
-				key = "Kill speed",
-				duration = fight.duration,
-				valueText = speedMedian
-					and ("Killed in %s \194\183 median ranked kill %s"):format(mmss(fight.duration or 0), mmss(speedMedian))
-					or ("Killed in %s"):format(mmss(fight.duration or 0)),
-				footerText = ("faster than %d%% of ~%s ranked kills"):format(
-					speedPct, TP.FormatNumber(speedN or 0)),
-			}
+			sigs[#sigs + 1] = { key = "killSpeed", kind = "bar", icon = GICONS.speed,
+				label = "Kill speed", value = speedPct,
+				speedMeta = {
+					b = { value = fight.duration or 0, normalized = speedPct, pctile = speedPct },
+					key = "Kill speed",
+					duration = fight.duration,
+					valueText = speedMedian
+						and ("Killed in %s \194\183 median ranked kill %s"):format(mmss(fight.duration or 0), mmss(speedMedian))
+						or ("Killed in %s"):format(mmss(fight.duration or 0)),
+					footerText = ("faster than %d%% of ~%s ranked kills"):format(
+						speedPct, TP.FormatNumber(speedN or 0)),
+				} }
 		end
 	end
 
@@ -1209,13 +1206,13 @@ function Panel:ShowForGroup(fight, results)
 		local ga = TP.Scoring.Insights.GroupAnalysis(results, {}, speedPct)
 		if ga.executionGap and math.abs(ga.executionGap) >= 20 then
 			local up = ga.executionGap > 0
-			groupRow({ key = "execGap", kind = "glyph", icon = GICONS.speed,
+			sigs[#sigs + 1] = { key = "execGap", kind = "glyph", icon = GICONS.speed,
 				label = up and "Execution carried" or "Output outran kill", good = up,
 				tooltip = { title = "The whole vs the parts", lines = {
 					{ ("speed p%d \194\183 output p%d"):format(ga.killPct + 0.5, ga.outputPct + 0.5), 1, 1, 1 },
 					{ up and "The group killed faster than its parses predict: mechanics and timing carried beyond raw output."
 						or "Parses outran the kill: output went somewhere other than winning.", 0.8, 0.8, 0.8, true },
-				} } })
+				} } }
 		end
 	end
 
@@ -1226,12 +1223,37 @@ function Panel:ShowForGroup(fight, results)
 		toughness, bosses = TP.Scoring.Engine.EncounterToughness(fight)
 	end
 	if toughness and toughness >= 0.7 then
-		groupRow({ key = "toughness", kind = "glyph", icon = GICONS.avoidable,
+		sigs[#sigs + 1] = { key = "toughness", kind = "glyph", icon = GICONS.avoidable,
 			label = "Tough boss", good = true,
 			tooltip = { title = "Encounter toughness", lines = {
 				{ ("Top %d%% of the tier's %d bosses by kill time. Context, not a judgment."):format(
 					(1 - toughness) * 100 + 1, bosses or 0), 0.8, 0.8, 0.8, true },
-			} } })
+			} } }
+	end
+
+	-- kind order (Josh 2026-07-24): visual rows above non-visual — bars
+	-- first, then counts, then verdicts, the Other rollup last. Stable
+	-- within a kind so related stories keep their sequence.
+	local KIND_RANK = { bar = 1, squares = 2, pips = 3, glyph = 4, other = 5 }
+	for i, s in ipairs(sigs) do
+		s._i = i
+	end
+	table.sort(sigs, function(a, b)
+		local ra, rb = KIND_RANK[a.kind] or 4, KIND_RANK[b.kind] or 4
+		if ra ~= rb then
+			return ra < rb
+		end
+		return a._i < b._i
+	end)
+	for _, s in ipairs(sigs) do
+		s._i = nil
+	end
+	for _, sig in ipairs(sigs) do
+		local row = groupRow(sig)
+		if sig.speedMeta then
+			row.tooltipData = nil
+			row.metricData = sig.speedMeta
+		end
 	end
 	hideRowsFrom(total + 1)
 	fitWidth(total)
