@@ -295,10 +295,16 @@ function Spikes.Compute(seg, duration)
 						cov = cov + 1
 					end
 				end
-				-- 4th field: did THIS player's cast cover it (the card's
-				-- tape draws personal attribution; the SCORE stays team-
-				-- union — Josh 2026-07-26, "the healers look identical")
-				local mine = s and castCovers(s.casts, win[1], win[2], HEALER_PRE_SLOP, HEALER_SLOP) or nil
+				-- 4th field: did THIS PLAYER personally cover it — a healer's
+				-- raid-CD cast or anyone's defensive aura riding the window.
+				-- The card tape draws ONLY personal coverage (Josh 2026-07-24:
+				-- teammate state polluted the strip; team totals belong on
+				-- the group card). The SCORE stays team-union regardless.
+				local mine = s and (castCovers(s.casts, win[1], win[2], HEALER_PRE_SLOP, HEALER_SLOP)
+					or spanCovers(s.spans, s.since, win[1], win[2], TANK_SLOP)) or nil
+				if not mine then
+					mine = nil -- false compresses out of the SavedVariables
+				end
 				r.groupSpikeMap[#r.groupSpikeMap + 1] = { math.floor(win[1]), math.floor(win[2]), groupMet[i] or nil, mine }
 			end
 			if windows > 0 then

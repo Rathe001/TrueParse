@@ -2048,6 +2048,21 @@ end)()
 		"the caster's tape marks the window as theirs")
 	check(out.h2.groupSpikeMap and out.h2.groupSpikeMap[1][3] and not out.h2.groupSpikeMap[1][4],
 		"the non-caster sees teammate coverage, not their own")
+	-- a DPS defensive AURA riding the window also counts as personal
+	-- coverage (all roles get a consistent personal strip)
+	local dseg = {
+		players = {
+			d1 = { spikes = { maxHP = 100000, taken = { [30] = 60000 }, casts = {},
+				spans = { { 28, 35 } } } },
+			d2 = { spikes = { maxHP = 100000, taken = {}, casts = {}, spans = {} } },
+			d3 = { spikes = { maxHP = 100000, taken = {}, casts = {}, spans = {} } },
+		},
+	}
+	local dout = TP.Spikes.Compute(dseg, 120)
+	check(dout.d1 and dout.d1.groupSpikeMap and dout.d1.groupSpikeMap[1][4] == true,
+		"a defensive span covering the window marks the DPS tape as theirs")
+	check(dout.d2 and dout.d2.groupSpikeMap and not dout.d2.groupSpikeMap[1][4],
+		"no span, no personal coverage")
 	check(not (out.h3 and out.h3.groupSpikeWindows),
 		"windows after a player's death don't judge them")
 end)()

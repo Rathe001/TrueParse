@@ -799,11 +799,12 @@ function Panel:ShowFor(fight, result)
 	fitWidth(rowIndex)
 
 	-- danger-window timeline: one strip for the whole fight, a band per
-	-- damage spike — green if their cooldown met it, red if not. Tanks
-	-- see their own spikes, healers the group's.
+	-- damage spike, PERSONAL for every role (Josh 2026-07-24): tanks see
+	-- their own intake spikes vs their defensives; healers and DPS see
+	-- the group's spikes vs THEIR OWN cooldown/defensive. Team coverage
+	-- lives on the group card, not here.
 	local mm = player and player.metrics or {}
-	local map = (result.role == "TANK" and mm.spikeMap)
-		or (result.role == "HEALER" and mm.groupSpikeMap)
+	local map = (result.role == "TANK" and mm.spikeMap) or mm.groupSpikeMap
 	if frame.stripTrack then
 		frame.stripTrack:Hide()
 		frame.stripLabel:Hide()
@@ -824,7 +825,7 @@ function Panel:ShowFor(fight, result)
 		frame.stripLabel:SetPoint("TOPLEFT", 12, y)
 		frame.stripLabel:SetText(result.role == "TANK"
 			and "your damage spikes \194\183 |cff55cc55defensive met it|r / |cffe64d4dno defensive|r"
-			or "group spikes \194\183 |cff55cc55yours|r / |cff3d6b42teammate's|r / |cffe64d4duncovered|r")
+			or "group spikes \194\183 |cff55cc55you covered it|r / |cffe64d4dyou didn't|r")
 		frame.stripLabel:Show()
 		y = y - 14
 		local w = frame:GetWidth() - 24
@@ -844,14 +845,13 @@ function Panel:ShowFor(fight, result)
 			band:ClearAllPoints()
 			band:SetPoint("TOPLEFT", frame.stripTrack, "TOPLEFT", left, 0)
 			band:SetSize(math.min(width, w - left), 7)
-			-- tank maps are personal already (no 4th field); healer maps
-			-- carry mine-vs-team so each healer's tape is their own story
-			if win[4] or (result.role == "TANK" and win[3]) then
-				band:SetVertexColor(0.33, 0.80, 0.33, 1) -- yours
-			elseif win[3] then
-				band:SetVertexColor(0.24, 0.42, 0.26, 1) -- a teammate's
+			-- personal only: green = YOU covered it (tank maps carry that in
+			-- [3], group maps in [4]); everything else is red — teammate
+			-- coverage was visual pollution here (it's the group card's job)
+			if (result.role == "TANK" and win[3]) or win[4] then
+				band:SetVertexColor(0.33, 0.80, 0.33, 1)
 			else
-				band:SetVertexColor(0.90, 0.30, 0.30, 1) -- uncovered
+				band:SetVertexColor(0.90, 0.30, 0.30, 1)
 			end
 			band:Show()
 		end
