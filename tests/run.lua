@@ -3037,17 +3037,24 @@ end)()
 					tostring(r.breakdown.healing and r.breakdown.healing.value)))
 		end
 	end
-	local ohSigs = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
-		breakdown = { healing = { applicable = true, normalized = 40, pctile = 30, value = 200000 } } },
-		{}, { metrics = {} })
-	local oh
-	for _, r in ipairs(ohSigs) do
-		if r.key == "healing" then
-			oh = r
+	local function tankHealRow(metrics)
+		local sigs2 = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
+			breakdown = { healing = { applicable = true, normalized = 40, pctile = 30, value = 200000 } } },
+			{}, { metrics = metrics })
+		for _, r in ipairs(sigs2) do
+			if r.key == "healing" then
+				return r
+			end
 		end
 	end
+	local oh = tankHealRow({ selfHealing = 600000 })
 	check(oh and oh.label == "Off-healing" and oh.raw,
-		("tank healing row reads Off-healing, never brackets (%s)"):format(tostring(oh and oh.label)))
+		("split tank healing reads Off-healing, never brackets (%s)"):format(tostring(oh and oh.label)))
+	-- retail records can't split self-healing: the unsplit total keeps
+	-- its honest name and its WCL bracket
+	local unsplit = tankHealRow({})
+	check(unsplit and unsplit.label == "Healing" and not unsplit.raw,
+		("unsplit tank healing stays Healing with brackets (%s)"):format(tostring(unsplit and unsplit.label)))
 
 	-- stagger purified counts toward recovery (Josh 2026-07-24)
 	local mm2 = {

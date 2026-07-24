@@ -155,6 +155,8 @@ function Addon:HandleSlash(input)
 		else
 			TP.MockFight:Inject()
 		end
+	elseif cmd == "probe" then
+		TP.TankProbe:Toggle()
 	elseif cmd == "fights" then
 		local fights = TP.FightHistory.fights
 		if #fights == 0 then

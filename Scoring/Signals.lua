@@ -190,10 +190,15 @@ function Signals.ForResult(result, fight, player)
 				if key == "damage" and role == "SUPPORT" and (b.attribution or b.noInput) then
 					label = "Amplified"
 				end
-				-- a tank's healing is others-only now (self-sustain lives in
-				-- Tanking): name it, and never wear WCL brackets — WCL's
-				-- tank-healing population includes self-healing, ours doesn't
-				if key == "healing" and role == "TANK" then
+				-- a tank's healing is others-only WHERE THE SPLIT EXISTS
+				-- (Classic CLEU): then it's named and never wears WCL
+				-- brackets. Retail can't split self-healing — its number
+				-- still includes it, so the label and brackets stay honest
+				-- (Josh 2026-07-24: retail card claimed Off-healing on an
+				-- unsplit total)
+				local othersOnly = key == "healing" and role == "TANK"
+					and ((m.selfHealing or 0) > 0 or (m.selfAbsorbs or 0) > 0)
+				if othersOnly then
 					label = "Off-healing"
 				end
 				out[#out + 1] = barRow(key, ICONS[key], label, b.pctile or b.normalized or 0, nil)
@@ -202,7 +207,7 @@ function Signals.ForResult(result, fight, player)
 				-- bracket colors are for PARSES only: a group-relative share
 				-- wears neutral, not purple
 				out[#out].raw = not (b.pctile or b.absolute) or nil
-				if key == "healing" and role == "TANK" then
+				if othersOnly then
 					out[#out].raw = true
 				end
 				if b.noInput then

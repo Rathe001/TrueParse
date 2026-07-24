@@ -65,6 +65,7 @@ Scoring\Insights.lua
 Scoring\Bullets.lua
 Scoring\Signals.lua
 Core\MockFight.lua
+Core\TankProbe.lua
 Core\Career.lua
 Core\Trends.lua
 UI\Tooltip.lua
