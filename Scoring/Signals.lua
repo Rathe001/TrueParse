@@ -303,6 +303,7 @@ function Signals.GroupRows(results, fight)
 			local row = barRow(bl.key, ICONS[bl.key],
 				bl.key == "damage" and "Damage" or "Healing", bl.avg, nil)
 			row.raw = not bl.wclBacked or nil
+			row.base = true -- group-averaged WCL metric; Raw mode keeps these
 			row.groupB = { value = bl.total, normalized = bl.avg, wclBacked = bl.wclBacked }
 			row.players = bl.players
 			rows[#rows + 1] = row

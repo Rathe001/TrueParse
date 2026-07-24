@@ -2757,6 +2757,25 @@ end)()
 	end
 	check(dmgRow and dmgRow.base and actRow and not actRow.base,
 		"Raw view keeps throughput, drops activity")
+
+	-- Raw GROUP view (Josh 2026-07-24): the group card filters the same
+	-- way — group-averaged WCL bars survive, advisors/pips don't
+	local gRows = S.GroupRows({
+		{ breakdown = { damage = { applicable = true, normalized = 80, value = 100 } },
+			penaltyDetail = { deaths = 10 } },
+		{ breakdown = { damage = { applicable = true, normalized = 76, value = 100 } },
+			penaltyDetail = { deaths = 10 } },
+	}, {})
+	local gd, gDeaths
+	for _, r in ipairs(gRows) do
+		if r.key == "damage" then
+			gd = r
+		elseif r.key == "deaths" then
+			gDeaths = r
+		end
+	end
+	check(gd and gd.base, "group damage bar joins the Raw view")
+	check(gDeaths and not gDeaths.base, "group deaths pips stay out of Raw")
 end)()
 
 print("")

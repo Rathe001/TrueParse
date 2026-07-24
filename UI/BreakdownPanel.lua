@@ -1171,7 +1171,11 @@ function Panel:ShowForGroup(fight, results)
 		frame.baseRule:Hide() -- player-card element; the group card has none
 	end
 	-- the group card speaks the Signal Column language too (redesign's
-	-- last surface): bars/glyphs/pips from the tested ForGroup logic
+	-- last surface): bars/glyphs/pips from the tested ForGroup logic.
+	-- Raw mode (Josh 2026-07-24): same purity rule as the player card —
+	-- only WCL-backed rows (group-averaged throughput + kill speed), no
+	-- advisors, no rollup, no graphs.
+	local raw = results[1] and results[1].parse
 	local y = self.groupRunScore and -50 or -37 -- below the header lines
 	local total = 0
 	local function groupRow(sig)
@@ -1273,6 +1277,17 @@ function Panel:ShowForGroup(fight, results)
 			} } }
 	end
 
+	if raw then
+		-- kill speed stays: it IS WCL data (ranked-kill percentile)
+		local kept = {}
+		for _, s in ipairs(sigs) do
+			if s.base or s.key == "killSpeed" then
+				kept[#kept + 1] = s
+			end
+		end
+		sigs = kept
+	end
+
 	-- kind order (Josh 2026-07-24): the base WCL metrics (damage/healing)
 	-- together on top, then the other bars, then counts, verdicts, and
 	-- the Other rollup last. Stable within a tier so related stories
@@ -1344,7 +1359,7 @@ function Panel:ShowForGroup(fight, results)
 	-- 1) fight shape: group output/sec — the pull's whole arc. Steel
 	-- columns; cyan inside the Bloodlust window; red after the wipe call;
 	-- red dots above at each death.
-	if fight.shape and #fight.shape > 1 and (fight.duration or 0) > 0 then
+	if not raw and fight.shape and #fight.shape > 1 and (fight.duration or 0) > 0 then
 		local peak = 0
 		for _, v in ipairs(fight.shape) do
 			peak = math.max(peak, v)
@@ -1395,12 +1410,14 @@ function Panel:ShowForGroup(fight, results)
 	-- 2) team coverage strip: the group's spikes, covered by ANY cooldown
 	-- (the teammate view removed from player cards lives here now)
 	local teamMap
-	for _, r in ipairs(results) do
-		local p = fight.players and fight.players[r.guid]
-		local mmap = p and p.metrics and p.metrics.groupSpikeMap
-		if mmap and #mmap > 0 then
-			teamMap = mmap
-			break
+	if not raw then
+		for _, r in ipairs(results) do
+			local p = fight.players and fight.players[r.guid]
+			local mmap = p and p.metrics and p.metrics.groupSpikeMap
+			if mmap and #mmap > 0 then
+				teamMap = mmap
+				break
+			end
 		end
 	end
 	if teamMap and (fight.duration or 0) > 0 then
@@ -1469,7 +1486,7 @@ function Panel:ShowForGroup(fight, results)
 
 	-- 3) progression staircase: boss % remaining per pull tonight, best
 	-- pull in bracket green (only when 2+ measured wipes exist this run)
-	if fight.wipe and fight.runID and TP.FightHistory then
+	if not raw and fight.wipe and fight.runID and TP.FightHistory then
 		local pulls = {}
 		for i = #TP.FightHistory.fights, 1, -1 do -- oldest first
 			local f = TP.FightHistory.fights[i]
