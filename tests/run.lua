@@ -2406,7 +2406,7 @@ end)()
 		"activity bar carries its points")
 	local cd = byKey.cdTiming
 	check(cd and cd.kind == "squares" and cd.good == 2 and cd.bad == 1 and cd.ghost == 3
-		and cd.label == "Spikes uncovered",
+		and cd.label == "Uncovered",
 		("capacity cap draws ghosts: 2 good, 1 bad, 3 ghost (%s/%s/%s)"):format(
 			tostring(cd and cd.good), tostring(cd and cd.bad), tostring(cd and cd.ghost)))
 	check(byKey.deaths and byKey.deaths.kind == "pips" and byKey.deaths.count == 1

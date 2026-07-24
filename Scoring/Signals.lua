@@ -95,7 +95,8 @@ function Signals.ForResult(result, fight, player)
 		if (uses or 0) > 0 then
 			judged = math.min(windows, math.max(uses, covered) + 1)
 		end
-		local cdLabel = covered >= judged and "Spikes covered" or "Spikes uncovered"
+		-- labels must survive an ~86px column: verdicts stay short
+		local cdLabel = covered >= judged and "Spikes met" or "Uncovered"
 		out[#out + 1] = squareRow("cdTiming", icon, cdLabel,
 			covered, math.max(0, judged - covered), windows - judged, ad.cdTiming)
 	end
@@ -181,9 +182,9 @@ function Signals.ForResult(result, fight, player)
 	if deaths > 0 then
 		local dLabel = "Died"
 		if (player and player.deathReadyDefensives or 0) >= 2 and (ad.deathReady or 0) < 0 then
-			dLabel = "Died, CDs ready"
+			dLabel = "CDs unused"
 		elseif (ad.deathNoDefensives or 0) < 0 then
-			dLabel = "Died, no defensive"
+			dLabel = "No defensive"
 		end
 		out[#out + 1] = { key = "deaths", kind = "pips", icon = ICONS.deaths,
 			label = dLabel, count = deaths,

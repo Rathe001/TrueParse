@@ -349,6 +349,17 @@ local function renderSignal(row, sig, groupAvg)
 	ensureSignalWidgets(row)
 	row.symbol:SetText("")
 	row.text:SetText("")
+	-- rows are recycled across kinds: reset EVERY kind's widgets first
+	-- (a bar row was wearing the previous tenant's squares, 2026-07-26)
+	row.track:Hide()
+	row.fill:Hide()
+	row.tick:Hide()
+	for _, t in ipairs(row.marks) do
+		t:Hide()
+	end
+	row.num:SetText("")
+	row.num:Hide()
+	row.pts:Hide()
 	row.icon:SetTexture(sig.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
 	row.icon:Show()
 	row.label:SetText(sig.label or "")
