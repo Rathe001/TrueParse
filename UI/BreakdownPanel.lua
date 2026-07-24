@@ -695,6 +695,12 @@ local function getRow(i, y)
 		row = newRow(frame)
 		rows[i] = row
 	end
+	-- recycled rows shed wrap state HERE, not per-view: a coach row
+	-- reused by the group card kept its double height and spilled into
+	-- the neighbor below (audit 2026-07-24)
+	row:SetHeight(ROW_HEIGHT)
+	row.wraps = nil
+	row.text:SetWordWrap(false)
 	row:ClearAllPoints()
 	row:SetPoint("TOPLEFT", 0, y)
 	row:Show()
@@ -860,10 +866,6 @@ function Panel:ShowFor(fight, result)
 		y = y - ROW_HEIGHT
 		row.metricData = nil
 		row.tooltipData = nil
-		-- recycled rows shed any wrap state from a previous tenant
-		row.wraps = nil
-		row:SetHeight(ROW_HEIGHT)
-		row.text:SetWordWrap(false)
 		return row
 	end
 	for _, award in ipairs(myAwards or {}) do
