@@ -3,3 +3,4 @@
 .DS_Store
 scripts/*.local.txt
 scripts/*.log
+promo/

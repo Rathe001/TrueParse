@@ -1,23 +1,85 @@
 # TrueParse Changelog
 
-## 1.6.1
+## 2.0.0
 
-The coach is now visible. v1.6.0 hid it inside a hover tooltip and a
-conditional chat suffix - undiscoverable in practice. The coach line
-now sits on the breakdown card itself as a cyan bullet ("Coach: top
-parses cast Rejuvenation 21x/min - you 6"), unscored, shown only when
-a real gap exists. Fights recorded before 1.6.0 have no cast counts
-and are never coached ("you 0" would have been a lie). Also restored:
-the "(N coverable)" capacity note on cooldown-timing bullets, which
-1.5.3 introduced but never actually wired to its data.
+The breakdown cards are redesigned from the ground up. Words became
+signals: every metric is now a micro-row that shows its verdict at a
+glance, and everything that needs a sentence lives in a short hover.
 
-Tooltip rewrite: every hover explanation is now one short line - the
-paragraphs are gone. A language audit fixed every claim that had
-drifted from how scoring actually works: combat rez said
-"informational only" but pays +2; overheal said "not scored" but has
-scored since 1.4.0 (per-spec since 1.4.5); the buffs penalty said
-"capped at -5" but caps at -3; the coach and rez bullets had no
-explanations at all.
+**The Signal Column.** WCL-percentile metrics (damage, healing parses,
+kill speed) render the parse-bracket gauge itself - the five bracket
+color zones with a white marker at your position, so "where do I sit
+in the population" reads without a single word. Population-anchored
+metrics (Active, Mitigation) wear the same gauge, marker at their
+population tier. Counts and coverage (Covered 3/4, Kicks 8/10, dispel
+counts, deaths) are markless - a colored count and signed points, no
+fake bar. A light rule separates the base score (damage/healing) from
+the adjustments below it. Letter grades supported everywhere. Verdict
+labels stay under four words; hovers explain in one or two lines.
+
+**A real tanking stat.** The grey "Soaking" share is now a composite
+Tanking gauge built from four ingredients: soak share, dodge/parry/miss
+rate, blocked + external shields, and self-recovery (own heals, own
+absorbs, and Brewmaster purified stagger - estimated tick x 10).
+Avoided swings are priced into the recovery denominator so avoidance
+never double-credits. Each tank spec will rank against its own field
+as calibration data accumulates; a tank's Healing row is now
+"Off-healing" (group contribution only - self-sustain lives in
+Tanking).
+
+**Healer externals.** Guardian Spirit, Ironbark, Pain Suppression,
+Life Cocoon, and Hand of Sacrifice answering a TANK's damage spike now
+count in the same cooldown-timing pool as raid CDs - one metric, one
+cap, kit-appropriate windows per spec (resto shamans, who have no
+single-target external in MoP, are never judged on one). Tank spike
+hovers name the external that rode the spike.
+
+**Fight graphs.** The group card draws the pull's whole arc: group
+output per second with the Bloodlust window in cyan, deaths dotted
+above, and the wipe-call collapse in red - plus a team coverage strip
+(hover any spike for what hit, how hard, and who answered) and a
+progression staircase (boss % per pull tonight, best in green). Player
+cards get their own line: healers healing/sec, tanks damage intake/sec,
+DPS damage/sec - downtime and dead time visible at a glance.
+
+**The coach, humanized.** Visible on the card under a stopwatch icon,
+phrased as advice ("Cast Rejuvenation more often - you average 11/min,
+top parses 21."), wrapping instead of widening the card.
+
+**Activity measures honestly.** Hardcasts credit their full cast time
+(a chain-casting Wrath player used to cap at ~84%); channels credit
+their full span on retail. Casters can finally reach 100.
+
+**Cards, chrome, and type.** Hero header (name + big bracket-colored
+score), one-line subheader (boss - wipe % - duration - run avg), and a
+footer (flask/food ready-checks + pull time; the group card counts
+preparedness across everyone reporting). The whole card is set in the
+condensed sans of the quality-addon dialect. Tooltips are text-only -
+the gauge lives on the card now.
+
+**Raw mode is pure everywhere.** Both cards filter to WCL-backed rows
+only - no adjustments, no advisors, no graphs, no strips.
+
+**Wipe-it button.** Raid lead/assist can mark the exact moment a wipe
+was called with a big skull button (config option, off by default);
+scoring stops judging anyone past the call. Auto-detection still works
+when nobody clicks. Practice mode: Raider's Training Dummy sessions
+score like a patchwork boss so you can drill with the addon.
+
+**Testing.** "/tp mock" injects a fully-loaded synthetic raid night
+(client-appropriate: CLEU surfaces on Classic, meter + self-reports on
+retail) so every card surface can be explored without a raid;
+"/tp mock clear" removes it.
+
+**Accuracy and audit fixes.** Challenge Mode bosses no longer claim a
+bogus kill-speed p99 from full-run curves; pinned run cards survive
+scorecard re-renders; run cards no longer call pressed raid CDs
+unused; zero-kick and zero-dispel charges show in Other instead of
+vanishing; low-demand healers keep a "Little to heal" row; an Aug
+without their own TrueParse reads "Amplified ?" instead of a fake
+mid-pack bar; group raid-CD names moved to the hover; every hover
+explanation is one short line, audited to match how scoring actually
+works.
 
 ## 1.6.0
 

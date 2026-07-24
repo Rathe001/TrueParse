@@ -4,6 +4,7 @@ enable-toc-creation: no
 
 ignore:
   - tests
+  - promo
   - scripts
   - README.md
   - .pkgmeta
