@@ -577,13 +577,18 @@ function MeterWindow:UpdateWipeButton()
 		return
 	end
 	local seg = TP.Segments and TP.Segments.current
+	-- training dummies count as boss-ish and drop the group requirement:
+	-- the button is rehearsable exactly where everything else is (the
+	-- press is harmless there — a non-wipe voids the call anyway)
+	local practice = seg and not seg.encounterID
+		and (seg.name or ""):find("Training Dummy", 1, true) ~= nil
 	local show = db().wipeButton
 		and not TP.Compat.IS_RETAIL
 		and seg ~= nil
-		and seg.encounterID ~= nil
+		and (seg.encounterID ~= nil or practice)
 		and not seg.manualWipeAt
 		and UnitAffectingCombat("player")
-		and IsInGroup()
+		and (IsInGroup() or practice)
 		and TP.Sync and TP.Sync.WipeCallPermitted and TP.Sync:WipeCallPermitted()
 	if show then
 		-- hang off whichever window edge faces screen center, so the
