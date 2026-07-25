@@ -1025,8 +1025,13 @@ local function timeLineText(fight, showPull)
 	end
 	local m, s = math.floor(d / 60), d % 60
 	local dur = m > 0 and ("%dm%ds"):format(m, s) or ("%ds"):format(s)
-	if showPull and fight.capturedAt then
-		local clock = date("%I:%M%p", fight.capturedAt - fight.duration):lower():gsub("^0", "")
+	-- startedAt is the LIVE pull stamp; capturedAt is when the record
+	-- was built, which for delayed/bulk unlocks can be hours later —
+	-- and a run's capturedAt-minus-summed-durations means nothing
+	local base = fight.startedAt
+		or (not fight.isRun and fight.capturedAt and fight.capturedAt - fight.duration)
+	if showPull and base then
+		local clock = date("%I:%M%p", base):lower():gsub("^0", "")
 		return ("@%s (%s)"):format(clock, dur)
 	end
 	return dur

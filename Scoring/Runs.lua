@@ -33,6 +33,13 @@ function Runs.Aggregate(fights, name)
 		if (fight.capturedAt or 0) > run.capturedAt then
 			run.capturedAt = fight.capturedAt
 		end
+		-- the run's clock = the earliest pull's start (capturedAt minus
+		-- SUMMED durations is nonsense — Josh 2026-07-25)
+		local st = fight.startedAt
+			or (fight.capturedAt and fight.capturedAt - (fight.duration or 0))
+		if st and (not run.startedAt or st < run.startedAt) then
+			run.startedAt = st
+		end
 		if fight.zone and not run.zone then
 			run.zone = fight.zone
 		end

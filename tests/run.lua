@@ -523,6 +523,7 @@ local runFights = {
 local run = TP.Scoring.Runs.Aggregate(runFights, "Testhall Run")
 check(run.duration == 75, "run duration sums")
 check(run.capturedAt == 200, "run keeps latest capture time")
+check(run.startedAt == 70, ("run clock = earliest pull start (%s)"):format(tostring(run.startedAt)))
 check(run.players.a.metrics.damage == 2200, "player damage sums across pulls")
 check(run.players.a.ilvl == 280, "later fight fills in missing identity")
 check(run.totals.interrupts == 3, "totals sum")

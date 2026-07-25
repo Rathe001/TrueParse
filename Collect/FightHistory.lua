@@ -192,6 +192,11 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		isBoss = name:find("^%(!%)") ~= nil,
 		duration = duration or 0,
 		capturedAt = time(),
+		-- when the fight actually HAPPENED: the live context's stamp from
+		-- the first meter update. Bulk/delayed unlocks build this record
+		-- hours (or a login) later, so capturedAt - duration is NOT the
+		-- pull time (Josh 2026-07-25: a 7pm raid showed a 1:07pm pull)
+		startedAt = sessionContext[sessionID] and sessionContext[sessionID].at or nil,
 		players = players,
 		totals = totals,
 	}
@@ -1070,6 +1075,8 @@ function FightHistory:AddFromSegment(seg)
 		duration = seg.duration or 0,
 		rawDuration = seg.rawDuration, -- untrimmed window (report matching)
 		capturedAt = time(),
+		-- CLEU records build at fight end, so the pull clock is exact
+		startedAt = time() - (seg.duration or 0),
 		zone = GetZoneText(),
 		-- practice fights borrow the anchor's bracket so curve resolution
 		-- lands on the intended population
