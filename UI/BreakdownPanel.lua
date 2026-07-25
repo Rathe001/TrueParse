@@ -907,6 +907,17 @@ function Panel:ShowFor(fight, result)
 	frame.runLine:SetText(histText or "")
 
 	local y = histText and -56 or -44
+	-- header rule, same ink as the base divider below (Josh 2026-07-25)
+	if not frame.headerRule then
+		frame.headerRule = frame:CreateTexture(nil, "ARTWORK")
+		frame.headerRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
+		frame.headerRule:SetHeight(1)
+	end
+	frame.headerRule:ClearAllPoints()
+	frame.headerRule:SetPoint("TOPLEFT", 10, y)
+	frame.headerRule:SetPoint("TOPRIGHT", -10, y)
+	frame.headerRule:Show()
+	y = y - 6
 
 	-- Signal Column (2026-07-26 redesign): awards keep their gold text
 	-- rows; every scored signal renders as icon + verdict + marks.
@@ -1433,6 +1444,17 @@ function Panel:ShowForGroup(fight, results)
 	-- advisors, no rollup, no graphs.
 	local raw = results[1] and results[1].parse
 	local y = -44 -- below the hero line + subheader
+	-- same header rule as the player card
+	if not frame.headerRule then
+		frame.headerRule = frame:CreateTexture(nil, "ARTWORK")
+		frame.headerRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
+		frame.headerRule:SetHeight(1)
+	end
+	frame.headerRule:ClearAllPoints()
+	frame.headerRule:SetPoint("TOPLEFT", 10, y)
+	frame.headerRule:SetPoint("TOPRIGHT", -10, y)
+	frame.headerRule:Show()
+	y = y - 6
 	local total = 0
 	local function groupRow(sig)
 		total = total + 1
