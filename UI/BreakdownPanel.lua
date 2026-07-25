@@ -1438,8 +1438,9 @@ function Panel:ShowFor(fight, result)
 		elseif hasMine then
 			lbl = "group spikes \194\183 |cff55cc55covered|r / |cffe64d4duncovered|r"
 		else
-			-- pre-attribution record: team coloring, honestly labeled
-			lbl = "group spikes \194\183 |cff55cc55a cooldown met it|r / |cffe64d4duncovered|r"
+			-- pre-attribution record: team coloring (band hovers still
+			-- say whose cooldown, when known)
+			lbl = "group spikes \194\183 |cff55cc55covered|r / |cffe64d4duncovered|r"
 		end
 		frame.stripLabel:SetText(lbl)
 		frame.stripLabel:Show()
@@ -1940,12 +1941,11 @@ function Panel:ShowForGroup(fight, results)
 			peak = math.max(peak, v)
 		end
 		if peak > 0 then
-			-- mockup caption (Josh 2026-07-24): name the series and stamp
-			-- the collapse moment when the detector found one
-			local cap = "group output/sec \194\183 |cff66ccfflust window|r \194\183 |cffe64d4ddeaths above|r"
+			-- same legend vocabulary as the player sparkline (Josh
+			-- 2026-07-25): series name, "lust", "deaths", "wipe called"
+			local cap = "group DPS \194\183 |cff66ccfflust|r \194\183 |cffe64d4ddeaths|r"
 			if fight.calledWipeAt then
-				cap = cap .. (" \194\183 |cffe64d4dcall collapse at %d:%02d|r"):format(
-					math.floor(fight.calledWipeAt / 60), fight.calledWipeAt % 60)
+				cap = cap .. " \194\183 |cffe64d4dwipe called|r"
 			end
 			vizLabel("shapeLabel", cap)
 			local n = #fight.shape
@@ -2006,7 +2006,7 @@ function Panel:ShowForGroup(fight, results)
 		end
 	end
 	if teamMap and (fight.duration or 0) > 0 then
-		vizLabel("covLabel", "group spikes \194\183 |cff55cc55a cooldown met it|r / |cffe64d4duncovered|r")
+		vizLabel("covLabel", "group spikes \194\183 |cff55cc55covered|r / |cffe64d4duncovered|r")
 		-- background track (it was missing here — audit 2026-07-24: bands
 		-- floated on nothing while the player strip had its rail)
 		if not frame.covTrack then
