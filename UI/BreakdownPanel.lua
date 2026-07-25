@@ -1322,8 +1322,8 @@ function Panel:ShowFor(fight, result)
 			if not frame.pShapeLabel then
 				frame.pShapeLabel = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 			end
-			local series = result.role == "HEALER" and "Your HPS"
-				or result.role == "TANK" and "Damage intake" or "Your DPS"
+			local series = result.role == "HEALER" and "your HPS"
+				or result.role == "TANK" and "damage intake" or "your DPS"
 			if fight.lustAt and result.role ~= "TANK" then
 				series = series .. " \194\183 |cff66ccfflust|r"
 			end
@@ -1428,9 +1428,9 @@ function Panel:ShowFor(fight, result)
 		frame.stripLabel:SetPoint("TOPLEFT", 12, y)
 		local lbl
 		if not isGroupMap then
-			lbl = "Damage spikes \194\183 |cff55cc55Defensive|r / |cffe64d4dNo defensive|r"
+			lbl = "damage spikes \194\183 |cff55cc55defensive|r / |cffe64d4dno defensive|r"
 		elseif hasMine then
-			lbl = "group spikes \194\183 |cff55cc55you covered it|r / |cffe64d4dyou didn't|r"
+			lbl = "group spikes \194\183 |cff55cc55covered|r / |cffe64d4duncovered|r"
 		else
 			-- pre-attribution record: team coloring, honestly labeled
 			lbl = "group spikes \194\183 |cff55cc55a cooldown met it|r / |cffe64d4duncovered|r"
