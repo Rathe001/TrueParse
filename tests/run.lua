@@ -703,9 +703,10 @@ check(infoText({ overkillPct = 14 }, "DAMAGER", "overkill", { overkill = -1 }) =
 check(infoText({}, "HEALER", "manaDry", { manaDry = -1 }) == "Ran out of mana mid-fight (-1)",
 	"mana dry scored and shown")
 check(infoText({ offensiveCDs = 3 }, "DAMAGER", "offensives") == nil, "unscored offensives hidden now")
-local mText, mSym = infoText({ mitigationPct = 82 }, "TANK", "mitigation", { mitigation = 4 })
-check(mText == "Active mitigation up 82% (+4)" and mSym == "+", "tank mitigation uptime credited")
-check(infoText({ mitigationPct = 55 }, "TANK", "mitigation") == nil, "neutral mitigation hidden")
+-- mitigation reports through the Tanking composite now (2026-07-25):
+-- no standalone bullet, even when the metric is present
+check(infoText({ mitigationPct = 82 }, "TANK", "mitigation", { mitigation = 4 }) == nil,
+	"mitigation has no standalone bullet")
 
 -- 14a. Every award has a description
 for _, label in pairs(TP.Scoring.Awards.LABELS) do
@@ -2469,10 +2470,10 @@ end)()
 		and rows[1].value == 38, "healer's primary bar leads with its percentile")
 	check(byKey.activity and byKey.activity.points == -4 and byKey.activity.value == 69,
 		"activity bar carries its points")
-	-- quantile-anchored tiers: 69% ≈ p25 boundary (grey, not danger
-	-- red); 97% ≈ p95 (orange — near-perfect reads near-perfect)
-	check(byKey.activity.tier and math.abs(byKey.activity.tier - 24.6) < 0.5,
-		("68-ish activity is bottom-quartile grey (%s)"):format(tostring(byKey.activity.tier)))
+	-- activity is a chip now (Josh 2026-07-25): "Active 69% -4" in the
+	-- grid — num routes it there, and no tier means no gauge
+	check(byKey.activity.num == "69%" and byKey.activity.tier == nil,
+		("activity is a num chip, not a gauge (%s)"):format(tostring(byKey.activity.num)))
 	local hot = S.ForResult({ role = "DAMAGER", adjustDetail = { activity = 4 }, penaltyDetail = {},
 		breakdown = { damage = { applicable = true, pctile = 80 } } }, {},
 		{ metrics = { activityPct = 97 } })
@@ -2482,8 +2483,8 @@ end)()
 			act = r
 		end
 	end
-	check(act and math.abs(act.tier - 95) < 0.5,
-		("97%% activity reads p95 orange (%s)"):format(tostring(act and act.tier)))
+	check(act and act.num == "97%" and act.points == 4 and act.tier == nil,
+		("97%% activity chips with its +4 (%s)"):format(tostring(act and act.num)))
 	local cd = byKey.cdTiming
 	check(cd and cd.kind == "bar" and cd.num == "2/3" and math.abs(cd.value - 66.7) < 0.5
 		and cd.label == "Covered" and cd.detail and cd.detail:find("6 spikes", 1, true),
@@ -2996,6 +2997,21 @@ end)()
 	-- avoidance 50 + shielded 300/(1000+300)=23.1 + recovery 25 -> /3
 	check(dv and math.abs(dv - (50 + 300 / 13 + 25) / 3) < 0.5,
 		("recovery prices avoided swings into the denominator (%.1f)"):format(dv or -1))
+
+	-- mitigation uptime is a composite ingredient now (2026-07-25), not
+	-- its own row/adjustment: same fixture + 80% uptime lifts the average
+	dc.mitigationPct = 80
+	local mv, mparts = S.TankingComposite(dc, nil)
+	check(mv and math.abs(mv - (50 + 300 / 13 + 25 + 80) / 4) < 0.5,
+		("mitigation uptime averages into the composite (%.1f)"):format(mv or -1))
+	local mfound
+	for _, part in ipairs(mparts or {}) do
+		if part:find("mitigation up 80%%") then
+			mfound = true
+		end
+	end
+	check(mfound, "the tooltip itemizes the mitigation ingredient")
+	dc.mitigationPct = nil
 
 	-- per-spec anchors: the same composite wears a different tier when
 	-- the spec's own population says so

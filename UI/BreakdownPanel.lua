@@ -275,7 +275,10 @@ end
 local MARK_POOL = 10 -- fixed segment count: gauges always span the area
 local CONTENT_X = 116 -- marks start after icon(16) + label(~80)
 local NUM_W, PTS_W = 30, 26
-local BAR_W = 300 - 12 - CONTENT_X - (NUM_W + PTS_W + 14) -- content width
+-- full rows carry no points since Active/Mitigation moved to the grid
+-- (Josh 2026-07-25): the score sits in the LAST column and the gauge
+-- takes the freed width
+local BAR_W = 300 - 12 - CONTENT_X - (NUM_W + 14)
 local SEG_W = math.floor((BAR_W - (MARK_POOL - 1) * 2) / MARK_POOL)
 
 local function ensureSignalWidgets(row)
@@ -294,7 +297,7 @@ local function ensureSignalWidgets(row)
 	row.track = row:CreateTexture(nil, "ARTWORK")
 	row.track:SetColorTexture(0.12, 0.12, 0.14, 1)
 	row.track:SetPoint("LEFT", CONTENT_X, 0)
-	row.track:SetPoint("RIGHT", -(NUM_W + PTS_W + 14), 0)
+	row.track:SetPoint("RIGHT", -(NUM_W + 14), 0)
 	row.track:SetHeight(7)
 	row.fill = row:CreateTexture(nil, "OVERLAY")
 	row.fill:SetPoint("TOPLEFT", row.track, "TOPLEFT", 0, 0)
@@ -303,7 +306,7 @@ local function ensureSignalWidgets(row)
 	row.tick:SetColorTexture(0.92, 0.92, 0.92, 0.85)
 	row.tick:SetSize(1, 11)
 	row.num = face(row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 13)
-	row.num:SetPoint("RIGHT", -(PTS_W + 10), 0)
+	row.num:SetPoint("RIGHT", -8, 0)
 	row.num:SetWidth(NUM_W)
 	row.num:SetJustifyH("RIGHT")
 	row.pts = face(row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
@@ -388,13 +391,10 @@ local function renderSignal(row, sig, groupAvg)
 	else
 		row.label:SetTextColor(LABEL_INK[1], LABEL_INK[2], LABEL_INK[3])
 	end
-	if sig.points and math.abs(sig.points) >= 0.5 then
-		row.pts:SetText(("%+d"):format(sig.points >= 0
-			and math.floor(sig.points + 0.5) or -math.floor(-sig.points + 0.5)))
-		row.pts:Show()
-	else
-		row.pts:SetText("")
-	end
+	-- full-width rows carry no points column anymore (every pointed
+	-- signal lives in the chip grid, Josh 2026-07-25) — the score sits
+	-- in the last column where the +N used to be
+	row.pts:SetText("")
 
 	if sig.kind == "bar" then
 		row.track:Show()
@@ -402,18 +402,16 @@ local function renderSignal(row, sig, groupAvg)
 		local r, g, b
 		local gauge, markerAt = false, nil
 		if sig.tier then
-			-- quantile-anchored raw metrics (activity, mitigation) are
-			-- population-backed too, so they wear the gauge (Josh
-			-- 2026-07-24): marker at the POPULATION TIER, number stays
-			-- the raw % — "90% active" sitting in the purple zone reads
-			-- "and that's p80 of the field"
+			-- anchor-tiered composites (Tanking) are population-backed,
+			-- so they wear the gauge: marker at the POPULATION TIER, the
+			-- number stays the raw value (Josh 2026-07-24)
 			r, g, b = TP.Scoring.Grades.ColorForScore(sig.tier)
 			gauge, markerAt = true, sig.tier
 		elseif sig.num or sig.raw then
-			-- non-percentile bars (coverage, activity, mitigation, share
-			-- scores, unranked throughput): VERDICT colors, never brackets
-			-- — a 68% activity that costs points must not wear parse blue
-			-- (Josh 2026-07-24). Green earned, red cost, neutral otherwise.
+			-- non-percentile bars (coverage, share scores, unranked
+			-- throughput): VERDICT colors, never brackets — a value that
+			-- costs points must not wear parse blue (Josh 2026-07-24).
+			-- Green earned, red cost, neutral otherwise.
 			local pts = sig.points or 0
 			if pts >= 0.5 then
 				r, g, b = MARK_GOOD[1], MARK_GOOD[2], MARK_GOOD[3]
@@ -853,7 +851,6 @@ local function infoHelp()
 			activity = "Time spent casting or attacking.",
 			overheal = "Healing onto full health bars, judged against this spec's normal range from ranked logs.",
 			offensives = "Offensive cooldowns cast. Softens a missed Bloodlust window.",
-			mitigation = "Time with an active-mitigation buff up.",
 			avoidable = "Avoidable damage taken, vs your fair share of the group's.",
 			cdTiming = "Damage spikes answered in time: raid CDs on group spikes, your external on tank spikes. Judged only on spikes your cooldowns could reach.",
 			manaDry = "Ran out of mana before the fight's final stretch.",
@@ -1267,7 +1264,7 @@ function Panel:ShowFor(fight, result)
 				series = series .. " \194\183 |cff66ccfflust|r"
 			end
 			if fight.calledWipeAt then
-				series = series .. " \194\183 |cffe64d4dafter the call|r"
+				series = series .. " \194\183 |cffe64d4dwipe called|r"
 			end
 			y = y - 6
 			frame.pShapeLabel:ClearAllPoints()

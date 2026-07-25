@@ -1563,18 +1563,9 @@ function Engine.ScoreFight(fight, opts)
 				end
 				put("activity", pts)
 			end
-			if role == "TANK" and m.mitigationPct then
-				local pts = ramp(m.mitigationPct, A.mitigationLow or 40, A.mitigationHigh or 70,
-					A.mitigationMax or 4)
-				-- the uptime ratio has no idea about dead time or the
-				-- post-call AFK tail (its numerator can't be clipped after
-				-- the fact): suppress the penalty when either contaminates
-				-- it; the bonus side still stands
-				if pts < 0 and ((m.deaths or 0) > 0 or fight.calledWipeAt) then
-					pts = 0
-				end
-				put("mitigation", pts)
-			end
+			-- (the mitigation adjustment retired 2026-07-25: uptime lives
+			-- inside the Tanking composite now — scoring it separately
+			-- double-dipped, and points without a row are forbidden)
 			if (m.consumables or 0) >= 2 then
 				put("prepared", A.preparedBonus or 0)
 			end

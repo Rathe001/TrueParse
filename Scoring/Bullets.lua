@@ -228,20 +228,8 @@ function Bullets.ForResult(result, awards, extra)
 			text = extra.offensiveCDs == 1 and "Used an offensive cooldown"
 				or ("Used %d offensive cooldowns"):format(extra.offensiveCDs) }
 	end
-	if extra and extra.mitigationPct and result.role == "TANK" then
-		local pct = extra.mitigationPct
-		local tag = pts(ad.mitigation)
-		if pct >= 70 then
-			out[#out + 1] = { kind = "info", key = "mitigation", symbol = "+", color = GOOD,
-				text = ("Active mitigation up %d%%"):format(pct) .. tag }
-		elseif pct >= 40 then
-			out[#out + 1] = { kind = "info", key = "mitigation", symbol = MIDDOT, color = MID,
-				text = ("Active mitigation up %d%%"):format(pct) .. tag }
-		else
-			out[#out + 1] = { kind = "info", key = "mitigation", symbol = "-", color = BAD,
-				text = ("Active mitigation up %d%%"):format(pct) .. tag }
-		end
-	end
+	-- (mitigation uptime reports through the Tanking composite now —
+	-- the standalone line and its adjustment retired 2026-07-25)
 
 	-- Cooldown timing vs the fight's danger windows (Classic CLEU sees
 	-- everyone; retail players self-report their own). When demonstrated

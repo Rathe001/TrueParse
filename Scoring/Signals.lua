@@ -27,7 +27,6 @@ local ICONS = {
 	rez = ICON .. "Spell_Nature_Reincarnation",
 	deaths = ICON .. "Ability_Rogue_FeignDeath",
 	lust = ICON .. "Spell_Nature_BloodLust",
-	mitigation = ICON .. "Ability_Defend",
 	avoidable = ICON .. "Spell_Fire_SelfDestruct",
 	buffUptime = ICON .. "Spell_Nature_UnyieldingStamina",
 	speed = ICON .. "Ability_Rogue_Sprint",
@@ -86,6 +85,13 @@ function Signals.TankingComposite(m, soakNormalized)
 		sum = sum + avoid
 		n = n + 1
 		parts[#parts + 1] = ("avoided %.0f%% of %d attacks"):format(avoid, swings)
+	end
+	-- active-mitigation uptime joined the composite (Josh 2026-07-25:
+	-- its own row double-dipped the survival story)
+	if m.mitigationPct then
+		sum = sum + m.mitigationPct
+		n = n + 1
+		parts[#parts + 1] = ("mitigation up %d%% of the fight"):format(m.mitigationPct)
 	end
 	local selfAbs = m.selfAbsorbs or 0
 	local shielded = (m.blockedTaken or 0) + math.max(0, (m.absorbedTaken or 0) - selfAbs)
@@ -165,8 +171,7 @@ function Signals.ForResult(result, fight, player)
 	-- 1) throughput bars, primary metric first (percentile when curve-
 	-- backed, normalized otherwise — both are 0-100 by construction)
 	-- damage and healing stay adjacent everywhere (they're the WCL base
-	-- pair — Josh 2026-07-24); a tank's Soaking follows them
-	-- (a tank's Tanking gauge emits AFTER Active — Josh 2026-07-25)
+	-- pair — Josh 2026-07-24); a tank's Tanking/Soaking follows them
 	local order = role == "HEALER" and { "healing", "damage" }
 		or { "damage", "healing" }
 	local function emitThroughput(key)
@@ -242,23 +247,19 @@ function Signals.ForResult(result, fight, player)
 		out[#out + 1] = row
 	end
 
-	-- 2) activity (everyone reporting it): width = the raw %, color = its
-	-- population tier via the scoring anchors
-	local A = TP.Scoring.Weights and TP.Scoring.Weights.adjustments or {}
+	-- 2) activity: a chip like the other counted verdicts (Josh
+	-- 2026-07-25 — the gauge moved out; "Active 89% +4" says it all)
 	if m.activityPct then
-		out[#out + 1] = barRow("activity", ICONS.activity, "Active", m.activityPct, ad.activity)
-		out[#out].tier = anchorTier(m.activityPct, A.activityLow or 70, A.activityHigh or 89, 97)
+		local row = barRow("activity", ICONS.activity, "Active", m.activityPct, ad.activity)
+		row.num = m.activityPct .. "%"
+		out[#out + 1] = row
 	end
 
-	-- 2b) the Tanking/Soaking gauge, below Active (Josh 2026-07-25)
+	-- 2b) the Tanking/Soaking gauge closes the gauge zone
+	-- (mitigation uptime lives inside the Tanking composite — its own
+	-- row double-dipped the survival story, Josh 2026-07-25)
 	if role == "TANK" then
 		emitThroughput("damageTaken")
-	end
-
-	-- 3) mitigation (tanks): same quantile treatment with its anchors
-	if role == "TANK" and m.mitigationPct then
-		out[#out + 1] = barRow("mitigation", ICONS.mitigation, "Mitigation up", m.mitigationPct, ad.mitigation)
-		out[#out].tier = anchorTier(m.mitigationPct, A.mitigationLow or 40, A.mitigationHigh or 70, 85)
 	end
 
 	-- 4) cooldown timing as per-event squares with the availability cap
@@ -601,7 +602,6 @@ function Signals.GroupAverages(results, fight)
 		local m = p and p.metrics
 		if m then
 			add("activity", m.activityPct)
-			add("mitigation", m.mitigationPct)
 			-- coverage bars tick against the other players holding the
 			-- same job (tanks vs tanks, healers share team coverage)
 			local w, c, u
