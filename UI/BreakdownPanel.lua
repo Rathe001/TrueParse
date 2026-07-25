@@ -625,7 +625,7 @@ local function createFrame()
 
 	-- duration + pull time, third header line (Josh 2026-07-25: the
 	-- footer's tenants moved up; the footer zone retires on player cards)
-	frame.timeLine = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
+	frame.timeLine = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 10)
 	frame.timeLine:SetPoint("TOPLEFT", 10, -43)
 	frame.timeLine:SetPoint("TOPRIGHT", -10, -43)
 	frame.timeLine:SetJustifyH("LEFT")
@@ -809,6 +809,24 @@ end
 -- The grid runs in three sections — bonuses on top, penalties, then
 -- the no-point items — each the same two-column layout, split by
 -- hairline rules (Josh 2026-07-25). Emission order holds within each.
+-- Every <hr> is ONE physical pixel (Josh 2026-07-25: at fractional UI
+-- scale a 1-unit texture can straddle two pixel rows and read as 2px,
+-- so sibling rules came out different weights). PixelUtil snaps the
+-- anchors and pins the height; clients without it keep plain units.
+local function hairline(t, yy)
+	t:ClearAllPoints()
+	if PixelUtil then
+		PixelUtil.SetPoint(t, "TOPLEFT", frame, "TOPLEFT", 10, yy)
+		PixelUtil.SetPoint(t, "TOPRIGHT", frame, "TOPRIGHT", -10, yy)
+		PixelUtil.SetHeight(t, 1, 1)
+	else
+		t:SetPoint("TOPLEFT", 10, yy)
+		t:SetPoint("TOPRIGHT", -10, yy)
+		t:SetHeight(1)
+	end
+	t:Show()
+end
+
 local chipRules = {}
 local function hideChipRulesFrom(i)
 	for j = i, #chipRules do
@@ -820,13 +838,9 @@ local function chipRuleAt(i, yy)
 	if not t then
 		t = frame:CreateTexture(nil, "ARTWORK")
 		t:SetColorTexture(0.5, 0.5, 0.55, 0.18)
-		t:SetHeight(1)
 		chipRules[i] = t
 	end
-	t:ClearAllPoints()
-	t:SetPoint("TOPLEFT", 10, yy)
-	t:SetPoint("TOPRIGHT", -10, yy)
-	t:Show()
+	hairline(t, yy)
 end
 local function layoutChipGrid(sigs, top, attach)
 	local chipW = (WIDTH - 28 - CHIP_GAP) / 2
@@ -1131,17 +1145,13 @@ function Panel:ShowFor(fight, result)
 	if not frame.headerRule then
 		frame.headerRule = frame:CreateTexture(nil, "ARTWORK")
 		frame.headerRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
-		frame.headerRule:SetHeight(1)
 	end
 	if coachGap then
 		frame.headerRule:Hide()
 		y = y - 6 -- the wash separates; the margin keeps it apart
 	else
 		y = y - 4
-		frame.headerRule:ClearAllPoints()
-		frame.headerRule:SetPoint("TOPLEFT", 10, y)
-		frame.headerRule:SetPoint("TOPRIGHT", -10, y)
-		frame.headerRule:Show()
+		hairline(frame.headerRule, y)
 		y = y - 6
 	end
 
@@ -1281,13 +1291,9 @@ function Panel:ShowFor(fight, result)
 		if not frame.baseRule then
 			frame.baseRule = frame:CreateTexture(nil, "ARTWORK")
 			frame.baseRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
-			frame.baseRule:SetHeight(1)
 		end
 		y = y - 4
-		frame.baseRule:ClearAllPoints()
-		frame.baseRule:SetPoint("TOPLEFT", 10, y)
-		frame.baseRule:SetPoint("TOPRIGHT", -10, y)
-		frame.baseRule:Show()
+		hairline(frame.baseRule, y)
 		y = y - 6
 	elseif frame.baseRule then
 		frame.baseRule:Hide()
@@ -1689,13 +1695,9 @@ function Panel:ShowForGroup(fight, results)
 	if not frame.headerRule then
 		frame.headerRule = frame:CreateTexture(nil, "ARTWORK")
 		frame.headerRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
-		frame.headerRule:SetHeight(1)
 	end
 	y = y - 4
-	frame.headerRule:ClearAllPoints()
-	frame.headerRule:SetPoint("TOPLEFT", 10, y)
-	frame.headerRule:SetPoint("TOPRIGHT", -10, y)
-	frame.headerRule:Show()
+	hairline(frame.headerRule, y)
 	y = y - 6
 	local total = 0
 	local function groupRow(sig)
@@ -1874,13 +1876,9 @@ function Panel:ShowForGroup(fight, results)
 		if not frame.baseRule then
 			frame.baseRule = frame:CreateTexture(nil, "ARTWORK")
 			frame.baseRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
-			frame.baseRule:SetHeight(1)
 		end
 		y = y - 4
-		frame.baseRule:ClearAllPoints()
-		frame.baseRule:SetPoint("TOPLEFT", 10, y)
-		frame.baseRule:SetPoint("TOPRIGHT", -10, y)
-		frame.baseRule:Show()
+		hairline(frame.baseRule, y)
 		y = y - 6
 	elseif frame.baseRule then
 		frame.baseRule:Hide()

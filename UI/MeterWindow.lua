@@ -1118,11 +1118,18 @@ function MeterWindow:RenderScorecard(fight)
 		if not row.groupDivider then
 			row.groupDivider = row:CreateTexture(nil, "ARTWORK")
 			row.groupDivider:SetColorTexture(0.5, 0.5, 0.55, 0.3)
-			row.groupDivider:SetHeight(1)
 		end
 		row.groupDivider:ClearAllPoints()
-		row.groupDivider:SetPoint("BOTTOMLEFT", row, "TOPLEFT", 0, 3)
-		row.groupDivider:SetPoint("BOTTOMRIGHT", row, "TOPRIGHT", 0, 3)
+		-- pixel-snapped so it always rasterizes 1px like the card rules
+		if PixelUtil then
+			PixelUtil.SetPoint(row.groupDivider, "BOTTOMLEFT", row, "TOPLEFT", 0, 3)
+			PixelUtil.SetPoint(row.groupDivider, "BOTTOMRIGHT", row, "TOPRIGHT", 0, 3)
+			PixelUtil.SetHeight(row.groupDivider, 1, 1)
+		else
+			row.groupDivider:SetPoint("BOTTOMLEFT", row, "TOPLEFT", 0, 3)
+			row.groupDivider:SetPoint("BOTTOMRIGHT", row, "TOPRIGHT", 0, 3)
+			row.groupDivider:SetHeight(1)
+		end
 		row.groupDivider:Show()
 		local sum = 0
 		for _, r in ipairs(results) do
