@@ -752,7 +752,7 @@ local function getChip(i)
 		c.pts:SetWidth(22)
 		c.pts:SetJustifyH("RIGHT")
 		c.val = face(c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
-		c.val:SetPoint("RIGHT", -24, 0)
+		c.val:SetPoint("RIGHT", -28, 0)
 		c.val:SetJustifyH("RIGHT")
 		c.label = face(c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
 		c.label:SetPoint("LEFT", 18, 0)
@@ -1219,7 +1219,9 @@ function Panel:ShowFor(fight, result)
 	elseif frame.baseRule then
 		frame.baseRule:Hide()
 	end
-	local chipW = (WIDTH - 16 - CHIP_GAP) / 2
+	-- grid geometry: the right column's value/points land on the SAME
+	-- x as the full rows' num/pts columns (Josh 2026-07-25)
+	local chipW = (WIDTH - 28 - CHIP_GAP) / 2
 	local gridTop = y
 	for i, sig in ipairs(chipSigs) do
 		local c = getChip(i)
@@ -1829,7 +1831,7 @@ function Panel:ShowForGroup(fight, results)
 	elseif frame.baseRule then
 		frame.baseRule:Hide()
 	end
-	local chipW = (WIDTH - 16 - CHIP_GAP) / 2
+	local chipW = (WIDTH - 28 - CHIP_GAP) / 2 -- columns match the rows'
 	local gridTop = y
 	for i, sig in ipairs(chipSigs) do
 		local c = getChip(i)
