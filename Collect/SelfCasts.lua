@@ -91,8 +91,11 @@ local function stopUptimeTicker()
 end
 
 -- Long-duration helpful auras at pull start, excluding raid buffs: flasks,
--- food, runes. Heuristic (25min+), locale-free, own auras only.
+-- food, runes. Heuristic (25min-2h), locale-free, own auras only. The
+-- ceiling matters: multi-hour event/holiday buffs (Josh's Aeki carried a
+-- 19h aura, 2026-07-25) are not preparation and were minting false +1s.
 local CONSUMABLE_MIN_DURATION = 1500
+local CONSUMABLE_MAX_DURATION = 7200 -- alchemist flasks cap at 2h
 
 local function isGroupBuffAura(spellId)
 	if not TP.GROUP_BUFFS then
@@ -118,6 +121,7 @@ local function countConsumables()
 		end
 		local duration = aura.duration
 		if duration and duration >= CONSUMABLE_MIN_DURATION
+			and duration <= CONSUMABLE_MAX_DURATION
 			and aura.spellId and not TP.Compat.IsSecret(aura.spellId)
 			and not isGroupBuffAura(aura.spellId) then
 			count = count + 1
