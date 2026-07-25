@@ -2489,19 +2489,16 @@ end)()
 	check(byKey.deaths and byKey.deaths.kind == "pips" and byKey.deaths.count == 1
 		and byKey.deaths.label == "Died", "deaths are pips with a verdict label")
 	check(byKey.lust == nil, "healers get no lust row")
-	-- unvisualized signals roll into ONE "Other" row: net points on the
-	-- row, itemized verdicts in its tooltip (Josh 2026-07-24)
-	check(byKey.other and byKey.other.kind == "other" and byKey.other.points == 2
-		and byKey.other.items[1].label == "Defensives x2",
-		("Other row nets the markless points (%s)"):format(tostring(byKey.other and byKey.other.points)))
+	-- unvisualized signals are their OWN markless rows now (the Other
+	-- rollup retired 2026-07-25: per-item hovers beat a nested list)
+	check(byKey.other == nil, "no Other rollup remains")
+	check(byKey.defensives and byKey.defensives.kind == "glyph"
+		and byKey.defensives.count == 2 and byKey.defensives.points == 2,
+		("defensives get their own verdict row (%s)"):format(tostring(byKey.defensives and byKey.defensives.count)))
 	local function otherItem(rows2, want)
 		for _, r in ipairs(rows2) do
-			if r.key == "other" then
-				for _, it in ipairs(r.items) do
-					if it.label == want then
-						return it
-					end
-				end
+			if r.label == want then
+				return r
 			end
 		end
 	end
@@ -2512,7 +2509,7 @@ end)()
 	local drows = S.ForResult(dps, {}, { metrics = { lustCasts = 0 } })
 	local missed = otherItem(drows, "Lust missed")
 	check(missed and missed.points == -3,
-		"a missed window says so in words inside Other")
+		"a missed window says so in words, on its own row")
 	drows = S.ForResult({ role = "DAMAGER", adjustDetail = { lust = 3 }, penaltyDetail = {},
 		breakdown = { damage = { applicable = true, pctile = 80 } } }, {},
 		{ metrics = { lustCasts = 2, lustPotion = 1 } })
@@ -2673,19 +2670,12 @@ end)()
 		"run aggregate unions raidCdsUsed across fights")
 
 	-- (4)/(5) charged-but-invisible: a capable player at zero kicks or
-	-- dispels still shows the charge in Other
-	local function itemsOf(sigs)
+	-- dispels still shows the charge as its own verdict row (the Other
+	-- rollup retired 2026-07-25)
+	local function rowLabeled(sigs, label)
 		for _, r in ipairs(sigs) do
-			if r.key == "other" then
-				return r.items
-			end
-		end
-		return {}
-	end
-	local function hasItem(items, label)
-		for _, it in ipairs(items) do
-			if it.label == label then
-				return it
+			if r.label == label then
+				return r
 			end
 		end
 	end
@@ -2693,14 +2683,15 @@ end)()
 		adjustDetail = { kicks = -2 }, penaltyDetail = {},
 		breakdown = { interrupts = { applicable = true, value = 0 } } },
 		{}, { metrics = {} })
-	local ki = hasItem(itemsOf(zeroKicks), "No interrupts")
-	check(ki and ki.points == -2, "zero kicks with a charge surfaces in Other")
+	local ki = rowLabeled(zeroKicks, "No interrupts")
+	check(ki and ki.points == -2 and ki.kind == "glyph" and ki.key == "kicks",
+		"zero kicks with a charge gets its own verdict row")
 	local zeroDispels = S.ForResult({ role = "DAMAGER",
 		adjustDetail = { dispels = -3 }, penaltyDetail = {},
 		breakdown = { dispels = { applicable = true, value = 0 } } },
 		{}, { metrics = {} })
-	check(hasItem(itemsOf(zeroDispels), "No dispels") ~= nil,
-		"zero dispels with a charge surfaces in Other")
+	check(rowLabeled(zeroDispels, "No dispels") ~= nil,
+		"zero dispels with a charge gets its own verdict row")
 
 	-- (6) a low-demand healer keeps their primary metric as a verdict
 	local lowD = S.ForResult({ role = "HEALER", adjustDetail = {}, penaltyDetail = {},

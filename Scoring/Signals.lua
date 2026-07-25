@@ -330,32 +330,33 @@ function Signals.ForResult(result, fight, player)
 		out[#out].raw = true -- share score, not a percentile
 	end
 
-	-- 7-9) everything WITHOUT a visualization rolls into one "Other" row
-	-- (Josh 2026-07-24): the net points ride the row, the itemized
-	-- breakdown lives in its tooltip. Collect first, emit after.
-	local others = {}
-	local function other(label, pts, count)
+	-- 7-9) everything WITHOUT a visualization gets its OWN markless row
+	-- (Josh 2026-07-25: the Other rollup hid the per-item hovers — every
+	-- row hoverable, every point accounted for, in place)
+	local function verdict(key, icon, label, pts, count)
 		if pts and math.abs(pts) < 0.5 then
 			pts = nil
 		end
-		others[#others + 1] = { label = label, points = pts, count = count }
+		out[#out + 1] = { key = key, kind = "glyph", icon = icon,
+			label = label, points = pts, count = count, good = true }
 	end
 	if (m.defensives or 0) > 0 then
-		other(("Defensives x%d"):format(m.defensives), ad.defensives)
+		verdict("defensives", ICONS.defensives, "Defensives", ad.defensives, m.defensives)
 	end
 	if (m.combatRezzes or 0) > 0 then
-		other(m.combatRezzes > 1 and ("Combat rez x%d"):format(m.combatRezzes)
-			or "Combat rez", ad.rez)
+		verdict("rez", ICONS.rez, "Combat rez", ad.rez,
+			m.combatRezzes > 1 and m.combatRezzes or nil)
 	end
 	if role == "DAMAGER" and m.lustCasts ~= nil then
 		local aligned = m.lustCasts > 0
-		other(aligned and ((m.lustPotion or 0) > 0 and "Lust + potion" or "Lust aligned")
+		verdict("lust", ICONS.lust,
+			aligned and ((m.lustPotion or 0) > 0 and "Lust + potion" or "Lust aligned")
 			or ((ad.lust or 0) == 0 and "Lust excused" or "Lust missed"), ad.lust)
 	end
 	if (ad.avoidable or 0) > 0 then
-		other("Stayed clean", ad.avoidable)
+		verdict("avoidable", ICONS.avoidable, "Stayed clean", ad.avoidable)
 	elseif (pd.avoidable or 0) > 0 then
-		other("Stood in bad", -pd.avoidable)
+		verdict("avoidable", ICONS.avoidable, "Stood in bad", -pd.avoidable)
 	end
 
 	-- 9b) every remaining scored adjustment gets a verdict glyph — the
@@ -386,17 +387,9 @@ function Signals.ForResult(result, fight, player)
 		if v ~= 0 and not shown[def.key] and (not def.healerOnly or role == "HEALER") then
 			local label = v > 0 and def.up or v < 0 and def.down
 			if label then
-				other(label, v)
+				verdict(def.key, def.icon, label, v)
 			end
 		end
-	end
-	if #others > 0 then
-		local net = 0
-		for _, it in ipairs(others) do
-			net = net + (it.points or 0)
-		end
-		out[#out + 1] = { key = "other", kind = "other", icon = ICON .. "INV_Misc_Note_01",
-			label = "Other", points = net, items = others }
 	end
 
 	-- 10) deaths: red pips, capped at 5 shown (the count rides the row)
@@ -418,11 +411,12 @@ end
 
 -- Group-card signal rows (the redesign's last surface): transforms
 -- Bullets.ForGroup's TESTED output into the card's row model — bars
--- for coverage stories, glyph verdicts for the advisors, one Other
--- rollup. Parsing the strings ForGroup already builds keeps a single
--- source of truth and its whole test suite intact.
+-- for coverage stories, glyph verdicts for the advisors, and full-width
+-- TEXT rows for the sentence-shaped lines (each with its own hover —
+-- the Other rollup hid them, Josh 2026-07-25). Parsing the strings
+-- ForGroup already builds keeps a single source of truth.
 function Signals.GroupRows(results, fight)
-	local rows, others = {}, {}
+	local rows = {}
 	local function ptsOf(text)
 		return tonumber((text or ""):match("%(([%+%-]%d+)%)%s*$"))
 	end
@@ -441,7 +435,8 @@ function Signals.GroupRows(results, fight)
 			row.players = bl.players
 			rows[#rows + 1] = row
 		elseif bl.key == "healing" then
-			others[#others + 1] = { label = "Little to heal" }
+			rows[#rows + 1] = { key = "healing", kind = "text",
+				label = "Little to heal", tooltip = bl.tooltip }
 		elseif bl.key == "interrupts" then
 			local landed, opps = text:match("(%d+) of (%d+)")
 			if landed then
@@ -451,7 +446,8 @@ function Signals.GroupRows(results, fight)
 				row.tooltip = bl.tooltip
 				rows[#rows + 1] = row
 			else
-				others[#others + 1] = { label = stripPts(text), points = pts }
+				rows[#rows + 1] = { key = "interrupts", kind = "text",
+					label = stripPts(text), points = pts, tooltip = bl.tooltip }
 			end
 		elseif bl.key == "lust" then
 			local a, b2 = text:match("(%d+) of (%d+)")
@@ -501,24 +497,18 @@ function Signals.GroupRows(results, fight)
 			local died = text:match("^(%d+) player")
 				or (text:find("^1 player died") and "1")
 			if text:find("Nobody died") then
-				others[#others + 1] = { label = "Nobody died" }
+				rows[#rows + 1] = { key = "deaths", kind = "text",
+					label = "Nobody died", tooltip = bl.tooltip }
 			elseif died then
 				rows[#rows + 1] = { key = "deaths", kind = "pips", icon = ICONS.deaths,
 					label = "Died", count = tonumber(died), points = pts }
 			end
 		else
 			-- dispels volume, avoidable, aggro, buffs, anything future:
-			-- verdicts into the rollup, points preserved
-			others[#others + 1] = { label = stripPts(text), points = pts }
+			-- full-width text rows, points preserved, own hover each
+			rows[#rows + 1] = { key = bl.key or "note", kind = "text",
+				label = stripPts(text), points = pts, tooltip = bl.tooltip }
 		end
-	end
-	if #others > 0 then
-		local net = 0
-		for _, it in ipairs(others) do
-			net = net + (it.points or 0)
-		end
-		rows[#rows + 1] = { key = "other", kind = "other", icon = ICON .. "INV_Misc_Note_01",
-			label = "Other", points = net ~= 0 and net or nil, items = others }
 	end
 	return rows
 end

@@ -759,8 +759,12 @@ local function infoHelp()
 			overheal = "Healing onto full health bars, judged against this spec's normal range from ranked logs.",
 			offensives = "Offensive cooldowns cast. Softens a missed Bloodlust window.",
 			mitigation = "Time with an active-mitigation buff up.",
-			avoidable = "No more than a fair share of avoidable damage.",
+			avoidable = "Avoidable damage taken, vs your fair share of the group's.",
 			cdTiming = "Damage spikes answered in time: raid CDs on group spikes, your external on tank spikes. Judged only on spikes your cooldowns could reach.",
+			manaDry = "Ran out of mana before the fight's final stretch.",
+			overkill = "Damage wasted on already-dead targets.",
+			prepared = "Flask and food up at the pull.",
+			kicks = "Interrupts vs your fair share of the group's.",
 			rez = "Combat rez cast, from the combat log.",
 			coach = "The biggest gap between this fight and top parses of this spec.",
 			interrupts = "Casts this player interrupted.",
@@ -793,6 +797,50 @@ function Panel:ShowFor(fight, result)
 	local cr, cg, cb = TP.ClassColor(result.class)
 	frame.title:SetText(result.name or "?")
 	frame.title:SetTextColor(cr, cg, cb)
+	-- spec icon before the name (Josh 2026-07-25); hover names the spec
+	if not frame.specIcon then
+		frame.specIcon = CreateFrame("Frame", nil, frame)
+		frame.specIcon:SetSize(18, 18)
+		frame.specIcon:SetPoint("TOPLEFT", 10, -9)
+		frame.specIcon.tex = frame.specIcon:CreateTexture(nil, "ARTWORK")
+		frame.specIcon.tex:SetAllPoints(frame.specIcon)
+		frame.specIcon.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		frame.specIcon:EnableMouse(true)
+		frame.specIcon:SetScript("OnEnter", function(sf)
+			if sf.tipTitle then
+				TP.Tooltip:Show(sf, tipSide() == "LEFT" and "FORCE_LEFT" or "FORCE_RIGHT",
+					sf.tipTitle, sf.tipLines)
+			end
+		end)
+		frame.specIcon:SetScript("OnLeave", function()
+			TP.Tooltip:Hide()
+		end)
+	end
+	local pRec = fight.players and fight.players[result.guid]
+	local specID = pRec and pRec.specID
+	local specIcon, specName
+	if specID and GetSpecializationInfoByID then
+		local ok, _, sName, _, sIcon = pcall(GetSpecializationInfoByID, specID)
+		if ok then
+			specName, specIcon = sName, sIcon
+		end
+	end
+	specIcon = specIcon or (pRec and pRec.specIconID)
+	frame.title:ClearAllPoints()
+	if specIcon then
+		frame.specIcon.tex:SetTexture(specIcon)
+		local className = result.class and (LOCALIZED_CLASS_NAMES_MALE
+			and LOCALIZED_CLASS_NAMES_MALE[result.class]) or result.class
+		frame.specIcon.tipTitle = specName or className or "Spec"
+		frame.specIcon.tipLines = { {
+			(specName and className) and (specName .. " " .. className)
+				or specName or className or "Unknown spec", cr, cg, cb } }
+		frame.specIcon:Show()
+		frame.title:SetPoint("TOPLEFT", 32, -9)
+	else
+		frame.specIcon:Hide()
+		frame.title:SetPoint("TOPLEFT", 10, -9)
+	end
 	frame.role:SetText(ROLE_LABELS[result.role] or result.role or "")
 	frame.subtitle:SetText("")
 	frame.bigScore:SetText("")
@@ -933,21 +981,6 @@ function Panel:ShowFor(fight, result)
 				specID = player and player.specID,
 				metrics = player and player.metrics,
 				title = sig.tipTitle, valueText = sig.tipText }
-		elseif sig.kind == "other" and sig.items then
-			-- the rollup row: itemized breakdown in the tooltip
-			local lines = {}
-			for _, it in ipairs(sig.items) do
-				local pts = ""
-				if it.points then
-					local n = it.points >= 0 and math.floor(it.points + 0.5)
-						or -math.floor(-it.points + 0.5)
-					pts = (" (%+d)"):format(n)
-				end
-				local bad = (it.points or 0) < 0
-				lines[#lines + 1] = { it.label .. pts,
-					bad and 0.9 or 0.8, bad and 0.45 or 0.8, bad and 0.45 or 0.75 }
-			end
-			row.tooltipData = { title = "Other", lines = lines }
 		elseif sig.key == "deaths" and player and player.deathRecap then
 			row.tooltipData = { title = sig.label, lines = deathRecapLines(player) }
 		else
@@ -1357,6 +1390,11 @@ function Panel:ShowForGroup(fight, results)
 	local label = (#results > 5) and "Raid" or "Group"
 	frame.title:SetText(label)
 	frame.title:SetTextColor(1, 0.82, 0.2)
+	if frame.specIcon then
+		frame.specIcon:Hide() -- shared frame: player-card element
+	end
+	frame.title:ClearAllPoints()
+	frame.title:SetPoint("TOPLEFT", 10, -9)
 	frame.subtitle:SetText("")
 	frame.bigScore:SetText("")
 	-- same compact header the player card uses
@@ -1398,32 +1436,41 @@ function Panel:ShowForGroup(fight, results)
 		total = total + 1
 		local row = getRow(total, y)
 		y = y - ROW_HEIGHT
+		row.metricData = nil
+		row.tooltipData = nil
+		if sig.kind == "text" then
+			-- sentence-shaped lines (dispel volume, avoidable pressure,
+			-- aggro stories) span the card like award rows — each with
+			-- its OWN hover (the Other rollup hid them, Josh 2026-07-25)
+			ensureSignalWidgets(row)
+			hideSignalWidgets(row)
+			row.symbol:SetText("\194\183")
+			local bad = (sig.points or 0) < 0
+			local suffix = ""
+			if sig.points and math.abs(sig.points) >= 0.5 then
+				suffix = (" (%+d)"):format(sig.points >= 0
+					and math.floor(sig.points + 0.5) or -math.floor(-sig.points + 0.5))
+			end
+			row.symbol:SetTextColor(bad and 0.90 or 0.55, bad and 0.35 or 0.55, bad and 0.35 or 0.60)
+			row.text:SetText((sig.label or "") .. suffix)
+			if bad then
+				row.text:SetTextColor(0.90, 0.45, 0.45)
+			else
+				row.text:SetTextColor(0.80, 0.80, 0.75)
+			end
+			row.tooltipData = sig.tooltip or { title = sig.label, lines = {} }
+			return row
+		end
 		-- no comparison ticks here: the WCL-backed rows render as bracket
 		-- gauges (only the player's marker — Josh 2026-07-24), and the
 		-- field median is the gauge's own green/blue seam at 50
 		renderSignal(row, sig, nil)
-		row.metricData = nil
-		row.tooltipData = nil
 		if sig.groupB then
 			row.metricData = {
 				b = sig.groupB, key = sig.key, duration = fight.duration,
 				footerText = ("group average %d \194\183 %d players"):format(
 					sig.value or 0, sig.players or #results),
 			}
-		elseif sig.kind == "other" and sig.items then
-			local lines = {}
-			for _, it in ipairs(sig.items) do
-				local pts = ""
-				if it.points then
-					local n = it.points >= 0 and math.floor(it.points + 0.5)
-						or -math.floor(-it.points + 0.5)
-					pts = (" (%+d)"):format(n)
-				end
-				local bad = (it.points or 0) < 0
-				lines[#lines + 1] = { it.label .. pts,
-					bad and 0.9 or 0.8, bad and 0.45 or 0.8, bad and 0.45 or 0.75 }
-			end
-			row.tooltipData = { title = "Other", lines = lines }
 		else
 			row.tooltipData = sig.tooltip or { title = sig.label, lines = {} }
 		end
@@ -1511,7 +1558,7 @@ function Panel:ShowForGroup(fight, results)
 	-- together on top, then the other bars, then counts, verdicts, and
 	-- the Other rollup last. Stable within a tier so related stories
 	-- keep their sequence.
-	local KIND_RANK = { bar = 2, squares = 3, pips = 4, glyph = 5, other = 6 }
+	local KIND_RANK = { bar = 2, squares = 3, pips = 4, glyph = 5, text = 6 }
 	local function rankOf(s)
 		if s.kind == "bar" and (s.key == "damage" or s.key == "healing") then
 			return 1
