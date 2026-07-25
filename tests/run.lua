@@ -2010,6 +2010,21 @@ end
 		("dead kicker's share penalty scaled way down (%s vs %s)"):format(
 			tostring(ka.kicks), tostring(kb.kicks)))
 
+	-- 25h2. healthstones (2026-07-25): +1 eaten, -1 sat on it — judged
+	-- only when a warlock was in the group to provide them; nil metric
+	-- (retail: casts are secret) stays neutral either way
+	local fhs = ctxFight({})
+	fhs.players.a = dps("Ate", { metrics = { healthstones = 1 } })
+	fhs.players.b = dps("Hoarder", { metrics = { healthstones = 0 } })
+	fhs.players.c = dps("NoData", { metrics = {} })
+	fhs.players.a.class = "WARLOCK"
+	check((adFor(fhs, "Ate").healthstone or 0) == 1, "healthstone eaten: +1")
+	check((adFor(fhs, "Hoarder").healthstone or 0) == -1, "healthstone unused: -1")
+	check(adFor(fhs, "NoData").healthstone == nil, "no cast data: healthstone neutral")
+	local fnl = ctxFight({})
+	fnl.players.a = dps("NoLock", { metrics = { healthstones = 0 } })
+	check(adFor(fnl, "NoLock").healthstone == nil, "no warlock in group: healthstone ignored")
+
 	-- 25i. per-spec overheal thresholds: a shield-heavy spec's population
 	-- runs high overheal; its p75 exempts what the fixed 45 would charge
 	local f9 = ctxFight({})

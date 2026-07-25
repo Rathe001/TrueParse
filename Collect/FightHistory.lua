@@ -899,6 +899,8 @@ function FightHistory:AddFromSegment(seg)
 		-- totals loop: it's a count, not a summable throughput stat)
 		if acc.cooldowns then
 			m.defensives = acc.cooldowns.defensives
+			-- pre-update in-flight segments lack the field: default 0
+			m.healthstones = acc.cooldowns.healthstones or 0
 		end
 		-- Bloodlust-window usage: only meaningful when lust actually went
 		-- out this fight (nil otherwise so bullets stay silent)

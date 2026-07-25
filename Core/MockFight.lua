@@ -78,7 +78,7 @@ local function roster(duration, full, collapseAt)
 		blockedTaken = 30000 * k, absorbedTaken = 88000 * k,
 		swingsLanded = 176, swingsAvoided = 92,
 		activityPct = 90, mitigationPct = 57, deaths = 0, defensives = 5,
-		consumables = 2, interrupts = 1,
+		consumables = 2, interrupts = 1, healthstones = 1,
 		spikeWindows = 4, spikeCovered = 3, defensiveUses = 5,
 		spikeMap = {
 			{ 40, 47, true, nil, 2350000, "Annihilate", "Savage Defense" },
@@ -95,7 +95,7 @@ local function roster(duration, full, collapseAt)
 		absorbedTaken = 60000 * k, staggerPurified = 68000 * k,
 		swingsLanded = 214, swingsAvoided = 71,
 		activityPct = 86, mitigationPct = 44, deaths = 0, defensives = 4,
-		consumables = 2, interrupts = 2,
+		consumables = 2, interrupts = 2, healthstones = 1,
 		spikeWindows = 3, spikeCovered = 2, defensiveUses = 4,
 		spikeMap = {
 			{ 75, 82, true, nil, 2100000, "Annihilate", "Shield Block" },
@@ -109,6 +109,7 @@ local function roster(duration, full, collapseAt)
 	p["MOCK-h1"] = player("MOCK-h1", "Willowmend", "DRUID", "HEALER", 105, 565, {
 		damage = 9000 * k, healing = 205000 * k,
 		activityPct = 93, deaths = 0, defensives = 2, consumables = 2,
+		healthstones = 1,
 		overhealPct = 31, manaMinPct = 18, dispels = 6, dispelReactAvg = 1.9,
 		combatRezzes = full and 1 or nil, interrupts = 0,
 		groupSpikeWindows = 6, groupSpikeCovered = 5, groupCdCasts = 9,
@@ -122,6 +123,7 @@ local function roster(duration, full, collapseAt)
 	p["MOCK-h2"] = player("MOCK-h2", "Grimshade", "PRIEST", "HEALER", 257, 561, {
 		damage = 7000 * k, healing = 188000 * k,
 		activityPct = 89, deaths = 0, defensives = 1, consumables = 2,
+		healthstones = 1,
 		overhealPct = 44, manaMinPct = 6, dryAt = full and math.floor(duration * 0.55) or nil,
 		dispels = 5, dispelReactAvg = 2.4, interrupts = 0,
 		groupSpikeWindows = 6, groupSpikeCovered = 5, groupCdCasts = 9,
@@ -131,6 +133,7 @@ local function roster(duration, full, collapseAt)
 	p["MOCK-h3"] = player("MOCK-h3", "Kaelstrom", "SHAMAN", "HEALER", 264, 562, {
 		damage = 11000 * k, healing = 214000 * k,
 		activityPct = 95, deaths = 0, defensives = 2, consumables = 2,
+		healthstones = 1,
 		overhealPct = 22, manaMinPct = 34, dispels = 3, dispelReactAvg = 1.4,
 		interrupts = 1,
 		groupSpikeWindows = 6, groupSpikeCovered = 5, groupCdCasts = 9,
@@ -152,25 +155,52 @@ local function roster(duration, full, collapseAt)
 	end
 	dps("MOCK-d1", "Emberfall", "MAGE", 64, 567, 258000, {
 		activityPct = 96, deaths = 0, defensives = 3, consumables = 2,
-		lustCasts = 2, lustPotion = 1, interrupts = 3,
+		lustCasts = 2, lustPotion = 1, interrupts = 3, healthstones = 1,
+		-- DPS wear the personal spike strip too (Josh 2026-07-25)
+		spikeWindows = 2, spikeCovered = 2, defensiveUses = 3,
+		spikeMap = {
+			{ 95, 101, true, nil, 610000, "Whirling Corruption", "Ice Block" },
+			{ 287, 293, true, nil, 545000, "Whirling Corruption", "Ice Barrier" },
+		},
 		profCasts = { [116] = math.floor(19.2 * k / 60), [30455] = math.floor(5.4 * k / 60),
 			[44614] = math.floor(5.4 * k / 60), [44457] = math.floor(5.8 * k / 60) },
 	})
 	dps("MOCK-d2", "Vexmourn", "WARLOCK", 267, 564, 244000, {
 		activityPct = 91, deaths = 0, defensives = 2,
-		lustCasts = 1, lustPotion = 0, interrupts = 0,
+		lustCasts = 1, lustPotion = 0, interrupts = 0, healthstones = 1,
+		spikeWindows = 2, spikeCovered = 1, defensiveUses = 2,
+		spikeMap = {
+			{ 137, 143, true, nil, 585000, "Whirling Corruption", "Unending Resolve" },
+			{ 287, 293, nil, nil, 630000, "Empowered Whirling Corruption" },
+		},
 	})
 	dps("MOCK-d3", "Nightbriar", "ROGUE", 261, 560, 231000, {
 		activityPct = 82, deaths = 1, defensives = 0, consumables = 1,
-		lustCasts = 1, lustPotion = 0, interrupts = 3,
+		lustCasts = 1, lustPotion = 0, interrupts = 3, healthstones = 0,
+		spikeWindows = 2, spikeCovered = 0, defensiveUses = 0,
+		spikeMap = {
+			{ 198, 204, nil, nil, 580000, "Whirling Corruption" },
+			{ 287, 293, nil, nil, 650000, "Empowered Whirling Corruption" },
+		},
 	})
 	dps("MOCK-d4", "Farshot", "HUNTER", 254, 565, 249000, {
 		activityPct = 94, deaths = 0, defensives = 2, consumables = 2,
-		lustCasts = 2, lustPotion = 1, interrupts = 2,
+		lustCasts = 2, lustPotion = 1, interrupts = 2, healthstones = 1,
+		spikeWindows = 2, spikeCovered = 2, defensiveUses = 2,
+		spikeMap = {
+			{ 137, 143, true, nil, 560000, "Whirling Corruption", "Deterrence" },
+			{ 287, 293, true, nil, 615000, "Empowered Whirling Corruption", "Deterrence" },
+		},
 	})
 	dps("MOCK-d5", "Sunspire", "PALADIN", 70, 563, 226000, {
 		activityPct = 88, deaths = 0, defensives = 1, consumables = 2,
-		lustCasts = 1, lustPotion = 1, interrupts = 1,
+		lustCasts = 1, lustPotion = 1, interrupts = 1, healthstones = 0,
+		spikeWindows = 3, spikeCovered = 1, defensiveUses = 1,
+		spikeMap = {
+			{ 60, 66, true, nil, 520000, "Whirling Corruption", "Divine Protection" },
+			{ 198, 204, nil, nil, 575000, "Whirling Corruption" },
+			{ 287, 293, nil, nil, 610000, "Empowered Whirling Corruption" },
+		},
 	})
 
 	-- per-player fight shapes (healers healing, tanks intake, dps

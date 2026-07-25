@@ -1572,6 +1572,23 @@ function Engine.ScoreFight(fight, opts)
 			if (m.defensives or 0) >= 2 then
 				put("defensives", A.defensivesBonus or 0)
 			end
+			-- healthstone discipline (Josh 2026-07-25): +1 for eating one,
+			-- -1 for sitting on it — judged only when a warlock was in the
+			-- group to provide them. Retail leaves the metric nil (other
+			-- players' casts are secret): neutral, like every absence.
+			if m.healthstones ~= nil then
+				local hasWarlock
+				for _, wp in pairs(fight.players or {}) do
+					if wp.class == "WARLOCK" then
+						hasWarlock = true
+						break
+					end
+				end
+				if hasWarlock then
+					put("healthstone", m.healthstones > 0 and (A.healthstoneBonus or 1)
+						or -(A.healthstonePenalty or 1))
+				end
+			end
 			-- forgiven post-call deaths and one-shots judge nothing: the
 			-- player did what the raid asked / nothing they pressed mattered
 			if (m.deaths or 0) > 0 and (p.deathReadyDefensives or 0) >= 2

@@ -64,6 +64,8 @@ Weights.adjustments = {
 	activityLow = 70, -- real p25
 	activityHigh = 89, -- real p75
 	preparedBonus = 1, -- flask + food at the pull
+	healthstoneBonus = 1, -- ate a healthstone (warlock in group only)
+	healthstonePenalty = 1, -- sat on it (warlock in group only)
 	defensivesBonus = 2, -- used 2+ defensives (real p90 behavior)
 	readyAtDeathPenalty = 3, -- died with 2+ defensives sitting unused
 	-- cooldown timing (Classic CLEU for everyone; retail self-reports):

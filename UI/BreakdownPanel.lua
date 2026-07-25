@@ -845,10 +845,31 @@ end
 local function layoutChipGrid(sigs, top, attach)
 	local chipW = (WIDTH - 28 - CHIP_GAP) / 2
 	local groups = { {}, {}, {} }
-	for _, sig in ipairs(sigs) do
+	for i, sig in ipairs(sigs) do
+		sig._i = i -- stable tiebreak: emission order
 		local p = sig.points or 0
 		local g = (p >= 0.5 and 1) or (p <= -0.5 and 2) or 3
 		groups[g][#groups[g] + 1] = sig
+	end
+	-- scored sections sort by weight (Josh 2026-07-25): biggest bonus
+	-- first, biggest penalty first; the neutral section keeps emission
+	-- order
+	table.sort(groups[1], function(a, b)
+		if a.points ~= b.points then
+			return a.points > b.points
+		end
+		return a._i < b._i
+	end)
+	table.sort(groups[2], function(a, b)
+		if a.points ~= b.points then
+			return a.points < b.points
+		end
+		return a._i < b._i
+	end)
+	for _, g in ipairs(groups) do
+		for _, sig in ipairs(g) do
+			sig._i = nil
+		end
 	end
 	local y, ci, ri = top, 0, 0
 	for _, group in ipairs(groups) do
@@ -936,6 +957,7 @@ local function infoHelp()
 			manaDry = "Ran out of mana before the fight's final stretch.",
 			overkill = "Damage wasted on already-dead targets.",
 			prepared = "Flask and food up at the pull.",
+			healthstone = "Healthstone use, from the combat log. Judged only when a warlock provided them.",
 			kicks = "Interrupts vs your fair share of the group's.",
 			rez = "Combat rez cast, from the combat log.",
 			coach = "The biggest gap between this fight and top parses of this spec.",

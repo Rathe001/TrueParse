@@ -32,6 +32,7 @@ local ICONS = {
 	-- spelled path renders as a blank square
 	buffUptime = ICON .. "Spell_Nature_UnyeildingStamina",
 	consumables = ICON .. "INV_Potion_92",
+	healthstone = ICON .. "INV_Stone_04",
 	speed = ICON .. "Ability_Rogue_Sprint",
 }
 Signals.ICONS = ICONS -- the panel constructs a few group rows itself
@@ -386,6 +387,7 @@ function Signals.ForResult(result, fight, player)
 		{ key = "overkill", up = nil, down = "Overkill heavy", icon = ICONS.damage },
 		{ key = "manaDry", up = nil, down = "Mana ran dry", icon = ICONS.activity },
 		{ key = "prepared", up = "Flask + food", down = nil, icon = ICONS.consumables },
+		{ key = "healthstone", up = "Healthstone", down = "No healthstone", icon = ICONS.healthstone },
 		{ key = "buffs", up = nil, down = "Buff missing", icon = ICONS.buffUptime },
 		{ key = "pull", up = nil, down = "Pulled early", icon = ICONS.avoidable },
 		{ key = "aggro", up = nil, down = "Ripped aggro", icon = ICONS.avoidable },
