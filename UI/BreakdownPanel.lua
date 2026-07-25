@@ -1124,6 +1124,7 @@ function Panel:ShowFor(fight, result)
 			end
 			row.tooltipData = { title = "Parse coach", lines = {
 				{ infoHelp().coach, 0.8, 0.8, 0.8, true } } }
+			y = y - 6 -- breathe below the wash, matching the rule's rhythm
 		end
 	end
 
