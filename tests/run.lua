@@ -2025,6 +2025,19 @@ end
 	fnl.players.a = dps("NoLock", { metrics = { healthstones = 0 } })
 	check(adFor(fnl, "NoLock").healthstone == nil, "no warlock in group: healthstone ignored")
 
+	-- 25h3. tanking composite bonus (2026-07-25): strong survival earns,
+	-- weak survival is NOT re-charged (the gauge already shows it)
+	local ftk = ctxFight({})
+	ftk.players.a = dps("Wall", { role = "TANK", specID = 250, metrics = { damageTaken = 1000000,
+		swingsLanded = 40, swingsAvoided = 160, swingDamageTaken = 400000,
+		mitigationPct = 95, selfHealing = 1500000, absorbedTaken = 800000, selfAbsorbs = 0 } })
+	ftk.players.b = dps("Paper", { role = "TANK", specID = 250, metrics = { damageTaken = 1000000,
+		swingsLanded = 190, swingsAvoided = 10, swingDamageTaken = 900000,
+		mitigationPct = 15, selfHealing = 50000, absorbedTaken = 20000, selfAbsorbs = 0 } })
+	local tks, tkw = adFor(ftk, "Wall"), adFor(ftk, "Paper")
+	check((tks.tanking or 0) > 0, ("strong composite earns a bonus (%s)"):format(tostring(tks.tanking)))
+	check(tkw.tanking == nil, ("weak composite is not charged (%s)"):format(tostring(tkw.tanking)))
+
 	-- 25i. per-spec overheal thresholds: a shield-heavy spec's population
 	-- runs high overheal; its p75 exempts what the fixed 45 would charge
 	local f9 = ctxFight({})

@@ -65,6 +65,7 @@ Weights.adjustments = {
 	activityHigh = 89, -- real p75
 	preparedBonus = 1, -- flask + food at the pull
 	healthstoneBonus = 1, -- ate a healthstone (warlock in group only)
+	tankingMax = 4, -- Tanking composite vs spec anchors (tanks only)
 	healthstonePenalty = 1, -- sat on it (warlock in group only)
 	defensivesBonus = 2, -- used 2+ defensives (real p90 behavior)
 	readyAtDeathPenalty = 3, -- died with 2+ defensives sitting unused

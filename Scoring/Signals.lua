@@ -131,12 +131,18 @@ function Signals.TankingComposite(m, soakNormalized)
 	return sum / n, parts
 end
 
-local function tankingRow(m, b, specID)
+local function tankingRow(m, b, specID, pts)
 	local v, parts = Signals.TankingComposite(m, b.normalized)
 	if not v then
 		return nil -- legacy record: not enough ingredients for a composite
 	end
 	local row = barRow("damageTaken", ICONS.damageTaken, "Tanking", v, nil)
+	-- the composite earns as a bonus-only adjustment now (2026-07-25):
+	-- the tip footer says what it moved, not "worth 0% of the grade"
+	local rounded = pts and math.floor(pts + 0.5) or 0
+	row.tipFooter = rounded > 0
+		and ("score %.0f \194\183 %+d to your score"):format(v, rounded)
+		or ("score %.0f \194\183 no bonus earned"):format(v)
 	row.b = b
 	row.base = true
 	-- per-spec population anchors (Data/TankAnchors.lua): each tank spec
@@ -186,7 +192,7 @@ function Signals.ForResult(result, fight, player)
 			-- the composite is ours, not WCL's)
 			local handled
 			if key == "damageTaken" and role == "TANK" and not result.parse then
-				local trow = tankingRow(m, b, player and player.specID)
+				local trow = tankingRow(m, b, player and player.specID, ad.tanking)
 				if trow then
 					out[#out + 1] = trow
 					handled = true
@@ -388,6 +394,10 @@ function Signals.ForResult(result, fight, player)
 		{ key = "manaDry", up = nil, down = "Mana ran dry", icon = ICONS.activity },
 		{ key = "prepared", up = "Flask + food", down = nil, icon = ICONS.consumables },
 		{ key = "healthstone", up = "Healthstone", down = "No healthstone", icon = ICONS.healthstone },
+		-- the composite's points ride a chip; the gauge above carries the
+		-- measurement. Bonus-only (Josh 2026-07-25: the gauge already
+		-- shows weak tanking — no penalty chip on top of it)
+		{ key = "tanking", up = "Tanking", down = nil, icon = ICONS.damageTaken },
 		{ key = "buffs", up = nil, down = "Buff missing", icon = ICONS.buffUptime },
 		{ key = "pull", up = nil, down = "Pulled early", icon = ICONS.avoidable },
 		{ key = "aggro", up = nil, down = "Ripped aggro", icon = ICONS.avoidable },

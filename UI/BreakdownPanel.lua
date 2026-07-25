@@ -196,8 +196,10 @@ local function showMetricTip(anchor, data)
 			footer = "no score impact this fight"
 		end
 	end
-	metricTip.footer:SetText(footer or ("score %d · worth %d%% of the grade"):format(
-		b.normalized or 0, (b.effectiveWeight or 0) * 100))
+	local wPct = (b.effectiveWeight or 0) * 100
+	metricTip.footer:SetText(footer or (wPct >= 0.5
+		and ("score %d · worth %d%% of the grade"):format(b.normalized or 0, wPct)
+		or ("score %d · context, not weighted into the grade"):format(b.normalized or 0)))
 
 	-- fit the tip to its longest line (same rule as the card): text never
 	-- truncates and never spills past the border
@@ -833,6 +835,14 @@ local function hideChipRulesFrom(i)
 		chipRules[j]:Hide()
 	end
 end
+-- whisper-quiet washes behind the scored sections (Josh 2026-07-25):
+-- green under bonuses, red under penalties, nothing under neutral
+local chipSectionBGs = {}
+local function hideChipBGsFrom(i)
+	for j = i, #chipSectionBGs do
+		chipSectionBGs[j]:Hide()
+	end
+end
 local function chipRuleAt(i, yy)
 	local t = chipRules[i]
 	if not t then
@@ -871,14 +881,32 @@ local function layoutChipGrid(sigs, top, attach)
 			sig._i = nil
 		end
 	end
-	local y, ci, ri = top, 0, 0
-	for _, group in ipairs(groups) do
+	local y, ci, ri, bi = top, 0, 0, 0
+	for gi, group in ipairs(groups) do
 		if #group > 0 then
 			if ci > 0 then -- a section already rendered above: rule it off
 				ri = ri + 1
 				y = y - 4
 				chipRuleAt(ri, y)
 				y = y - 6
+			end
+			if gi <= 2 then
+				bi = bi + 1
+				local bg = chipSectionBGs[bi]
+				if not bg then
+					bg = frame:CreateTexture(nil, "BACKGROUND")
+					chipSectionBGs[bi] = bg
+				end
+				if gi == 1 then
+					bg:SetColorTexture(0.25, 0.85, 0.35, 0.05)
+				else
+					bg:SetColorTexture(0.90, 0.30, 0.30, 0.05)
+				end
+				bg:ClearAllPoints()
+				bg:SetPoint("TOPLEFT", 0, y + 2)
+				bg:SetPoint("TOPRIGHT", 0, y + 2)
+				bg:SetHeight(math.ceil(#group / 2) * ROW_HEIGHT + 4)
+				bg:Show()
 			end
 			for i, sig in ipairs(group) do
 				ci = ci + 1
@@ -906,6 +934,7 @@ local function layoutChipGrid(sigs, top, attach)
 	end
 	hideChipsFrom(ci + 1)
 	hideChipRulesFrom(ri + 1)
+	hideChipBGsFrom(bi + 1)
 	return y
 end
 
@@ -958,6 +987,7 @@ local function infoHelp()
 			overkill = "Damage wasted on already-dead targets.",
 			prepared = "Flask and food up at the pull.",
 			healthstone = "Healthstone use, from the combat log. Judged only when a warlock provided them.",
+			tanking = "Bonus for a strong Tanking composite vs this spec's population. The gauge above holds the measurement.",
 			kicks = "Interrupts vs your fair share of the group's.",
 			rez = "Combat rez cast, from the combat log.",
 			coach = "The biggest gap between this fight and top parses of this spec.",
@@ -1275,7 +1305,8 @@ function Panel:ShowFor(fight, result)
 				duration = fight.duration, role = result.role,
 				specID = player and player.specID,
 				metrics = player and player.metrics,
-				title = sig.tipTitle, valueText = sig.tipText }
+				title = sig.tipTitle, valueText = sig.tipText,
+				footerText = sig.tipFooter }
 		elseif sig.key == "deaths" and player and player.deathRecap then
 			target.tooltipData = { title = sig.label, lines = deathRecapLines(player) }
 		else
@@ -1327,6 +1358,7 @@ function Panel:ShowFor(fight, result)
 	else
 		hideChipsFrom(1)
 		hideChipRulesFrom(1)
+		hideChipBGsFrom(1)
 	end
 
 	-- (players without TrueParse are flagged by the red X on their
@@ -1897,6 +1929,7 @@ function Panel:ShowForGroup(fight, results)
 	else
 		hideChipsFrom(1)
 		hideChipRulesFrom(1)
+		hideChipBGsFrom(1)
 	end
 	for _, sig in ipairs(textSigs) do
 		groupRow(sig)

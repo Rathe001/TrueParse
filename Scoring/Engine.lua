@@ -1572,6 +1572,26 @@ function Engine.ScoreFight(fight, opts)
 			if (m.defensives or 0) >= 2 then
 				put("defensives", A.defensivesBonus or 0)
 			end
+			-- the Tanking composite EARNS like any other adjustment (Josh
+			-- 2026-07-25: the card said tanking was worth 0% of a tank's
+			-- grade — survival skill must move the score). Judged against
+			-- the spec's population anchors, BONUS-ONLY (Josh: the gauge
+			-- on top already shows weak tanking; no double charge). Legacy
+			-- records without composite ingredients stay neutral.
+			if role == "TANK" then
+				local S = TP.Scoring.Signals
+				local bdt = breakdown and breakdown.damageTaken
+				local tv = S and S.TankingComposite
+					and S.TankingComposite(m, bdt and bdt.normalized)
+				if tv then
+					local AN = TP.TANK_ANCHORS or {}
+					local anc = (p.specID and AN[p.specID]) or AN.default or { 30, 55, 75 }
+					local tpts = ramp(tv, anc[1], anc[3], A.tankingMax or 4)
+					if tpts > 0 then
+						put("tanking", tpts)
+					end
+				end
+			end
 			-- healthstone discipline (Josh 2026-07-25): +1 for eating one,
 			-- -1 for sitting on it — judged only when a warlock was in the
 			-- group to provide them. Retail leaves the metric nil (other
