@@ -715,11 +715,15 @@ end
 
 -- The window height is USER-set (resize grip); rows render into whatever
 -- fits. How many row slots the current height offers:
+-- breathing room + divider above the pinned Raid/Group row (Josh
+-- 2026-07-25: it read as just another player row)
+local GROUP_GAP = 5
+
 local function contentSlots(rowHeight, withColHead)
 	-- bottom reserve is just the mode strip plus a hair of air: doubling
 	-- the padding left a dead band under the pinned Raid row
 	local chrome = HEADER_HEIGHT + (withColHead and COLHEAD_HEIGHT or 0)
-		+ MODE_HEIGHT + PADDING
+		+ MODE_HEIGHT + PADDING + (withColHead and GROUP_GAP or 0)
 	return math.max(1, math.floor((db().window.height - chrome) / (rowHeight + 1)))
 end
 
@@ -1035,6 +1039,9 @@ function MeterWindow:RenderScorecard(fight)
 		row.bg:SetWidth(math.max(8, barArea * math.min(math.max(r.score, 0), 100) / 100))
 		row.icon:SetWidth(rowHeight)
 		setSpecIcon(row.icon, player, r.class)
+		if row.groupDivider then
+			row.groupDivider:Hide() -- recycled footer row rendering a player
+		end
 
 		-- no award star here: it wrapped long cross-realm names and the
 		-- row already carries a lot (awards live in the breakdown + toasts)
@@ -1104,7 +1111,19 @@ function MeterWindow:RenderScorecard(fight)
 		row:EnableMouse(not clickThrough)
 		row:SetSize(width, rowHeight)
 		row:ClearAllPoints()
-		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + COLHEAD_HEIGHT + (index - 1) * (rowHeight + 1)))
+		row:SetPoint("TOPLEFT", PADDING,
+			-(HEADER_HEIGHT + COLHEAD_HEIGHT + (index - 1) * (rowHeight + 1) + GROUP_GAP))
+		-- the divider rides the row frame, so it hides with it; player
+		-- renders of a recycled footer row hide it explicitly
+		if not row.groupDivider then
+			row.groupDivider = row:CreateTexture(nil, "ARTWORK")
+			row.groupDivider:SetColorTexture(0.5, 0.5, 0.55, 0.3)
+			row.groupDivider:SetHeight(1)
+		end
+		row.groupDivider:ClearAllPoints()
+		row.groupDivider:SetPoint("BOTTOMLEFT", row, "TOPLEFT", 0, 3)
+		row.groupDivider:SetPoint("BOTTOMRIGHT", row, "TOPRIGHT", 0, 3)
+		row.groupDivider:Show()
 		local sum = 0
 		for _, r in ipairs(results) do
 			sum = sum + r.score
@@ -1150,7 +1169,12 @@ function MeterWindow:RenderScorecard(fight)
 		local barArea = math.max(40, width - COL_RESERVE)
 		row.track:SetWidth(barArea)
 		row.bg:SetWidth(math.max(8, barArea * math.min(math.max(groupScore, 0), 100) / 100))
-		row.icon:Hide()
+		-- the group wears its own icon (Josh 2026-07-25)
+		row.icon:SetWidth(rowHeight)
+		row.icon:SetAlpha(1)
+		row.icon:SetTexture("Interface\\Icons\\INV_Misc_GroupNeedMore")
+		row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		row.icon:Show()
 		row.addonMark:Hide()
 		row.addonMarkBg:Hide()
 		row.playerName = label
@@ -1171,7 +1195,8 @@ function MeterWindow:RenderScorecard(fight)
 		-- hug the bottom of the whole row area (the pinned Group row
 		-- included) the same way the up arrow hugs the top
 		window.scrollDown:SetPoint("TOP", 0,
-			-(HEADER_HEIGHT + COLHEAD_HEIGHT + totalRows * (rowHeight + 1) - 4))
+			-(HEADER_HEIGHT + COLHEAD_HEIGHT + totalRows * (rowHeight + 1)
+				+ (hasFooter and GROUP_GAP or 0) - 4))
 		window.scrollDown:SetShown(hiddenBelow > 0)
 	end
 
@@ -1181,6 +1206,7 @@ function MeterWindow:RenderScorecard(fight)
 	-- ceiling follow every shrink down (couldn't resize back up).
 	local contentH = HEADER_HEIGHT + COLHEAD_HEIGHT
 		+ (shown + (hasFooter and 1 or 0)) * (rowHeight + 1)
+		+ (hasFooter and GROUP_GAP or 0)
 		+ MODE_HEIGHT + PADDING
 	if window.SetResizeBounds then
 		window:SetResizeBounds(180, 110, 640, math.max(110, contentH))
