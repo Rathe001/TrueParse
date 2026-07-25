@@ -1384,7 +1384,7 @@ function Panel:ShowFor(fight, result)
 					t:Show()
 				end
 			end
-			y = y - H - 4
+			y = y - H
 		end
 	end
 
@@ -1427,9 +1427,8 @@ function Panel:ShowFor(fight, result)
 			frame.stripTrack:SetVertexColor(0.14, 0.14, 0.17, 1)
 			frame.stripBands = {}
 		end
-		-- no legend (Josh 2026-07-25: the tick hovers explain themselves)
-		-- — the track tucks directly under the graph
-		y = y - 3
+		-- no legend, no gap (Josh 2026-07-25: the tick hovers explain
+		-- themselves) — the track sits flush under the graph
 		local w = frame:GetWidth() - 24
 		frame.stripTrack:ClearAllPoints()
 		frame.stripTrack:SetPoint("TOPLEFT", 12, y)
@@ -1972,7 +1971,7 @@ function Panel:ShowForGroup(fight, results)
 					end
 				end
 			end
-			y = y - H - 6
+			y = y - H
 		end
 	end
 
@@ -1990,9 +1989,7 @@ function Panel:ShowForGroup(fight, results)
 		end
 	end
 	if teamMap and (fight.duration or 0) > 0 then
-		-- no legend (Josh 2026-07-25: the tick hovers explain themselves)
-		-- — the track tucks directly under the graph
-		y = y - 3
+		-- no legend, no gap (Josh 2026-07-25) — flush under the graph
 		-- background track (it was missing here — audit 2026-07-24: bands
 		-- floated on nothing while the player strip had its rail)
 		if not frame.covTrack then
