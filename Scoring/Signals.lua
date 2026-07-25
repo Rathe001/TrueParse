@@ -435,7 +435,7 @@ function Signals.GroupRows(results, fight)
 			row.players = bl.players
 			rows[#rows + 1] = row
 		elseif bl.key == "healing" then
-			rows[#rows + 1] = { key = "healing", kind = "text",
+			rows[#rows + 1] = { key = "healing", kind = "text", icon = ICONS.healing,
 				label = "Little to heal", tooltip = bl.tooltip }
 		elseif bl.key == "interrupts" then
 			local landed, opps = text:match("(%d+) of (%d+)")
@@ -446,7 +446,7 @@ function Signals.GroupRows(results, fight)
 				row.tooltip = bl.tooltip
 				rows[#rows + 1] = row
 			else
-				rows[#rows + 1] = { key = "interrupts", kind = "text",
+				rows[#rows + 1] = { key = "interrupts", kind = "text", icon = ICONS.interrupts,
 					label = stripPts(text), points = pts, tooltip = bl.tooltip }
 			end
 		elseif bl.key == "lust" then
@@ -497,7 +497,7 @@ function Signals.GroupRows(results, fight)
 			local died = text:match("^(%d+) player")
 				or (text:find("^1 player died") and "1")
 			if text:find("Nobody died") then
-				rows[#rows + 1] = { key = "deaths", kind = "text",
+				rows[#rows + 1] = { key = "deaths", kind = "text", icon = ICONS.deaths,
 					label = "Nobody died", tooltip = bl.tooltip }
 			elseif died then
 				rows[#rows + 1] = { key = "deaths", kind = "pips", icon = ICONS.deaths,
@@ -506,7 +506,13 @@ function Signals.GroupRows(results, fight)
 		else
 			-- dispels volume, avoidable, aggro, buffs, anything future:
 			-- full-width text rows, points preserved, own hover each
+			-- text rows wear their metric's icon when one exists (Josh
+			-- 2026-07-25: '2 dispels' rendered iconless)
+			local TEXT_ICONS = { dispels = ICONS.dispels, avoidable = ICONS.avoidable,
+				aggro = ICONS.avoidable, aggroLoss = ICONS.avoidable,
+				pull = ICONS.avoidable, buffs = ICONS.buffUptime }
 			rows[#rows + 1] = { key = bl.key or "note", kind = "text",
+				icon = TEXT_ICONS[bl.key] or ICONS[bl.key],
 				label = stripPts(text), points = pts, tooltip = bl.tooltip }
 		end
 	end

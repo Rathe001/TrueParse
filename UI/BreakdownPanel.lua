@@ -1514,10 +1514,17 @@ function Panel:ShowForGroup(fight, results)
 		if sig.kind == "text" then
 			-- sentence-shaped lines (dispel volume, avoidable pressure,
 			-- aggro stories) span the card like award rows — each with
-			-- its OWN hover (the Other rollup hid them, Josh 2026-07-25)
+			-- its OWN hover (the Other rollup hid them, Josh 2026-07-25).
+			-- They wear their metric's icon when one exists.
 			ensureSignalWidgets(row)
 			hideSignalWidgets(row)
-			row.symbol:SetText("\194\183")
+			if sig.icon then
+				row.icon:SetTexture(sig.icon)
+				row.icon:Show()
+				row.symbol:SetText("")
+			else
+				row.symbol:SetText("\194\183")
+			end
 			local bad = (sig.points or 0) < 0
 			local suffix = ""
 			if sig.points and math.abs(sig.points) >= 0.5 then
