@@ -2848,9 +2848,9 @@ end)()
 	loadModule("Data/SpellProfiles_Mists.lua", TP)
 	loadModule("Core/MockFight.lua", TP)
 	local pulls = TP.MockFight.Build(1000000)
-	check(#pulls == 5 and pulls[5].wipe == nil and pulls[4].wipe,
-		"mock night: 4 wipes + a kill")
-	local kill = pulls[5]
+	check(#pulls == 5 and pulls[4].wipe == nil and pulls[5].wipe,
+		"mock night: 4 wipes + a kill, called wipe newest")
+	local kill = pulls[4]
 	local ok, results = pcall(TP.Scoring.Engine.ScoreFight, kill, {})
 	check(ok and results and #results == 10,
 		("mock kill scores all 10 players (%s)"):format(ok and #results or tostring(results)))
@@ -2875,8 +2875,9 @@ end)()
 		check(cok and gap and gap.spell == "Ice Lance",
 			("mock coach names Ice Lance (%s)"):format(tostring(gap and gap.spell)))
 	end
-	check(pulls[4].shape and #pulls[4].shape == 40 and pulls[4].calledWipeAt == 330,
-		"mock wipe carries shape + call for the collapse view")
+	check(pulls[5].shape and #pulls[5].shape == 40 and pulls[5].calledWipeAt == 330
+		and pulls[5].wipeCalledBy == "Thornveil",
+		"newest mock record is the called wipe (collapse view by default)")
 
 	-- the RETAIL night: meter + self-report surfaces only, incl. the Aug
 	local rp = TP.MockFight.BuildRetail(1000000)

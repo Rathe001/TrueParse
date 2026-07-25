@@ -345,14 +345,17 @@ function MockFight.BuildRetail(now)
 	}
 end
 
--- oldest first; pure (headless tests validate the whole night scores)
+-- oldest first; pure (headless tests validate the whole night scores).
+-- The CALLED WIPE is the newest record so the default card shows the
+-- collapse graph + staircase without dropdown digging (Josh 2026-07-25);
+-- the kill sits one pick away.
 function MockFight.Build(now)
 	return {
 		mockFight(now - 5400, 190, { wipe = true, bossPct = 72 }),
 		mockFight(now - 4700, 300, { wipe = true, bossPct = 43 }),
 		mockFight(now - 3900, 465, { wipe = true, bossPct = 18, calledWipeAt = 420 }),
-		mockFight(now - 3100, 380, { wipe = true, bossPct = 27, calledWipeAt = 330, wipeCalledBy = "Thornveil" }),
-		mockFight(now - 2400, 499, { prevKillDuration = 533, prevKillAt = now - 7 * 86400 }),
+		mockFight(now - 3100, 499, { prevKillDuration = 533, prevKillAt = now - 7 * 86400 }),
+		mockFight(now - 2400, 380, { wipe = true, bossPct = 27, calledWipeAt = 330, wipeCalledBy = "Thornveil" }),
 	}
 end
 
