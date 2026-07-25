@@ -61,6 +61,7 @@ Scoring\Grades.lua
 Scoring\Awards.lua
 Scoring\Coach.lua
 Scoring\Runs.lua
+Scoring\Reports.lua
 Scoring\Insights.lua
 Scoring\Bullets.lua
 Scoring\Signals.lua
@@ -73,6 +74,7 @@ UI\Scorecard.lua
 UI\BreakdownPanel.lua
 UI\CoachLine.lua
 UI\RunSummary.lua
+UI\ReportsWindow.lua
 UI\AwardToast.lua
 UI\Options.lua
 UI\Minimap.lua

@@ -78,7 +78,7 @@ local function applyClickThrough(on)
 	window:EnableMouse(not on)
 	window:EnableMouseWheel(not on)
 	for _, f in ipairs({ window.headerButton, window.fightDrop, window.cog,
-		window.footerButton, window.grip, window.modeReal, window.modeRaw }) do
+		window.chat, window.footerButton, window.grip, window.modeReal, window.modeRaw }) do
 		if f then
 			f:EnableMouse(not on)
 		end
@@ -241,10 +241,32 @@ local function createWindow()
 		end
 	end)
 
+	-- chat icon beside the cog: opens the shareable-reports panel
+	window.chat = CreateFrame("Button", nil, window)
+	window.chat:SetSize(14, 14)
+	window.chat:SetNormalTexture("Interface\\GossipFrame\\ChatBubbleGossipIcon")
+	window.chat:SetHighlightTexture("Interface\\GossipFrame\\ChatBubbleGossipIcon")
+	window.chat:GetHighlightTexture():SetAlpha(0.4)
+	window.chat:SetScript("OnClick", function()
+		if TP.ReportsUI then
+			TP.ReportsUI.Toggle()
+		end
+	end)
+	window.chat:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:AddLine("Reports", 1, 1, 1)
+		GameTooltip:AddLine("Share wipe, kill, and run summaries.", 0.8, 0.8, 0.8)
+		GameTooltip:Show()
+	end)
+	window.chat:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+
 	window.fightDrop:SetHeight(16)
 	local dropInset = (HEADER_HEIGHT - 16) / 2 -- even air above and below
 	window.cog:SetPoint("TOPRIGHT", -PADDING, -(dropInset + 1))
-	window.fightDrop:SetPoint("TOPRIGHT", -(PADDING + 18), -dropInset)
+	window.chat:SetPoint("TOPRIGHT", -(PADDING + 18), -(dropInset + 1))
+	window.fightDrop:SetPoint("TOPRIGHT", -(PADDING + 36), -dropInset)
 	window.fightDrop:SetPoint("TOPLEFT", 74, -dropInset) -- clears the mode title
 	window.fightDrop.arrowTex = window.fightDrop:CreateTexture(nil, "OVERLAY")
 	window.fightDrop.arrowTex:SetSize(16, 16)

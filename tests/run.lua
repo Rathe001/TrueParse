@@ -23,6 +23,7 @@ loadModule("Scoring/Runs.lua", TP)
 loadModule("Scoring/Insights.lua", TP)
 loadModule("Scoring/Bullets.lua", TP)
 loadModule("Scoring/Signals.lua", TP)
+loadModule("Scoring/Reports.lua", TP)
 loadModule("Metrics/Registry.lua", TP)
 loadModule("Metrics/Spikes.lua", TP) -- FindWindows/Compute are pure at capture time
 
@@ -3248,6 +3249,82 @@ end)()
 			("retail MW coach fires (%s)"):format(tostring(gap and gap.text)))
 	end
 	TP.SpellProfiles = savedProf
+end)()
+
+-- 39. Shareable chat reports (2026-07-25): plain lines, chat-sized,
+-- built from whatever the ctx can offer
+;(function()
+	local R = TP.Scoring.Reports
+	local wipeFight = {
+		name = "Garrosh Hellscream", isBoss = true, wipe = true,
+		bossPct = 27, duration = 343, calledWipeAt = 330, wipeCalledBy = "Thornveil",
+		players = {
+			a = { name = "Nightbriar", deathTime = 161, deathTimes = { 161 },
+				deathRecap = { { t = 160, spell = "Whirling Corruption", amount = 300000, avoidable = true } },
+				metrics = { deaths = 1, groupSpikeWindows = 6, groupSpikeCovered = 4 } },
+			b = { name = "Farshot", deathTimes = { 335 }, metrics = { deaths = 1 } },
+			c = { name = "Willowmend", metrics = { deaths = 0 } },
+		},
+	}
+	local wl = R.Run("wipe", { fight = wipeFight })
+	check(wl and wl[1] == "Wipe: Garrosh Hellscream at 27% (5:43).",
+		("wipe headline (%s)"):format(tostring(wl and wl[1])))
+	check(wl[2] == "First death: Nightbriar at 2:41 - Whirling Corruption (avoidable).",
+		("first death line (%s)"):format(tostring(wl[2])))
+	check(wl[3] and wl[3]:find("Wipe called at 5:30 by Thornveil") ~= nil
+		and wl[3]:find("1 death before the call, 1 after") ~= nil,
+		("wipe-call line (%s)"):format(tostring(wl[3])))
+	check(wl[4] == "2 of 6 group damage spikes went uncovered.",
+		("spike line (%s)"):format(tostring(wl[4])))
+	for _, line in ipairs(wl) do
+		check(#line < 255 and not line:find("|c", 1, true), "chat-safe line")
+	end
+
+	local killFight = {
+		name = "Garrosh Hellscream", isBoss = true,
+		duration = 380, prevKillDuration = 392,
+		players = { a = { name = "A", metrics = { deaths = 0 } } },
+	}
+	local kl = R.Run("kill", {
+		fight = killFight,
+		runFights = { killFight, wipeFight, wipeFight },
+		results = { { name = "Baddchi", score = 99 }, { name = "Beebcat", score = 40 } },
+	})
+	check(kl[1] == "Kill: Garrosh Hellscream in 6:20 (12s faster than last kill).",
+		("kill headline (%s)"):format(tostring(kl[1])))
+	check(kl[2] == "Pull 3 - best prior attempt 27%.", ("pull line (%s)"):format(tostring(kl[2])))
+	check(kl[3] and kl[3]:find("Group score 70") ~= nil and kl[3]:find("Baddchi 99") ~= nil,
+		("group score line (%s)"):format(tostring(kl[3])))
+	check(kl[4] == "Deathless kill.", "deathless line")
+
+	local rl = R.Run("run", {
+		zone = "Siege of Orgrimmar",
+		runFights = { killFight, wipeFight,
+			{ name = "Sha of Pride", isBoss = true, duration = 182, players = {} } },
+		results = { { name = "Baddchi", score = 99 } },
+	})
+	check(rl[1] == "Run: Siege of Orgrimmar - 2 kills, 1 wipe, 15:05 fought.",
+		("run headline (%s)"):format(tostring(rl[1])))
+	check(rl[#rl] == "Fastest kill: Sha of Pride (3:02).", ("fastest line (%s)"):format(tostring(rl[#rl])))
+
+	local dl = R.Run("deaths", { fight = wipeFight })
+	check(dl[1] == "Deaths on Garrosh Hellscream (2):", ("death header (%s)"):format(tostring(dl[1])))
+	check(#dl == 3, "one line per death")
+
+	local pl = R.Run("prep", { fight = {
+		name = "Garrosh Hellscream",
+		players = {
+			a = { name = "Ready", metrics = { consumables = 2, healthstones = 1 } },
+			b = { name = "Naked", metrics = { consumables = 0, healthstones = 0 } },
+			c = { name = "NoAddon", metrics = {} },
+		},
+	} })
+	check(pl[1] == "Prep on Garrosh Hellscream: flask+food 1/2. Missing: Naked.",
+		("prep line (%s)"):format(tostring(pl[1])))
+	check(pl[2] == "Healthstones eaten: 1/2.", ("healthstone line (%s)"):format(tostring(pl[2])))
+
+	check(R.Run("wipe", {}) == nil, "no fight, no report")
+	check(R.Run("nope", { fight = wipeFight }) == nil, "unknown report key returns nil")
 end)()
 
 print("")

@@ -17,6 +17,9 @@ local defaults = {
 			clickThroughCombat = false,
 		},
 		coach = true,
+		-- shareable reports (2026-07-25): per-report channel + auto flag
+		-- (auto delivery is always local-only regardless of channel)
+		reports = { ["*"] = { channel = "INFO", auto = false } },
 	wipeDebrief = true, -- local what-happened after each wipe capture
 		-- "Wipe it" header button: records the exact wipe-call moment and
 		-- syncs it to every TrueParse in the group (heuristic detection
@@ -115,6 +118,7 @@ function Addon:OnEnable()
 	TP.Sync:OnEnable()
 	TP.Readiness:OnEnable()
 	TP.RunSummary:OnEnable()
+	TP.ReportsUI:OnEnable()
 	TP.Options:OnEnable()
 	TP.Minimap:OnEnable()
 	TP.MeterWindow:OnEnable()
