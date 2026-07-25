@@ -745,7 +745,7 @@ local function getChip(i)
 		c.icon:SetSize(13, 13)
 		c.icon:SetPoint("LEFT", 0, 0)
 		c.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-		c.pts = face(c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
+		c.pts = face(c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 10)
 		c.pts:SetPoint("RIGHT", 0, 0)
 		c.pts:SetWidth(22)
 		c.pts:SetJustifyH("RIGHT")
@@ -772,40 +772,90 @@ end
 
 local function renderChip(c, sig)
 	c.icon:SetTexture(sig.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
-	local warn = (sig.points or 0) < 0 or sig.kind == "pips"
-		or (sig.kind == "glyph" and not sig.good)
-	if warn then
-		c.label:SetTextColor(0.85, 0.42, 0.42)
-	else
-		c.label:SetTextColor(LABEL_INK[1], LABEL_INK[2], LABEL_INK[3])
-	end
+	-- monochrome chips (Josh 2026-07-25): labels and values wear plain
+	-- ink — the +/- carries ALL the verdict color, and the sections
+	-- (bonus / penalty / neutral) already tell the story
+	c.label:SetTextColor(LABEL_INK[1], LABEL_INK[2], LABEL_INK[3])
 	c.label:SetText(sig.label or "")
-	local vtext, vr, vg, vb
+	local vtext
 	if sig.kind == "pips" then
 		vtext = tostring(sig.count or 0)
-		vr, vg, vb = MARK_BAD[1], MARK_BAD[2], MARK_BAD[3]
 	elseif sig.kind == "glyph" then
 		vtext = sig.count and tostring(sig.count) or ""
-		vr, vg, vb = LABEL_INK[1], LABEL_INK[2], LABEL_INK[3]
 	else -- count-bearing bar rows (Covered c/j, Kicks l/o, dispel counts)
 		vtext = sig.num or ""
-		local pts = sig.points or 0
-		if pts >= 0.5 then
-			vr, vg, vb = MARK_GOOD[1], MARK_GOOD[2], MARK_GOOD[3]
-		elseif pts <= -0.5 then
-			vr, vg, vb = MARK_BAD[1], MARK_BAD[2], MARK_BAD[3]
-		else
-			vr, vg, vb = 0.58, 0.58, 0.63
-		end
 	end
 	c.val:SetText(vtext)
-	c.val:SetTextColor(vr, vg, vb)
-	if sig.points and math.abs(sig.points) >= 0.5 then
-		c.pts:SetText(("%+d"):format(sig.points >= 0
-			and math.floor(sig.points + 0.5) or -math.floor(-sig.points + 0.5)))
+	c.val:SetTextColor(0.80, 0.80, 0.82)
+	local pts = sig.points or 0
+	if math.abs(pts) >= 0.5 then
+		c.pts:SetText(("%+d"):format(pts >= 0
+			and math.floor(pts + 0.5) or -math.floor(-pts + 0.5)))
+		if pts > 0 then
+			c.pts:SetTextColor(MARK_GOOD[1], MARK_GOOD[2], MARK_GOOD[3])
+		else
+			c.pts:SetTextColor(MARK_BAD[1], MARK_BAD[2], MARK_BAD[3])
+		end
 	else
 		c.pts:SetText("")
 	end
+end
+
+-- The grid runs in three sections — bonuses on top, penalties, then
+-- the no-point items — each the same two-column layout, split by
+-- hairline rules (Josh 2026-07-25). Emission order holds within each.
+local chipRules = {}
+local function hideChipRulesFrom(i)
+	for j = i, #chipRules do
+		chipRules[j]:Hide()
+	end
+end
+local function layoutChipGrid(sigs, top, attach)
+	local chipW = (WIDTH - 28 - CHIP_GAP) / 2
+	local groups = { {}, {}, {} }
+	for _, sig in ipairs(sigs) do
+		local p = sig.points or 0
+		local g = (p >= 0.5 and 1) or (p <= -0.5 and 2) or 3
+		groups[g][#groups[g] + 1] = sig
+	end
+	local y, ci, ri = top, 0, 0
+	for _, group in ipairs(groups) do
+		if #group > 0 then
+			if ci > 0 then -- a section already rendered above: rule it off
+				ri = ri + 1
+				local t = chipRules[ri]
+				if not t then
+					t = frame:CreateTexture(nil, "ARTWORK")
+					t:SetColorTexture(0.5, 0.5, 0.55, 0.18)
+					t:SetHeight(1)
+					chipRules[ri] = t
+				end
+				y = y - 4
+				t:ClearAllPoints()
+				t:SetPoint("TOPLEFT", 10, y)
+				t:SetPoint("TOPRIGHT", -10, y)
+				t:Show()
+				y = y - 6
+			end
+			for i, sig in ipairs(group) do
+				ci = ci + 1
+				local c = getChip(ci)
+				local col = (i - 1) % 2
+				local rowN = math.floor((i - 1) / 2)
+				c:SetSize(chipW, ROW_HEIGHT)
+				c:ClearAllPoints()
+				c:SetPoint("TOPLEFT", 8 + col * (chipW + CHIP_GAP), y - rowN * ROW_HEIGHT)
+				renderChip(c, sig)
+				c.metricData, c.tooltipData = nil, nil
+				attach(c, sig)
+				c:Show()
+			end
+			y = y - math.ceil(#group / 2) * ROW_HEIGHT
+		end
+	end
+	hideChipsFrom(ci + 1)
+	hideChipRulesFrom(ri + 1)
+	return y
 end
 
 -- Important lines never truncate: widen the card to its longest bullet
@@ -1218,23 +1268,11 @@ function Panel:ShowFor(fight, result)
 	end
 	-- grid geometry: the right column's value/points land on the SAME
 	-- x as the full rows' num/pts columns (Josh 2026-07-25)
-	local chipW = (WIDTH - 28 - CHIP_GAP) / 2
-	local gridTop = y
-	for i, sig in ipairs(chipSigs) do
-		local c = getChip(i)
-		local col = (i - 1) % 2
-		local rowN = math.floor((i - 1) / 2)
-		c:SetSize(chipW, ROW_HEIGHT)
-		c:ClearAllPoints()
-		c:SetPoint("TOPLEFT", 8 + col * (chipW + CHIP_GAP), gridTop - rowN * ROW_HEIGHT)
-		renderChip(c, sig)
-		c.metricData, c.tooltipData = nil, nil
-		buildTip(c, sig)
-		c:Show()
-	end
-	hideChipsFrom(#chipSigs + 1)
 	if #chipSigs > 0 then
-		y = gridTop - math.ceil(#chipSigs / 2) * ROW_HEIGHT
+		y = layoutChipGrid(chipSigs, y, buildTip)
+	else
+		hideChipsFrom(1)
+		hideChipRulesFrom(1)
 	end
 
 	-- (players without TrueParse are flagged by the red X on their
@@ -1258,8 +1296,8 @@ function Panel:ShowFor(fight, result)
 			if not frame.pShapeLabel then
 				frame.pShapeLabel = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 			end
-			local series = result.role == "HEALER" and "your healing/sec"
-				or result.role == "TANK" and "damage intake/sec" or "your damage/sec"
+			local series = result.role == "HEALER" and "Your HPS"
+				or result.role == "TANK" and "Damage intake" or "Your DPS"
 			if fight.lustAt and result.role ~= "TANK" then
 				series = series .. " \194\183 |cff66ccfflust|r"
 			end
@@ -1364,7 +1402,7 @@ function Panel:ShowFor(fight, result)
 		frame.stripLabel:SetPoint("TOPLEFT", 12, y)
 		local lbl
 		if not isGroupMap then
-			lbl = "your damage spikes \194\183 |cff55cc55defensive met it|r / |cffe64d4dno defensive|r"
+			lbl = "Damage spikes \194\183 |cff55cc55Defensive|r / |cffe64d4dNo defensive|r"
 		elseif hasMine then
 			lbl = "group spikes \194\183 |cff55cc55you covered it|r / |cffe64d4dyou didn't|r"
 		else
@@ -1828,23 +1866,13 @@ function Panel:ShowForGroup(fight, results)
 	elseif frame.baseRule then
 		frame.baseRule:Hide()
 	end
-	local chipW = (WIDTH - 28 - CHIP_GAP) / 2 -- columns match the rows'
-	local gridTop = y
-	for i, sig in ipairs(chipSigs) do
-		local c = getChip(i)
-		local col = (i - 1) % 2
-		local rowN = math.floor((i - 1) / 2)
-		c:SetSize(chipW, ROW_HEIGHT)
-		c:ClearAllPoints()
-		c:SetPoint("TOPLEFT", 8 + col * (chipW + CHIP_GAP), gridTop - rowN * ROW_HEIGHT)
-		renderChip(c, sig)
-		c.metricData = nil
-		c.tooltipData = sig.tooltip or { title = sig.label, lines = {} }
-		c:Show()
-	end
-	hideChipsFrom(#chipSigs + 1)
 	if #chipSigs > 0 then
-		y = gridTop - math.ceil(#chipSigs / 2) * ROW_HEIGHT
+		y = layoutChipGrid(chipSigs, y, function(c, sig)
+			c.tooltipData = sig.tooltip or { title = sig.label, lines = {} }
+		end)
+	else
+		hideChipsFrom(1)
+		hideChipRulesFrom(1)
 	end
 	for _, sig in ipairs(textSigs) do
 		groupRow(sig)
