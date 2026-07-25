@@ -789,6 +789,28 @@ local ROLE_LABELS = {
 	DAMAGER = "DPS", TANK = "Tank", HEALER = "Healer", SUPPORT = "Support DPS",
 }
 
+-- invisible hover targets over header fontstrings (name, big score):
+-- tipTitle nil = inert for that render (Josh 2026-07-25)
+local function headerHover(which, target)
+	local hf = frame[which]
+	if not hf then
+		hf = CreateFrame("Frame", nil, frame)
+		hf:SetAllPoints(target)
+		hf:EnableMouse(true)
+		hf:SetScript("OnEnter", function(sf)
+			if sf.tipTitle then
+				TP.Tooltip:Show(sf, tipSide() == "LEFT" and "FORCE_LEFT" or "FORCE_RIGHT",
+					sf.tipTitle, sf.tipLines)
+			end
+		end)
+		hf:SetScript("OnLeave", function()
+			TP.Tooltip:Hide()
+		end)
+		frame[which] = hf
+	end
+	return hf
+end
+
 -- header identity icon: spec on player cards, the group icon on the
 -- raid card (Josh 2026-07-25). Hover names what it shows.
 local function ensureSpecIcon()
@@ -834,20 +856,25 @@ function Panel:ShowFor(fight, result)
 	end
 	specIcon = specIcon or (pRec and pRec.specIconID)
 	frame.title:ClearAllPoints()
+	local className = result.class and (LOCALIZED_CLASS_NAMES_MALE
+		and LOCALIZED_CLASS_NAMES_MALE[result.class]) or result.class
+	local specLine = (specName and className) and (specName .. " " .. className)
+		or specName or className or "Unknown spec"
 	if specIcon then
 		frame.specIcon.tex:SetTexture(specIcon)
-		local className = result.class and (LOCALIZED_CLASS_NAMES_MALE
-			and LOCALIZED_CLASS_NAMES_MALE[result.class]) or result.class
 		frame.specIcon.tipTitle = specName or className or "Spec"
-		frame.specIcon.tipLines = { {
-			(specName and className) and (specName .. " " .. className)
-				or specName or className or "Unknown spec", cr, cg, cb } }
+		frame.specIcon.tipLines = { { specLine, cr, cg, cb } }
 		frame.specIcon:Show()
 		frame.title:SetPoint("TOPLEFT", 32, -9)
 	else
 		frame.specIcon:Hide()
 		frame.title:SetPoint("TOPLEFT", 10, -9)
 	end
+	-- the NAME hovers too, spec icon inline (Josh 2026-07-25)
+	local th = headerHover("titleHover", frame.title)
+	th.tipTitle = result.name or "?"
+	th.tipLines = { { (specIcon and ("|T" .. specIcon .. ":16|t ") or "") .. specLine,
+		cr, cg, cb } }
 	frame.role:SetText(ROLE_LABELS[result.role] or result.role or "")
 	frame.subtitle:SetText("")
 	frame.bigScore:SetText("")
@@ -895,9 +922,9 @@ function Panel:ShowFor(fight, result)
 		sub[#sub + 1] = "run avg " .. TP.Scoring.Grades.ColoredScore(runR.score)
 	end
 	frame.scoreLine:SetText(table.concat(sub, " \194\183 ") .. pbTag)
-	-- progression line: this player's last kills of this boss, oldest
-	-- first, the PB pattern's memo keeps it cheap
-	local histText
+	-- progression trend lives in the SCORE's hover now (Josh 2026-07-25):
+	-- oldest -> newest with arrows carrying the direction
+	local trendText
 	if fight.isBoss and not fight.isRun and TP.FightHistory and TP.FightHistory.ScoreHistory then
 		local hist = TP.FightHistory:ScoreHistory(fight, result.guid, 6)
 		if hist then
@@ -905,15 +932,16 @@ function Panel:ShowFor(fight, result)
 			for _, s in ipairs(hist) do
 				parts[#parts + 1] = TP.Scoring.Grades.ColoredScore(s)
 			end
-			-- oldest -> newest, arrows carrying the direction (Josh
-			-- 2026-07-25: "this boss" didn't say what the numbers WERE)
-			histText = "|cff888888Trend:|r " .. table.concat(parts, " |cff888888\226\134\146|r ")
+			trendText = table.concat(parts, " |cff888888\226\134\146|r ")
 		end
 	end
-	-- run avg moved into the subheader; this line is history only
-	frame.runLine:SetText(histText or "")
+	frame.runLine:SetText("")
+	local sh = headerHover("scoreHover", frame.bigScore)
+	sh.tipTitle = "Trend"
+	sh.tipLines = { trendText and { trendText, 1, 1, 1 }
+		or { "No prior kills of this boss recorded.", 0.7, 0.7, 0.7 } }
 
-	local y = histText and -56 or -44
+	local y = -44
 	-- header rule, same ink as the base divider below (Josh 2026-07-25)
 	if not frame.headerRule then
 		frame.headerRule = frame:CreateTexture(nil, "ARTWORK")
@@ -1419,6 +1447,11 @@ function Panel:ShowForGroup(fight, results)
 	frame.specIcon:Show()
 	frame.title:ClearAllPoints()
 	frame.title:SetPoint("TOPLEFT", 32, -9)
+	-- group header hovers: the name echoes the count; the score is inert
+	local gth = headerHover("titleHover", frame.title)
+	gth.tipTitle = label
+	gth.tipLines = frame.specIcon.tipLines
+	headerHover("scoreHover", frame.bigScore).tipTitle = nil
 	frame.subtitle:SetText("")
 	frame.bigScore:SetText("")
 	-- same compact header the player card uses
