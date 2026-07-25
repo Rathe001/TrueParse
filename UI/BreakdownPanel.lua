@@ -87,16 +87,8 @@ local function buildMetricTip()
 	metricTip.median:SetJustifyH("LEFT")
 	metricTip.median:SetWordWrap(false)
 
-	-- the parse coach's line: own signature-spell rate vs top parses
-	-- (one line, only when a real gap exists — never a wall of text)
-	metricTip.coach = face(metricTip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
-	metricTip.coach:SetPoint("TOPLEFT", 10, -52)
-	metricTip.coach:SetJustifyH("LEFT")
-	metricTip.coach:SetWordWrap(false)
-	metricTip.coach:SetTextColor(0.4, 0.85, 1)
-
-	-- (the parse-bracket gauge used to live here; it moved onto the card's
-	-- percentile rows themselves — Josh 2026-07-24 — so the tip is text)
+	-- (the parse-bracket gauge and the coach line both used to live here;
+	-- each moved onto the card itself — the tip is pure metric text now)
 
 	metricTip.footer = face(metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 	metricTip.footer:SetPoint("BOTTOMLEFT", 10, 8)
@@ -168,8 +160,6 @@ local function showMetricTip(anchor, data)
 	end
 	metricTip.median:ClearAllPoints()
 	metricTip.median:SetPoint("TOPLEFT", 10, -(38 + extraLines * 14))
-	metricTip.coach:ClearAllPoints()
-	metricTip.coach:SetPoint("TOPLEFT", 10, -(52 + extraLines * 14))
 
 	if b.specMedian and duration and duration > 0 then
 		-- curveFrom names the comparison population when the evidence
@@ -194,18 +184,8 @@ local function showMetricTip(anchor, data)
 		metricTip.median:SetText("")
 	end
 
-	-- the parse coach: on throughput metrics, one line naming the biggest
-	-- signature-spell gap vs top parses of this spec (nil when close)
-	local coachText
-	if (key == "damage" or key == "healing") and TP.Scoring.Insights.ParseGap then
-		local gap = TP.Scoring.Insights.ParseGap(data.specID, data.metrics, duration)
-		if gap then
-			coachText = "coach: " .. gap.text
-		end
-	end
-	metricTip.coach:SetText(coachText or "")
-
-	metricTip:SetHeight(76 + extraLines * 14 + (coachText and 14 or 0))
+	-- (the coach line left this tip 2026-07-25: it leads the card now)
+	metricTip:SetHeight(76 + extraLines * 14)
 
 	local footer = data.footerText
 	if not footer and COUNT_METRICS[key] and (b.weight or 0) == 0 then
@@ -222,7 +202,7 @@ local function showMetricTip(anchor, data)
 	-- fit the tip to its longest line (same rule as the card): text never
 	-- truncates and never spills past the border
 	local needed = GAUGE_W + 24
-	for _, fs in ipairs({ metricTip.title, metricTip.value, metricTip.median, metricTip.coach, metricTip.footer }) do
+	for _, fs in ipairs({ metricTip.title, metricTip.value, metricTip.median, metricTip.footer }) do
 		local w = (fs:GetStringWidth() or 0) + 20
 		if w > needed then
 			needed = w
@@ -237,6 +217,11 @@ local function showMetricTip(anchor, data)
 end
 
 local function rowEnter(self)
+	-- every hover target announces itself (Josh 2026-07-25: chips had
+	-- the highlight, full rows didn't)
+	if self.hl and (self.metricData or self.tooltipData) then
+		self.hl:Show()
+	end
 	if self.metricData then
 		showMetricTip(self, self.metricData)
 		return
@@ -248,7 +233,10 @@ local function rowEnter(self)
 	TP.Tooltip:Show(self, tipSide() == "LEFT" and "FORCE_LEFT" or "FORCE_RIGHT", d.title, d.lines)
 end
 
-local function rowLeave()
+local function rowLeave(self)
+	if self and self.hl then
+		self.hl:Hide()
+	end
 	TP.Tooltip:Hide()
 	if metricTip then
 		metricTip:Hide()
@@ -261,6 +249,10 @@ local function newRow(parent)
 	row:EnableMouse(true)
 	row:SetScript("OnEnter", rowEnter)
 	row:SetScript("OnLeave", rowLeave)
+	row.hl = row:CreateTexture(nil, "BACKGROUND")
+	row.hl:SetAllPoints(row)
+	row.hl:SetColorTexture(1, 1, 1, 0.06)
+	row.hl:Hide()
 
 	-- aligned to the signal rows: icon column at 8 (13px), labels at 26
 	row.symbol = face(row:CreateFontString(nil, "OVERLAY", "GameFontNormal"), 13)
@@ -1097,10 +1089,11 @@ function Panel:ShowFor(fight, result)
 			end
 			row.coachBg:Show()
 			-- the coach wears a stopwatch, TOP-anchored so a wrapping
-			-- second line never re-centers it (Josh 2026-07-25)
+			-- second line never re-centers it; -2.5 optically centers it
+			-- on the FIRST text line (Josh 2026-07-25)
 			row.icon:SetTexture("Interface\\Icons\\INV_Misc_PocketWatch_01")
 			row.icon:ClearAllPoints()
-			row.icon:SetPoint("TOPLEFT", 8, -1)
+			row.icon:SetPoint("TOPLEFT", 8, -2.5)
 			row.icon:Show()
 			row.symbol:SetText("")
 			-- long advice WRAPS at the card's standard width instead of
