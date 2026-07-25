@@ -1827,6 +1827,25 @@ do
 	end
 	check(twr[1].name == "Tw1" and twr[1].score > twr[2].score,
 		"group-relative still ranks the higher damage first")
+
+	-- 23a3. CONTEXTLESS fights stay off the ladder too (Josh 2026-07-25:
+	-- a bulk-unlocked TW run lost its instance context entirely — no
+	-- difficultyID, no instanceType — read as "not a dungeon", and the
+	-- level-scaled mage laddered into max-level raid pools at p9)
+	local lost = {
+		isBoss = true, name = "Some TW Boss Nobody Ranked", zone = "Eastern Kingdoms",
+		duration = 60,
+		players = {
+			a = { guid = "a", name = "Lost1", class = "MAGE", role = "DAMAGER", specID = 63,
+				metrics = { damage = 200000, healing = 0, damageTaken = 1000, interrupts = 0, dispels = 0, deaths = 0 } },
+		},
+		totals = { damage = 200000, healing = 0, damageTaken = 1000, interrupts = 0, dispels = 0, deaths = 0 },
+	}
+	local lr = TP.Scoring.Engine.ScoreFight(lost, { normalizeIlvl = false })
+	check(lr[1] and lr[1].breakdown.damage.pctile == nil and lr[1].breakdown.damage.curveFrom == nil,
+		("no curves + no bracket = no ladder (pct=%s curve=%s)"):format(
+			tostring(lr[1] and lr[1].breakdown.damage.pctile),
+			tostring(lr[1] and lr[1].breakdown.damage.curveFrom)))
 end
 
 -- 23b. Wipe-call detection: output collapse that never recovers marks

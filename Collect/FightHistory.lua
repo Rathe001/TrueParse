@@ -209,6 +209,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- time to when this session appeared (bulk unlocks deliver several
 	-- pulls of one boss at once — each consumes its own verdict); fall
 	-- back to "every player died" when no verdict matches.
+	local outcomeCtx
 	if fight.isBoss then
 		local outcomes = encounterResults[fight.name]
 		local outcome
@@ -227,6 +228,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		if outcome then
 			fight.wipe = outcome.wipe or nil
 			fight.hadVerdict = true -- explicit kill/wipe: retro passes keep off
+			outcomeCtx = outcome
 		else
 			local allDied, anyone = true, false
 			for _, p in pairs(players) do
@@ -266,6 +268,23 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		end
 		if difficultyName and not IsSecret(difficultyName) then
 			fight.difficulty = difficultyName
+		end
+	end
+	-- The ENCOUNTER_END outcome outranks a missing/outdoor context: TW
+	-- runs bulk-unlock after you leave, the live context recorded the
+	-- CONTINENT and no difficulty, and the engine laddered a level-
+	-- scaled mage into max-level raid pools (parsed 9 — Josh 2026-07-25)
+	if outcomeCtx then
+		if (not fight.instanceType or fight.instanceType == "none")
+			and outcomeCtx.instanceType and outcomeCtx.instanceType ~= "none" then
+			fight.zone = outcomeCtx.zone or fight.zone
+			fight.instanceType = outcomeCtx.instanceType
+			fight.difficulty = outcomeCtx.difficulty or fight.difficulty
+			fight.difficultyID = outcomeCtx.difficultyID or fight.difficultyID
+		end
+		-- locale-proof curve keying, free: session records never had one
+		if outcomeCtx.encounterID and not fight.encounterID then
+			fight.encounterID = outcomeCtx.encounterID
 		end
 	end
 	-- Encounter sessions only, everywhere: instance trash AND open-world
@@ -584,7 +603,24 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 				list = {}
 				encounterResults[encounterName] = list
 			end
-			list[#list + 1] = { wipe = (success == 0) or false, at = time() }
+			-- the outcome carries IN-INSTANCE context too: bulk-unlocked
+			-- sessions can first stream after you've left (the "live"
+			-- session context then records the continent and no
+			-- difficulty), but ENCOUNTER_END always fires inside
+			local zone, itype, _, diffName = GetInstanceInfo()
+			local diffID = arg3
+			if itype == "none" then
+				local zt = GetZoneText()
+				if zt and zt ~= "" and not IsSecret(zt) then
+					zone = zt
+				end
+			end
+			list[#list + 1] = { wipe = (success == 0) or false, at = time(),
+				encounterID = (not IsSecret(arg1)) and arg1 or nil,
+				difficultyID = (not IsSecret(diffID)) and diffID or nil,
+				zone = (not IsSecret(zone)) and zone or nil,
+				instanceType = (not IsSecret(itype)) and itype or nil,
+				difficulty = (not IsSecret(diffName)) and diffName or nil }
 		end
 	elseif event == "DAMAGE_METER_COMBAT_SESSION_UPDATED" then
 		local damageMeterType, sessionId = arg1, arg2

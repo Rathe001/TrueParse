@@ -1136,7 +1136,12 @@ function Engine.ScoreFight(fight, opts)
 				or fight.keystoneLevel ~= nil
 				or (fight.difficultyID and DUNGEON_DIFF_IDS[fight.difficultyID])
 				or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or false
-			if not (isDungeon and not enc) then
+			-- backstop (Josh 2026-07-25): a fight with NO matched curves
+			-- and NO recognizable bracket has no business on the ladder —
+			-- a bulk-unlocked TW dungeon lost its instance context, read
+			-- as "not a dungeon", and its level-scaled mage was laddered
+			-- into max-level raid pools (parsed 9 while topping Details)
+			if (enc or bracketKey) and not (isDungeon and not enc) then
 				ctx.curves = { P = P, enc = enc, order = bracketSearchOrder(bracketKey),
 					exact = bracketKey, dungeonOnly = isDungeon or nil }
 			end
