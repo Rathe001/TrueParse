@@ -708,6 +708,13 @@ local function getRow(i, y)
 	row:SetHeight(ROW_HEIGHT)
 	row.wraps = nil
 	row.text:SetWordWrap(false)
+	if row.coachBg then
+		row.coachBg:Hide()
+	end
+	if row.icon then
+		row.icon:ClearAllPoints()
+		row.icon:SetPoint("LEFT", 8, 0)
+	end
 	row:ClearAllPoints()
 	row:SetPoint("TOPLEFT", 0, y)
 	row:Show()
@@ -1073,6 +1080,45 @@ function Panel:ShowFor(fight, result)
 		row.tooltipData = nil
 		return row
 	end
+	-- the parse coach leads the card (Josh 2026-07-25: the single most
+	-- valuable line lives above the fold), on a faint cyan wash so it
+	-- reads as THE highlight. Advice, not a signal; Raw stays pure WCL.
+	if not result.parse and player and player.metrics and player.metrics.profCasts
+		and player.specID and TP.Scoring.Insights.ParseGap then
+		local gap = TP.Scoring.Insights.ParseGap(player.specID, player.metrics, fight.duration)
+		if gap then
+			local row = nextRow()
+			ensureSignalWidgets(row)
+			hideSignalWidgets(row)
+			if not row.coachBg then
+				row.coachBg = row:CreateTexture(nil, "BACKGROUND")
+				row.coachBg:SetAllPoints(row)
+				row.coachBg:SetColorTexture(0.40, 0.85, 1.00, 0.07)
+			end
+			row.coachBg:Show()
+			-- the coach wears a stopwatch, TOP-anchored so a wrapping
+			-- second line never re-centers it (Josh 2026-07-25)
+			row.icon:SetTexture("Interface\\Icons\\INV_Misc_PocketWatch_01")
+			row.icon:ClearAllPoints()
+			row.icon:SetPoint("TOPLEFT", 8, -1)
+			row.icon:Show()
+			row.symbol:SetText("")
+			-- long advice WRAPS at the card's standard width instead of
+			-- widening the card (Josh 2026-07-24)
+			row.wraps = true
+			row.text:SetWordWrap(true)
+			row.text:SetText(gap.text)
+			row.text:SetTextColor(0.40, 0.85, 1.00)
+			local avail = WIDTH - 12 - 26 - 8
+			if row.text:GetStringWidth() > avail then
+				row:SetHeight(ROW_HEIGHT * 2)
+				y = y - ROW_HEIGHT -- the second line's room
+			end
+			row.tooltipData = { title = "Parse coach", lines = {
+				{ infoHelp().coach, 0.8, 0.8, 0.8, true } } }
+		end
+	end
+
 	for _, award in ipairs(myAwards or {}) do
 		local row = nextRow()
 		hideSignalWidgets(row)
@@ -1181,39 +1227,6 @@ function Panel:ShowFor(fight, result)
 	hideChipsFrom(#chipSigs + 1)
 	if #chipSigs > 0 then
 		y = gridTop - math.ceil(#chipSigs / 2) * ROW_HEIGHT
-	end
-
-	-- the parse coach keeps its visible line (Josh 2026-07-24: "I don't
-	-- see the coach anywhere" — tooltip-only was invisible). Advice, not a
-	-- signal: rendered like the award text rows, in the coach's cyan.
-	-- Raw mode stays pure WCL.
-	if not result.parse and player and player.metrics and player.metrics.profCasts
-		and player.specID and TP.Scoring.Insights.ParseGap then
-		local gap = TP.Scoring.Insights.ParseGap(player.specID, player.metrics, fight.duration)
-		if gap then
-			local row = nextRow()
-			ensureSignalWidgets(row)
-			hideSignalWidgets(row)
-			-- the coach wears a stopwatch, not a bullet (Josh 2026-07-24:
-			-- "something coach related"); the icon carries identity so the
-			-- text is pure advice
-			row.icon:SetTexture("Interface\\Icons\\INV_Misc_PocketWatch_01")
-			row.icon:Show()
-			row.symbol:SetText("")
-			-- long advice WRAPS at the card's standard width instead of
-			-- widening the card (Josh 2026-07-24)
-			row.wraps = true
-			row.text:SetWordWrap(true)
-			row.text:SetText(gap.text)
-			row.text:SetTextColor(0.40, 0.85, 1.00)
-			local avail = WIDTH - 12 - 26 - 8
-			if row.text:GetStringWidth() > avail then
-				row:SetHeight(ROW_HEIGHT * 2)
-				y = y - ROW_HEIGHT -- the second line's room
-			end
-			row.tooltipData = { title = "Parse coach", lines = {
-				{ infoHelp().coach, 0.8, 0.8, 0.8, true } } }
-		end
 	end
 
 	-- (players without TrueParse are flagged by the red X on their
