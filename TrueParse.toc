@@ -29,6 +29,7 @@ Data\Totals_Dungeons.lua
 Data\Potions.lua
 Data\GroupBuffs.lua
 Data\Defensives.lua
+Data\SpellProfiles.lua
 Data\TankAnchors.lua
 Collect\Roster.lua
 Metrics\Registry.lua

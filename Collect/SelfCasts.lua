@@ -22,6 +22,35 @@ local ACTIVITY_SPAN_MAX = 10
 local castStartAt, castSpellID
 local channelStartAt
 
+-- Retail SELF-coach (Josh 2026-07-25): Midnight hides everyone's casts
+-- from CLEU, but your OWN UNIT_SPELLCAST_SUCCEEDED is readable — so the
+-- coach can exist on retail for YOUR card only. We count just the
+-- spec's signature spells (from the crawled profiles) per fight window
+-- and attach them to the local player's capture like the other
+-- self-facts. Never broadcast: nobody else's client can verify it.
+local watchedSpells -- [spellID] = true, rebuilt per window from the profile
+local ownCasts -- [spellID] = count for the current window
+
+local function buildWatchList()
+	watchedSpells, ownCasts = nil, nil
+	if not (TP.Compat.IS_RETAIL and TP.SpellProfiles
+		and GetSpecialization and GetSpecializationInfo) then
+		return
+	end
+	local spec = GetSpecialization()
+	local specID = spec and GetSpecializationInfo(spec)
+	local prof = specID and TP.SpellProfiles[specID]
+	if not (prof and prof.spells) then
+		return
+	end
+	watchedSpells, ownCasts = {}, {}
+	for _, sp in ipairs(prof.spells) do
+		for _, id in ipairs(sp.ids or {}) do
+			watchedSpells[id] = true
+		end
+	end
+end
+
 local function creditActivity(t, span)
 	local cap = ACTIVITY_CAP
 	if span and span > cap and span < ACTIVITY_SPAN_MAX then
@@ -182,9 +211,13 @@ local function finalizeFight()
 		activityPct = math.min(100, math.floor(activeSecs / duration * 100 + 0.5))
 	end
 	if duration >= 10 and TP.Sync.RecordFightReport then
-		TP.Sync:RecordFightReport(UnitGUID("player"), duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct, activityPct)
+		-- ownCasts rides the LOCAL report only (retail self-coach);
+		-- the broadcast wire never carries it
+		local casts = ownCasts and next(ownCasts) and ownCasts or nil
+		TP.Sync:RecordFightReport(UnitGUID("player"), duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct, activityPct, casts)
 		TP.Sync:BroadcastFightReport(duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct, activityPct)
 	end
+	ownCasts = watchedSpells and {} or nil
 end
 
 local function startWindow()
@@ -194,6 +227,7 @@ local function startWindow()
 	activeSecs = 0
 	lastCastAt = nil
 	castStartAt, castSpellID, channelStartAt = nil, nil, nil
+	buildWatchList()
 	local ok, count = pcall(countConsumables)
 	consumablesAtPull = ok and count or 0
 	uptimeSeconds = 0
@@ -225,6 +259,9 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 		if unit == "player" and combatStart then
 			if TP.DEFENSIVES and TP.DEFENSIVES[spellID] then
 				defensivesUsed = defensivesUsed + 1
+			end
+			if watchedSpells and spellID and watchedSpells[spellID] then
+				ownCasts[spellID] = (ownCasts[spellID] or 0) + 1
 			end
 			local t = GetTime()
 			local span

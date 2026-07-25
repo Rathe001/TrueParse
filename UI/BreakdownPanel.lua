@@ -932,7 +932,9 @@ function Panel:ShowFor(fight, result)
 			for _, s in ipairs(hist) do
 				parts[#parts + 1] = TP.Scoring.Grades.ColoredScore(s)
 			end
-			trendText = table.concat(parts, " |cff888888\226\134\146|r ")
+			-- \194\187 = » (Latin-1): the true arrow glyph is tofu in the
+			-- WoW fonts (Josh 2026-07-25)
+			trendText = table.concat(parts, " |cff888888\194\187|r ")
 		end
 	end
 	frame.runLine:SetText("")
@@ -942,12 +944,14 @@ function Panel:ShowFor(fight, result)
 		or { "No prior kills of this boss recorded.", 0.7, 0.7, 0.7 } }
 
 	local y = -44
-	-- header rule, same ink as the base divider below (Josh 2026-07-25)
+	-- header rule, same ink AND spacing as the base divider below
+	-- (Josh 2026-07-25: 4px above, 6px below)
 	if not frame.headerRule then
 		frame.headerRule = frame:CreateTexture(nil, "ARTWORK")
 		frame.headerRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
 		frame.headerRule:SetHeight(1)
 	end
+	y = y - 4
 	frame.headerRule:ClearAllPoints()
 	frame.headerRule:SetPoint("TOPLEFT", 10, y)
 	frame.headerRule:SetPoint("TOPRIGHT", -10, y)
@@ -1488,12 +1492,13 @@ function Panel:ShowForGroup(fight, results)
 	-- advisors, no rollup, no graphs.
 	local raw = results[1] and results[1].parse
 	local y = -44 -- below the hero line + subheader
-	-- same header rule as the player card
+	-- same header rule as the player card (4px above, 6px below)
 	if not frame.headerRule then
 		frame.headerRule = frame:CreateTexture(nil, "ARTWORK")
 		frame.headerRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
 		frame.headerRule:SetHeight(1)
 	end
+	y = y - 4
 	frame.headerRule:ClearAllPoints()
 	frame.headerRule:SetPoint("TOPLEFT", 10, y)
 	frame.headerRule:SetPoint("TOPRIGHT", -10, y)

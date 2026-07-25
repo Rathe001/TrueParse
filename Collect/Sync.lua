@@ -48,7 +48,7 @@ local REPORT_TTL = 7200
 -- readyAtDeath: -1/nil = didn't die; 0+ = defensives off cooldown at death
 -- buffUptime: -1/nil = not a support spec; 0-100 = Ebon Might uptime %
 -- activity: -1/nil = unknown; 0-100 = own active-time percent
-function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAtDeath, buffUptime, activity)
+function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAtDeath, buffUptime, activity, casts)
 	local list = self.reports[guid]
 	if not list then
 		list = {}
@@ -60,6 +60,9 @@ function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAt
 		readyAtDeath = (readyAtDeath and readyAtDeath >= 0) and readyAtDeath or nil,
 		buffUptime = (buffUptime and buffUptime >= 0) and math.min(buffUptime, 100) or nil,
 		activity = (activity and activity >= 0) and math.min(activity, 100) or nil,
+		-- retail self-coach: own signature-spell counts, LOCAL reports
+		-- only (the wire never carries tables)
+		casts = casts,
 		at = time(),
 	}
 	-- prune stale
@@ -151,6 +154,11 @@ function Sync:AttachReports(fight)
 				-- cover retail
 				if p.metrics.activityPct == nil and report.activity then
 					p.metrics.activityPct = report.activity
+				end
+				-- retail self-coach: own cast counts feed ParseGap for the
+				-- LOCAL player's card (CLEU fills this on Classic)
+				if p.metrics.profCasts == nil and report.casts then
+					p.metrics.profCasts = report.casts
 				end
 				table.remove(list, bestIdx)
 				-- award inputs changed (Iron Wall reads defensives)

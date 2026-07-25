@@ -3152,6 +3152,30 @@ end)()
 	TP.Percentiles = savedP
 end)()
 
+-- 38. Retail self-coach (2026-07-25): the crawled retail profiles load
+-- and drive ParseGap exactly like the MoP ones — structure-only checks,
+-- since the cpm values refresh monthly.
+;(function()
+	local savedProf = TP.SpellProfiles
+	TP.SpellProfiles = {}
+	loadModule("Data/SpellProfiles.lua", TP)
+	local n = 0
+	for _ in pairs(TP.SpellProfiles) do
+		n = n + 1
+	end
+	check(n >= 25, ("retail profiles cover the roster (%d specs)"):format(n))
+	local mw = TP.SpellProfiles[270]
+	check(mw and mw.spells and #mw.spells >= 3, "Mistweaver has a retail profile")
+	if mw then
+		-- pressing NONE of the watched buttons enough: the coach fires
+		local gap = TP.Scoring.Insights.ParseGap(270,
+			{ profCasts = { [mw.spells[1].ids[1]] = 1 } }, 300)
+		check(gap ~= nil and gap.text:find("more often", 1, true) ~= nil,
+			("retail MW coach fires (%s)"):format(tostring(gap and gap.text)))
+	end
+	TP.SpellProfiles = savedProf
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")
