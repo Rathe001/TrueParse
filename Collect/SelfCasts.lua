@@ -133,6 +133,13 @@ end
 -- the fight window stays open; re-entering combat resumes it.
 local graceTicker
 local GRACE_MAX_SECONDS = 180
+-- While a boss ENCOUNTER is verifiably running, the grace cap doesn't
+-- apply: die at minute 3 of a 10-minute wipe and the 180s cap used to
+-- finalize a ~4-minute window whose duration fingerprint could never
+-- match the real fight — the report went orphaned and the capture
+-- showed no self-facts (Josh's raid night, 2026-07-24). ENCOUNTER_END
+-- is the hard close, so the window can't stick open.
+local encounterOpen = false
 
 local function stopGrace()
 	if graceTicker then
@@ -248,6 +255,7 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 			startWindow()
 		end
 	elseif event == "ENCOUNTER_START" then
+		encounterOpen = true
 		-- boss pulled while chained from trash combat: the report must
 		-- cover the ENCOUNTER, not the chain
 		if combatStart then
@@ -257,6 +265,7 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 			startWindow()
 		end
 	elseif event == "ENCOUNTER_END" then
+		encounterOpen = false
 		-- finalize exactly at the encounter boundary so the duration
 		-- fingerprint matches the capture (kills that chained into add
 		-- cleanup or trash merged pulls into one unmatchable report)
@@ -284,8 +293,8 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 		graceTicker = C_Timer.NewTicker(2, function()
 			waited = waited + 2
 			local ok, fighting = pcall(groupInCombat)
-			if (ok and fighting) and waited < GRACE_MAX_SECONDS then
-				return -- encounter still running; hold the window open
+			if (ok and fighting) and (encounterOpen or waited < GRACE_MAX_SECONDS) then
+				return -- fight still running; hold for ENCOUNTER_END
 			end
 			finalizeFight()
 		end)
