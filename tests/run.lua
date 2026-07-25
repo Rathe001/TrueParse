@@ -3271,7 +3271,7 @@ end)()
 		},
 	}
 	local olderWipe = { name = "Garrosh Hellscream", isBoss = true, wipe = true, bossPct = 41 }
-	local wl = R.Run("wipe", { fight = wipeFight, runFights = { wipeFight, olderWipe } })
+	local wl = R.Run("fight", { fight = wipeFight, runFights = { wipeFight, olderWipe } })
 	check(wl and wl[1] == "Wipe: Garrosh Hellscream at 27% (5:43) - 14% further than last pull.",
 		("wipe headline (%s)"):format(tostring(wl and wl[1])))
 	check(wl[2] == "Deaths: 2 (1 before the call, first at 2:41).",
@@ -3290,7 +3290,7 @@ end)()
 		duration = 380, prevKillDuration = 392,
 		players = { a = { name = "Emberfall", metrics = { deaths = 0 } } },
 	}
-	local kl = R.Run("kill", {
+	local kl = R.Run("fight", {
 		fight = killFight,
 		runFights = { killFight, wipeFight, wipeFight },
 		results = { { name = "Baddchi", score = 99 }, { name = "Beebcat", score = 40 } },
@@ -3335,7 +3335,7 @@ end)()
 	check(pl[2] == "Healthstones eaten: 1/2.", ("healthstone line (%s)"):format(tostring(pl[2])))
 
 	-- the house rule itself: no report line ever carries a player name
-	for _, key in ipairs({ "wipe", "kill", "run", "deaths", "prep" }) do
+	for _, key in ipairs({ "fight", "run", "deaths", "prep" }) do
 		local lines = R.Run(key, { fight = wipeFight, zone = "Siege of Orgrimmar",
 			runFights = { wipeFight, olderWipe },
 			results = { { name = "Baddchi", score = 99 } } })
@@ -3348,7 +3348,7 @@ end)()
 		end
 	end
 
-	check(R.Run("wipe", {}) == nil, "no fight, no report")
+	check(R.Run("fight", {}) == nil, "no fight, no report")
 	check(R.Run("nope", { fight = wipeFight }) == nil, "unknown report key returns nil")
 end)()
 

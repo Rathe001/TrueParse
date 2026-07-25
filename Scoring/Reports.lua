@@ -411,21 +411,24 @@ local function buildPrep(ctx)
 	return lines
 end
 
+-- one report, two shapes: the fight's outcome decides which story to
+-- tell (Josh 2026-07-25: you'd never run a kill report on a wipe)
+local function buildFight(ctx)
+	if ctx.fight and ctx.fight.wipe then
+		return buildWipe(ctx)
+	end
+	return buildKill(ctx)
+end
+
 -- The registry the panel renders, in display order. trigger names the
 -- moment the report can auto-run (always local-only); manual-only
 -- reports leave it nil. No report ever names a player.
 Reports.LIST = {
 	{
-		key = "wipe", name = "Wipe analysis", trigger = "wipe",
-		desc = "Root-cause read on the latest wipe: boss % vs last pull, deaths and the call timing, avoidable damage, spike coverage, kicks. No names.",
-		example = "Wipe: Garrosh Hellscream at 27% (5:43) - 14% further than last pull. Deaths: 6 (4 before the call, first at 2:41).",
-		build = buildWipe,
-	},
-	{
-		key = "kill", name = "Kill analysis", trigger = "kill",
-		desc = "Kill time vs your last kill, pull count with best prior attempt, group score, deaths, and kicks. No names.",
-		example = "Kill: Garrosh Hellscream in 6:20 (12s faster than last kill). Pull 4 - best prior attempt 27%. Group score 63.",
-		build = buildKill,
+		key = "fight", name = "Fight analysis", trigger = "fight",
+		desc = "The selected fight's story. Wipes: boss % vs last pull, deaths and call timing, avoidable damage, spike coverage. Kills: time vs last kill, pull count, group score. No names.",
+		example = "Wipe: Garrosh Hellscream at 27% (5:43) - 14% further than last pull. / Kill: Garrosh Hellscream in 6:20 (12s faster than last kill).",
+		build = buildFight,
 	},
 	{
 		key = "run", name = "End of run", trigger = "runEnd",

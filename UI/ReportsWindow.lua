@@ -83,30 +83,12 @@ local function contextFor(def, fight)
 		end
 		return ctx
 	end
-	if def.trigger == "wipe" then
-		if sel and sel.isBoss and sel.wipe then
-			ctx.fight = sel
-		elseif sel and sel.isBoss then
-			ctx.fight = latestFight(function(f)
-				return f.isBoss and f.wipe and f.name == sel.name
+	if def.trigger == "fight" then
+		-- the fight's own outcome picks the wipe or kill story
+		ctx.fight = (sel and sel.isBoss and sel)
+			or latestFight(function(f)
+				return f.isBoss
 			end)
-		else
-			ctx.fight = latestFight(function(f)
-				return f.isBoss and f.wipe
-			end)
-		end
-	elseif def.trigger == "kill" then
-		if sel and sel.isBoss and not sel.wipe then
-			ctx.fight = sel
-		elseif sel and sel.isBoss then
-			ctx.fight = latestFight(function(f)
-				return f.isBoss and not f.wipe and f.name == sel.name
-			end)
-		else
-			ctx.fight = latestFight(function(f)
-				return f.isBoss and not f.wipe
-			end)
-		end
 	else
 		ctx.fight = sel or latestFight()
 	end
@@ -293,7 +275,7 @@ local function makeRow(parent, def)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			GameTooltip:AddLine(def.name, 1, 1, 1)
 			GameTooltip:AddLine(("Runs automatically after each %s - always to your own chat only, never to a channel."):format(
-				def.trigger == "runEnd" and "run" or def.trigger), 0.8, 0.8, 0.8, true)
+				def.trigger == "runEnd" and "run" or "boss fight"), 0.8, 0.8, 0.8, true)
 			GameTooltip:Show()
 		end)
 		row.auto:SetScript("OnLeave", function()
@@ -385,7 +367,7 @@ function ReportsUI:OnEnable()
 	LibStub("AceEvent-3.0"):Embed(self)
 	self:RegisterMessage("TrueParse_FIGHT_CAPTURED", function(_, fight)
 		if fight and fight.isBoss and not fight.practice then
-			autoRun(fight.wipe and "wipe" or "kill", fight)
+			autoRun("fight", fight)
 		end
 	end)
 	-- run end: where the client announces completion (same events the
