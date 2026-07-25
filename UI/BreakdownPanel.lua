@@ -1416,35 +1416,20 @@ function Panel:ShowFor(fight, result)
 	end
 	if frame.stripTrack then
 		frame.stripTrack:Hide()
-		frame.stripLabel:Hide()
 		for _, b in ipairs(frame.stripBands or {}) do
 			b:Hide()
 		end
 	end
 	if map and #map > 0 and (fight.duration or 0) > 0 then
 		if not frame.stripTrack then
-			frame.stripLabel = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 			frame.stripTrack = frame:CreateTexture(nil, "ARTWORK")
 			frame.stripTrack:SetTexture("Interface\\Buttons\\WHITE8X8")
 			frame.stripTrack:SetVertexColor(0.14, 0.14, 0.17, 1)
 			frame.stripBands = {}
 		end
-		y = y - 6
-		frame.stripLabel:ClearAllPoints()
-		frame.stripLabel:SetPoint("TOPLEFT", 12, y)
-		local lbl
-		if not isGroupMap then
-			lbl = "damage spikes \194\183 |cff55cc55defensive|r / |cffe64d4dno defensive|r"
-		elseif hasMine then
-			lbl = "group spikes \194\183 |cff55cc55covered|r / |cffe64d4duncovered|r"
-		else
-			-- pre-attribution record: team coloring (band hovers still
-			-- say whose cooldown, when known)
-			lbl = "group spikes \194\183 |cff55cc55covered|r / |cffe64d4duncovered|r"
-		end
-		frame.stripLabel:SetText(lbl)
-		frame.stripLabel:Show()
-		y = y - 14
+		-- no legend (Josh 2026-07-25: the tick hovers explain themselves)
+		-- — the track tucks directly under the graph
+		y = y - 3
 		local w = frame:GetWidth() - 24
 		frame.stripTrack:ClearAllPoints()
 		frame.stripTrack:SetPoint("TOPLEFT", 12, y)
@@ -1901,7 +1886,6 @@ function Panel:ShowForGroup(fight, results)
 	-- the spike strip is player-view only; this frame is shared
 	if frame.stripTrack then
 		frame.stripTrack:Hide()
-		frame.stripLabel:Hide()
 		for _, b in ipairs(frame.stripBands or {}) do
 			b:Hide()
 		end
@@ -2006,7 +1990,9 @@ function Panel:ShowForGroup(fight, results)
 		end
 	end
 	if teamMap and (fight.duration or 0) > 0 then
-		vizLabel("covLabel", "group spikes \194\183 |cff55cc55covered|r / |cffe64d4duncovered|r")
+		-- no legend (Josh 2026-07-25: the tick hovers explain themselves)
+		-- — the track tucks directly under the graph
+		y = y - 3
 		-- background track (it was missing here — audit 2026-07-24: bands
 		-- floated on nothing while the player strip had its rail)
 		if not frame.covTrack then
