@@ -789,6 +789,30 @@ local ROLE_LABELS = {
 	DAMAGER = "DPS", TANK = "Tank", HEALER = "Healer", SUPPORT = "Support DPS",
 }
 
+-- header identity icon: spec on player cards, the group icon on the
+-- raid card (Josh 2026-07-25). Hover names what it shows.
+local function ensureSpecIcon()
+	if frame.specIcon then
+		return
+	end
+	frame.specIcon = CreateFrame("Frame", nil, frame)
+	frame.specIcon:SetSize(18, 18)
+	frame.specIcon:SetPoint("TOPLEFT", 10, -9)
+	frame.specIcon.tex = frame.specIcon:CreateTexture(nil, "ARTWORK")
+	frame.specIcon.tex:SetAllPoints(frame.specIcon)
+	frame.specIcon.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	frame.specIcon:EnableMouse(true)
+	frame.specIcon:SetScript("OnEnter", function(sf)
+		if sf.tipTitle then
+			TP.Tooltip:Show(sf, tipSide() == "LEFT" and "FORCE_LEFT" or "FORCE_RIGHT",
+				sf.tipTitle, sf.tipLines)
+		end
+	end)
+	frame.specIcon:SetScript("OnLeave", function()
+		TP.Tooltip:Hide()
+	end)
+end
+
 function Panel:ShowFor(fight, result)
 	if not frame then
 		createFrame()
@@ -798,24 +822,7 @@ function Panel:ShowFor(fight, result)
 	frame.title:SetText(result.name or "?")
 	frame.title:SetTextColor(cr, cg, cb)
 	-- spec icon before the name (Josh 2026-07-25); hover names the spec
-	if not frame.specIcon then
-		frame.specIcon = CreateFrame("Frame", nil, frame)
-		frame.specIcon:SetSize(18, 18)
-		frame.specIcon:SetPoint("TOPLEFT", 10, -9)
-		frame.specIcon.tex = frame.specIcon:CreateTexture(nil, "ARTWORK")
-		frame.specIcon.tex:SetAllPoints(frame.specIcon)
-		frame.specIcon.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-		frame.specIcon:EnableMouse(true)
-		frame.specIcon:SetScript("OnEnter", function(sf)
-			if sf.tipTitle then
-				TP.Tooltip:Show(sf, tipSide() == "LEFT" and "FORCE_LEFT" or "FORCE_RIGHT",
-					sf.tipTitle, sf.tipLines)
-			end
-		end)
-		frame.specIcon:SetScript("OnLeave", function()
-			TP.Tooltip:Hide()
-		end)
-	end
+	ensureSpecIcon()
 	local pRec = fight.players and fight.players[result.guid]
 	local specID = pRec and pRec.specID
 	local specIcon, specName
@@ -1403,11 +1410,15 @@ function Panel:ShowForGroup(fight, results)
 	local label = (#results > 5) and "Raid" or "Group"
 	frame.title:SetText(label)
 	frame.title:SetTextColor(1, 0.82, 0.2)
-	if frame.specIcon then
-		frame.specIcon:Hide() -- shared frame: player-card element
-	end
+	-- the group wears its icon too (Josh 2026-07-25), matching the
+	-- scorecard's pinned row
+	ensureSpecIcon()
+	frame.specIcon.tex:SetTexture("Interface\\Icons\\INV_Misc_GroupNeedMore")
+	frame.specIcon.tipTitle = label
+	frame.specIcon.tipLines = { { ("%d players"):format(#results), 1, 1, 1 } }
+	frame.specIcon:Show()
 	frame.title:ClearAllPoints()
-	frame.title:SetPoint("TOPLEFT", 10, -9)
+	frame.title:SetPoint("TOPLEFT", 32, -9)
 	frame.subtitle:SetText("")
 	frame.bigScore:SetText("")
 	-- same compact header the player card uses
