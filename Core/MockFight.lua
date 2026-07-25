@@ -23,14 +23,16 @@ end
 
 -- the shared team spike map for a fight (9-field group windows) and the
 -- per-second output shape (40 cells)
-local function groupMap(mineSet, whoName, whoSpell)
-	-- {s, e, met, mine, amt, hitName, used, whoName, whoSpell}
+local function groupMap(mineSet)
+	-- {s, e, met, mine, amt, hitName, used, whoName, whoSpell} — every
+	-- covered window NAMES its coverer, like real 2.0 captures do (the
+	-- generic "a cooldown met it" is only for pre-attribution records)
 	local wins = {
-		{ 42, 49, true, nil, 1650000, "Whirling Corruption", nil, whoName, whoSpell },
+		{ 42, 49, true, nil, 1650000, "Whirling Corruption", nil, "Grimshade", "Guardian Spirit" },
 		{ 96, 102, true, nil, 1480000, "Annihilate", nil, "Kaelstrom", "Spirit Link Totem" },
 		{ 158, 164, nil, nil, 1720000, "Empowered Whirling Corruption" },
 		{ 233, 241, true, nil, 1590000, "Whirling Corruption", nil, "Willowmend", "Tranquility" },
-		{ 318, 325, true, nil, 1610000, "Annihilate", nil, whoName, whoSpell },
+		{ 318, 325, true, nil, 1610000, "Annihilate", nil, "Willowmend", "Ironbark" },
 		{ 415, 423, true, nil, 1880000, "Empowered Whirling Corruption", nil, "Kaelstrom", "Healing Tide Totem" },
 	}
 	for i, win in ipairs(wins) do

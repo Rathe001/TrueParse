@@ -179,8 +179,15 @@ table.
   ("1/3"), kicks ("0/10"), and dispel counts render as label + colored
   count + points — a bar under a count implies a continuous scale that
   isn't there. The availability cap lives in the judged denominator
-  ("your cooldowns could reach N" in the tooltip). Binary signals are
-  single glyphs.
+  ("your cooldowns could reach N" in the tooltip).
+- **Two zones, one rule** (layout A, 2026-07-25): every population
+  visualization stacks full-width in the top zone; every markless
+  verdict packs two-per-line into a chip grid below the rule, each chip
+  a hover target with its own tooltip (highlight on mouseover). Died
+  always ends the grid. The rule reads "measured against a population"
+  above, "counted verdicts" below — the scored/unscored story rides the
+  points column. Header carries name+score, boss line, and a time line
+  (duration · pulled); the player-card footer is retired.
 - **Verdict labels, never sentences.** Each row carries a 2–4 word
   verdict in muted ink stating what happened — "Lust missed",
   "Died, CDs ready", "Stayed clean" — so nobody computes a finding

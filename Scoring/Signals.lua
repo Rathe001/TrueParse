@@ -358,6 +358,13 @@ function Signals.ForResult(result, fight, player)
 	elseif (pd.avoidable or 0) > 0 then
 		verdict("avoidable", ICONS.avoidable, "Stood in bad", -pd.avoidable)
 	end
+	-- the footer's checkmarks retired (Josh 2026-07-25): an UNPREPARED
+	-- pull says so here, unscored — the prepared case is the REMAINDER's
+	-- "Flask + food" chip
+	if m.consumables ~= nil and m.consumables < 2 then
+		out[#out + 1] = { key = "consumables", kind = "glyph",
+			icon = ICONS.buffUptime, label = "No flask/food", good = false }
+	end
 
 	-- 9b) every remaining scored adjustment gets a verdict glyph — the
 	-- card must account for every point (nothing silently vanishes just

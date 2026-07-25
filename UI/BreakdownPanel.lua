@@ -633,6 +633,13 @@ local function createFrame()
 	frame.runLine:SetPoint("TOPRIGHT", -10, -43)
 	frame.runLine:SetJustifyH("LEFT")
 
+	-- duration + pull time, third header line (Josh 2026-07-25: the
+	-- footer's tenants moved up; the footer zone retires on player cards)
+	frame.timeLine = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
+	frame.timeLine:SetPoint("TOPLEFT", 10, -43)
+	frame.timeLine:SetPoint("TOPRIGHT", -10, -43)
+	frame.timeLine:SetJustifyH("LEFT")
+
 	frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	frame.total:SetPoint("BOTTOMLEFT", 10, 10)
 
@@ -712,6 +719,95 @@ local function hideRowsFrom(i)
 		rows[j]:Hide()
 		rows[j].tooltipData = nil
 		rows[j].metricData = nil
+	end
+end
+
+-- ===== verdict chip grid (layout A, Josh 2026-07-25): markless rows
+-- pack two per line — icon, label, value, points — with a hover
+-- highlight announcing the tooltip target =====
+local CHIP_GAP = 6
+local chips = {}
+local function getChip(i)
+	local c = chips[i]
+	if not c then
+		c = CreateFrame("Frame", nil, frame)
+		c:EnableMouse(true)
+		c.hl = c:CreateTexture(nil, "BACKGROUND")
+		c.hl:SetAllPoints(c)
+		c.hl:SetColorTexture(1, 1, 1, 0.06)
+		c.hl:Hide()
+		c:SetScript("OnEnter", function(s)
+			s.hl:Show()
+			rowEnter(s)
+		end)
+		c:SetScript("OnLeave", function(s)
+			s.hl:Hide()
+			rowLeave()
+		end)
+		c.icon = c:CreateTexture(nil, "ARTWORK")
+		c.icon:SetSize(13, 13)
+		c.icon:SetPoint("LEFT", 0, 0)
+		c.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		c.pts = face(c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
+		c.pts:SetPoint("RIGHT", 0, 0)
+		c.pts:SetWidth(22)
+		c.pts:SetJustifyH("RIGHT")
+		c.val = face(c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
+		c.val:SetPoint("RIGHT", -24, 0)
+		c.val:SetJustifyH("RIGHT")
+		c.label = face(c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
+		c.label:SetPoint("LEFT", 18, 0)
+		c.label:SetPoint("RIGHT", c.val, "LEFT", -2, 0)
+		c.label:SetJustifyH("LEFT")
+		c.label:SetWordWrap(false)
+		chips[i] = c
+	end
+	return c
+end
+
+local function hideChipsFrom(i)
+	for j = i, #chips do
+		chips[j]:Hide()
+		chips[j].metricData = nil
+		chips[j].tooltipData = nil
+	end
+end
+
+local function renderChip(c, sig)
+	c.icon:SetTexture(sig.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+	local warn = (sig.points or 0) < 0 or sig.kind == "pips"
+		or (sig.kind == "glyph" and not sig.good)
+	if warn then
+		c.label:SetTextColor(0.85, 0.42, 0.42)
+	else
+		c.label:SetTextColor(LABEL_INK[1], LABEL_INK[2], LABEL_INK[3])
+	end
+	c.label:SetText(sig.label or "")
+	local vtext, vr, vg, vb
+	if sig.kind == "pips" then
+		vtext = tostring(sig.count or 0)
+		vr, vg, vb = MARK_BAD[1], MARK_BAD[2], MARK_BAD[3]
+	elseif sig.kind == "glyph" then
+		vtext = sig.count and tostring(sig.count) or ""
+		vr, vg, vb = LABEL_INK[1], LABEL_INK[2], LABEL_INK[3]
+	else -- count-bearing bar rows (Covered c/j, Kicks l/o, dispel counts)
+		vtext = sig.num or ""
+		local pts = sig.points or 0
+		if pts >= 0.5 then
+			vr, vg, vb = MARK_GOOD[1], MARK_GOOD[2], MARK_GOOD[3]
+		elseif pts <= -0.5 then
+			vr, vg, vb = MARK_BAD[1], MARK_BAD[2], MARK_BAD[3]
+		else
+			vr, vg, vb = 0.58, 0.58, 0.63
+		end
+	end
+	c.val:SetText(vtext)
+	c.val:SetTextColor(vr, vg, vb)
+	if sig.points and math.abs(sig.points) >= 0.5 then
+		c.pts:SetText(("%+d"):format(sig.points >= 0
+			and math.floor(sig.points + 0.5) or -math.floor(-sig.points + 0.5)))
+	else
+		c.pts:SetText("")
 	end
 end
 
@@ -915,13 +1011,21 @@ function Panel:ShowFor(fight, result)
 		sub[#sub + 1] = fight.bossPct and ("|cffe64d4dwipe %.0f%%|r"):format(fight.bossPct)
 			or "|cffe64d4dwipe|r"
 	end
-	if (fight.duration or 0) > 0 then
-		sub[#sub + 1] = ("%d:%02d"):format(math.floor(fight.duration / 60), fight.duration % 60)
-	end
 	if runR then
 		sub[#sub + 1] = "run avg " .. TP.Scoring.Grades.ColoredScore(runR.score)
 	end
 	frame.scoreLine:SetText(table.concat(sub, " \194\183 ") .. pbTag)
+	-- third header line: duration + pull time (the footer's tenants,
+	-- Josh 2026-07-25)
+	local tparts = {}
+	if (fight.duration or 0) > 0 then
+		tparts[#tparts + 1] = ("%d:%02d"):format(math.floor(fight.duration / 60), fight.duration % 60)
+	end
+	if fight.capturedAt and (fight.duration or 0) > 0 and not result.parse then
+		tparts[#tparts + 1] = "pulled " .. date("%H:%M", fight.capturedAt - fight.duration)
+	end
+	frame.timeLine:SetText(table.concat(tparts, " \194\183 "))
+	frame.timeLine:Show()
 	-- progression trend lives in the SCORE's hover now (Josh 2026-07-25):
 	-- oldest -> newest with arrows carrying the direction
 	local trendText
@@ -943,7 +1047,7 @@ function Panel:ShowFor(fight, result)
 	sh.tipLines = { trendText and { trendText, 1, 1, 1 }
 		or { "No prior kills of this boss recorded.", 0.7, 0.7, 0.7 } }
 
-	local y = -44
+	local y = -56 -- three header lines now (name, boss, time)
 	-- header rule, same ink AND spacing as the base divider below
 	-- (Josh 2026-07-25: 4px above, 6px below)
 	if not frame.headerRule then
@@ -1002,39 +1106,18 @@ function Panel:ShowFor(fight, result)
 		signals = kept
 	end
 
-	-- a light rule after the throughput bars: everything above IS the
-	-- base score (no +/- points by design), everything below adjusts it
-	-- (Josh 2026-07-24)
-	local drewBase, ruleDrawn = false, false
-	for _, sig in ipairs(signals) do
-		if sig.base then
-			drewBase = true
-		elseif drewBase and not ruleDrawn then
-			ruleDrawn = true
-			if not frame.baseRule then
-				frame.baseRule = frame:CreateTexture(nil, "ARTWORK")
-				frame.baseRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
-				frame.baseRule:SetHeight(1)
-			end
-			y = y - 4
-			frame.baseRule:ClearAllPoints()
-			frame.baseRule:SetPoint("TOPLEFT", 10, y)
-			frame.baseRule:SetPoint("TOPRIGHT", -10, y)
-			frame.baseRule:Show()
-			y = y - 6
-		end
-		local row = nextRow()
-		renderSignal(row, sig, groupAvg)
+	-- one tooltip builder for full rows AND chips: same content either way
+	local function buildTip(target, sig)
 		if sig.b then
 			-- throughput bars keep the full metric tooltip (gauge + coach);
 			-- composite rows (Tanking) override the title + value line
-			row.metricData = { b = sig.b, key = sig.key,
+			target.metricData = { b = sig.b, key = sig.key,
 				duration = fight.duration, role = result.role,
 				specID = player and player.specID,
 				metrics = player and player.metrics,
 				title = sig.tipTitle, valueText = sig.tipText }
 		elseif sig.key == "deaths" and player and player.deathRecap then
-			row.tooltipData = { title = sig.label, lines = deathRecapLines(player) }
+			target.tooltipData = { title = sig.label, lines = deathRecapLines(player) }
 		else
 			local lines = {
 				{ infoHelp()[sig.key] or PENALTY_HELP[sig.key]
@@ -1042,8 +1125,62 @@ function Panel:ShowFor(fight, result)
 			if sig.detail then
 				lines[#lines + 1] = { sig.detail, 1, 1, 1, true }
 			end
-			row.tooltipData = { title = sig.label, lines = lines }
+			target.tooltipData = { title = sig.label, lines = lines }
 		end
+	end
+
+	-- LAYOUT A (Josh 2026-07-25): every population visualization (gauges
+	-- and fills) stacks full-width in one zone; every markless verdict
+	-- packs into a two-column chip grid below the rule. Emission order is
+	-- preserved in both zones — deaths emit last, so Died ends the grid.
+	local fullRows, chipSigs = {}, {}
+	for _, sig in ipairs(signals) do
+		if sig.kind == "bar" and not sig.num then
+			fullRows[#fullRows + 1] = sig
+		else
+			chipSigs[#chipSigs + 1] = sig
+		end
+	end
+	for _, sig in ipairs(fullRows) do
+		local row = nextRow()
+		renderSignal(row, sig, groupAvg)
+		buildTip(row, sig)
+	end
+	if #chipSigs > 0 and #fullRows > 0 then
+		-- the rule now separates "measured against a population" from
+		-- "counted verdicts" (the base-vs-adjustment story rides the
+		-- points column)
+		if not frame.baseRule then
+			frame.baseRule = frame:CreateTexture(nil, "ARTWORK")
+			frame.baseRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
+			frame.baseRule:SetHeight(1)
+		end
+		y = y - 4
+		frame.baseRule:ClearAllPoints()
+		frame.baseRule:SetPoint("TOPLEFT", 10, y)
+		frame.baseRule:SetPoint("TOPRIGHT", -10, y)
+		frame.baseRule:Show()
+		y = y - 6
+	elseif frame.baseRule then
+		frame.baseRule:Hide()
+	end
+	local chipW = (WIDTH - 16 - CHIP_GAP) / 2
+	local gridTop = y
+	for i, sig in ipairs(chipSigs) do
+		local c = getChip(i)
+		local col = (i - 1) % 2
+		local rowN = math.floor((i - 1) / 2)
+		c:SetSize(chipW, ROW_HEIGHT)
+		c:ClearAllPoints()
+		c:SetPoint("TOPLEFT", 8 + col * (chipW + CHIP_GAP), gridTop - rowN * ROW_HEIGHT)
+		renderChip(c, sig)
+		c.metricData, c.tooltipData = nil, nil
+		buildTip(c, sig)
+		c:Show()
+	end
+	hideChipsFrom(#chipSigs + 1)
+	if #chipSigs > 0 then
+		y = gridTop - math.ceil(#chipSigs / 2) * ROW_HEIGHT
 	end
 
 	-- the parse coach keeps its visible line (Josh 2026-07-24: "I don't
@@ -1077,10 +1214,6 @@ function Panel:ShowFor(fight, result)
 			row.tooltipData = { title = "Parse coach", lines = {
 				{ infoHelp().coach, 0.8, 0.8, 0.8, true } } }
 		end
-	end
-
-	if frame.baseRule and not ruleDrawn then
-		frame.baseRule:Hide()
 	end
 
 	-- (players without TrueParse are flagged by the red X on their
@@ -1316,34 +1449,13 @@ function Panel:ShowFor(fight, result)
 	end
 
 	frame.total:SetText("")
-	-- mockup footer (Josh 2026-07-24): flask/food state + pull time, one
-	-- dim closing line. Data-honest: consumables is a self-reported COUNT
-	-- (nil without their TrueParse), so absence says nothing. Raw stays
-	-- pure WCL.
-	local footParts = {}
-	if not result.parse then
-		local cons = mm.consumables
-		if cons ~= nil then
-			local ok = "|TInterface\\RaidFrame\\ReadyCheck-Ready:11|t"
-			local no = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:11|t"
-			footParts[#footParts + 1] = cons >= 2 and ("flask " .. ok .. " \194\183 food " .. ok)
-				or cons == 1 and ("flask/food 1 of 2 " .. no)
-				or ("no flask/food " .. no)
-		end
-		if fight.capturedAt and (fight.duration or 0) > 0 then
-			footParts[#footParts + 1] = "pulled " .. date("%H:%M", fight.capturedAt - fight.duration)
-		end
-	end
-	if #footParts > 0 then
-		frame.footer:SetText(table.concat(footParts, " \194\183 "))
-		frame.footer:Show()
-		frame:SetHeight(-y + 22)
-	else
-		frame.footer:SetText("")
-		frame.footer:Hide()
-		-- y already sits at the last row's bottom edge; +8 mirrors the top pad
-		frame:SetHeight(-y + 8)
-	end
+	-- the player-card footer retired (Josh 2026-07-25): flask/food lives
+	-- in the verdict grid (scored, where points live) and the pull time
+	-- moved to the header's time line
+	frame.footer:SetText("")
+	frame.footer:Hide()
+	-- y already sits at the last row's bottom edge; +8 mirrors the top pad
+	frame:SetHeight(-y + 8)
 
 	anchorPanel()
 	frame.close:SetShown(self.pinned)
@@ -1473,25 +1585,28 @@ function Panel:ShowForGroup(fight, results)
 		sub[#sub + 1] = fight.bossPct and ("|cffe64d4dwipe %.0f%%|r"):format(fight.bossPct)
 			or "|cffe64d4dwipe|r"
 	end
-	if (fight.duration or 0) > 0 then
-		sub[#sub + 1] = ("%d:%02d"):format(math.floor(fight.duration / 60), fight.duration % 60)
-	end
 	if self.groupRunScore then
 		sub[#sub + 1] = "run avg " .. TP.Scoring.Grades.ColoredScore(self.groupRunScore)
 	end
 	frame.scoreLine:SetText(table.concat(sub, " \194\183 "))
 	frame.runLine:SetText("")
-
-	if frame.baseRule then
-		frame.baseRule:Hide() -- player-card element; the group card has none
+	-- third header line: duration + pull time (Josh 2026-07-25)
+	local tparts = {}
+	if (fight.duration or 0) > 0 then
+		tparts[#tparts + 1] = ("%d:%02d"):format(math.floor(fight.duration / 60), fight.duration % 60)
 	end
+	if fight.capturedAt and (fight.duration or 0) > 0 then
+		tparts[#tparts + 1] = "pulled " .. date("%H:%M", fight.capturedAt - fight.duration)
+	end
+	frame.timeLine:SetText(table.concat(tparts, " \194\183 "))
+	frame.timeLine:Show()
 	-- the group card speaks the Signal Column language too (redesign's
 	-- last surface): bars/glyphs/pips from the tested ForGroup logic.
 	-- Raw mode (Josh 2026-07-24): same purity rule as the player card —
 	-- only WCL-backed rows (group-averaged throughput + kill speed), no
 	-- advisors, no rollup, no graphs.
 	local raw = results[1] and results[1].parse
-	local y = -44 -- below the hero line + subheader
+	local y = -56 -- three header lines now (name, boss, time)
 	-- same header rule as the player card (4px above, 6px below)
 	if not frame.headerRule then
 		frame.headerRule = frame:CreateTexture(nil, "ARTWORK")
@@ -1658,12 +1773,60 @@ function Panel:ShowForGroup(fight, results)
 	for _, s in ipairs(sigs) do
 		s._i = nil
 	end
+	-- LAYOUT A (Josh 2026-07-25), group flavor: gauges full-width, then
+	-- the chip grid for counts/verdicts, then sentence text rows
+	local fullRows, chipSigs, textSigs = {}, {}, {}
 	for _, sig in ipairs(sigs) do
+		if sig.kind == "text" then
+			textSigs[#textSigs + 1] = sig
+		elseif sig.kind == "bar" and not sig.num then
+			fullRows[#fullRows + 1] = sig
+		else
+			chipSigs[#chipSigs + 1] = sig
+		end
+	end
+	for _, sig in ipairs(fullRows) do
 		local row = groupRow(sig)
 		if sig.speedMeta then
 			row.tooltipData = nil
 			row.metricData = sig.speedMeta
 		end
+	end
+	if #fullRows > 0 and (#chipSigs > 0 or #textSigs > 0) then
+		if not frame.baseRule then
+			frame.baseRule = frame:CreateTexture(nil, "ARTWORK")
+			frame.baseRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
+			frame.baseRule:SetHeight(1)
+		end
+		y = y - 4
+		frame.baseRule:ClearAllPoints()
+		frame.baseRule:SetPoint("TOPLEFT", 10, y)
+		frame.baseRule:SetPoint("TOPRIGHT", -10, y)
+		frame.baseRule:Show()
+		y = y - 6
+	elseif frame.baseRule then
+		frame.baseRule:Hide()
+	end
+	local chipW = (WIDTH - 16 - CHIP_GAP) / 2
+	local gridTop = y
+	for i, sig in ipairs(chipSigs) do
+		local c = getChip(i)
+		local col = (i - 1) % 2
+		local rowN = math.floor((i - 1) / 2)
+		c:SetSize(chipW, ROW_HEIGHT)
+		c:ClearAllPoints()
+		c:SetPoint("TOPLEFT", 8 + col * (chipW + CHIP_GAP), gridTop - rowN * ROW_HEIGHT)
+		renderChip(c, sig)
+		c.metricData = nil
+		c.tooltipData = sig.tooltip or { title = sig.label, lines = {} }
+		c:Show()
+	end
+	hideChipsFrom(#chipSigs + 1)
+	if #chipSigs > 0 then
+		y = gridTop - math.ceil(#chipSigs / 2) * ROW_HEIGHT
+	end
+	for _, sig in ipairs(textSigs) do
+		groupRow(sig)
 	end
 	hideRowsFrom(total + 1)
 	fitWidth(total)
@@ -1921,13 +2084,12 @@ function Panel:ShowForGroup(fight, results)
 			end
 		end
 		if reporting > 0 then
+			-- unique info here (no prepared chip exists on the group
+			-- card); the pull time moved to the header's time line
 			local mark = ready == reporting
 				and "|TInterface\\RaidFrame\\ReadyCheck-Ready:11|t"
 				or "|TInterface\\RaidFrame\\ReadyCheck-NotReady:11|t"
 			footParts[#footParts + 1] = ("flask+food %d/%d %s"):format(ready, reporting, mark)
-		end
-		if fight.capturedAt and (fight.duration or 0) > 0 then
-			footParts[#footParts + 1] = "pulled " .. date("%H:%M", fight.capturedAt - fight.duration)
 		end
 	end
 	if #footParts > 0 then
