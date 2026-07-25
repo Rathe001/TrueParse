@@ -248,11 +248,11 @@ local function buildWipe(ctx)
 		return nil
 	end
 	local lines = {}
-	-- headline: boss %, and the progress story — "best pull tonight"
+	-- headline: boss %, and the progress story — "best pull today"
 	-- outranks the last-pull delta when both apply
 	local vs = ""
 	if isBestPullTonight(ctx) then
-		vs = " - best pull tonight"
+		vs = " - best pull today"
 	else
 		local prev = prevPullPct(ctx)
 		if f.bossPct and prev then
@@ -356,7 +356,7 @@ local function buildKill(ctx)
 	if pulls == 1 then
 		lines[#lines + 1] = "One-pulled it."
 	elseif pulls > 1 then
-		lines[#lines + 1] = ("Pulls tonight: %d%s."):format(pulls,
+		lines[#lines + 1] = ("Pulls today: %d%s."):format(pulls,
 			bestPct and (" (best prior attempt %d%%)"):format(bestPct) or "")
 	end
 	local gl = groupLine(ctx)
@@ -529,7 +529,7 @@ Reports.LIST = {
 	{
 		key = "fight", name = "Fight analysis", trigger = "fight",
 		desc = "The selected fight's story. Kills: WCL kill-speed rank, time vs last kill, pulls, group score/DPS/parses. Wipes: boss % progress, deaths and the call, avoidable damage, spikes. No names.",
-		example = "Kill: Garrosh Hellscream in 6:20 - faster than 78% of ranked kills on Warcraft Logs. / Wipe: Garrosh at 27% - best pull tonight.",
+		example = "Kill: Garrosh Hellscream in 6:20 - faster than 78% of ranked kills on Warcraft Logs. / Wipe: Garrosh at 27% - best pull today.",
 		build = buildFight,
 	},
 	{

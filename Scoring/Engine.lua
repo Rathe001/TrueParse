@@ -25,14 +25,10 @@ end
 
 local function metricValue(p, key)
 	if key == "healing" then
-		local v = effHealing(p.metrics)
-		if p.role == "TANK" then
-			-- self-sustain lives in the Tanking stat now (Josh 2026-07-24):
-			-- a tank's Healing metric is GROUP contribution only — their
-			-- own heals and own shields come out
-			v = math.max(0, v - (p.metrics.selfHealing or 0) - (p.metrics.selfAbsorbs or 0))
-		end
-		return v
+		-- tanks included: plain WCL-comparable healing (Josh 2026-07-25 —
+		-- the Off-healing split is retired; the Tanking composite is the
+		-- stat that reads self-healing directly)
+		return effHealing(p.metrics)
 	end
 	return p.metrics[key] or 0
 end

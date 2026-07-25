@@ -3088,7 +3088,9 @@ end)()
 			dkTier or -1, defTier or -1))
 	TP.TANK_ANCHORS = savedTA
 
-	-- a tank's Healing is others-only (self-sustain lives in Tanking)
+	-- a tank's Healing is the PLAIN WCL parse again (Josh 2026-07-25 —
+	-- the Off-healing split lied in the field; self-sustain is the
+	-- Tanking composite's job)
 	local thFight = { name = "F", isBoss = true, duration = 120, players = {
 		t = { guid = "t", name = "T", class = "DRUID", role = "TANK", specID = 104,
 			metrics = { damage = 1000, healing = 900000, selfHealing = 600000,
@@ -3098,14 +3100,14 @@ end)()
 	} }
 	for _, r in ipairs(TP.Scoring.Engine.ScoreFight(thFight, {})) do
 		if r.guid == "t" then
-			check(r.breakdown.healing and r.breakdown.healing.value == 200000,
-				("tank healing subtracts self heal + self absorbs (%s)"):format(
+			check(r.breakdown.healing and r.breakdown.healing.value == 900000,
+				("tank healing keeps the WCL-comparable total (%s)"):format(
 					tostring(r.breakdown.healing and r.breakdown.healing.value)))
 		end
 	end
 	local function tankHealRow(metrics)
 		local sigs2 = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
-			breakdown = { healing = { applicable = true, normalized = 40, pctile = 30, value = 200000 } } },
+			breakdown = { healing = { applicable = true, normalized = 40, pctile = 30, value = 900000 } } },
 			{}, { metrics = metrics })
 		for _, r in ipairs(sigs2) do
 			if r.key == "healing" then
@@ -3113,14 +3115,12 @@ end)()
 			end
 		end
 	end
-	local oh = tankHealRow({ selfHealing = 600000 })
-	check(oh and oh.label == "Off-healing" and oh.raw,
-		("split tank healing reads Off-healing, never brackets (%s)"):format(tostring(oh and oh.label)))
-	-- retail records can't split self-healing: the unsplit total keeps
-	-- its honest name and its WCL bracket
-	local unsplit = tankHealRow({})
-	check(unsplit and unsplit.label == "Healing" and not unsplit.raw,
-		("unsplit tank healing stays Healing with brackets (%s)"):format(tostring(unsplit and unsplit.label)))
+	for _, metrics in ipairs({ { selfHealing = 600000 }, {} }) do
+		local hrow = tankHealRow(metrics)
+		check(hrow and hrow.label == "Healing" and not hrow.raw,
+			("tank healing reads Healing with brackets, split or not (%s)"):format(
+				tostring(hrow and hrow.label)))
+	end
 
 	-- stagger purified counts toward recovery (Josh 2026-07-24)
 	local mm2 = {
@@ -3272,7 +3272,7 @@ end)()
 	}
 	local olderWipe = { name = "Garrosh Hellscream", isBoss = true, wipe = true, bossPct = 41 }
 	local wl = R.Run("fight", { fight = wipeFight, runFights = { wipeFight, olderWipe } })
-	check(wl and wl[1] == "Wipe: Garrosh Hellscream at 27% (5:43) - best pull tonight.",
+	check(wl and wl[1] == "Wipe: Garrosh Hellscream at 27% (5:43) - best pull today.",
 		("wipe headline (%s)"):format(tostring(wl and wl[1])))
 	check(wl[2] == "Deaths: 2 (1 before the call, first at 2:41); called at 5:30, ended 13s later.",
 		("deaths+call line (%s)"):format(tostring(wl[2])))
@@ -3298,7 +3298,7 @@ end)()
 	})
 	check(kl[1] == "Kill: Garrosh Hellscream in 6:20 (12s faster than last kill).",
 		("kill headline (%s)"):format(tostring(kl[1])))
-	check(kl[2] == "Pulls tonight: 3 (best prior attempt 27%).", ("pull line (%s)"):format(tostring(kl[2])))
+	check(kl[2] == "Pulls today: 3 (best prior attempt 27%).", ("pull line (%s)"):format(tostring(kl[2])))
 	check(kl[3] == "Group score 70.", ("group score line (%s)"):format(tostring(kl[3])))
 	check(kl[4] == "Deathless kill.", "deathless line")
 	local one = R.Run("fight", { fight = killFight, runFights = { killFight } })
