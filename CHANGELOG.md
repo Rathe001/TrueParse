@@ -1,5 +1,53 @@
 # TrueParse Changelog
 
+## 2.1.0
+
+**Shareable reports.** A chat icon beside the meter's cog opens the
+new Reports panel: Fight analysis (kills lead with "faster than N% of
+ranked kills on Warcraft Logs", time vs last kill, pulls today with
+best prior attempt, group score / raid DPS / parse averages; wipes
+lead with boss % progress - "best pull today" when it is - deaths and
+the wipe-call timing, avoidable damage, spike coverage), End of run,
+Death report, and Preparation check. Each report has a channel picker
+(Info posts to your own chat; Say/Party/Raid/Guild broadcast after a
+confirmation) and an auto-run option that is always local-only.
+Reports never name a player - group metrics tell the story. Manual
+reports run on whatever fight the meter's selector has pinned.
+
+**The score is the law now.** True = your WCL percentile + your
+earned adjustments (net +/-15), capped at 99. The old earned floor is
+gone; a 0 with penalties glows shame-red. Tank base realigned to the
+WCL tank-damage parse (damage 86% / healing 14%): the Tanking
+composite gained active-mitigation uptime as a fifth ingredient and
+now EARNS - up to +4 when it beats the spec's population anchors,
+bonus-only since the gauge already shows weak tanking. The
+Off-healing split is retired: a tank's Healing is the plain
+WCL-comparable parse again. New: healthstone discipline (+1 eaten,
+-1 sat on it, judged only when a warlock is in the group; MoP
+Classic, where casts are visible).
+
+**Card layout, round two.** The header timing line reads
+"@10:34pm (6m20s)" from live pull stamps - delayed outdoor-raid
+captures no longer show impossible pull times, and run cards use the
+earliest pull's start. Gauges (Damage/Healing/Tanking) stack
+full-width with their scores in the last column; everything counted
+lives in a two-column chip grid split into bonuses (subtle green
+wash), penalties (red wash), and no-point items, each sorted by
+weight, with hairline rules pixel-snapped to exactly 1px. Chips are
+monochrome except the green/red points. Active and Mitigation left
+their gauges (Mitigation folded into Tanking entirely). DPS cards
+now show the personal spike strip - defensives answering intake
+spikes - like tanks. Spike strips sit flush under the fight graphs,
+legends match across player and raid cards, and the raid card's
+flask+food moved from the footer into the grid.
+
+**Also.** Flask/food chips wear a potion icon (and the buff icon
+points at Blizzard's actually-misspelled texture file, so it renders
+again). Raw honesty note: on fights where WCL excludes pad targets
+from rankings (e.g. Paragons adds), the meter's all-target damage
+reads higher than WCL's ranked amount - the math is identical, the
+inputs differ.
+
 ## 2.0.0
 
 The breakdown cards are redesigned from the ground up. Words became
