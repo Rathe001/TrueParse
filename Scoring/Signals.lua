@@ -166,10 +166,10 @@ function Signals.ForResult(result, fight, player)
 	-- backed, normalized otherwise — both are 0-100 by construction)
 	-- damage and healing stay adjacent everywhere (they're the WCL base
 	-- pair — Josh 2026-07-24); a tank's Soaking follows them
+	-- (a tank's Tanking gauge emits AFTER Active — Josh 2026-07-25)
 	local order = role == "HEALER" and { "healing", "damage" }
-		or role == "TANK" and { "damage", "healing", "damageTaken" }
 		or { "damage", "healing" }
-	for _, key in ipairs(order) do
+	local function emitThroughput(key)
 		local b = result.breakdown[key]
 		if b and b.applicable and not b.lowDemand then
 			-- tanks with a modern record get the composite Tanking gauge
@@ -226,6 +226,9 @@ function Signals.ForResult(result, fight, player)
 			out[#out + 1] = row
 		end
 	end
+	for _, key in ipairs(order) do
+		emitThroughput(key)
+	end
 
 	-- SUPPORT's signature metric: Ebon Might uptime (retail Aug — 35% of
 	-- the grade; the old bullets showed it and the redesign lost it)
@@ -245,6 +248,11 @@ function Signals.ForResult(result, fight, player)
 	if m.activityPct then
 		out[#out + 1] = barRow("activity", ICONS.activity, "Active", m.activityPct, ad.activity)
 		out[#out].tier = anchorTier(m.activityPct, A.activityLow or 70, A.activityHigh or 89, 97)
+	end
+
+	-- 2b) the Tanking/Soaking gauge, below Active (Josh 2026-07-25)
+	if role == "TANK" then
+		emitThroughput("damageTaken")
 	end
 
 	-- 3) mitigation (tanks): same quantile treatment with its anchors

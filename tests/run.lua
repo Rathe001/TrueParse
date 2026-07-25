@@ -174,10 +174,13 @@ check(byName.DpsA.penalty == 0, "DpsA not penalized")
 check(byName.DpsB.penaltyDetail.avoidable == 15, "avoidable penalty capped at 15")
 check(byName.DpsB.penaltyDetail.deaths == 10, "one death costs 10")
 
--- 6. Cross-role fairness: tank and healer playing well can compete with DPS
--- (expected-share bars target mean ~65, matching what cohort competition
--- produces for DPS - 2026-07-09 recalibration)
-check(byName.Tank.score >= 68, ("well-played tank scores high (%.1f)"):format(byName.Tank.score))
+-- 6. Cross-role fairness, post-2026-07-25 realignment: a tank's BASE is
+-- their WCL parse (tank damage ranks against tanks), not the soak share
+-- that pinned near 100 for anyone doing the job. Survival earns through
+-- adjustments; soak carries zero base weight.
+check((byName.Tank.breakdown.damageTaken.effectiveWeight or 0) == 0,
+	"tank soak carries no base weight (parse-pure base)")
+check(byName.Tank.score >= 40, ("well-played tank still competes (%.1f)"):format(byName.Tank.score))
 check(byName.Heal.score >= 62, ("well-played healer scores high (%.1f)"):format(byName.Heal.score))
 
 -- 6b. Augmentation: detected by spec icon, scored as SUPPORT with its own
