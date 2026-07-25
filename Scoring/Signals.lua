@@ -456,8 +456,18 @@ function Signals.GroupRows(results, fight)
 				row.tooltip = bl.tooltip
 				rows[#rows + 1] = row
 			else
-				rows[#rows + 1] = { key = "interrupts", kind = "text", icon = ICONS.interrupts,
-					label = stripPts(text), points = pts, tooltip = bl.tooltip }
+				-- no opportunity data: countable, so it's a CHIP, not a
+				-- sentence — "(+2)" inline read as part of the count
+				-- (Josh 2026-07-25)
+				local n = text:match("^(%d+) interrupt")
+				if n then
+					rows[#rows + 1] = { key = "interrupts", kind = "glyph",
+						icon = ICONS.interrupts, label = "Kicks", good = true,
+						count = tonumber(n), points = pts, tooltip = bl.tooltip }
+				else
+					rows[#rows + 1] = { key = "interrupts", kind = "text", icon = ICONS.interrupts,
+						label = stripPts(text), points = pts, tooltip = bl.tooltip }
+				end
 			end
 		elseif bl.key == "lust" then
 			local a, b2 = text:match("(%d+) of (%d+)")
@@ -513,12 +523,18 @@ function Signals.GroupRows(results, fight)
 				rows[#rows + 1] = { key = "deaths", kind = "pips", icon = ICONS.deaths,
 					label = "Died", count = tonumber(died), points = pts }
 			end
+		elseif bl.key == "dispels" and text:match("^(%d+) dispel") then
+			-- countable → a CHIP with the grid's own columns ("14 dispels
+			-- (+1)" read as 14+1 dispels — Josh 2026-07-25)
+			rows[#rows + 1] = { key = "dispels", kind = "glyph",
+				icon = ICONS.dispels, label = "Dispels", good = true,
+				count = tonumber(text:match("^(%d+) dispel")),
+				points = pts, tooltip = bl.tooltip }
 		else
-			-- dispels volume, avoidable, aggro, buffs, anything future:
-			-- full-width text rows, points preserved, own hover each
-			-- text rows wear their metric's icon when one exists (Josh
-			-- 2026-07-25: '2 dispels' rendered iconless)
-			local TEXT_ICONS = { dispels = ICONS.dispels, avoidable = ICONS.avoidable,
+			-- avoidable, aggro, buffs, anything future: full-width text
+			-- rows, points preserved, own hover each; they wear their
+			-- metric's icon when one exists
+			local TEXT_ICONS = { avoidable = ICONS.avoidable,
 				aggro = ICONS.avoidable, aggroLoss = ICONS.avoidable,
 				pull = ICONS.avoidable, buffs = ICONS.buffUptime }
 			rows[#rows + 1] = { key = bl.key or "note", kind = "text",
