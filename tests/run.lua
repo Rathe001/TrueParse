@@ -3272,18 +3272,19 @@ end)()
 	}
 	local olderWipe = { name = "Garrosh Hellscream", isBoss = true, wipe = true, bossPct = 41 }
 	local wl = R.Run("fight", { fight = wipeFight, runFights = { wipeFight, olderWipe } })
-	check(wl and wl[1] == "Wipe: Garrosh Hellscream at 27% (5:43) - 14% further than last pull.",
+	check(wl and wl[1] == "Wipe: Garrosh Hellscream at 27% (5:43) - best pull tonight.",
 		("wipe headline (%s)"):format(tostring(wl and wl[1])))
-	check(wl[2] == "Deaths: 2 (1 before the call, first at 2:41).",
-		("deaths line (%s)"):format(tostring(wl[2])))
-	check(wl[3] == "Wipe called at 5:30; the pull ended 13s later.",
-		("call line (%s)"):format(tostring(wl[3])))
-	check(wl[4] == "1 player took avoidable damage (8% of all damage taken).",
-		("avoidable line (%s)"):format(tostring(wl[4])))
-	check(wl[5] == "2 of 6 group damage spikes went uncovered.",
-		("spike line (%s)"):format(tostring(wl[5])))
-	check(wl[6] == "Kicks 13/16 (3 missed); dispels 14.",
-		("kicks line (%s)"):format(tostring(wl[6])))
+	check(wl[2] == "Deaths: 2 (1 before the call, first at 2:41); called at 5:30, ended 13s later.",
+		("deaths+call line (%s)"):format(tostring(wl[2])))
+	check(wl[3] == "1 player took avoidable damage (8% of all damage taken); 2 of 6 group spikes uncovered.",
+		("mechanics line (%s)"):format(tostring(wl[3])))
+	check(wl[4] == "Kicks 13/16 (3 missed); dispels 14.",
+		("kicks line (%s)"):format(tostring(wl[4])))
+	-- a deeper prior pull flips the headline to the honest comparison
+	local deeper = { name = "Garrosh Hellscream", isBoss = true, wipe = true, bossPct = 21 }
+	local wl2 = R.Run("fight", { fight = wipeFight, runFights = { wipeFight, deeper } })
+	check(wl2[1] == "Wipe: Garrosh Hellscream at 27% (5:43) - last pull reached 21%.",
+		("regressed headline (%s)"):format(tostring(wl2[1])))
 
 	local killFight = {
 		name = "Garrosh Hellscream", isBoss = true,
@@ -3297,9 +3298,11 @@ end)()
 	})
 	check(kl[1] == "Kill: Garrosh Hellscream in 6:20 (12s faster than last kill).",
 		("kill headline (%s)"):format(tostring(kl[1])))
-	check(kl[2] == "Pull 3 - best prior attempt 27%.", ("pull line (%s)"):format(tostring(kl[2])))
+	check(kl[2] == "Pulls tonight: 3 (best prior attempt 27%).", ("pull line (%s)"):format(tostring(kl[2])))
 	check(kl[3] == "Group score 70.", ("group score line (%s)"):format(tostring(kl[3])))
 	check(kl[4] == "Deathless kill.", "deathless line")
+	local one = R.Run("fight", { fight = killFight, runFights = { killFight } })
+	check(one[2] == "One-pulled it.", ("one-pull line (%s)"):format(tostring(one[2])))
 
 	local rl = R.Run("run", {
 		zone = "Siege of Orgrimmar",

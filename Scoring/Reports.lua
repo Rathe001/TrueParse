@@ -161,28 +161,117 @@ local function prevPullPct(ctx)
 	end
 end
 
+-- is this wipe the run's deepest push on its boss? (needs company —
+-- a first pull is not "best")
+local function isBestPullTonight(ctx)
+	local f = ctx.fight
+	if not f.bossPct then
+		return false
+	end
+	local others = 0
+	for _, rf in ipairs(ctx.runFights or {}) do
+		if rf ~= f and rf.name == f.name and rf.wipe then
+			others = others + 1
+			if rf.bossPct and rf.bossPct <= f.bossPct then
+				return false
+			end
+		end
+	end
+	return others > 0
+end
+
+-- real WCL percentiles across the group: average + best (primary
+-- metric per role; only curve-backed percentiles count)
+local function parseStats(results)
+	local sum, n, best = 0, 0, nil
+	for _, r in ipairs(results or {}) do
+		local key = r.role == "HEALER" and "healing" or "damage"
+		local b = r.breakdown and r.breakdown[key]
+		local p = b and b.applicable and b.pctile
+		if p then
+			sum = sum + p
+			n = n + 1
+			if not best or p > best then
+				best = p
+			end
+		end
+	end
+	if n == 0 then
+		return nil
+	end
+	return math.floor(sum / n + 0.5), math.floor(best + 0.5)
+end
+
+-- "Group score 63, raid DPS 1.6M, parse avg 41 (best 94)." — the
+-- addon's calling card: our score, the raw output, and real WCL
+-- percentiles in one line
+local function groupLine(ctx)
+	local f = ctx.fight
+	local parts = {}
+	local gs = ctx.groupScore or groupScore(ctx.results)
+	if gs then
+		parts[#parts + 1] = ("Group score %d"):format(gs)
+	end
+	local t = f and f.totals or {}
+	if (t.damage or 0) > 0 and (f.duration or 0) > 0 and TP.FormatNumber then
+		parts[#parts + 1] = ("raid DPS %s"):format(TP.FormatNumber(t.damage / f.duration))
+	end
+	local avg, best = parseStats(ctx.results)
+	if avg then
+		parts[#parts + 1] = ("parse avg %d (best %d)"):format(avg, best)
+	end
+	if #parts == 0 then
+		return nil
+	end
+	local line = table.concat(parts, ", ") .. "."
+	return line:sub(1, 1):upper() .. line:sub(2)
+end
+
+-- "faster than 78% of ranked kills on Warcraft Logs" — only when it
+-- is a real ranking, never a bounded ceiling guess
+local function killSpeedPart(fight)
+	local E = TP.Scoring and TP.Scoring.Engine
+	if not (E and E.KillSpeedPercentile) then
+		return ""
+	end
+	local ok, pct, _, _, bounded = pcall(E.KillSpeedPercentile, fight)
+	if ok and pct and not bounded then
+		return (" - faster than %d%% of ranked kills on Warcraft Logs"):format(
+			math.floor(pct + 0.5))
+	end
+	return ""
+end
+
 local function buildWipe(ctx)
 	local f = ctx.fight
 	if not f then
 		return nil
 	end
 	local lines = {}
-	local prev = prevPullPct(ctx)
+	-- headline: boss %, and the progress story — "best pull tonight"
+	-- outranks the last-pull delta when both apply
 	local vs = ""
-	if f.bossPct and prev then
-		if prev > f.bossPct then
-			vs = (" - %d%% further than last pull"):format(prev - f.bossPct)
-		elseif prev < f.bossPct then
-			vs = (" - last pull reached %d%%"):format(prev)
-		else
-			vs = " - same as last pull"
+	if isBestPullTonight(ctx) then
+		vs = " - best pull tonight"
+	else
+		local prev = prevPullPct(ctx)
+		if f.bossPct and prev then
+			if prev > f.bossPct then
+				vs = (" - %d%% further than last pull"):format(prev - f.bossPct)
+			elseif prev < f.bossPct then
+				vs = (" - last pull reached %d%%"):format(prev)
+			else
+				vs = " - same as last pull"
+			end
 		end
 	end
 	lines[#lines + 1] = ("Wipe: %s%s (%s)%s."):format(f.name or "?",
 		f.bossPct and (" at %d%%"):format(f.bossPct) or "", mmss(f.duration), vs)
+	-- deaths + the call, one line: count, how many fell pre-call, when
+	-- it started, and how fast the raid actually reset
 	local deaths = deathList(f)
 	if #deaths > 0 then
-		local d = ("Deaths: %d (first at %s)"):format(#deaths, mmss(deaths[1].t))
+		local d
 		if f.calledWipeAt then
 			local pre = 0
 			for _, dd in ipairs(deaths) do
@@ -190,18 +279,23 @@ local function buildWipe(ctx)
 					pre = pre + 1
 				end
 			end
-			d = ("Deaths: %d (%d before the call, first at %s)"):format(#deaths, pre, mmss(deaths[1].t))
+			d = ("Deaths: %d (%d before the call, first at %s); called at %s, ended %ds later."):format(
+				#deaths, pre, mmss(deaths[1].t), mmss(f.calledWipeAt),
+				math.floor((f.duration or 0) - f.calledWipeAt + 0.5))
+		else
+			d = ("Deaths: %d (first at %s)."):format(#deaths, mmss(deaths[1].t))
 		end
-		lines[#lines + 1] = d .. "."
+		lines[#lines + 1] = d
 	end
-	if f.calledWipeAt and f.duration then
-		local tail = math.floor(f.duration - f.calledWipeAt + 0.5)
-		lines[#lines + 1] = ("Wipe called at %s; the pull ended %ds later."):format(
-			mmss(f.calledWipeAt), tail)
+	local gl = groupLine(ctx)
+	if gl then
+		lines[#lines + 1] = gl
 	end
+	-- avoidable damage + spike coverage, one mechanics line
+	local mech = {}
 	local av = avoidableLine(f)
 	if av then
-		lines[#lines + 1] = av
+		mech[#mech + 1] = av:sub(1, -2) -- drop the period, we re-join
 	end
 	-- group spike coverage: the windows are stamped identically on every
 	-- player record, so any carrier speaks for the fight
@@ -210,11 +304,14 @@ local function buildWipe(ctx)
 		if (m.groupSpikeWindows or 0) > 0 then
 			local un = m.groupSpikeWindows - (m.groupSpikeCovered or 0)
 			if un > 0 then
-				lines[#lines + 1] = ("%d of %d group damage spikes went uncovered."):format(
+				mech[#mech + 1] = ("%d of %d group spikes uncovered"):format(
 					un, m.groupSpikeWindows)
 			end
 			break
 		end
+	end
+	if #mech > 0 then
+		lines[#lines + 1] = table.concat(mech, "; ") .. "."
 	end
 	local kd = kicksDispelsLine(f)
 	if kd then
@@ -244,7 +341,8 @@ local function buildKill(ctx)
 			vs = " (same as last kill)"
 		end
 	end
-	lines[#lines + 1] = ("Kill: %s in %s%s."):format(f.name or "?", mmss(f.duration), vs)
+	lines[#lines + 1] = ("Kill: %s in %s%s%s."):format(f.name or "?", mmss(f.duration),
+		vs, killSpeedPart(f))
 	-- pulls + best prior attempt, from the run's fights on this boss
 	local pulls, bestPct = 0, nil
 	for _, rf in ipairs(ctx.runFights or {}) do
@@ -255,24 +353,28 @@ local function buildKill(ctx)
 			end
 		end
 	end
-	if pulls > 1 then
-		lines[#lines + 1] = ("Pull %d%s."):format(pulls,
-			bestPct and (" - best prior attempt %d%%"):format(bestPct) or "")
+	if pulls == 1 then
+		lines[#lines + 1] = "One-pulled it."
+	elseif pulls > 1 then
+		lines[#lines + 1] = ("Pulls tonight: %d%s."):format(pulls,
+			bestPct and (" (best prior attempt %d%%)"):format(bestPct) or "")
 	end
-	local gs = ctx.groupScore or groupScore(ctx.results)
-	if gs then
-		lines[#lines + 1] = ("Group score %d."):format(gs)
+	local gl = groupLine(ctx)
+	if gl then
+		lines[#lines + 1] = gl
 	end
 	local deaths = deathList(f)
 	if #deaths == 0 then
 		lines[#lines + 1] = "Deathless kill."
 	else
-		local line = ("Deaths: %d."):format(#deaths)
-		local av = avoidableLine(f)
-		if av then
-			line = line .. " " .. av
+		local avoidable = 0
+		for _, d in ipairs(deaths) do
+			if d.avoidable then
+				avoidable = avoidable + 1
+			end
 		end
-		lines[#lines + 1] = line
+		lines[#lines + 1] = ("Deaths: %d%s."):format(#deaths,
+			avoidable > 0 and (" (%d to avoidable hits)"):format(avoidable) or "")
 	end
 	local kd = kicksDispelsLine(f)
 	if kd then
@@ -426,8 +528,8 @@ end
 Reports.LIST = {
 	{
 		key = "fight", name = "Fight analysis", trigger = "fight",
-		desc = "The selected fight's story. Wipes: boss % vs last pull, deaths and call timing, avoidable damage, spike coverage. Kills: time vs last kill, pull count, group score. No names.",
-		example = "Wipe: Garrosh Hellscream at 27% (5:43) - 14% further than last pull. / Kill: Garrosh Hellscream in 6:20 (12s faster than last kill).",
+		desc = "The selected fight's story. Kills: WCL kill-speed rank, time vs last kill, pulls, group score/DPS/parses. Wipes: boss % progress, deaths and the call, avoidable damage, spikes. No names.",
+		example = "Kill: Garrosh Hellscream in 6:20 - faster than 78% of ranked kills on Warcraft Logs. / Wipe: Garrosh at 27% - best pull tonight.",
 		build = buildFight,
 	},
 	{
