@@ -819,7 +819,17 @@ local function normalizeMetric(p, role, key, ctx)
 				-- scale converts the player's rate INTO the borrowed
 				-- bracket's population before interpolating
 				local pct = entryPercentileFor(entry, (scale or 1) * curveVal / ctx.duration)
-				absolute = math.min(100, (W.trueAbsFloor or 0) + (W.trueAbsSlope or 1) * pct)
+				-- the contribution floor is EARNED by participating: it
+				-- softens low parses, it doesn't pay for absence. A player
+				-- with literally zero output all fight (Josh 2026-07-24:
+				-- Raw 0 read True 33, tying people who actually fought)
+				-- gets their real percentile — adjustments only.
+				local floorPts = W.trueAbsFloor or 0
+				if ((p.metrics.damage or 0) + (p.metrics.healing or 0)
+					+ (p.metrics.absorbs or 0)) == 0 then
+					floorPts = 0
+				end
+				absolute = math.min(100, floorPts + (W.trueAbsSlope or 1) * pct)
 				fromCurve = true
 				pctile = pct -- raw percentile, for the tooltip gauge
 				-- surfaced in tooltips: "the median of your spec does Y/s

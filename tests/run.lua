@@ -3123,6 +3123,38 @@ end)()
 	TP.SpellProfiles = savedProf2
 end)()
 
+-- 37. The contribution floor is earned (2026-07-25): zero-output players
+-- get their real percentile, not floor-30 charity — low-but-real output
+-- keeps the floor exactly as before.
+;(function()
+	local savedP = TP.Percentiles
+	TP.Percentiles = { encounters = { ["Floor Boss"] = { ["3x10"] = {
+		dps = { [64] = { n = 500, curve = { { 99, 400000 }, { 50, 200000 }, { 10, 100000 } } } },
+		hps = {},
+	} } } }
+	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+	local fight = { name = "Floor Boss", isBoss = true, duration = 200, difficultyID = 3,
+		players = {
+			afk = { guid = "afk", name = "Afk", class = "MAGE", role = "DAMAGER", specID = 64,
+				metrics = { damage = 0, healing = 0, interrupts = 2 } },
+			low = { guid = "low", name = "Low", class = "MAGE", role = "DAMAGER", specID = 64,
+				metrics = { damage = 2000000, healing = 0 } }, -- 10k/s: deep below p10
+		} }
+	local byName = {}
+	for _, r in ipairs(TP.Scoring.Engine.ScoreFight(fight, {})) do
+		byName[r.name] = r
+	end
+	check(byName.Afk and byName.Afk.score <= 6,
+		("zero output earns no floor - adjustments only (%.0f)"):format(byName.Afk and byName.Afk.score or -1))
+	check(byName.Low and byName.Low.breakdown.damage.normalized >= 30,
+		("real-but-low output keeps the floor (%.0f)"):format(
+			byName.Low and byName.Low.breakdown.damage.normalized or -1))
+	check(byName.Afk.score < byName.Low.score,
+		"the AFK never outscores someone who fought")
+	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
+	TP.Percentiles = savedP
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")
