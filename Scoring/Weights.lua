@@ -132,13 +132,13 @@ Weights.absoluteBlend = 0.6
 -- p9 parses at 100 (Malkorok forensics, 2026-07-09).
 Weights.absoluteAnchor = 0.75
 
--- When a bracket percentile curve covers the fight+spec, True's WCL
--- component is floor + slope * percentile: the population average (p50)
--- lands at 65 — the same target mean as every other True bar — and elite
--- approaches 100. Percentile-within-your-own-bracket also prices gear far
--- better than exponential ilvl extrapolation from elite parses.
-Weights.trueAbsFloor = 30
-Weights.trueAbsSlope = 0.7
+-- True's WCL component IS the percentile (Josh 2026-07-25: "True = your
+-- WCL percentile + your earned adjustments"). The old 30 + 0.7x transform
+-- predated the adjustments architecture — softening low parses was its
+-- job, and adjustments do that job now, honestly, through earned points.
+-- Floor/slope kept as knobs but neutral: identity transform.
+Weights.trueAbsFloor = 0
+Weights.trueAbsSlope = 1
 
 Weights.penalties = {
 	-- Avoidable damage: penalize taking MORE than your equal share of the

@@ -95,8 +95,8 @@ function Bullets.ForResult(result, awards, extra)
 	for _, m in ipairs(metrics) do
 		local b, key = m.b, m.key
 		-- tier on the population PERCENTILE when curve-scored: the gauge
-		-- marker sits at the percentile, and the True transform (floor 30 +
-		-- 0.7x) would call a green p37 "Good" while the gauge shows green
+		-- marker sits at the percentile (since 2026-07-25 the True base IS
+		-- the percentile — floor/slope knobs are neutral)
 		local score = b.pctile or b.normalized or 0
 		local tier, symbol = tierOf(score)
 		local color = tierColor(score)

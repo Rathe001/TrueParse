@@ -1486,16 +1486,16 @@ do
 	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
 end
 
--- True mode uses the curve through the contribution transform: p50 -> 65,
+-- True mode's base IS the percentile (2026-07-25: floor/slope neutral),
 -- standing ALONE (no cohort blend: that re-imports spec bias)
 pctFight.difficultyID = 3
 pctFight.players.d.metrics.damage = 50000 -- 500/s = the p50 sample
 local trueCurve = TP.Scoring.Engine.ScoreFight(pctFight, { normalizeIlvl = false })
 for _, r in ipairs(trueCurve) do
 	if r.name == "Deeps" then
-		check(math.abs(r.breakdown.damage.absolute - 65) < 0.001,
-			("True absolute from curve: p50 -> 65 (%.1f)"):format(r.breakdown.damage.absolute))
-		check(math.abs(r.breakdown.damage.normalized - 65) < 0.001,
+		check(math.abs(r.breakdown.damage.absolute - 50) < 0.001,
+			("True absolute from curve: p50 -> 50 (%.1f)"):format(r.breakdown.damage.absolute))
+		check(math.abs(r.breakdown.damage.normalized - 50) < 0.001,
 			("curve evidence stands alone, unblended (%.1f)"):format(r.breakdown.damage.normalized))
 		check(r.breakdown.damage.relative == nil, "no cohort component when a curve covers the metric")
 	end
@@ -1571,10 +1571,10 @@ for _, r in ipairs(pool) do
 	if r.name == "Blood" then blood = r end
 end
 -- Bear (no guardian hps curve) scores vs the pooled TANK curve:
--- pooled p50 = (500*300 + 260*100)/400 = 440; 440/s rate = exactly p50 -> 65
+-- pooled p50 = (500*300 + 260*100)/400 = 440; 440/s rate = exactly p50 -> 50
 check(bear.breakdown.healing.rolePooled == true, "spec without a curve pools to its role")
-check(math.abs(bear.breakdown.healing.absolute - 65) < 1.5,
-	("pooled tank healing at pooled p50 ~65 (%.1f)"):format(bear.breakdown.healing.absolute))
+check(math.abs(bear.breakdown.healing.absolute - 50) < 1.5,
+	("pooled tank healing at pooled p50 ~50 (%.1f)"):format(bear.breakdown.healing.absolute))
 -- co-tank soak: both split evenly -> both score the same capped-high value,
 -- nobody gets a structural 100
 check(math.abs(bear.breakdown.damageTaken.normalized - blood.breakdown.damageTaken.normalized) < 0.001,
@@ -3123,9 +3123,9 @@ end)()
 	TP.SpellProfiles = savedProf2
 end)()
 
--- 37. The contribution floor is earned (2026-07-25): zero-output players
--- get their real percentile, not floor-30 charity — low-but-real output
--- keeps the floor exactly as before.
+-- 37. True = WCL percentile + earned adjustments (Josh 2026-07-25): the
+-- 30 + 0.7x softener is gone. Zero clamps the bottom; a clamped zero
+-- whose unclamped total went NEGATIVE is flagged for the shame-red.
 ;(function()
 	local savedP = TP.Percentiles
 	TP.Percentiles = { encounters = { ["Floor Boss"] = { ["3x10"] = {
@@ -3136,21 +3136,27 @@ end)()
 	local fight = { name = "Floor Boss", isBoss = true, duration = 200, difficultyID = 3,
 		players = {
 			afk = { guid = "afk", name = "Afk", class = "MAGE", role = "DAMAGER", specID = 64,
-				metrics = { damage = 0, healing = 0, interrupts = 2 } },
+				metrics = { damage = 0, healing = 0, deaths = 1 } },
 			low = { guid = "low", name = "Low", class = "MAGE", role = "DAMAGER", specID = 64,
 				metrics = { damage = 2000000, healing = 0 } }, -- 10k/s: deep below p10
+			mid = { guid = "mid", name = "Mid", class = "MAGE", role = "DAMAGER", specID = 64,
+				metrics = { damage = 40000000, healing = 0 } }, -- 200k/s = p50
 		} }
 	local byName = {}
 	for _, r in ipairs(TP.Scoring.Engine.ScoreFight(fight, {})) do
 		byName[r.name] = r
 	end
-	check(byName.Afk and byName.Afk.score <= 6,
-		("zero output earns no floor - adjustments only (%.0f)"):format(byName.Afk and byName.Afk.score or -1))
-	check(byName.Low and byName.Low.breakdown.damage.normalized >= 30,
-		("real-but-low output keeps the floor (%.0f)"):format(
+	check(byName.Mid and math.abs(byName.Mid.base - 50) < 8,
+		("p50 base reads ~50, not 65 (%.0f)"):format(byName.Mid and byName.Mid.base or -1))
+	check(byName.Low and byName.Low.breakdown.damage.normalized < 15,
+		("low output reads its real percentile, no floor (%.0f)"):format(
 			byName.Low and byName.Low.breakdown.damage.normalized or -1))
-	check(byName.Afk.score < byName.Low.score,
-		"the AFK never outscores someone who fought")
+	check(byName.Afk and byName.Afk.score == 0 and (byName.Afk.unclamped or 0) < 0
+		and TP.Scoring.Grades.IsShamed(byName.Afk),
+		("zero parse + penalties clamps to 0 and wears the shame flag (%.0f/%.1f)"):format(
+			byName.Afk and byName.Afk.score or -1, byName.Afk and byName.Afk.unclamped or 0))
+	check(not TP.Scoring.Grades.IsShamed(byName.Low),
+		"a real (if low) fight is never shamed")
 	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
 	TP.Percentiles = savedP
 end)()

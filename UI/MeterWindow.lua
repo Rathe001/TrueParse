@@ -990,7 +990,14 @@ function MeterWindow:RenderScorecard(fight)
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + COLHEAD_HEIGHT + (i - 1) * (rowHeight + 1)))
 
-		local gcr, gcg, gcb = TP.Scoring.Grades.ColorForScore(r.score)
+		local gcr, gcg, gcb
+		if TP.Scoring.Grades.IsShamed(r) then
+			-- parsed nothing AND took penalties: the zero wears danger red
+			local S = TP.Scoring.Grades.SHAME
+			gcr, gcg, gcb = S[1], S[2], S[3]
+		else
+			gcr, gcg, gcb = TP.Scoring.Grades.ColorForScore(r.score)
+		end
 
 		-- Players not running TrueParse render dimmed: less data, not worse.
 		-- The local player always has the addon (fights captured before the

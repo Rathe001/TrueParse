@@ -51,9 +51,23 @@ function Grades.ScoreLabel(score)
 	return ("%.0f"):format(score or 0)
 end
 
--- "|cffRRGGBB87|r" — the score as colored chat text (honors letter grades)
-function Grades.ColoredScore(score)
-	local r, g, b = Grades.ColorForScore(score)
+-- A clamped-to-0 score whose UNCLAMPED total went negative: parsed
+-- nothing AND took penalties. Wears danger red — the one score that
+-- earns shame (Josh 2026-07-25). Pass an engine result row.
+function Grades.IsShamed(result)
+	return result and (result.score or 0) <= 0 and (result.unclamped or 0) < 0
+end
+Grades.SHAME = { 0.90, 0.30, 0.30 } -- the reserved danger red
+
+-- "|cffRRGGBB87|r" — the score as colored chat text (honors letter
+-- grades). shamed = true paints the danger red instead of the bracket.
+function Grades.ColoredScore(score, shamed)
+	local r, g, b
+	if shamed then
+		r, g, b = Grades.SHAME[1], Grades.SHAME[2], Grades.SHAME[3]
+	else
+		r, g, b = Grades.ColorForScore(score)
+	end
 	return ("|cff%02x%02x%02x%s|r"):format(
 		math.floor(r * 255), math.floor(g * 255), math.floor(b * 255), Grades.ScoreLabel(score))
 end
