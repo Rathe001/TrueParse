@@ -933,6 +933,23 @@ local ROLE_LABELS = {
 
 -- invisible hover targets over header fontstrings (name, big score):
 -- tipTitle nil = inert for that render (Josh 2026-07-25)
+-- Header time line, "@6:20pm (10m34s)" (Josh 2026-07-25): the pull
+-- clock leads, the duration rides in parens. Raw mode (and fights
+-- with no capture stamp) show the bare duration.
+local function timeLineText(fight, showPull)
+	local d = math.floor((fight.duration or 0) + 0.5)
+	if d <= 0 then
+		return ""
+	end
+	local m, s = math.floor(d / 60), d % 60
+	local dur = m > 0 and ("%dm%ds"):format(m, s) or ("%ds"):format(s)
+	if showPull and fight.capturedAt then
+		local clock = date("%I:%M%p", fight.capturedAt - fight.duration):lower():gsub("^0", "")
+		return ("@%s (%s)"):format(clock, dur)
+	end
+	return dur
+end
+
 local function headerHover(which, target)
 	local hf = frame[which]
 	if not hf then
@@ -1061,16 +1078,9 @@ function Panel:ShowFor(fight, result)
 		sub[#sub + 1] = "run avg " .. TP.Scoring.Grades.ColoredScore(runR.score)
 	end
 	frame.scoreLine:SetText(table.concat(sub, " \194\183 ") .. pbTag)
-	-- third header line: duration + pull time (the footer's tenants,
+	-- third header line: pull clock + duration (the footer's tenants,
 	-- Josh 2026-07-25)
-	local tparts = {}
-	if (fight.duration or 0) > 0 then
-		tparts[#tparts + 1] = ("%d:%02d"):format(math.floor(fight.duration / 60), fight.duration % 60)
-	end
-	if fight.capturedAt and (fight.duration or 0) > 0 and not result.parse then
-		tparts[#tparts + 1] = "pulled " .. date("%H:%M", fight.capturedAt - fight.duration)
-	end
-	frame.timeLine:SetText(table.concat(tparts, " \194\183 "))
+	frame.timeLine:SetText(timeLineText(fight, not result.parse))
 	frame.timeLine:Show()
 	-- progression trend lives in the SCORE's hover now (Josh 2026-07-25):
 	-- oldest -> newest with arrows carrying the direction
@@ -1649,15 +1659,8 @@ function Panel:ShowForGroup(fight, results)
 	end
 	frame.scoreLine:SetText(table.concat(sub, " \194\183 "))
 	frame.runLine:SetText("")
-	-- third header line: duration + pull time (Josh 2026-07-25)
-	local tparts = {}
-	if (fight.duration or 0) > 0 then
-		tparts[#tparts + 1] = ("%d:%02d"):format(math.floor(fight.duration / 60), fight.duration % 60)
-	end
-	if fight.capturedAt and (fight.duration or 0) > 0 then
-		tparts[#tparts + 1] = "pulled " .. date("%H:%M", fight.capturedAt - fight.duration)
-	end
-	frame.timeLine:SetText(table.concat(tparts, " \194\183 "))
+	-- third header line: pull clock + duration (Josh 2026-07-25)
+	frame.timeLine:SetText(timeLineText(fight, true))
 	frame.timeLine:Show()
 	-- the group card speaks the Signal Column language too (redesign's
 	-- last surface): bars/glyphs/pips from the tested ForGroup logic.
