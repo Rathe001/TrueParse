@@ -67,7 +67,7 @@ end
 
 -- the roster for one pull. scale stretches throughput to the duration;
 -- full = the kill (all bells and whistles); wipe pulls stay lighter
-local function roster(duration, full)
+local function roster(duration, full, collapseAt)
 	local k = duration -- totals are rates x duration
 	local team = groupMap
 	local p = {}
@@ -114,7 +114,10 @@ local function roster(duration, full)
 		groupSpikeWindows = 6, groupSpikeCovered = 5, groupCdCasts = 9,
 		groupSpikeMap = team({ [4] = "Tranquility" }),
 		extWindows = 7, extCovered = 4,
-		profCasts = full and { [774] = 95, [48438] = 22, [33763] = 35, [18562] = 21 } or nil,
+		-- cast counts scale with the pull (real wipes coach too): the
+		-- Rejuv rate sits well under the top-parse profile
+		profCasts = { [774] = math.floor(11.4 * k / 60), [48438] = math.floor(2.6 * k / 60),
+			[33763] = math.floor(4.2 * k / 60), [18562] = math.floor(2.5 * k / 60) },
 	})
 	p["MOCK-h2"] = player("MOCK-h2", "Grimshade", "PRIEST", "HEALER", 257, 561, {
 		damage = 7000 * k, healing = 188000 * k,
@@ -150,7 +153,8 @@ local function roster(duration, full)
 	dps("MOCK-d1", "Emberfall", "MAGE", 64, 567, 258000, {
 		activityPct = 96, deaths = 0, defensives = 3, consumables = 2,
 		lustCasts = 2, lustPotion = 1, interrupts = 3,
-		profCasts = full and { [116] = 160, [30455] = 45, [44614] = 45, [44457] = 48 } or nil,
+		profCasts = { [116] = math.floor(19.2 * k / 60), [30455] = math.floor(5.4 * k / 60),
+			[44614] = math.floor(5.4 * k / 60), [44457] = math.floor(5.8 * k / 60) },
 	})
 	dps("MOCK-d2", "Vexmourn", "WARLOCK", 267, 564, 244000, {
 		activityPct = 91, deaths = 0, defensives = 2,
@@ -169,14 +173,15 @@ local function roster(duration, full)
 		lustCasts = 1, lustPotion = 1, interrupts = 1,
 	})
 
-	-- per-player fight shapes (healers healing, tanks intake, dps damage)
-	if full then
-		local idx = 0
-		for _, pl in pairs(p) do
-			idx = idx + 1
-			pl.metrics.shape = shape(duration,
-				pl.role == "DAMAGER" and 14 or nil, nil, idx * 1.3)
-		end
+	-- per-player fight shapes (healers healing, tanks intake, dps
+	-- damage) — wipes carry them too, collapse tail included, exactly
+	-- like real captures (Josh 2026-07-25: the wipe card lost its coach
+	-- and shapes when it became the default view)
+	local idx = 0
+	for _, pl in pairs(p) do
+		idx = idx + 1
+		pl.metrics.shape = shape(duration,
+			pl.role == "DAMAGER" and 14 or nil, collapseAt, idx * 1.3)
 	end
 
 	-- the rogue's death gets the full treatment: recap hover + "CDs
@@ -217,7 +222,7 @@ end
 
 local function mockFight(at, duration, over)
 	local full = not over.wipe
-	local players = roster(duration, full)
+	local players = roster(duration, full, over.calledWipeAt)
 	local f = {
 		mock = true,
 		name = BOSS, zone = ZONE, isBoss = true, hadVerdict = true,
