@@ -28,7 +28,10 @@ local ICONS = {
 	deaths = ICON .. "Ability_Rogue_FeignDeath",
 	lust = ICON .. "Spell_Nature_BloodLust",
 	avoidable = ICON .. "Spell_Fire_SelfDestruct",
-	buffUptime = ICON .. "Spell_Nature_UnyieldingStamina",
+	-- NB: Blizzard's file really is spelled "Unyeilding" — the correctly
+	-- spelled path renders as a blank square
+	buffUptime = ICON .. "Spell_Nature_UnyeildingStamina",
+	consumables = ICON .. "INV_Potion_92",
 	speed = ICON .. "Ability_Rogue_Sprint",
 }
 Signals.ICONS = ICONS -- the panel constructs a few group rows itself
@@ -372,7 +375,7 @@ function Signals.ForResult(result, fight, player)
 	-- "Flask + food" chip
 	if m.consumables ~= nil and m.consumables < 2 then
 		out[#out + 1] = { key = "consumables", kind = "glyph",
-			icon = ICONS.buffUptime, label = "No flask/food", good = false }
+			icon = ICONS.consumables, label = "No flask/food", good = false }
 	end
 
 	-- 9b) every remaining scored adjustment gets a verdict glyph — the
@@ -382,7 +385,7 @@ function Signals.ForResult(result, fight, player)
 		{ key = "overheal", up = "Lean healing", down = "Overhealed", icon = ICONS.healing },
 		{ key = "overkill", up = nil, down = "Overkill heavy", icon = ICONS.damage },
 		{ key = "manaDry", up = nil, down = "Mana ran dry", icon = ICONS.activity },
-		{ key = "prepared", up = "Flask + food", down = nil, icon = ICONS.buffUptime },
+		{ key = "prepared", up = "Flask + food", down = nil, icon = ICONS.consumables },
 		{ key = "buffs", up = nil, down = "Buff missing", icon = ICONS.buffUptime },
 		{ key = "pull", up = nil, down = "Pulled early", icon = ICONS.avoidable },
 		{ key = "aggro", up = nil, down = "Ripped aggro", icon = ICONS.avoidable },
