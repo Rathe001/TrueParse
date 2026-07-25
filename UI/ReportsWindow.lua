@@ -44,27 +44,38 @@ local function latestFight(pred)
 	end
 end
 
--- the newest capture's runID streak (same rule as RunSummary)
-local function currentRunFights()
-	local fights = TP.FightHistory and TP.FightHistory.fights or {}
-	local newest = fights[1]
-	if not newest or not newest.runID then
+-- all fights sharing a runID (the anchor fight's whole visit)
+local function fightsOfRun(runID)
+	if not runID then
 		return nil
 	end
 	local out = {}
-	for _, f in ipairs(fights) do
-		if f.runID ~= newest.runID then
-			break
+	for _, f in ipairs(TP.FightHistory and TP.FightHistory.fights or {}) do
+		if f.runID == runID then
+			out[#out + 1] = f
 		end
-		out[#out + 1] = f
 	end
-	return out, newest.zone
+	return #out > 0 and out or nil
 end
 
+-- what the meter's fight selector has pinned (nil = Current)
+local function selectedFight()
+	local mw = TP.MeterWindow
+	return mw and mw.SelectedFight and mw:SelectedFight() or nil
+end
+
+-- Manual reports run on the SELECTED encounter (Josh 2026-07-25), not
+-- just the newest capture: deaths/prep take the pinned fight as-is;
+-- wipe/kill reports take it when it matches, else the same boss's
+-- latest matching pull; the run report takes the pinned fight's whole
+-- visit. Auto-runs pass the freshly captured fight instead.
 local function contextFor(def, fight)
 	local ctx = {}
+	local sel = fight or selectedFight()
 	if def.key == "run" then
-		ctx.runFights, ctx.zone = currentRunFights()
+		local anchor = sel or latestFight()
+		ctx.runFights = anchor and fightsOfRun(anchor.runID)
+		ctx.zone = anchor and anchor.zone
 		if ctx.runFights and #ctx.runFights > 0 then
 			local run = TP.Scoring.Runs.Aggregate(ctx.runFights, ctx.zone or "Run")
 			local ok, results = pcall(TP.Scoring.Engine.ScoreFight, run, { normalizeIlvl = false })
@@ -72,21 +83,35 @@ local function contextFor(def, fight)
 		end
 		return ctx
 	end
-	if fight then
-		ctx.fight = fight
-	elseif def.trigger == "wipe" then
-		ctx.fight = latestFight(function(f)
-			return f.isBoss and f.wipe
-		end)
+	if def.trigger == "wipe" then
+		if sel and sel.isBoss and sel.wipe then
+			ctx.fight = sel
+		elseif sel and sel.isBoss then
+			ctx.fight = latestFight(function(f)
+				return f.isBoss and f.wipe and f.name == sel.name
+			end)
+		else
+			ctx.fight = latestFight(function(f)
+				return f.isBoss and f.wipe
+			end)
+		end
 	elseif def.trigger == "kill" then
-		ctx.fight = latestFight(function(f)
-			return f.isBoss and not f.wipe
-		end)
+		if sel and sel.isBoss and not sel.wipe then
+			ctx.fight = sel
+		elseif sel and sel.isBoss then
+			ctx.fight = latestFight(function(f)
+				return f.isBoss and not f.wipe and f.name == sel.name
+			end)
+		else
+			ctx.fight = latestFight(function(f)
+				return f.isBoss and not f.wipe
+			end)
+		end
 	else
-		ctx.fight = latestFight()
+		ctx.fight = sel or latestFight()
 	end
 	if ctx.fight then
-		ctx.runFights = select(1, currentRunFights())
+		ctx.runFights = fightsOfRun(ctx.fight.runID)
 		local ok, results = pcall(TP.Scoring.Engine.ScoreFight, ctx.fight, {})
 		ctx.results = ok and results or nil
 	end

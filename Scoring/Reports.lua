@@ -1,7 +1,10 @@
 -- Shareable chat reports (Josh 2026-07-25): each report turns a fight
 -- (or a run) into a few plain-text lines fit for a chat channel — no
 -- color codes, every line under the 255-char chat ceiling, no more
--- than ~5 lines so nobody gets spammed.
+-- than ~6 lines so nobody gets spammed.
+-- HOUSE RULE (Josh 2026-07-25): reports NEVER name a player. Group
+-- metrics only — counts, shares, and timings. Shame stays on the
+-- private scorecard; chat gets the team story.
 -- PURE LUA: builders read only the ctx they're handed; loaded
 -- headlessly by tests/run.lua. Delivery/UI lives in UI/ReportsWindow.
 local _, TP = ...
@@ -19,22 +22,8 @@ local function mmss(sec)
 	return ("%d:%02d"):format(math.floor(sec / 60), sec % 60)
 end
 
--- "Baddchi 99, Richardslice 97, Widowwmaker 86" — top n by score
-local function topLine(results, n)
-	local sorted = {}
-	for _, r in ipairs(results or {}) do
-		if r.score then
-			sorted[#sorted + 1] = r
-		end
-	end
-	table.sort(sorted, function(a, b)
-		return (a.score or 0) > (b.score or 0)
-	end)
-	local parts = {}
-	for i = 1, math.min(n or 3, #sorted) do
-		parts[#parts + 1] = ("%s %d"):format(sorted[i].name or "?", sorted[i].score)
-	end
-	return #parts > 0 and table.concat(parts, ", ") or nil
+local function plural(n, word)
+	return ("%d %s%s"):format(n, word, n == 1 and "" or "s")
 end
 
 local function groupScore(results)
@@ -48,19 +37,20 @@ local function groupScore(results)
 	return n > 0 and math.floor(sum / n + 0.5) or nil
 end
 
--- every death in a fight as { t, name, cause, avoidable }, oldest first
+-- every death in a fight as { t, avoidable, readyDefensives }, oldest
+-- first — times and causes, never names
 local function deathList(fight)
 	local out = {}
 	for _, p in pairs(fight.players or {}) do
 		local times = p.deathTimes or (p.deathTime and { p.deathTime }) or {}
 		for _, t in ipairs(times) do
-			local cause, avoidable
+			local avoidable
 			-- the recap describes the LAST death; attach it there only
 			if t == times[#times] and p.deathRecap and #p.deathRecap > 0 then
-				local hit = p.deathRecap[#p.deathRecap]
-				cause, avoidable = hit.spell, hit.avoidable
+				avoidable = p.deathRecap[#p.deathRecap].avoidable
 			end
-			out[#out + 1] = { t = t, name = p.name or "?", cause = cause, avoidable = avoidable }
+			out[#out + 1] = { t = t, avoidable = avoidable,
+				readyDefensives = t == times[#times] and (p.deathReadyDefensives or 0) or 0 }
 		end
 	end
 	table.sort(out, function(a, b)
@@ -69,11 +59,106 @@ local function deathList(fight)
 	return out
 end
 
-local function causeSuffix(d)
-	if not d.cause then
-		return ""
+-- "3 players took avoidable damage (5% of all damage taken)"
+local function avoidableLine(fight)
+	local hit, avoid, taken = 0, 0, 0
+	for _, p in pairs(fight.players or {}) do
+		local m = p.metrics or {}
+		avoid = avoid + (m.avoidableTaken or 0)
+		taken = taken + (m.damageTaken or 0)
+		if (m.avoidableTaken or 0) > 0 then
+			hit = hit + 1
+		end
 	end
-	return (" - %s%s"):format(d.cause, d.avoidable and " (avoidable)" or "")
+	if hit == 0 or taken <= 0 then
+		return nil
+	end
+	return ("%s took avoidable damage (%d%% of all damage taken)."):format(
+		plural(hit, "player"), math.floor(avoid / taken * 100 + 0.5))
+end
+
+-- "Kicks 13/16; dispels 14." — whatever the totals actually carry
+local function kicksDispelsLine(fight)
+	local t = fight.totals or {}
+	local parts = {}
+	if (t.kickOpportunities or 0) > 0 then
+		local landed = t.kicksLanded or t.interrupts or 0
+		local miss = t.kickOpportunities - landed
+		parts[#parts + 1] = ("Kicks %d/%d%s"):format(landed, t.kickOpportunities,
+			miss > 0 and (" (%d missed)"):format(miss) or "")
+	elseif (t.interrupts or 0) > 0 then
+		parts[#parts + 1] = ("Kicks %d"):format(t.interrupts)
+	end
+	if (t.dispels or 0) > 0 then
+		parts[#parts + 1] = ("dispels %d"):format(t.dispels)
+	end
+	if #parts == 0 then
+		return nil
+	end
+	return table.concat(parts, "; ") .. "."
+end
+
+-- "2 players never used a defensive; healthstones eaten 5/9." — counts
+-- only, and only where the data reported
+local function personalsLine(fight)
+	local noDef, defReporting = 0, 0
+	local hsEaten, hsReporting = 0, 0
+	for _, p in pairs(fight.players or {}) do
+		local m = p.metrics or {}
+		if m.defensives ~= nil then
+			defReporting = defReporting + 1
+			if m.defensives == 0 then
+				noDef = noDef + 1
+			end
+		end
+		if m.healthstones ~= nil then
+			hsReporting = hsReporting + 1
+			if m.healthstones > 0 then
+				hsEaten = hsEaten + 1
+			end
+		end
+	end
+	local parts = {}
+	if defReporting > 0 and noDef > 0 then
+		parts[#parts + 1] = ("%s never used a defensive"):format(plural(noDef, "player"))
+	end
+	if hsReporting > 0 then
+		parts[#parts + 1] = ("healthstones eaten %d/%d"):format(hsEaten, hsReporting)
+	end
+	if #parts == 0 then
+		return nil
+	end
+	local line = table.concat(parts, "; ") .. "."
+	return line:sub(1, 1):upper() .. line:sub(2)
+end
+
+-- "Tough boss: top 24% of the tier by kill time." — context, so a
+-- rough report on a rough boss reads fairly
+local function toughnessLine(fight)
+	local E = TP.Scoring and TP.Scoring.Engine
+	if not (E and E.EncounterToughness) then
+		return nil
+	end
+	local ok, rank, bosses = pcall(E.EncounterToughness, fight)
+	if ok and rank and rank >= 0.7 then
+		return ("Tough boss: top %d%% of the tier's %d bosses by kill time."):format(
+			(1 - rank) * 100 + 1, bosses or 0)
+	end
+end
+
+-- the previous pull of the same boss in the run (older = later in the
+-- newest-first list), for boss-% progress comparisons
+local function prevPullPct(ctx)
+	local f = ctx.fight
+	local seen
+	for _, rf in ipairs(ctx.runFights or {}) do
+		if seen and rf.name == f.name and rf.wipe and rf.bossPct then
+			return rf.bossPct
+		end
+		if rf == f then
+			seen = true
+		end
+	end
 end
 
 local function buildWipe(ctx)
@@ -82,25 +167,41 @@ local function buildWipe(ctx)
 		return nil
 	end
 	local lines = {}
-	lines[#lines + 1] = ("Wipe: %s%s (%s)."):format(f.name or "?",
-		f.bossPct and (" at %d%%"):format(f.bossPct) or "", mmss(f.duration))
+	local prev = prevPullPct(ctx)
+	local vs = ""
+	if f.bossPct and prev then
+		if prev > f.bossPct then
+			vs = (" - %d%% further than last pull"):format(prev - f.bossPct)
+		elseif prev < f.bossPct then
+			vs = (" - last pull reached %d%%"):format(prev)
+		else
+			vs = " - same as last pull"
+		end
+	end
+	lines[#lines + 1] = ("Wipe: %s%s (%s)%s."):format(f.name or "?",
+		f.bossPct and (" at %d%%"):format(f.bossPct) or "", mmss(f.duration), vs)
 	local deaths = deathList(f)
 	if #deaths > 0 then
-		local d = deaths[1]
-		lines[#lines + 1] = ("First death: %s at %s%s."):format(d.name, mmss(d.t), causeSuffix(d))
-	end
-	if f.calledWipeAt then
-		local pre = 0
-		for _, d in ipairs(deaths) do
-			if d.t < f.calledWipeAt then
-				pre = pre + 1
+		local d = ("Deaths: %d (first at %s)"):format(#deaths, mmss(deaths[1].t))
+		if f.calledWipeAt then
+			local pre = 0
+			for _, dd in ipairs(deaths) do
+				if dd.t < f.calledWipeAt then
+					pre = pre + 1
+				end
 			end
+			d = ("Deaths: %d (%d before the call, first at %s)"):format(#deaths, pre, mmss(deaths[1].t))
 		end
-		lines[#lines + 1] = ("Wipe called at %s%s - %d death%s before the call, %d after."):format(
-			mmss(f.calledWipeAt), f.wipeCalledBy and (" by " .. f.wipeCalledBy) or "",
-			pre, pre == 1 and "" or "s", #deaths - pre)
-	elseif #deaths > 0 then
-		lines[#lines + 1] = ("Deaths: %d."):format(#deaths)
+		lines[#lines + 1] = d .. "."
+	end
+	if f.calledWipeAt and f.duration then
+		local tail = math.floor(f.duration - f.calledWipeAt + 0.5)
+		lines[#lines + 1] = ("Wipe called at %s; the pull ended %ds later."):format(
+			mmss(f.calledWipeAt), tail)
+	end
+	local av = avoidableLine(f)
+	if av then
+		lines[#lines + 1] = av
 	end
 	-- group spike coverage: the windows are stamped identically on every
 	-- player record, so any carrier speaks for the fight
@@ -114,6 +215,14 @@ local function buildWipe(ctx)
 			end
 			break
 		end
+	end
+	local kd = kicksDispelsLine(f)
+	if kd then
+		lines[#lines + 1] = kd
+	end
+	local tough = toughnessLine(f)
+	if tough then
+		lines[#lines + 1] = tough
 	end
 	return lines
 end
@@ -151,13 +260,27 @@ local function buildKill(ctx)
 			bestPct and (" - best prior attempt %d%%"):format(bestPct) or "")
 	end
 	local gs = ctx.groupScore or groupScore(ctx.results)
-	local top = topLine(ctx.results, 3)
 	if gs then
-		lines[#lines + 1] = ("Group score %d%s."):format(gs, top and (". Top: " .. top) or "")
+		lines[#lines + 1] = ("Group score %d."):format(gs)
 	end
 	local deaths = deathList(f)
 	if #deaths == 0 then
 		lines[#lines + 1] = "Deathless kill."
+	else
+		local line = ("Deaths: %d."):format(#deaths)
+		local av = avoidableLine(f)
+		if av then
+			line = line .. " " .. av
+		end
+		lines[#lines + 1] = line
+	end
+	local kd = kicksDispelsLine(f)
+	if kd then
+		lines[#lines + 1] = kd
+	end
+	local tough = toughnessLine(f)
+	if tough then
+		lines[#lines + 1] = tough
 	end
 	return lines
 end
@@ -168,9 +291,13 @@ local function buildRun(ctx)
 		return nil
 	end
 	local kills, wipes, fought, deaths = 0, 0, 0, 0
+	local kicksL, kicksO, avoid, taken = 0, 0, 0, 0
 	local fastest
 	for _, f in ipairs(fights) do
 		fought = fought + (f.duration or 0)
+		local t = f.totals or {}
+		kicksL = kicksL + (t.kicksLanded or t.interrupts or 0)
+		kicksO = kicksO + (t.kickOpportunities or 0)
 		if f.isBoss then
 			if f.wipe then
 				wipes = wipes + 1
@@ -182,19 +309,29 @@ local function buildRun(ctx)
 			end
 		end
 		for _, p in pairs(f.players or {}) do
-			deaths = deaths + ((p.metrics or {}).deaths or 0)
+			local m = p.metrics or {}
+			deaths = deaths + (m.deaths or 0)
+			avoid = avoid + (m.avoidableTaken or 0)
+			taken = taken + (m.damageTaken or 0)
 		end
 	end
 	local lines = {}
-	lines[#lines + 1] = ("Run: %s - %d kill%s, %d wipe%s, %s fought."):format(
-		ctx.zone or fights[1].zone or "?", kills, kills == 1 and "" or "s",
-		wipes, wipes == 1 and "" or "s", mmss(fought))
+	lines[#lines + 1] = ("Run: %s - %s, %s, %s fought."):format(
+		ctx.zone or fights[1].zone or "?", plural(kills, "kill"), plural(wipes, "wipe"),
+		mmss(fought))
 	local gs = ctx.groupScore or groupScore(ctx.results)
-	local top = topLine(ctx.results, 3)
 	if gs then
-		lines[#lines + 1] = ("Group run score %d%s."):format(gs, top and (". Top: " .. top) or "")
+		lines[#lines + 1] = ("Group run score %d."):format(gs)
 	end
-	lines[#lines + 1] = ("Deaths: %d."):format(deaths)
+	local dl = ("Deaths: %d."):format(deaths)
+	if taken > 0 and avoid > 0 then
+		dl = dl .. (" Avoidable damage: %d%% of all damage taken."):format(
+			math.floor(avoid / taken * 100 + 0.5))
+	end
+	lines[#lines + 1] = dl
+	if kicksO > 0 then
+		lines[#lines + 1] = ("Kicks across the run: %d/%d."):format(kicksL, kicksO)
+	end
 	if fastest and kills > 1 then
 		lines[#lines + 1] = ("Fastest kill: %s (%s)."):format(fastest.name or "?", mmss(fastest.duration))
 	end
@@ -210,13 +347,28 @@ local function buildDeaths(ctx)
 	if #deaths == 0 then
 		return { ("Nobody died on %s."):format(f.name or "?") }
 	end
-	local lines = { ("Deaths on %s (%d):"):format(f.name or "?", #deaths) }
-	for i = 1, math.min(8, #deaths) do
-		local d = deaths[i]
-		lines[#lines + 1] = ("%s at %s%s"):format(d.name, mmss(d.t), causeSuffix(d))
+	local lines = { ("Deaths on %s: %d (first at %s, last at %s)."):format(
+		f.name or "?", #deaths, mmss(deaths[1].t), mmss(deaths[#deaths].t)) }
+	local avoidable, ready = 0, 0
+	for _, d in ipairs(deaths) do
+		if d.avoidable then
+			avoidable = avoidable + 1
+		end
+		if (d.readyDefensives or 0) >= 2 then
+			ready = ready + 1
+		end
 	end
-	if #deaths > 8 then
-		lines[#lines + 1] = ("...and %d more."):format(#deaths - 8)
+	if avoidable > 0 then
+		lines[#lines + 1] = avoidable == 1
+			and "1 of the killing blows was an avoidable hit."
+			or ("%d of the killing blows were avoidable hits."):format(avoidable)
+	end
+	if ready > 0 then
+		lines[#lines + 1] = ("%s died with 2+ defensives unused."):format(plural(ready, "player"))
+	end
+	local av = avoidableLine(f)
+	if av then
+		lines[#lines + 1] = av
 	end
 	return lines
 end
@@ -226,7 +378,7 @@ local function buildPrep(ctx)
 	if not f then
 		return nil
 	end
-	local reporting, ready, missing = 0, 0, {}
+	local reporting, ready = 0, 0
 	local hsReporting, hsEaten = 0, 0
 	for _, p in pairs(f.players or {}) do
 		local m = p.metrics or {}
@@ -234,8 +386,6 @@ local function buildPrep(ctx)
 			reporting = reporting + 1
 			if m.consumables >= 2 then
 				ready = ready + 1
-			else
-				missing[#missing + 1] = p.name or "?"
 			end
 		end
 		if m.healthstones ~= nil then
@@ -250,18 +400,10 @@ local function buildPrep(ctx)
 	end
 	local lines = {}
 	if reporting > 0 then
-		table.sort(missing)
-		local miss = ""
-		if #missing > 0 then
-			local named = {}
-			for i = 1, math.min(4, #missing) do
-				named[i] = missing[i]
-			end
-			miss = (" Missing: %s%s."):format(table.concat(named, ", "),
-				#missing > 4 and (" +%d more"):format(#missing - 4) or "")
-		end
-		lines[#lines + 1] = ("Prep on %s: flask+food %d/%d.%s"):format(
-			f.name or "?", ready, reporting, miss)
+		local missing = reporting - ready
+		lines[#lines + 1] = ("Prep on %s: flask+food %d/%d%s."):format(
+			f.name or "?", ready, reporting,
+			missing > 0 and (" (%s missing)"):format(plural(missing, "player")) or "")
 	end
 	if hsReporting > 0 then
 		lines[#lines + 1] = ("Healthstones eaten: %d/%d."):format(hsEaten, hsReporting)
@@ -271,36 +413,36 @@ end
 
 -- The registry the panel renders, in display order. trigger names the
 -- moment the report can auto-run (always local-only); manual-only
--- reports leave it nil.
+-- reports leave it nil. No report ever names a player.
 Reports.LIST = {
 	{
 		key = "wipe", name = "Wipe analysis", trigger = "wipe",
-		desc = "Root-cause read on the latest wipe: where it ended, who died first and to what, spike coverage, and the call.",
-		example = 'Wipe: Garrosh Hellscream at 27% (5:43). First death: Nightbriar at 2:41 - Whirling Corruption (avoidable).',
+		desc = "Root-cause read on the latest wipe: boss % vs last pull, deaths and the call timing, avoidable damage, spike coverage, kicks. No names.",
+		example = "Wipe: Garrosh Hellscream at 27% (5:43) - 14% further than last pull. Deaths: 6 (4 before the call, first at 2:41).",
 		build = buildWipe,
 	},
 	{
 		key = "kill", name = "Kill analysis", trigger = "kill",
-		desc = "Kill time vs your last kill, pull count with best prior attempt, and the group's scores.",
-		example = "Kill: Garrosh Hellscream in 6:20 (12s faster than last kill). Group score 63. Top: Baddchi 99, ...",
+		desc = "Kill time vs your last kill, pull count with best prior attempt, group score, deaths, and kicks. No names.",
+		example = "Kill: Garrosh Hellscream in 6:20 (12s faster than last kill). Pull 4 - best prior attempt 27%. Group score 63.",
 		build = buildKill,
 	},
 	{
 		key = "run", name = "End of run", trigger = "runEnd",
-		desc = "The whole visit in one report: kills, wipes, time fought, run scores, and the fastest kill.",
-		example = "Run: Siege of Orgrimmar - 8 kills, 3 wipes, 1:42:10 fought. Group run score 63.",
+		desc = "The whole visit in one report: kills, wipes, time fought, run score, deaths with avoidable share, and the fastest kill.",
+		example = "Run: Siege of Orgrimmar - 8 kills, 3 wipes, 1:42:10 fought. Group run score 63. Deaths: 14.",
 		build = buildRun,
 	},
 	{
 		key = "deaths", name = "Death report",
-		desc = "Every death on the selected fight with its killing blow, avoidable hits flagged.",
-		example = "Deaths on Garrosh Hellscream (3): Nightbriar at 2:41 - Whirling Corruption (avoidable), ...",
+		desc = "Death count and timing on the selected fight, avoidable killing blows, and deaths with defensives sitting unused. No names.",
+		example = "Deaths on Garrosh Hellscream: 6 (first at 2:41, last at 5:50). 3 of the killing blows were avoidable hits.",
 		build = buildDeaths,
 	},
 	{
 		key = "prep", name = "Preparation check",
-		desc = "Who brought flask and food (named when missing), and healthstone use where a warlock provided them.",
-		example = "Prep on Garrosh Hellscream: flask+food 8/10. Missing: Nightbriar, Sunspire. Healthstones eaten: 6/9.",
+		desc = "How many brought flask and food, and healthstone use where a warlock provided them. Counts only, no names.",
+		example = "Prep on Garrosh Hellscream: flask+food 8/10 (2 players missing). Healthstones eaten: 6/9.",
 		build = buildPrep,
 	},
 }

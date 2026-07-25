@@ -517,6 +517,12 @@ local function createWindow()
 	MeterWindow:UpdateModeButtons()
 end
 
+-- the fight pinned in the selector (nil = Current); the reports panel
+-- scopes manual reports to this (Josh 2026-07-25)
+function MeterWindow:SelectedFight()
+	return pinnedFight
+end
+
 function MeterWindow:UpdateModeButtons()
 	if not (window and window.modeReal) then
 		return
