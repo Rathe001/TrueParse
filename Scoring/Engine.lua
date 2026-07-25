@@ -1377,7 +1377,11 @@ function Engine.ScoreFight(fight, opts)
 			-- never adds new ones)
 			local pm = p.metrics
 			if breakdown.interrupts and fight.totals and fight.totals.kickOpportunities then
-				breakdown.interrupts.opportunities = fight.totals.kickOpportunities
+				-- a landed kick proves an opportunity existed: the 10s
+				-- post-kick grace can under-count them, and 13/12 is
+				-- nonsense — the denominator floors at landed
+				breakdown.interrupts.opportunities = math.max(
+					fight.totals.kickOpportunities, fight.totals.kicksLanded or 0)
 				breakdown.interrupts.landed = fight.totals.kicksLanded
 			end
 			if breakdown.dispels and pm.dispelReactAvg then

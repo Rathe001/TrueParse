@@ -528,6 +528,12 @@ function Bullets.ForGroup(results, fight)
 	local opps = fight and fight.totals and fight.totals.kickOpportunities
 	if opps and opps > 0 then
 		local landed = fight.totals.kicksLanded or 0
+		-- a landed kick IS proof of an opportunity: the 10s post-kick
+		-- grace can under-count them, and "13/12" is nonsense (Josh
+		-- 2026-07-25) — the denominator floors at landed
+		if landed > opps then
+			opps = landed
+		end
 		local coverage = landed / opps
 		local sym, col = MIDDOT, MID
 		if coverage >= 0.9 then

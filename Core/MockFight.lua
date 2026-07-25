@@ -204,9 +204,11 @@ local function totalsOf(players, duration)
 		t.dispels = t.dispels + (m.dispels or 0)
 	end
 	t.dispelTypes = { Magic = true }
-	t.kickOpportunities = 12
+	-- opportunities must cover the landed sum (13/12 was nonsense —
+	-- Josh 2026-07-25)
+	t.kickOpportunities = t.interrupts + 3
 	t.kicksLanded = t.interrupts
-	t.kicksThrough = math.max(0, 12 - t.interrupts)
+	t.kicksThrough = 3
 	-- pressed CDs: Healing Tide (owned by the shaman) stays unpressed so
 	-- the assignment line has something to name
 	t.raidCdsUsed = { [740] = true, [98008] = true, [47788] = true, [102342] = true }
