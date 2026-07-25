@@ -2772,6 +2772,31 @@ end)()
 	end
 	check(gd and gd.base, "group damage bar joins the Raw view")
 	check(gDeaths and not gDeaths.base, "group deaths pips stay out of Raw")
+
+	-- flask+food left the footer (2026-07-25): a no-point chip counting
+	-- only the players whose install reported
+	local consRows = S.GroupRows({
+		{ guid = "a", breakdown = {} }, { guid = "b", breakdown = {} },
+		{ guid = "c", breakdown = {} },
+	}, { players = {
+		a = { metrics = { consumables = 2 } },
+		b = { metrics = { consumables = 1 } },
+		c = { metrics = {} }, -- no report: stays out of the denominator
+	} })
+	local cons
+	for _, r in ipairs(consRows) do
+		if r.key == "consumables" then
+			cons = r
+		end
+	end
+	check(cons and cons.kind == "glyph" and cons.count == "1/2"
+		and cons.points == nil and not cons.base,
+		("flask+food chip counts reporters only (%s)"):format(tostring(cons and cons.count)))
+	local noneRows = S.GroupRows({ { guid = "c", breakdown = {} } },
+		{ players = { c = { metrics = {} } } })
+	for _, r in ipairs(noneRows) do
+		check(r.key ~= "consumables", "no reporters, no flask+food chip")
+	end
 end)()
 
 -- 34. Single-target externals (2026-07-24): Guardian Spirit / Ironbark

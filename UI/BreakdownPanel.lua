@@ -2092,41 +2092,11 @@ function Panel:ShowForGroup(fight, results)
 	-- picker's wipe-% labels already tell the night's story)
 
 	frame.total:SetText("") -- header lines carry the numbers now
-	-- group footer (Josh 2026-07-24, mirroring the player card): how many
-	-- of the REPORTING players brought flask+food, plus the pull time.
-	-- Consumables are self-reported counts, so only installs can vouch —
-	-- the denominator says so honestly. Raw stays pure WCL.
-	local footParts = {}
-	if not raw then
-		local reporting, ready = 0, 0
-		for _, r in ipairs(results) do
-			local p = fight.players and fight.players[r.guid]
-			local cons = p and p.metrics and p.metrics.consumables
-			if cons ~= nil then
-				reporting = reporting + 1
-				if cons >= 2 then
-					ready = ready + 1
-				end
-			end
-		end
-		if reporting > 0 then
-			-- unique info here (no prepared chip exists on the group
-			-- card); the pull time moved to the header's time line
-			local mark = ready == reporting
-				and "|TInterface\\RaidFrame\\ReadyCheck-Ready:11|t"
-				or "|TInterface\\RaidFrame\\ReadyCheck-NotReady:11|t"
-			footParts[#footParts + 1] = ("flask+food %d/%d %s"):format(ready, reporting, mark)
-		end
-	end
-	if #footParts > 0 then
-		frame.footer:SetText(table.concat(footParts, " \194\183 "))
-		frame.footer:Show()
-		frame:SetHeight(-y + 22)
-	else
-		frame.footer:SetText("")
-		frame.footer:Hide()
-		frame:SetHeight(-y + 8)
-	end
+	-- the group footer retired too (Josh 2026-07-25): flask+food is a
+	-- chip in the grid now, like everything else countable
+	frame.footer:SetText("")
+	frame.footer:Hide()
+	frame:SetHeight(-y + 8)
 	anchorPanel()
 	frame.close:SetShown(self.pinned)
 	frame.role:ClearAllPoints()

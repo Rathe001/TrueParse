@@ -554,6 +554,29 @@ function Signals.GroupRows(results, fight)
 				label = stripPts(text), points = pts, tooltip = bl.tooltip }
 		end
 	end
+	-- flask+food moved up from the footer (Josh 2026-07-25): a no-point
+	-- chip — the group rollup never scores; individual prepared bonuses
+	-- live on the player cards. Consumables are self-reported, so the
+	-- denominator counts only installs that can vouch.
+	local reporting, ready = 0, 0
+	for _, r in ipairs(results or {}) do
+		local p = fight and fight.players and fight.players[r.guid]
+		local cons = p and p.metrics and p.metrics.consumables
+		if cons ~= nil then
+			reporting = reporting + 1
+			if cons >= 2 then
+				ready = ready + 1
+			end
+		end
+	end
+	if reporting > 0 then
+		rows[#rows + 1] = { key = "consumables", kind = "glyph",
+			icon = ICONS.consumables, label = "Flask + food",
+			good = ready == reporting, count = ready .. "/" .. reporting,
+			tooltip = { title = "Flask + food", lines = { {
+				"Players with both up at the pull. Counts only players whose TrueParse reported.",
+				0.8, 0.8, 0.8, true } } } }
+	end
 	return rows
 end
 
