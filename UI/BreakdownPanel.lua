@@ -788,7 +788,12 @@ local function renderChip(c, sig)
 	c.val:SetText(vtext)
 	c.val:SetTextColor(0.80, 0.80, 0.82)
 	local pts = sig.points or 0
-	if math.abs(pts) >= 0.5 then
+	local scored = math.abs(pts) >= 0.5
+	-- no-point chips have no +/- to hold a column for: the value slides
+	-- right into it so the numbers line up (Josh 2026-07-25)
+	c.val:ClearAllPoints()
+	c.val:SetPoint("RIGHT", scored and -28 or 0, 0)
+	if scored then
 		c.pts:SetText(("%+d"):format(pts >= 0
 			and math.floor(pts + 0.5) or -math.floor(-pts + 0.5)))
 		if pts > 0 then
@@ -810,6 +815,19 @@ local function hideChipRulesFrom(i)
 		chipRules[j]:Hide()
 	end
 end
+local function chipRuleAt(i, yy)
+	local t = chipRules[i]
+	if not t then
+		t = frame:CreateTexture(nil, "ARTWORK")
+		t:SetColorTexture(0.5, 0.5, 0.55, 0.18)
+		t:SetHeight(1)
+		chipRules[i] = t
+	end
+	t:ClearAllPoints()
+	t:SetPoint("TOPLEFT", 10, yy)
+	t:SetPoint("TOPRIGHT", -10, yy)
+	t:Show()
+end
 local function layoutChipGrid(sigs, top, attach)
 	local chipW = (WIDTH - 28 - CHIP_GAP) / 2
 	local groups = { {}, {}, {} }
@@ -823,18 +841,8 @@ local function layoutChipGrid(sigs, top, attach)
 		if #group > 0 then
 			if ci > 0 then -- a section already rendered above: rule it off
 				ri = ri + 1
-				local t = chipRules[ri]
-				if not t then
-					t = frame:CreateTexture(nil, "ARTWORK")
-					t:SetColorTexture(0.5, 0.5, 0.55, 0.18)
-					t:SetHeight(1)
-					chipRules[ri] = t
-				end
 				y = y - 4
-				t:ClearAllPoints()
-				t:SetPoint("TOPLEFT", 10, y)
-				t:SetPoint("TOPRIGHT", -10, y)
-				t:Show()
+				chipRuleAt(ri, y)
 				y = y - 6
 			end
 			for i, sig in ipairs(group) do
@@ -852,6 +860,14 @@ local function layoutChipGrid(sigs, top, attach)
 			end
 			y = y - math.ceil(#group / 2) * ROW_HEIGHT
 		end
+	end
+	-- the grid closes with the same hairline it opened with (Josh
+	-- 2026-07-25), same margins as the section rules
+	if ci > 0 then
+		ri = ri + 1
+		y = y - 4
+		chipRuleAt(ri, y)
+		y = y - 6
 	end
 	hideChipsFrom(ci + 1)
 	hideChipRulesFrom(ri + 1)
