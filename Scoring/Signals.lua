@@ -404,7 +404,10 @@ function Signals.ForResult(result, fight, player)
 	if deaths > 0 then
 		local dLabel = "Died"
 		if (player and player.deathReadyDefensives or 0) >= 2 and (ad.deathReady or 0) < 0 then
-			dLabel = "CDs unused"
+			-- the approved mockup's phrasing: "CDs unused" read ambiguous
+			-- (Josh 2026-07-25) and collided with the group card's raid-CD
+			-- line
+			dLabel = "Died, CDs ready"
 		elseif (ad.deathNoDefensives or 0) < 0 then
 			dLabel = "No defensive"
 		end
@@ -481,7 +484,7 @@ function Signals.GroupRows(results, fight)
 			end
 			lines[#lines + 1] = { "Owned, never pressed. Assign one button per big moment.", 0.8, 0.8, 0.8, true }
 			rows[#rows + 1] = { key = "raidCds", kind = "glyph", icon = ICONS.cdTimingHealer,
-				label = "CDs unused", good = false,
+				label = "Unused raid CDs", good = false,
 				count = names and tostring(select(2, names:gsub(",", ",")) + 1) or nil,
 				tooltip = { title = "Raid cooldown assignment", lines = lines } }
 		elseif bl.key == "speedTrend" then
