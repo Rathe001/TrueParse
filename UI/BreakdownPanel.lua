@@ -644,7 +644,7 @@ end
 -- group-card visualization elements (fight shape, team coverage,
 -- staircase) — hidden wholesale when the shared frame shows a player
 local GROUP_VIZ = { "shapeLabel", "shapeCols", "covLabel", "covTrack", "covBands",
-	"stairLabel", "stairCols", "pShapeLabel", "pShapeCols" }
+	"pShapeLabel", "pShapeCols" }
 local function hideGroupViz()
 	if not frame then
 		return
@@ -2044,48 +2044,8 @@ function Panel:ShowForGroup(fight, results)
 		y = y - 9 - 4
 	end
 
-	-- 3) progression staircase: boss % remaining per pull tonight, best
-	-- pull in bracket green (only when 2+ measured wipes exist this run)
-	if not raw and fight.wipe and fight.runID and TP.FightHistory then
-		local pulls = {}
-		for i = #TP.FightHistory.fights, 1, -1 do -- oldest first
-			local f = TP.FightHistory.fights[i]
-			if f.runID == fight.runID and f.name == fight.name and f.wipe and f.bossPct then
-				pulls[#pulls + 1] = f
-			end
-		end
-		if #pulls >= 2 then
-			while #pulls > 12 do
-				table.remove(pulls, 1)
-			end
-			local best = pulls[1]
-			for _, f in ipairs(pulls) do
-				if f.bossPct < best.bossPct then
-					best = f
-				end
-			end
-			vizLabel("stairLabel", ("pulls tonight \194\183 boss %% left \194\183 |cff1eff00best %.0f%%|r"):format(best.bossPct))
-			local cols = vizPool("stairCols", #pulls)
-			local H = 30
-			local colW = math.max(4, math.floor((w - (#pulls - 1) * 3) / #pulls))
-			for i, f in ipairs(pulls) do
-				local t = cols[i]
-				local h = math.max(2, math.floor(f.bossPct / 100 * H + 0.5))
-				if f == best then
-					t:SetVertexColor(0.12, 1.00, 0.00, 0.95)
-				elseif f == fight then
-					t:SetVertexColor(0.85, 0.85, 0.90, 0.95)
-				else
-					t:SetVertexColor(0.42, 0.44, 0.50, 0.9)
-				end
-				t:ClearAllPoints()
-				t:SetSize(colW, h)
-				t:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 12 + (i - 1) * (colW + 3), y - H)
-				t:Show()
-			end
-			y = y - H - 4
-		end
-	end
+	-- (the progression staircase retired 2026-07-25, Josh: the fight
+	-- picker's wipe-% labels already tell the night's story)
 
 	frame.total:SetText("") -- header lines carry the numbers now
 	-- group footer (Josh 2026-07-24, mirroring the player card): how many

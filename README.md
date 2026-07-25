@@ -209,8 +209,9 @@ letting text and label share pixels.
 
 **Graphs only where they carry story**: the group card's fight-shape
 sparkline (output per second: opener ramp, Bloodlust burst, death dots,
-the post-call collapse) and the progression staircase (boss % per pull
-across a night, best pull in bracket green). Everything is built from
+the post-call collapse) and the per-player output lines. A graph that
+duplicates chrome dies — the progression staircase retired once the
+fight picker's wipe-% labels told the same story. Everything is built from
 flat rectangles, cropped icons, and outlined condensed text — the
 current "quality addon" dialect — because that's all WoW renders
 cleanly, and designs that fight the engine read as janky.
