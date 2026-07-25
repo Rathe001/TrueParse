@@ -1,5 +1,9 @@
 # TrueParse Changelog
 
+## 2.1.1
+
+The chat icon now hides with the cog when the window collapses.
+
 ## 2.1.0
 
 **Shareable reports.** A chat icon beside the meter's cog opens the

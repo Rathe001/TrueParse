@@ -1365,6 +1365,7 @@ local function refreshImpl(self, force)
 		end
 		window.fightDrop:Hide()
 		window.cog:Hide()
+		window.chat:Hide()
 		window.LayoutSubtitle(true)
 		if window.emptyTitle then
 			window.emptyTitle:Hide()
@@ -1381,6 +1382,7 @@ local function refreshImpl(self, force)
 	window.title:SetText(modeTitle)
 	window.fightDrop:Show()
 	window.cog:Show()
+	window.chat:Show()
 	window.LayoutSubtitle(false)
 	if window.grip then
 		window.grip:Show()
