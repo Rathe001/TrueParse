@@ -1047,19 +1047,30 @@ function Panel:ShowFor(fight, result)
 		or { "No prior kills of this boss recorded.", 0.7, 0.7, 0.7 } }
 
 	local y = -56 -- three header lines now (name, boss, time)
-	-- header rule, same ink AND spacing as the base divider below
-	-- (Josh 2026-07-25: 4px above, 6px below)
+	-- the coach resolves FIRST: when it exists, its full-width wash IS
+	-- the header divider (the rule hides, margin keeps the separation);
+	-- without one the rule draws as before (Josh 2026-07-25)
+	local coachGap
+	if not result.parse and player and player.metrics and player.metrics.profCasts
+		and player.specID and TP.Scoring.Insights.ParseGap then
+		coachGap = TP.Scoring.Insights.ParseGap(player.specID, player.metrics, fight.duration)
+	end
 	if not frame.headerRule then
 		frame.headerRule = frame:CreateTexture(nil, "ARTWORK")
 		frame.headerRule:SetColorTexture(0.5, 0.5, 0.55, 0.18)
 		frame.headerRule:SetHeight(1)
 	end
-	y = y - 4
-	frame.headerRule:ClearAllPoints()
-	frame.headerRule:SetPoint("TOPLEFT", 10, y)
-	frame.headerRule:SetPoint("TOPRIGHT", -10, y)
-	frame.headerRule:Show()
-	y = y - 6
+	if coachGap then
+		frame.headerRule:Hide()
+		y = y - 6 -- the wash separates; the margin keeps it apart
+	else
+		y = y - 4
+		frame.headerRule:ClearAllPoints()
+		frame.headerRule:SetPoint("TOPLEFT", 10, y)
+		frame.headerRule:SetPoint("TOPRIGHT", -10, y)
+		frame.headerRule:Show()
+		y = y - 6
+	end
 
 	-- Signal Column (2026-07-26 redesign): awards keep their gold text
 	-- rows; every scored signal renders as icon + verdict + marks.
@@ -1075,16 +1086,20 @@ function Panel:ShowFor(fight, result)
 	-- the parse coach leads the card (Josh 2026-07-25: the single most
 	-- valuable line lives above the fold), on a faint cyan wash so it
 	-- reads as THE highlight. Advice, not a signal; Raw stays pure WCL.
-	if not result.parse and player and player.metrics and player.metrics.profCasts
-		and player.specID and TP.Scoring.Insights.ParseGap then
-		local gap = TP.Scoring.Insights.ParseGap(player.specID, player.metrics, fight.duration)
+	do
+		local gap = coachGap
 		if gap then
 			local row = nextRow()
 			ensureSignalWidgets(row)
 			hideSignalWidgets(row)
 			if not row.coachBg then
 				row.coachBg = row:CreateTexture(nil, "BACKGROUND")
-				row.coachBg:SetAllPoints(row)
+				-- full-bleed: left/top/bottom ride the row, the right edge
+				-- reaches the CARD edge (rows stop 12px short of it —
+				-- Josh 2026-07-25: the wash looked lopsided)
+				row.coachBg:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
+				row.coachBg:SetPoint("BOTTOM", row, "BOTTOM", 0, 0)
+				row.coachBg:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
 				row.coachBg:SetColorTexture(0.40, 0.85, 1.00, 0.07)
 			end
 			row.coachBg:Show()
