@@ -898,7 +898,9 @@ function Panel:ShowFor(fight, result)
 			for _, s in ipairs(hist) do
 				parts[#parts + 1] = TP.Scoring.Grades.ColoredScore(s)
 			end
-			histText = "|cff888888this boss:|r " .. table.concat(parts, " ")
+			-- oldest -> newest, arrows carrying the direction (Josh
+			-- 2026-07-25: "this boss" didn't say what the numbers WERE)
+			histText = "|cff888888Trend:|r " .. table.concat(parts, " |cff888888\226\134\146|r ")
 		end
 	end
 	-- run avg moved into the subheader; this line is history only
