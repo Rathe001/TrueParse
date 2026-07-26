@@ -44,6 +44,22 @@ local function onFightCaptured(_, fight)
 			msg = msg .. (" · biggest opportunity: avoidable damage (-%.0f)"):format(advice.gain)
 		elseif advice.kind == "deaths" then
 			msg = msg .. (" · biggest opportunity: staying alive (-%.0f)"):format(advice.gain)
+			-- name the cause (Josh 2026-07-25): constructive beats "you died"
+			local p = fight.players[me.guid]
+			local DC = TP.Scoring.DeathCause
+			if p and p.deathRecap and DC then
+				local c = DC.Classify(p.deathRecap, p.maxHP, DC.ProfilesFor(fight))
+				if c.category == "avoidable" and c.spell then
+					msg = msg .. (" — you died to %s, an avoidable hit; move out"):format(c.spell)
+				elseif c.category == "tankbuster" and c.spell then
+					msg = msg .. (" — %s was a tankbuster; pre-mitigate it"):format(c.spell)
+				elseif c.category == "chip" then
+					msg = msg .. ((p.deathReadyDefensives or 0) >= 2
+						and " — you were chipped down with a defensive still ready"
+						or " — you were chipped down; a defensive buys the healers time")
+				end
+				-- oneShot / unknown: say nothing extra (nothing to coach)
+			end
 		elseif advice.kind == "buffs" then
 			msg = msg .. (" · biggest opportunity: buff your group before the pull (-%.0f)"):format(advice.gain)
 		else

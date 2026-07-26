@@ -3574,6 +3574,32 @@ end)()
 	check(DC.ProfilesFor({ name = "(!) Garrosh Hellscream" }) == profiles, "profiles resolve by stripped name")
 	check(DC.ProfilesFor({ name = "Unknown Boss" }) == nil, "no profile for an unknown boss")
 	TP.DAMAGE_PROFILES = nil
+
+	-- the raid report names the death CAUSE, not just the count
+	local R = TP.Scoring.Reports
+	local function avoidableDeath(name, t)
+		return { name = name, deathTimes = { t },
+			deathRecap = { { t = t - 1, spell = "Bad Puddle", amount = 300000, avoidable = true } },
+			metrics = { deaths = 1, damageTaken = 400000 } }
+	end
+	local avoidWipe = { name = "Boss", isBoss = true, wipe = true, bossPct = 20, duration = 200,
+		players = { a = avoidableDeath("A", 60), b = avoidableDeath("B", 90),
+			c = avoidableDeath("C", 120) } }
+	local at = table.concat(R.Run("fight", { fight = avoidWipe, runFights = { avoidWipe } }) or {}, " ")
+	check(at:find("avoidable mechanics", 1, true) ~= nil,
+		("avoidable-dominant deaths get named (%s)"):format(at))
+
+	local function chipDeath(name, t)
+		return { name = name, deathTimes = { t },
+			deathRecap = { { t = t - 3, spell = "Melee", amount = 90000 },
+				{ t = t - 2, spell = "Rot", amount = 95000 }, { t = t, spell = "Melee", amount = 88000 } },
+			metrics = { deaths = 1, damageTaken = 400000 } }
+	end
+	local chipWipe = { name = "Boss", isBoss = true, wipe = true, bossPct = 20, duration = 200,
+		players = { a = chipDeath("A", 60), b = chipDeath("B", 90), c = chipDeath("C", 120) } }
+	local ct = table.concat(R.Run("fight", { fight = chipWipe, runFights = { chipWipe } }) or {}, " ")
+	check(ct:find("chip damage", 1, true) ~= nil,
+		("chip-dominant deaths read as a healing-gap signal (%s)"):format(ct))
 end)()
 
 print("")

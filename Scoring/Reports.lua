@@ -87,17 +87,25 @@ end
 -- nothing regardless of stamps.
 local function deathList(fight)
 	local out = {}
+	local DC = TP.Scoring and TP.Scoring.DeathCause
+	local profiles = DC and DC.ProfilesFor and DC.ProfilesFor(fight) or nil
 	for _, p in pairs(fight.players or {}) do
 		if ((p.metrics or {}).deaths or 0) > 0 then
 			local times = p.deathTimes or (p.deathTime and { p.deathTime }) or {}
+			-- the recap describes the LAST death: classify its cause once
+			local cause
+			if p.deathRecap and #p.deathRecap > 0 and DC then
+				cause = DC.Classify(p.deathRecap, p.maxHP, profiles)
+			end
 			for _, t in ipairs(times) do
+				local last = t == times[#times]
 				local avoidable
-				-- the recap describes the LAST death; attach it there only
-				if t == times[#times] and p.deathRecap and #p.deathRecap > 0 then
+				if last and p.deathRecap and #p.deathRecap > 0 then
 					avoidable = p.deathRecap[#p.deathRecap].avoidable
 				end
 				out[#out + 1] = { t = t, avoidable = avoidable,
-					readyDefensives = t == times[#times] and (p.deathReadyDefensives or 0) or 0 }
+					category = last and cause and cause.category or nil,
+					readyDefensives = last and (p.deathReadyDefensives or 0) or 0 }
 			end
 		end
 	end
@@ -345,6 +353,26 @@ local function concerns(fight, deaths, seed)
 	if ready > 0 then
 		pool[#pool + 1] = { sal = 45,
 			text = ("%s died with defensives still ready"):format(plural(ready, "player")) }
+	end
+	-- death CAUSE (2026-07-25): name what actually killed the raid, not
+	-- just the count. Categories from DeathCause; one-shots contribute
+	-- nothing (forgiven). avoidable-dominant vs chip-dominant are very
+	-- different fixes (movement vs healing), so the coach should say which.
+	local DC = TP.Scoring and TP.Scoring.DeathCause
+	if DC and #(deaths or {}) >= 2 then
+		local sum = DC.Summarize(deaths)
+		local judged = sum.avoidable + sum.chip + sum.tankbuster
+		if judged >= 2 and sum.avoidable > sum.chip and sum.avoidable > sum.tankbuster then
+			pool[#pool + 1] = { sal = 55,
+				text = ("%d of %d deaths were avoidable mechanics"):format(sum.avoidable, sum.total) }
+		elseif judged >= 2 and sum.chip >= sum.avoidable and sum.chip >= sum.tankbuster then
+			pool[#pool + 1] = { sal = 35,
+				text = "deaths were chip damage, a healing-gap signal more than a positioning one" }
+		elseif sum.tankbuster > 0 then
+			pool[#pool + 1] = { sal = 50,
+				text = ("a tank died to an un-mitigated hit%s"):format(
+					sum.tankbuster > 1 and (" (%dx)"):format(sum.tankbuster) or "") }
+		end
 	end
 	if threatening then
 		local noDef, defReporting, hsEaten, hsReporting = personalsStats(fight)
