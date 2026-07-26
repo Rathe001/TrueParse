@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+**Augmentation Evokers score Prescience, not Ebon Might.** The Ebon Might
+uptime metric was double-counting: Ebon Might already drives the
+"Amplified" number (your effective damage is your allies' damage times
+your uptime), so scoring the uptime again on top of that credited it
+twice. Ebon Might uptime now feeds Amplified and nothing else. In its
+place the support metric tracks Prescience, which no attribution model
+captures. True Prescience uptime isn't readable from your own client (it
+lives on allies, whose auras are hidden on Midnight), so it's scored as
+cadence: how close you kept to casting Prescience on cooldown, measured
+from your own casts. (Retail only; needs the caster running TrueParse,
+same as the other self-reported facts.)
+
 **Coaching that names your actual mistake.** The post-fight coach used to
 say the same "cast X more often" line on nearly every fight, even when a
 much bigger issue was staring at you. It now ranks every scored

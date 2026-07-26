@@ -33,7 +33,7 @@ TP.METRIC_LABELS = {
 	damageTaken = "Damage Soaked",
 	interrupts = "Interrupts",
 	dispels = "Dispels",
-	buffUptime = "Buff Uptime",
+	prescience = "Prescience",
 }
 
 -- Global specID -> role, for pooling percentile curves by role when a spec

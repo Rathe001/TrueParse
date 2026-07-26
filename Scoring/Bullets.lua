@@ -44,7 +44,7 @@ local PHRASES = {
 	damageTaken = { godly = "Soaked everything", excellent = "Excellent soaking", good = "Solid soaking", average = "Average soaking", low = "Light soaking", zero = "Took no hits" },
 	interrupts = { godly = "Godly interrupting", excellent = "Excellent interrupting", good = "Good interrupting", average = "Some interrupts", low = "Too few interrupts", zero = "Did not interrupt" },
 	dispels = { godly = "Godly dispelling", excellent = "Excellent dispelling", good = "Good dispelling", average = "Some dispels", low = "Too few dispels", zero = "Did not dispel" },
-	buffUptime = { godly = "Godly buff uptime", excellent = "Excellent buff uptime", good = "Good buff uptime", average = "Average buff uptime", low = "Low buff uptime", zero = "Buffs never up" },
+	prescience = { godly = "Godly Prescience uptime", excellent = "Excellent Prescience uptime", good = "Good Prescience uptime", average = "Average Prescience uptime", low = "Low Prescience uptime", zero = "No Prescience" },
 	-- Aug damage is contribution the buffs ENABLED, not personal output
 	amplification = { godly = "Godly amplification", excellent = "Excellent amplification", good = "Good amplification", average = "Average amplification", low = "Low amplification", zero = "No amplification" },
 }

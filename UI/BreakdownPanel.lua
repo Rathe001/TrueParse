@@ -37,7 +37,6 @@ end
 local FIRST_ROW_Y = -40
 
 local COUNT_METRICS = { interrupts = true, dispels = true }
-local PERCENT_METRICS = { buffUptime = true }
 
 local frame
 local rows = {}
@@ -130,8 +129,12 @@ local function showMetricTip(anchor, data)
 			if key == "dispels" and b.reactAvg then
 				valueText = valueText .. (" · %.1fs avg response"):format(b.reactAvg)
 			end
-		elseif PERCENT_METRICS[key] then
-			valueText = ("Up %d%% of the fight"):format((b.value or 0) * 100 + 0.5)
+		elseif key == "prescience" then
+			-- scored as cadence: show the raw casts and the per-minute rate
+			local casts = b.value or 0
+			valueText = (duration and duration > 0)
+				and ("%d casts · %.1f per minute"):format(casts, casts / (duration / 60))
+				or ("%d casts this fight"):format(casts)
 		elseif duration and duration > 0 then
 			valueText = ("%s · %s per second"):format(
 				TP.FormatNumber(b.value or 0), TP.FormatNumber((b.value or 0) / duration))
@@ -183,7 +186,7 @@ local function showMetricTip(anchor, data)
 	elseif b.relative and not b.absolute then
 		if data.role == "SUPPORT" and key == "damage" then
 			-- the attribution input never arrived, name it
-			metricTip.median:SetText("no Ebon Might uptime reported - vs group share")
+			metricTip.median:SetText("no buff uptime reported - vs group share")
 		else
 			metricTip.median:SetText("no WCL population data - vs group share")
 		end
@@ -461,7 +464,7 @@ local function renderSignal(row, sig, groupAvg)
 			row.track:Hide()
 		else
 			-- continuous 0-100 shares without a population (Soaking,
-			-- unranked throughput, Ebon Might): solid verdict-colored fill
+			-- unranked throughput, Prescience): solid verdict-colored fill
 			row.fill:SetColorTexture(r, g, b, 0.9)
 			row.fill:SetWidth(math.max(1, w * math.min(99, v) / 100))
 			row.fill:Show()

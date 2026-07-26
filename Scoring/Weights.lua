@@ -38,7 +38,7 @@ Weights.roleWeights = {
 	-- (their real output lives in allies' numbers). Their defining metric
 	-- is buff uptime, self-reported over Sync when the Aug runs
 	-- TrueParse; when absent it redistributes.
-	SUPPORT = { damage = 0.36, healing = 0.14, buffUptime = 0.50 },
+	SUPPORT = { damage = 0.36, healing = 0.14, prescience = 0.50 },
 }
 
 -- Signed adjustments on TOP of the base. Bounded so a score never
@@ -102,13 +102,19 @@ Weights.adjustments = {
 -- (2026-07-14): transfer 0.12 on the top-4 buffed allies landed within
 -- ~5% of WCL's attributed DPS both fights (ours 31.9k/45.9k vs WCL
 -- 31.5k/48.0k). Recalibrate as more Aug fights land.
+-- NOTE (Josh 2026-07-26): Ebon Might uptime feeds THIS attribution ONLY,
+-- it is no longer a separate scored metric. Higher uptime already means a
+-- higher Amplified score, so scoring uptime again double-counted it.
 Weights.ebonTransfer = 0.12 -- fraction of a buffed ally's damage credited per point of uptime
 Weights.ebonTargets = 4 -- Ebon Might's target count (the top damage dealers)
 
--- Buff uptime that earns a SUPPORT player 100 points: elite Augs hold Ebon
--- Might around 55-70% of a fight, so 100 at 60% keeps S-tier honest without
--- demanding perfection. Calibrate as real Aug reports land.
-Weights.supportUptimeAnchor = 0.60
+-- Prescience cadence that earns a SUPPORT player 100 points (Josh
+-- 2026-07-26). True Prescience uptime isn't readable from the Aug's own
+-- client (it lives on allies, whose auras are secret on Midnight, and the
+-- Evoker carries no personal aura), so we score how close they kept to
+-- casting it on cooldown. Two Prescience buffs held up is ~5 casts/min
+-- (roughly a 12s buff, 2 targets). Calibrate as real Aug reports land.
+Weights.prescienceCadenceAnchor = 5 -- casts/min for a full score
 
 -- Solo-role-cohort fallback: when you're the only one of your role, your
 -- share of the group total is scored against these expectations.

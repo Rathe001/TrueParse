@@ -31,6 +31,7 @@ local ICONS = {
 	-- NB: Blizzard's file really is spelled "Unyeilding" — the correctly
 	-- spelled path renders as a blank square
 	buffUptime = ICON .. "Spell_Nature_UnyeildingStamina",
+	prescience = ICON .. "Ability_Evoker_Prescience",
 	consumables = ICON .. "INV_Potion_92",
 	healthstone = ICON .. "INV_Stone_04",
 	speed = ICON .. "Ability_Rogue_Sprint",
@@ -231,15 +232,15 @@ function Signals.ForResult(result, fight, player)
 		end
 	end
 	-- SUPPORT's signature metric LEADS (Josh 2026-07-25: it carries half
-	-- the grade, so it belongs on top — "Amplified 9" leading while Ebon
-	-- Might sat third made the score unexplainable at a glance)
-	local bu = result.breakdown.buffUptime
-	if role == "SUPPORT" and bu and bu.applicable then
-		local row = barRow("buffUptime", ICONS.buffUptime, "Ebon Might",
-			bu.normalized or 0, nil)
-		row.b = bu
+	-- the grade, so it belongs on top). Prescience cadence replaced the Ebon
+	-- Might metric (2026-07-26): Ebon Might already shows through Amplified.
+	local pr = result.breakdown.prescience
+	if role == "SUPPORT" and pr and pr.applicable then
+		local row = barRow("prescience", ICONS.prescience, "Prescience",
+			pr.normalized or 0, nil)
+		row.b = pr
 		row.base = true -- half the Aug's grade: part of the raw score
-		row.raw = true -- scored vs its own anchor, not a parse population
+		row.raw = true -- scored vs its own cadence anchor, not a population
 		out[#out + 1] = row
 	end
 

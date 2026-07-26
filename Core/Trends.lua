@@ -9,7 +9,7 @@ local Trends = {}
 TP.Trends = Trends
 
 local MAX_FIGHTS = 20
-local METRIC_ORDER = { "damage", "healing", "damageTaken", "interrupts", "dispels", "buffUptime" }
+local METRIC_ORDER = { "damage", "healing", "damageTaken", "interrupts", "dispels", "prescience" }
 
 local function directionWord(delta, threshold)
 	if delta >= threshold then

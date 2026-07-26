@@ -220,30 +220,32 @@ check(augByName.Auggy.breakdown.damage.normalized == 50 and augByName.Auggy.brea
 	("no-data aug damage pins neutral (%.0f)"):format(augByName.Auggy.breakdown.damage.normalized))
 check(augByName.Auggy.score >= 40, ("no-data aug grades neutral, not damning (%.1f)"):format(augByName.Auggy.score))
 check(augByName.DpsB.breakdown.damage.normalized == 50, "DPS cohort unaffected by aug (B vs A = 50)")
-check(augByName.Auggy.breakdown.buffUptime and not augByName.Auggy.breakdown.buffUptime.applicable,
-	"no self-reported uptime -> buffUptime inapplicable, weight redistributes")
+check(augByName.Auggy.breakdown.prescience and not augByName.Auggy.breakdown.prescience.applicable,
+	"no self-reported prescience -> inapplicable, weight redistributes")
 
--- 6b2. Self-reported Ebon Might uptime becomes the SUPPORT-defining metric
-augFight.players.aug.metrics.buffUptime = 0.60 -- exactly the anchor
+-- 6b2. Prescience cadence is the SUPPORT-defining metric now (Ebon Might is
+-- attribution-only, folded into Amplified). Duration is 60s so casts equal
+-- casts/min; the anchor is 5 casts/min for a full score.
+augFight.players.aug.metrics.prescience = 5 -- exactly the anchor
 local upResults = TP.Scoring.Engine.ScoreFight(augFight)
 local upAug
 for _, r in ipairs(upResults) do
 	if r.name == "Auggy" then upAug = r end
 end
-check(upAug.breakdown.buffUptime.applicable, "reported uptime is scored")
-check(upAug.breakdown.buffUptime.normalized == 100, "60% uptime hits the anchor: 100")
-check(math.abs(upAug.breakdown.buffUptime.effectiveWeight - 0.50) < 1e-9,
-	"uptime is the biggest SUPPORT weight (50% of the base)")
-check(upAug.score > augByName.Auggy.score, "a high-uptime aug outscores the no-data version")
-augFight.players.aug.metrics.buffUptime = 0.30
+check(upAug.breakdown.prescience.applicable, "reported prescience is scored")
+check(upAug.breakdown.prescience.normalized == 100, "5 casts/min hits the anchor: 100")
+check(math.abs(upAug.breakdown.prescience.effectiveWeight - 0.50) < 1e-9,
+	"prescience is the biggest SUPPORT weight (50% of the base)")
+check(upAug.score > augByName.Auggy.score, "a high-cadence aug outscores the no-data version")
+augFight.players.aug.metrics.prescience = 3
 local halfResults = TP.Scoring.Engine.ScoreFight(augFight)
 for _, r in ipairs(halfResults) do
 	if r.name == "Auggy" then
-		check(r.breakdown.buffUptime.normalized == 50, "30% uptime scores 50")
+		check(r.breakdown.prescience.normalized == 60, "3 casts/min scores 60")
 	end
 end
-check(TP.Scoring.Weights.roleWeights.DAMAGER.buffUptime == nil, "non-support roles never score uptime")
-augFight.players.aug.metrics.buffUptime = nil
+check(TP.Scoring.Weights.roleWeights.DAMAGER.prescience == nil, "non-support roles never score prescience")
+augFight.players.aug.metrics.prescience = nil
 
 -- 6c. Benchmarks: spec factors and ilvl normalization
 check(TP.Benchmarks and TP.Benchmarks.ilvlSlopePct > 0, "benchmarks loaded with ilvl slope")
@@ -2658,7 +2660,7 @@ end)()
 		{ metrics = { lustCasts = 2, lustPotion = 1 } })
 	check(otherItem(drows, "Lust + potion") ~= nil, "full alignment reads as the best verdict")
 	-- retail shapes (no CLEU): kicks without opportunity data keep a
-	-- share bar with the landed count; SUPPORT keeps Ebon Might + the
+	-- share bar with the landed count; SUPPORT keeps Prescience + the
 	-- amplification label (cross-scenario audit 2026-07-24)
 	local retail = S.ForResult({ role = "DAMAGER", adjustDetail = { kicks = 2 }, penaltyDetail = {},
 		breakdown = { damage = { applicable = true, pctile = 60 },
@@ -2673,15 +2675,15 @@ end)()
 		("retail kicks: share bar + landed count (%s)"):format(tostring(rk and rk.num)))
 	local aug = S.ForResult({ role = "SUPPORT", adjustDetail = {}, penaltyDetail = {},
 		breakdown = { damage = { applicable = true, normalized = 70, attribution = { own = 1, attributed = 2 } },
-			buffUptime = { applicable = true, normalized = 85, value = 0.62 } } }, {}, { metrics = {} })
+			prescience = { applicable = true, normalized = 85, value = 22 } } }, {}, { metrics = {} })
 	local byK = {}
 	for _, r in ipairs(aug) do
 		byK[r.key] = r
 	end
 	check(byK.damage and byK.damage.label == "Amplified",
 		"Aug damage row reads Amplified")
-	check(byK.buffUptime and byK.buffUptime.value == 85 and byK.buffUptime.raw,
-		"Ebon Might keeps its row")
+	check(byK.prescience and byK.prescience.value == 85 and byK.prescience.raw,
+		"Prescience keeps its row")
 
 	-- group averages feed the comparison ticks
 	local avg = S.GroupAverages({ result, dps }, { players = {} })
@@ -3068,16 +3070,16 @@ end)()
 				augSigs = sigs
 			end
 		end
-		check(aug and aug.role == "SUPPORT" and aug.breakdown.buffUptime
-			and aug.breakdown.buffUptime.applicable,
-			"retail mock Aug scores Ebon Might")
-		local sawEbon = false
+		check(aug and aug.role == "SUPPORT" and aug.breakdown.prescience
+			and aug.breakdown.prescience.applicable,
+			"retail mock Aug scores Prescience")
+		local sawPrescience = false
 		for _, s in ipairs(augSigs or {}) do
-			if s.key == "buffUptime" then
-				sawEbon = true
+			if s.key == "prescience" then
+				sawPrescience = true
 			end
 		end
-		check(sawEbon, "retail mock Aug card shows the Ebon Might row")
+		check(sawPrescience, "retail mock Aug card shows the Prescience row")
 		local gok2, grows2 = pcall(TP.Scoring.Signals.GroupRows, rres, rkill)
 		check(gok2 and #grows2 > 0, "retail mock group rows build")
 	end

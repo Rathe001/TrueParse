@@ -310,12 +310,15 @@ local function retailRoster(duration, full)
 		{ activityPct = 90, defensives = 1, consumables = 2, dispels = 7, deaths = 0 })
 	add("MOCK-h3", "Tidebound", "EVOKER", "HEALER", 1468, 420000, 3500000, k,
 		{ activityPct = 96, defensives = 2, consumables = 1, dispels = 3, deaths = 0 })
-	-- the Aug: their "damage" is what their buffs enabled; buffUptime is
-	-- the self-reported Ebon Might ratio (35% of the grade). On wipe
-	-- pulls the report is withheld so the "Amplified ?" pin shows too.
+	-- the Aug: their "damage" is what their buffs enabled. buffUptime is the
+	-- Ebon Might ratio, now attribution-only (it drives Amplified). The
+	-- scored SUPPORT metric is Prescience cadence, from the cast count vs
+	-- the fight length. On wipe pulls both reports are withheld so the
+	-- "Amplified ?" pin shows too.
 	add("MOCK-s1", "Emberweave", "EVOKER", "SUPPORT", 1473, 1400000, 300000, k,
 		{ activityPct = 91, defensives = 1, consumables = 2, deaths = 0,
-			buffUptime = full and 0.68 or nil })
+			buffUptime = full and 0.68 or nil,
+			prescience = full and 22 or nil }) -- ~22 casts / ~4.6min ≈ anchor
 	add("MOCK-d1", "Starveil", "MAGE", "DAMAGER", 63, 4300000, 90000, k,
 		{ avoidableTaken = 4000 * k, activityPct = 97, defensives = 3, consumables = 2,
 			interrupts = 2, deaths = 0 })

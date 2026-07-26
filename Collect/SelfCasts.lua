@@ -130,7 +130,13 @@ end
 -- that defines the spec); the receiver clamps it to sane bounds.
 local AUG_SPEC_ID = 1473
 local EBON_MIGHT_SELF = 395296
+-- Prescience is cast on ALLIES (no personal aura, ally auras are secret on
+-- Midnight), so uptime isn't directly measurable. We count the Aug's own
+-- Prescience casts and score the cadence instead (Josh 2026-07-26).
+-- PROVISIONAL spell id, verify on Wowhead.
+local PRESCIENCE_CAST = 409311
 local uptimeSeconds = 0
+local prescienceCasts = 0
 local trackingUptime = false
 local uptimeTicker
 
@@ -322,6 +328,10 @@ local function finalizeFight()
 			if brezCasts > 0 then
 				x.rz = brezCasts
 			end
+			-- Aug Prescience cast count (scored as cadence by the receiver)
+			if prescienceCasts > 0 then
+				x.pr = prescienceCasts
+			end
 			-- personal spike windows from own intake buckets, coverage
 			-- from own defensive cast times (same slops the Classic
 			-- tracker uses). The map rides the LOCAL report only.
@@ -460,6 +470,7 @@ local function startWindow()
 	local ok, count = pcall(countConsumables)
 	consumablesAtPull = ok and count or 0
 	uptimeSeconds = 0
+	prescienceCasts = 0
 	trackingUptime = isAugEvoker()
 	if trackingUptime and not uptimeTicker then
 		uptimeTicker = C_Timer.NewTicker(1, function()
@@ -527,6 +538,11 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 			end
 			if TP.Compat.IS_RETAIL and BREZ_SPELLS[spellID] then
 				brezCasts = brezCasts + 1
+			end
+			-- Prescience cadence input (Aug): count our own casts; the
+			-- receiver scores casts/min vs the expected on-cooldown rate
+			if TP.Compat.IS_RETAIL and spellID == PRESCIENCE_CAST then
+				prescienceCasts = prescienceCasts + 1
 			end
 			-- raid-CD cast time (retail group-spike coverage)
 			if TP.Compat.IS_RETAIL and TP.HEALER_CDS and TP.HEALER_CDS[spellID] then

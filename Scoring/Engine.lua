@@ -753,15 +753,22 @@ local function normalizeMetric(p, role, key, ctx)
 		return smoothed, true
 	end
 
-	if key == "buffUptime" then
-		-- Self-reported Ebon Might uptime (fraction of the fight), only
-		-- present when the support player runs TrueParse. Absent -> weight
+	if key == "prescience" then
+		-- Self-reported Prescience casts (retail Aug), scored as CADENCE:
+		-- keeping two Prescience buffs up means casting near on-cooldown.
+		-- True uptime isn't readable (ally auras are secret, the Evoker has
+		-- no personal aura), so casts/min vs an expected rate is the honest
+		-- proxy. Ebon Might is deliberately NOT scored here (Josh
+		-- 2026-07-26): its contribution already lands in the Amplified
+		-- (effective-damage) metric via the attribution below, so scoring
+		-- its uptime too would double-count it. Absent -> weight
 		-- redistributes, exactly like a missing capability.
-		local uptime = p.metrics and p.metrics.buffUptime
-		if not uptime then
+		local casts = p.metrics and p.metrics.prescience
+		if not casts or not ctx.duration or ctx.duration <= 0 then
 			return 0, false
 		end
-		return math.min(100, 100 * uptime / (W.supportUptimeAnchor or 1)), true
+		local perMin = casts / (ctx.duration / 60)
+		return math.min(100, 100 * perMin / (W.prescienceCadenceAnchor or 5)), true
 	end
 
 	-- Damage soaked: no external population exists (WCL doesn't rank damage
@@ -1185,6 +1192,8 @@ function Engine.ScoreFight(fight, opts)
 	-- reported Ebon Might uptime applied to the top-N buffed allies. Runs
 	-- after cohorts so the buffed set (highest-damage non-supports) is
 	-- known; scored as DPS in normalizeMetric via ctx.effectiveDamage.
+	-- Ebon Might uptime (buffUptime) feeds THIS and nothing else now: it is
+	-- the Amplified metric's input, not a separately scored metric.
 	do
 		local transfer = W.ebonTransfer or 0.12
 		local nTargets = W.ebonTargets or 4
