@@ -3332,6 +3332,25 @@ end)()
 	local one = alltext(R.Run("fight", { fight = killFight, runFights = { killFight } }))
 	check(one:find("one pull", 1, true) ~= nil, ("one-pull brag in the opener (%s)"):format(one))
 
+	-- farm-speed one-shots read short and varied, and the defensive nag
+	-- never interrupts them (Josh 2026-07-25: five TW bosses read
+	-- identically, each closing on "1 player never pressed a defensive")
+	local tw = { name = "Mr. Smite", isBoss = true, duration = 62,
+		totals = { damage = 2000000 },
+		players = {
+			a = { name = "TwTank", metrics = { deaths = 0, defensives = 0, damage = 2000000 } },
+		} }
+	local twt = alltext(R.Run("fight", { fight = tw, runFights = { tw },
+		results = { { name = "TwTank", score = 61 } } }))
+	check(twt:find("Mr. Smite", 1, true) ~= nil
+		and (twt:find("folded", 1, true) or twt:find("Quick work", 1, true)
+			or twt:find("barely slowed", 1, true) or twt:find("without much drama", 1, true)),
+		("trivial kill reads short and varied (%s)"):format(twt))
+	check(twt:find("defensive", 1, true) == nil, "no prep nag on a farm one-shot")
+	check(twt:find("61", 1, true) ~= nil and twt:find("score", 1, true) ~= nil
+		and twt:find("parse", 1, true) == nil,
+		("unranked content says score, not parse (%s)"):format(twt))
+
 	local rl = R.Run("run", {
 		zone = "Siege of Orgrimmar",
 		runFights = { killFight, wipeFight,

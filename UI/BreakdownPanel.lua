@@ -474,11 +474,10 @@ local function renderSignal(row, sig, groupAvg)
 		-- picked the color); counts stay counts, tooltips stay numeric.
 		local numText = sig.num
 		if not numText then
-			-- letters are bracket language: only rows whose color came from
-			-- a population tier may wear one — a group-share 92 stays "92",
-			-- never an "S-" over a neutral fill (audit 2026-07-24)
-			if TP.Addon.db.profile.letterGrades and TP.Scoring.Grades.LetterFor
-				and (sig.tier or not sig.raw) then
+			-- letters everywhere the option is on (Josh 2026-07-25: the
+			-- old "brackets only" rule left share bars numeric next to a
+			-- lettered scorecard); counts/percent rows keep their numbers
+			if TP.Addon.db.profile.letterGrades and TP.Scoring.Grades.LetterFor then
 				numText = TP.Scoring.Grades.LetterFor(sig.tier or v)
 			else
 				numText = ("%d"):format(v + 0.5)

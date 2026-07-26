@@ -256,9 +256,11 @@ end
 
 -- ===== shared sentences =====
 
--- "The group put up 62.6k DPS for a score of 61, parsing 45 on
--- average with a 90 on top."
-local function groupSentence(ctx)
+-- "The group put up 62.6k DPS for a parse of 61, parsing 45 on
+-- average with a 90 on top." The word matters (Josh 2026-07-25):
+-- "parse" only when WCL data actually backed the fight; unranked
+-- content says "score".
+local function groupSentence(ctx, seed, compact)
 	local f = ctx.fight
 	local gs = ctx.groupScore or groupScore(ctx.results)
 	local dps
@@ -267,12 +269,21 @@ local function groupSentence(ctx)
 		dps = TP.FormatNumber(t.damage / f.duration)
 	end
 	local avg, best = parseStats(ctx.results)
+	local word = avg and "parse" or "score"
 	local parseClause = avg
 		and (", parsing %d on average with a %d on top"):format(avg, best) or ""
-	if gs and dps then
-		return ("The group put up %s DPS for a score of %d%s."):format(dps, gs, parseClause)
+	if gs and dps and compact then
+		return pick(seed, 11, {
+			("Group %s %d on %s DPS."):format(word, gs, dps),
+			("The group ran %s DPS for a %s of %d."):format(dps, word, gs),
+		})
+	elseif gs and dps then
+		return pick(seed, 11, {
+			("The group put up %s DPS for a %s of %d%s."):format(dps, word, gs, parseClause),
+			("That's a group %s of %d on %s raid DPS%s."):format(word, gs, dps, parseClause),
+		})
 	elseif gs then
-		return ("Group score %d%s."):format(gs, parseClause)
+		return ("Group %s %d%s."):format(word, gs, parseClause)
 	elseif avg then
 		return ("The raid parsed %d on average, %d at best."):format(avg, best)
 	end
@@ -283,6 +294,11 @@ end
 -- a long metric list from becoming a stat dump.
 local function concerns(fight, deaths, seed)
 	local pool = {}
+	-- personal-prep nags only matter when the fight actually threatened
+	-- anyone (Josh 2026-07-25: "1 player never pressed a defensive" was
+	-- closing every trivial farm kill)
+	local threatening = fight.wipe or #(deaths or {}) > 0
+		or (fight.duration or 0) >= 120
 	local windows, uncovered = spikeStats(fight)
 	if windows and uncovered and uncovered > 0 then
 		pool[#pool + 1] = { sal = 30 + uncovered / windows * 50,
@@ -313,14 +329,16 @@ local function concerns(fight, deaths, seed)
 		pool[#pool + 1] = { sal = 45,
 			text = ("%s died with defensives still ready"):format(plural(ready, "player")) }
 	end
-	local noDef, defReporting, hsEaten, hsReporting = personalsStats(fight)
-	if defReporting > 0 and noDef > 0 then
-		pool[#pool + 1] = { sal = 18,
-			text = ("%s never pressed a defensive"):format(plural(noDef, "player")) }
-	end
-	if hsReporting > 0 and hsEaten < hsReporting then
-		pool[#pool + 1] = { sal = 15,
-			text = ("only %d of %d ate a healthstone"):format(hsEaten, hsReporting) }
+	if threatening then
+		local noDef, defReporting, hsEaten, hsReporting = personalsStats(fight)
+		if defReporting > 0 and noDef > 0 then
+			pool[#pool + 1] = { sal = 18,
+				text = ("%s never pressed a defensive"):format(plural(noDef, "player")) }
+		end
+		if hsReporting > 0 and hsEaten < hsReporting then
+			pool[#pool + 1] = { sal = 15,
+				text = ("only %d of %d ate a healthstone"):format(hsEaten, hsReporting) }
+		end
 	end
 	table.sort(pool, function(a, b)
 		return a.sal > b.sal
@@ -334,11 +352,11 @@ local function concernSentence(pool, seed, gentle)
 	end
 	if #pool == 1 or gentle then
 		local intro = gentle
-			and pick(seed, 5, { "Only loose thread: ", "One thing to tighten: " })
-			or pick(seed, 5, { "But ", "Still, " })
+			and pick(seed, 5, { "Only loose thread: ", "One thing to tighten: ", "The lone blemish: " })
+			or pick(seed, 5, { "But ", "Still, ", "Even so, " })
 		return capitalize(intro .. pool[1].text .. ".")
 	end
-	local pivot = pick(seed, 7, { "But ", "Still, " })
+	local pivot = pick(seed, 7, { "But ", "Still, ", "Even so, " })
 	return capitalize(pivot .. pool[1].text .. ", and " .. pool[2].text .. ".")
 end
 
@@ -352,7 +370,28 @@ local function buildKill(ctx)
 	local seed = seedFor(f, ctx.zone)
 	local deaths = deathList(f)
 	local pulls = pullCount(ctx)
+	local speed = killSpeedPct(f)
 	local s = {}
+
+	-- farm-speed one-shots get a short, varied line instead of the full
+	-- debrief shape (Josh 2026-07-25: five TW bosses read identically)
+	local trivial = (f.duration or 0) < 120 and #deaths == 0
+		and pulls <= 1 and not speed and not f.wipe
+	if trivial then
+		s[#s + 1] = pick(seed, 1, {
+			("%s folded in %s."):format(f.name or "The boss", mmss(f.duration)),
+			("Quick work: %s down in %s."):format(f.name or "the boss", mmss(f.duration)),
+			("%s barely slowed the group down, dead in %s."):format(f.name or "The boss", mmss(f.duration)),
+			("%s down in %s without much drama."):format(f.name or "The boss", mmss(f.duration)),
+		})
+		s[#s + 1] = groupSentence(ctx, seed, true)
+		-- only a genuinely loud concern interrupts a farm kill
+		local pool = concerns(f, deaths, seed)
+		if pool[1] and pool[1].sal >= 40 then
+			s[#s + 1] = concernSentence({ pool[1] }, seed, true)
+		end
+		return packLines(s)
+	end
 
 	-- opener: outcome plus its short brags
 	local extras = {}
@@ -360,13 +399,12 @@ local function buildKill(ctx)
 		extras[#extras + 1] = "one pull"
 	end
 	if #deaths == 0 then
-		extras[#extras + 1] = pick(seed, 1, { "nobody died", "no deaths" })
+		extras[#extras + 1] = pick(seed, 1, { "nobody died", "no deaths", "deathless" })
 	end
 	s[#s + 1] = ("%s %s %s%s."):format(f.name or "The boss",
-		pick(seed, 2, { "down in", "dead in" }), mmss(f.duration),
+		pick(seed, 2, { "down in", "dead in", "dropped in" }), mmss(f.duration),
 		#extras > 0 and (", " .. table.concat(extras, ", ")) or "")
 
-	local speed = killSpeedPct(f)
 	if speed then
 		s[#s + 1] = ("That's faster than %d%% of ranked kills on Warcraft Logs."):format(speed)
 	end
@@ -377,7 +415,7 @@ local function buildKill(ctx)
 			bestPct and (", the best prior attempt reaching %d%%"):format(bestPct) or "")
 	end
 
-	s[#s + 1] = groupSentence(ctx)
+	s[#s + 1] = groupSentence(ctx, seed)
 
 	if #deaths > 0 then
 		local avoidable = 0
@@ -403,6 +441,16 @@ local function buildKill(ctx)
 		elseif diff > 0 then
 			s[#s + 1] = ("%d seconds faster than the last kill."):format(diff)
 		end
+	end
+	-- clean kills only surface concerns that earned the ink
+	if #deaths == 0 then
+		local kept = {}
+		for _, c in ipairs(pool) do
+			if c.sal >= 25 then
+				kept[#kept + 1] = c
+			end
+		end
+		pool = kept
 	end
 	s[#s + 1] = concernSentence(pool, seed, #deaths == 0)
 
@@ -471,7 +519,7 @@ local function buildWipe(ctx)
 		end
 	end
 
-	s[#s + 1] = groupSentence(ctx)
+	s[#s + 1] = groupSentence(ctx, seed)
 	s[#s + 1] = concernSentence(concerns(f, deaths, seed), seed, false)
 
 	if best and f.bossPct then
@@ -526,7 +574,9 @@ local function buildRun(ctx)
 	end
 	local zone = ctx.zone or fights[1].zone or "The run"
 	local gs = ctx.groupScore or groupScore(ctx.results)
-	local scoreClause = gs and (" for a run score of %d"):format(gs) or ""
+	-- "parse" only when WCL data backed the run (Josh 2026-07-25)
+	local runWord = parseStats(ctx.results) and "parse" or "score"
+	local scoreClause = gs and (" for a run %s of %d"):format(runWord, gs) or ""
 	local s = {}
 	if wipes == 0 and kills > 0 then
 		s[#s + 1] = ("%s cleared: %s, no wipes, %s of fighting%s."):format(
