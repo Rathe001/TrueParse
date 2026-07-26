@@ -65,6 +65,7 @@ Scoring\Reports.lua
 Scoring\Insights.lua
 Scoring\Bullets.lua
 Scoring\Signals.lua
+Scoring\DeathCause.lua
 Core\MockFight.lua
 Core\TankProbe.lua
 Core\Career.lua

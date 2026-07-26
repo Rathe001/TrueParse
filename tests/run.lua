@@ -24,6 +24,7 @@ loadModule("Scoring/Insights.lua", TP)
 loadModule("Scoring/Bullets.lua", TP)
 loadModule("Scoring/Signals.lua", TP)
 loadModule("Scoring/Reports.lua", TP)
+loadModule("Scoring/DeathCause.lua", TP)
 loadModule("Metrics/Registry.lua", TP)
 loadModule("Metrics/Spikes.lua", TP) -- FindWindows/Compute are pure at capture time
 
@@ -3515,6 +3516,64 @@ end)()
 		{ role = "DAMAGER", windows = { { 10, 12 } } },
 		{ role = "HEALER", windows = { { 80, 82 } } },
 	}) == nil, "non-overlapping personal spikes are not group spikes")
+end)()
+
+-- 41. Death-cause classification (2026-07-25): name the cause so the
+-- coach can be constructive. Accuracy scales with crawled profiles;
+-- degrades cleanly to one-shot + avoidable-flag without them.
+;(function()
+	local DC = TP.Scoring.DeathCause
+	local profiles = {
+		["Annihilate"] = { tankOnly = true, hitPct = 0.7, hitRate = 0.1 },
+		["Whirling Corruption"] = { hitRate = 0.31 },
+		["Melee"] = { hitRate = 1.0 },
+		["Desecrated"] = { hitRate = 0.9 },
+	}
+	-- one-shot outranks everything and is forgiven
+	local os = DC.Classify({ { spell = "Iron Star Impact", amount = 1200000 } }, 500000, profiles)
+	check(os.category == "oneShot" and os.forgive, ("one-shot forgiven (%s)"):format(os.category))
+	-- tankbuster: tank-only hard hit, dominant, NOT forgiven
+	local tb = DC.Classify({ { spell = "Melee", amount = 200000 },
+		{ spell = "Annihilate", amount = 1900000 } }, 3000000, profiles)
+	check(tb.category == "tankbuster" and not tb.forgive and tb.spell == "Annihilate",
+		("tankbuster named, not forgiven (%s)"):format(tb.category))
+	-- avoidable by low hitRate profile
+	local av = DC.Classify({ { spell = "Melee", amount = 80000 },
+		{ spell = "Whirling Corruption", amount = 300000 } }, 400000, profiles)
+	check(av.category == "avoidable" and av.spell == "Whirling Corruption",
+		("avoidable by profile hitRate (%s)"):format(av.category))
+	-- avoidable by the per-hit flag, NO profiles (the fallback)
+	local avf = DC.Classify({ { spell = "Bad Stuff", amount = 300000, avoidable = true } }, 400000, nil)
+	check(avf.category == "avoidable", ("avoidable by flag, no profile (%s)"):format(avf.category))
+	-- chip: pile-on, no dominant hit (the 84%-of-deaths case)
+	local chip = DC.Classify({ { spell = "Melee", amount = 100000 },
+		{ spell = "Desecrated", amount = 110000 }, { spell = "Melee", amount = 95000 },
+		{ spell = "Desecrated", amount = 105000 } }, 500000, profiles)
+	check(chip.category == "chip", ("pile-on reads as chip (%s)"):format(chip.category))
+	-- unknown: a dominant unprofiled non-avoidable hit
+	local unk = DC.Classify({ { spell = "Mystery Beam", amount = 400000 },
+		{ spell = "Melee", amount = 50000 } }, 900000, profiles)
+	check(unk.category == "unknown" and unk.spell == "Mystery Beam",
+		("dominant unprofiled hit = unknown (%s)"):format(unk.category))
+	check(DC.Classify(nil, 500000, profiles).category == "unknown", "no recap = unknown")
+
+	-- Summarize counts per category
+	local sum = DC.Summarize({ { category = "avoidable" }, { category = "avoidable" },
+		{ category = "chip" }, { category = "oneShot" } })
+	check(sum.total == 4 and sum.avoidable == 2 and sum.chip == 1 and sum.oneShot == 1,
+		"Summarize tallies each category")
+
+	-- thresholds table present (a retune must be deliberate)
+	check(DC.THRESHOLDS and DC.THRESHOLDS.oneShotHP == 0.9
+		and DC.THRESHOLDS.avoidableHitRate == 0.4, "threshold constants pinned")
+
+	-- ProfilesFor: encounterID first, then stripped name
+	TP.DAMAGE_PROFILES = { ids = { [1623] = "Garrosh Hellscream" },
+		["Garrosh Hellscream"] = profiles }
+	check(DC.ProfilesFor({ encounterID = 1623 }) == profiles, "profiles resolve by encounterID")
+	check(DC.ProfilesFor({ name = "(!) Garrosh Hellscream" }) == profiles, "profiles resolve by stripped name")
+	check(DC.ProfilesFor({ name = "Unknown Boss" }) == nil, "no profile for an unknown boss")
+	TP.DAMAGE_PROFILES = nil
 end)()
 
 print("")
