@@ -360,13 +360,9 @@ function Signals.ForResult(result, fight, player)
 	elseif (pd.avoidable or 0) > 0 then
 		verdict("avoidable", ICONS.avoidable, "Stood in bad", -pd.avoidable)
 	end
-	-- the footer's checkmarks retired (Josh 2026-07-25): an UNPREPARED
-	-- pull says so here, unscored — the prepared case is the REMAINDER's
-	-- "Flask + food" chip
-	if m.consumables ~= nil and m.consumables < 2 then
-		out[#out + 1] = { key = "consumables", kind = "glyph",
-			icon = ICONS.consumables, label = "No flask/food", good = false }
-	end
+	-- prepared now scores BOTH ways (Josh 2026-07-26: -1 per missing
+	-- flask/food), so the REMAINDER's "prepared" chip carries the whole
+	-- story - the old unscored "No flask/food" info chip is gone.
 
 	-- 9b) every remaining scored adjustment gets a verdict glyph — the
 	-- card must account for every point (nothing silently vanishes just
@@ -375,7 +371,7 @@ function Signals.ForResult(result, fight, player)
 		{ key = "overheal", up = "Lean healing", down = "Overhealed", icon = ICONS.healing },
 		{ key = "overkill", up = nil, down = "Overkill heavy", icon = ICONS.damage },
 		{ key = "manaDry", up = nil, down = "Mana ran dry", icon = ICONS.activity },
-		{ key = "prepared", up = "Flask + food", down = nil, icon = ICONS.consumables },
+		{ key = "prepared", up = "Flask + food", down = "No flask/food", icon = ICONS.consumables },
 		{ key = "healthstone", up = "Healthstone", down = "No healthstone", icon = ICONS.healthstone },
 		-- (the tanking bonus chip retired 2026-07-26: mitigation is a scored
 		-- base metric now, the gauge above carries it - no chip)

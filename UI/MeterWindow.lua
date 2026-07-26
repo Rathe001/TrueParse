@@ -1192,11 +1192,18 @@ function MeterWindow:RenderScorecard(fight)
 		for _, r in ipairs(results) do
 			adjSum = adjSum + (r.adjust or -(r.penalty or 0))
 		end
+		-- the group score is an AVERAGE, so its adjustment is too - and an
+		-- average lands in the sub-1 dead zone far more than an individual's
+		-- whole-number adjustment does, so the column read blank when the net
+		-- was small (Josh 2026-07-26). Show a decimal there so the group row
+		-- carries a +/- like the player rows instead of nothing.
 		local adjAvg = adjSum / #results
-		if adjAvg >= 0.5 then
-			row.penalty:SetText(("|cff44cc44+%.0f|r"):format(adjAvg))
-		elseif adjAvg <= -0.5 then
-			row.penalty:SetText(("|cffff4444-%.0f|r"):format(-adjAvg))
+		local mag = math.abs(adjAvg)
+		if mag >= 0.05 then
+			local sign = adjAvg > 0 and "+" or "-"
+			local color = adjAvg > 0 and "44cc44" or "ff4444"
+			local num = (mag >= 0.95) and ("%.0f"):format(mag) or ("%.1f"):format(mag)
+			row.penalty:SetText(("|cff%s%s%s|r"):format(color, sign, num))
 		else
 			row.penalty:SetText("")
 		end

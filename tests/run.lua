@@ -648,6 +648,23 @@ local buffAdvice = TP.Scoring.Coach.BiggestOpportunity({
 })
 check(buffAdvice and buffAdvice.kind == "buffs", "coach flags buff coverage")
 
+-- 12b. Flask + food: +1 for both up, -1 per one missing, neutral when the
+-- count was never reported (Josh 2026-07-26)
+local prepFight = { name = "Prep", duration = 60, players = {
+	both = mkPlayer("both", "Both", "MAGE", "DAMAGER", { damage = 1000000, consumables = 2 }),
+	one = mkPlayer("one", "One", "MAGE", "DAMAGER", { damage = 1000000, consumables = 1 }),
+	none = mkPlayer("none", "None", "MAGE", "DAMAGER", { damage = 1000000, consumables = 0 }),
+	unk = mkPlayer("unk", "Unk", "MAGE", "DAMAGER", { damage = 1000000 }),
+} }
+local prepBy = {}
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(prepFight, { normalizeIlvl = false })) do
+	prepBy[r.name] = r
+end
+check((prepBy.Both.adjustDetail.prepared or 0) == 1, "both flask + food earns +1")
+check((prepBy.One.adjustDetail.prepared or 0) == -1, "one consumable short costs -1")
+check((prepBy.None.adjustDetail.prepared or 0) == -2, "no flask/food costs -2")
+check(prepBy.Unk.adjustDetail.prepared == nil, "unreported consumables stay neutral")
+
 -- 13. Group insights: strengths/weaknesses derived from results
 -- healing weakness needs 2+ HEALERS agreeing (role-primary counting,
 -- 2026-07-14: off-heal averages scolded the healer)
@@ -830,8 +847,8 @@ check(consText == "Came prepared (flask/food up) (+1)", ("prepared bullet (%s)")
 check(readyText == "Died with 2 defensives ready (-3)", ("death-ready bullet (%s)"):format(tostring(readyText)))
 bulletResult.adjustDetail = nil
 
--- unscored consumable nags are gone (impact-only card); praise still
--- shows because being prepared carries points
+-- flask + food scores both ways for everyone now (Josh 2026-07-26): praise
+-- for both up, a penalty for each one missing, any role or client
 local function consBulletFor(role, count, isRetail, ad)
 	local res = { role = role, adjustDetail = ad, breakdown = { damage = { applicable = true, normalized = 60, effectiveWeight = 1, value = 100 } }, penaltyDetail = {} }
 	for _, b in ipairs(TP.Scoring.Bullets.ForResult(res, nil, { consumables = count, isRetail = isRetail })) do
@@ -839,7 +856,10 @@ local function consBulletFor(role, count, isRetail, ad)
 	end
 	return nil
 end
-check(consBulletFor("DAMAGER", 0, false) == nil, "unscored consumable nag hidden")
+check(consBulletFor("DAMAGER", 0, false, { prepared = -2 }) == "No flask or food at the pull (-2)",
+	"missing both flask and food nags with the -2")
+check(consBulletFor("HEALER", 1, true, { prepared = -1 }) == "Flask or food missing (-1)",
+	"one short costs -1 for any role or client")
 check(consBulletFor("HEALER", 2, true, { prepared = 1 }) == "Came prepared (flask/food up) (+1)", "praise is universal")
 local exculpBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { deathReady = 0 })
 local exculpText

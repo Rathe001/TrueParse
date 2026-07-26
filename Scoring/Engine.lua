@@ -1639,8 +1639,16 @@ function Engine.ScoreFight(fight, opts)
 			-- (the mitigation adjustment retired 2026-07-25: uptime lives
 			-- inside the Tanking composite now — scoring it separately
 			-- double-dipped, and points without a row are forbidden)
-			if (m.consumables or 0) >= 2 then
-				put("prepared", A.preparedBonus or 0)
+			-- Flask + food: +1 for both up, and each one MISSING now costs a
+			-- point (Josh 2026-07-26: -1 for one short, -2 for both). Only
+			-- when the count was actually reported - consumables is
+			-- self-report only (Collect/Sync), so non-reporters stay neutral.
+			if m.consumables ~= nil then
+				if m.consumables >= 2 then
+					put("prepared", A.preparedBonus or 1)
+				else
+					put("prepared", -(2 - m.consumables)) -- 0 -> -2, 1 -> -1
+				end
 			end
 			if (m.defensives or 0) >= 2 then
 				put("defensives", A.defensivesBonus or 0)

@@ -2,13 +2,22 @@
 
 ## Unreleased
 
+**Flask and food now cost points if missing.** Each is worth a point, so
+turning up without both costs -1, and without either costs -2 (it was
+praise-only before). Applies to any role on either client, and only when a
+player's own TrueParse actually reported the count - nobody is penalized on
+missing data.
+
 **Card polish.** The subtle green/red section washes behind the bonus and
 penalty chips now show reliably (they were drawn on the same layer as the
 card's backdrop and lost the coin-flip). The group card gets the same
 three-section treatment as player cards: its verdicts are chips in bonus,
 penalty, and neutral grids now, with plain-ink labels and only the +/-
 value colored, instead of full-width colored sentences. The group nuance
-(which player, what percent) moves to each chip's hover.
+(which player, what percent) moves to each chip's hover. The group row on
+the main window shows its +/- like the player rows now, with a decimal
+when the group's average adjustment is under a point (so it never reads
+blank when the net is small).
 
 **Tanks are scored on mitigation.** Survival is now a tank's primary
 metric instead of a bonus that barely moved the score. The Mitigation

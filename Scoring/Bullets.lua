@@ -292,22 +292,18 @@ function Bullets.ForResult(result, awards, extra)
 		end
 	end
 	if extra and extra.consumables ~= nil then
+		-- flask + food is universal raid prep, so it scores both ways for
+		-- everyone now (Josh 2026-07-26: -1 per one missing). This is NOT
+		-- the pre-pot (that stays DPS/Classic-only, below).
 		if extra.consumables >= 2 then
-			-- being prepared is praiseworthy for anyone, anywhere
 			out[#out + 1] = { kind = "info", key = "consumables", symbol = "+", color = GOOD,
 				text = "Came prepared (flask/food up)" .. pts(ad.prepared) }
-		elseif not extra.isRetail
-			and (result.role == "DAMAGER" or result.role == "SUPPORT") then
-			-- ...but the EXPECTATION is Classic DPS culture only: tanks and
-			-- healers were never expected to burn gold at the pull, and
-			-- retail killed the pre-pot entirely
-			if extra.consumables == 1 then
-				out[#out + 1] = { kind = "info", key = "consumables", symbol = MIDDOT, color = MID,
-					text = "Partially prepared" }
-			else
-				out[#out + 1] = { kind = "info", key = "consumables", symbol = MIDDOT, color = MID,
-					text = "No consumables at the pull" }
-			end
+		elseif extra.consumables == 1 then
+			out[#out + 1] = { kind = "info", key = "consumables", symbol = MIDDOT, color = BAD,
+				text = "Flask or food missing" .. pts(ad.prepared) }
+		else
+			out[#out + 1] = { kind = "info", key = "consumables", symbol = MIDDOT, color = BAD,
+				text = "No flask or food at the pull" .. pts(ad.prepared) }
 		end
 	end
 	-- Bloodlust window (CLEU): DPS should stack cooldowns and a potion
