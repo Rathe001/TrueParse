@@ -903,13 +903,17 @@ local function layoutChipGrid(sigs, top, attach)
 				bi = bi + 1
 				local bg = chipSectionBGs[bi]
 				if not bg then
-					bg = frame:CreateTexture(nil, "BACKGROUND")
+					-- BORDER, not BACKGROUND: the card's backdrop is an opaque
+					-- BACKGROUND fill, so a same-layer wash z-fought it and
+					-- won only sometimes (Josh 2026-07-26: "doesn't always
+					-- show up"). BORDER sits above the backdrop, below content.
+					bg = frame:CreateTexture(nil, "BORDER")
 					chipSectionBGs[bi] = bg
 				end
 				if gi == 1 then
-					bg:SetColorTexture(0.25, 0.85, 0.35, 0.05)
+					bg:SetColorTexture(0.25, 0.85, 0.35, 0.09)
 				else
-					bg:SetColorTexture(0.90, 0.30, 0.30, 0.05)
+					bg:SetColorTexture(0.90, 0.30, 0.30, 0.09)
 				end
 				bg:ClearAllPoints()
 				bg:SetPoint("TOPLEFT", 0, y + 2)

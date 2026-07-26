@@ -451,8 +451,8 @@ function Signals.GroupRows(results, fight)
 			row.players = bl.players
 			rows[#rows + 1] = row
 		elseif bl.key == "healing" then
-			rows[#rows + 1] = { key = "healing", kind = "text", icon = ICONS.healing,
-				label = "Little to heal", tooltip = bl.tooltip }
+			rows[#rows + 1] = { key = "healing", kind = "glyph", icon = ICONS.healing,
+				label = "Little to heal", good = true, tooltip = bl.tooltip }
 		elseif bl.key == "interrupts" then
 			local landed, opps = text:match("(%d+) of (%d+)")
 			if landed then
@@ -471,8 +471,8 @@ function Signals.GroupRows(results, fight)
 						icon = ICONS.interrupts, label = "Kicks", good = true,
 						count = tonumber(n), points = pts, tooltip = bl.tooltip }
 				else
-					rows[#rows + 1] = { key = "interrupts", kind = "text", icon = ICONS.interrupts,
-						label = stripPts(text), points = pts, tooltip = bl.tooltip }
+					rows[#rows + 1] = { key = "interrupts", kind = "glyph", icon = ICONS.interrupts,
+						label = stripPts(text), points = pts, good = (pts or 0) > 0 or nil, tooltip = bl.tooltip }
 				end
 			end
 		elseif bl.key == "lust" then
@@ -523,8 +523,8 @@ function Signals.GroupRows(results, fight)
 			local died = text:match("^(%d+) player")
 				or (text:find("^1 player died") and "1")
 			if text:find("Nobody died") then
-				rows[#rows + 1] = { key = "deaths", kind = "text", icon = ICONS.deaths,
-					label = "Nobody died", tooltip = bl.tooltip }
+				rows[#rows + 1] = { key = "deaths", kind = "glyph", icon = ICONS.deaths,
+					label = "Nobody died", good = true, tooltip = bl.tooltip }
 			elseif died then
 				rows[#rows + 1] = { key = "deaths", kind = "pips", icon = ICONS.deaths,
 					label = "Died", count = tonumber(died), points = pts }
@@ -537,15 +537,27 @@ function Signals.GroupRows(results, fight)
 				count = tonumber(text:match("^(%d+) dispel")),
 				points = pts, tooltip = bl.tooltip }
 		else
-			-- avoidable, aggro, buffs, anything future: full-width text
-			-- rows, points preserved, own hover each; they wear their
-			-- metric's icon when one exists
-			local TEXT_ICONS = { avoidable = ICONS.avoidable,
-				aggro = ICONS.avoidable, aggroLoss = ICONS.avoidable,
-				pull = ICONS.avoidable, buffs = ICONS.buffUptime }
-			rows[#rows + 1] = { key = bl.key or "note", kind = "text",
-				icon = TEXT_ICONS[bl.key] or ICONS[bl.key],
-				label = stripPts(text), points = pts, tooltip = bl.tooltip }
+			-- avoidable, aggro, buffs, anything future: CHIPS in the grid
+			-- like the player card (Josh 2026-07-26) - terse uncolored label
+			-- + colored points, the full sentence (its group nuance, "1
+			-- player, 76% avoidable") riding the hover
+			local CHIP = {
+				avoidable = { icon = ICONS.avoidable, label = "Stood in bad" },
+				aggro = { icon = ICONS.avoidable, label = "Ripped aggro" },
+				aggroLoss = { icon = ICONS.avoidable, label = "Lost aggro" },
+				pull = { icon = ICONS.avoidable, label = "Pulled early" },
+				buffs = { icon = ICONS.buffUptime, label = "Buff missing" },
+			}
+			local c = CHIP[bl.key]
+			local lines = { { stripPts(text), 1, 1, 1, true } }
+			for _, ln in ipairs(bl.tooltip and bl.tooltip.lines or {}) do
+				lines[#lines + 1] = ln
+			end
+			rows[#rows + 1] = { key = bl.key or "note", kind = "glyph",
+				icon = (c and c.icon) or ICONS[bl.key],
+				label = (c and c.label) or stripPts(text),
+				good = (pts or 0) > 0 or nil, points = pts,
+				tooltip = { title = (c and c.label) or "Group", lines = lines } }
 		end
 	end
 	-- flask+food moved up from the footer (Josh 2026-07-25): a no-point

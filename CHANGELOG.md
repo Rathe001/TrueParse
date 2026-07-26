@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+**Card polish.** The subtle green/red section washes behind the bonus and
+penalty chips now show reliably (they were drawn on the same layer as the
+card's backdrop and lost the coin-flip). The group card gets the same
+three-section treatment as player cards: its verdicts are chips in bonus,
+penalty, and neutral grids now, with plain-ink labels and only the +/-
+value colored, instead of full-width colored sentences. The group nuance
+(which player, what percent) moves to each chip's hover.
+
 **Tanks are scored on mitigation.** Survival is now a tank's primary
 metric instead of a bonus that barely moved the score. The Mitigation
 metric is your active-mitigation uptime scored against your spec's real
