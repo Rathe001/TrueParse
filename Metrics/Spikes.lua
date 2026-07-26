@@ -39,7 +39,10 @@ local function ensure(seg, dstGUID)
 	if not s.maxHP then
 		local info = TP.Roster.players[dstGUID]
 		local hp = info and info.unit and UnitHealthMax(info.unit)
-		if hp and hp > 0 then
+		-- friendly max-HP is a SECRET on retail: comparing it taints and
+		-- throws (Josh 2026-07-25). This path only runs from CLEU
+		-- subevents (Classic), but guard anyway against future callers.
+		if hp and not (TP.Compat and TP.Compat.IsSecret and TP.Compat.IsSecret(hp)) and hp > 0 then
 			s.maxHP = hp
 		end
 	end
@@ -177,6 +180,13 @@ tracker.InitPlayer = function(acc)
 	-- captured for EVERYONE up front: the group spike threshold divides
 	-- by summed group HP, and summing only damaged players' pools made
 	-- clean pulls manufacture spike windows (audit 2026-07-16).
+	-- RETAIL no-op (Josh 2026-07-25): this file loads on retail only for
+	-- the pure GroupWindowsFromReports/FindWindows helpers; there is no
+	-- CLEU there, and friendly UnitHealthMax is a SECRET that throws on
+	-- the hp>0 compare. The retail group-spike path never needs it.
+	if not (TP.Compat and TP.Compat.HAS_CLEU) then
+		return
+	end
 	-- Guarded: headless tests have no WoW API.
 	if UnitHealthMax and TP.Roster and TP.Roster.players then
 		local info = TP.Roster.players[acc.guid]
