@@ -22,7 +22,9 @@ Compat.IsSecret = issecretvalue or function() return false end
 -- where we fall back to DAMAGER until spec inspection lands (later phase).
 function Compat.GetRole(unit)
 	local role = UnitGroupRolesAssigned and UnitGroupRolesAssigned(unit)
-	if role and role ~= "NONE" then
+	-- guard the compare against a secret value like every other live-API
+	-- read in this file (Josh 2026-07-26 audit): consistent, cheap
+	if role and not Compat.IsSecret(role) and role ~= "NONE" then
 		return role
 	end
 	return TP.ROLE.DAMAGER
