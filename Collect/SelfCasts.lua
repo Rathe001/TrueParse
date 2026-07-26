@@ -423,8 +423,12 @@ local function startWindow()
 			manaTicker = C_Timer.NewTicker(1, function()
 				local okP, cur = pcall(UnitPower, "player", 0)
 				local okM, max = pcall(UnitPowerMax, "player", 0)
-				if okP and okM and cur and max and max > 0
-					and not TP.Compat.IsSecret(cur) and not TP.Compat.IsSecret(max) then
+				-- IsSecret BEFORE the > 0 compare (own mana isn't secret
+				-- today, but the reverse order is the shape that crashed on
+				-- friendly HP - keep the safe ordering everywhere)
+				if okP and okM and cur and max
+					and not TP.Compat.IsSecret(cur) and not TP.Compat.IsSecret(max)
+					and max > 0 then
 					local pct = cur / max * 100
 					if not manaMinPct or pct < manaMinPct then
 						manaMinPct = pct

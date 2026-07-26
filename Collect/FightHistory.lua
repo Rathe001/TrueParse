@@ -906,12 +906,20 @@ function FightHistory:AddFromSegment(seg)
 	-- everything counts. BOTH paths require an actual wipe (Josh
 	-- 2026-07-26): a called wipe that turns into a kill forgives nothing.
 	local manualCall = seg.encounterWipe and seg.manualWipeAt or nil
+	-- 0 is TRUTHY in Lua, so a wipe called at the pull instant (manual
+	-- button at 0s, or a sync-clamped peer call) left calledAt=0 and every
+	-- `calledAt or seg.duration` fallback silently kept 0 → activityPct =
+	-- active/0 = nan (persisted!), all avoidable subtracted (t>=0), rezzes
+	-- dropped (Josh 2026-07-26 audit). Normalize non-positive to nil so a
+	-- degenerate 0 falls through to the heuristic / no-call behavior.
+	if manualCall and manualCall <= 0 then manualCall = nil end
 	local calledAt = manualCall
 	if not calledAt and seg.encounterWipe and TP.Spikes and TP.Spikes.DetectWipeCall then
 		local ok, at = pcall(TP.Spikes.DetectWipeCall,
 			seg.group and seg.group.out, seg.duration)
 		calledAt = ok and at or nil
 	end
+	if calledAt and calledAt <= 0 then calledAt = nil end
 
 	-- danger-window math runs once for the whole segment (group windows
 	-- are shared); enrichment must never block capture. On a called
