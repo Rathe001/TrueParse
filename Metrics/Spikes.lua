@@ -217,6 +217,83 @@ function Spikes.FindWindows(buckets, duration, threshold)
 	return windows
 end
 
+-- Retail group-spike aggregation (2026-07-25): Midnight has no CLEU, so
+-- the group-wide damage spikes MoP reads from summed raid intake are
+-- rebuilt from what TrueParse users self-report. Each reporter's own
+-- personal spike windows (times THEY took heavy damage) are the votes:
+-- a GROUP spike is a moment when 2+ NON-TANK reporters spiked at once (a
+-- raid mechanic hitting the group — tanks spike steadily and don't vote).
+-- Coverage is team-union like MoP: any reporter's raid-CD cast near the
+-- window covers it for every healer. PURE: headless-testable.
+--   reports = { { role, windows = {{s,e},...}, cdCasts = {t,...} }, ... }
+-- Returns groupWindows = {{s,e,covered},...} and total cdCasts, or nil
+-- when too few non-tank reporters exist to tell a raid hit from a fluke.
+function Spikes.GroupWindowsFromReports(reports)
+	local voters, allCds = {}, {}
+	local voterCount = 0
+	for _, r in ipairs(reports or {}) do
+		for _, t in ipairs(r.cdCasts or {}) do
+			allCds[#allCds + 1] = t
+		end
+		if r.role ~= "TANK" and r.windows and #r.windows > 0 then
+			voterCount = voterCount + 1
+			for _, w in ipairs(r.windows) do
+				voters[#voters + 1] = { s = w[1], e = w[2], who = voterCount }
+			end
+		end
+	end
+	if voterCount < 2 or #voters == 0 then
+		return nil
+	end
+	-- coordinate sweep: every window edge is a boundary; a sub-interval
+	-- with 2+ DISTINCT voters inside is a group spike
+	local edges = {}
+	for _, v in ipairs(voters) do
+		edges[#edges + 1] = v.s
+		edges[#edges + 1] = v.e
+	end
+	table.sort(edges)
+	local group = {}
+	for i = 1, #edges - 1 do
+		local a, b = edges[i], edges[i + 1]
+		if b > a then
+			local mid = (a + b) / 2
+			local who = {}
+			for _, v in ipairs(voters) do
+				if v.s <= mid and v.e >= mid then
+					who[v.who] = true
+				end
+			end
+			local n = 0
+			for _ in pairs(who) do
+				n = n + 1
+			end
+			if n >= 2 then
+				local last = group[#group]
+				if last and a - last[2] <= MERGE_GAP then
+					last[2] = b
+				else
+					group[#group + 1] = { a, b }
+				end
+			end
+		end
+	end
+	if #group == 0 then
+		return nil
+	end
+	for _, w in ipairs(group) do
+		local covered = false
+		for _, t in ipairs(allCds) do
+			if t >= w[1] - HEALER_PRE_SLOP and t <= w[2] + HEALER_SLOP then
+				covered = true
+				break
+			end
+		end
+		w[3] = covered or nil
+	end
+	return group, #allCds
+end
+
 local function spanCovers(spans, openSince, ws, we, slop)
 	for _, sp in ipairs(spans or {}) do
 		if sp[1] <= we + slop and sp[2] >= ws - slop then

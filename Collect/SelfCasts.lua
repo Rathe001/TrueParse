@@ -52,6 +52,10 @@ local takenBuckets, maxHPAtPull
 local defCastTimes = {}
 local ownDeaths, firstDeathAt = 0, nil
 local brezCasts = 0
+-- raid-CD cast times (retail group-spike coverage): feeds the healer
+-- cdTiming metric once reporters' timelines are aggregated
+local raidCdTimes = {}
+local ROLE_LETTER = { TANK = "T", HEALER = "H", DAMAGER = "D", SUPPORT = "S" }
 -- own combat-rez casts (retail; CLEU sees these on Classic)
 local BREZ_SPELLS = {
 	[20484] = true, -- Rebirth
@@ -321,11 +325,13 @@ local function finalizeFight()
 			-- personal spike windows from own intake buckets, coverage
 			-- from own defensive cast times (same slops the Classic
 			-- tracker uses). The map rides the LOCAL report only.
+			local personalWins
 			if maxHPAtPull and TP.Spikes and TP.Spikes.FindWindows
 				and next(takenBuckets or {}) then
 				local threshold = maxHPAtPull * (TP.Spikes.TANK_3S_SHARE or 0.45)
 				local ok, wins = pcall(TP.Spikes.FindWindows, takenBuckets, duration, threshold)
 				if ok and wins and #wins > 0 then
+					personalWins = wins
 					local map, covered = {}, 0
 					for _, w in ipairs(wins) do
 						local met
@@ -344,6 +350,17 @@ local function finalizeFight()
 					x.map = map -- table: local report only, never the wire
 				end
 			end
+			-- group-spike inputs: my role, my personal spike windows (the
+			-- votes), and my raid-CD cast times (coverage). Aggregated
+			-- across reporters at capture to rebuild MoP's group cdTiming.
+			local myRole = ROLE_LETTER[specRole() or ""] or "D"
+			local gWindows = {}
+			for _, w in ipairs(personalWins or {}) do
+				gWindows[#gWindows + 1] = { math.floor(w[1]), math.floor(w[2]) }
+			end
+			if #gWindows > 0 or #raidCdTimes > 0 then
+				x.g = { role = myRole, windows = gWindows, cdCasts = raidCdTimes }
+			end
 			if not next(x) then
 				x = nil
 			end
@@ -352,6 +369,9 @@ local function finalizeFight()
 		TP.Sync:BroadcastFightReport(duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct, activityPct)
 		if x then
 			TP.Sync:BroadcastExtendedReport(duration, x)
+			if x.g then
+				TP.Sync:BroadcastGroupInput(duration, x.g)
+			end
 		end
 	end
 	ownCasts = watchedSpells and {} or nil
@@ -375,6 +395,7 @@ local function startWindow()
 	defCastTimes = {}
 	ownDeaths, firstDeathAt = 0, nil
 	brezCasts = 0
+	raidCdTimes = {}
 	if TP.Compat.IS_RETAIL then
 		local okHP, hp = pcall(UnitHealthMax, "player")
 		if okHP and hp and not TP.Compat.IsSecret(hp) and hp > 0 then
@@ -502,6 +523,10 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 			end
 			if TP.Compat.IS_RETAIL and BREZ_SPELLS[spellID] then
 				brezCasts = brezCasts + 1
+			end
+			-- raid-CD cast time (retail group-spike coverage)
+			if TP.Compat.IS_RETAIL and TP.HEALER_CDS and TP.HEALER_CDS[spellID] then
+				raidCdTimes[#raidCdTimes + 1] = math.floor(GetTime() - combatStart + 0.5)
 			end
 			-- generic offensive-CD detection (retail lust parity): any
 			-- non-defensive button with a 60s+ base cooldown counts —

@@ -3444,6 +3444,39 @@ end)()
 	TP.Compat.HAS_CLEU = true
 end)()
 
+-- 40. Retail group-spike aggregation from self-reports (2026-07-25):
+-- 2+ non-tank reporters spiking at once is a raid mechanic; any
+-- reporter's raid-CD cast covers it team-wide
+;(function()
+	local G = TP.Spikes.GroupWindowsFromReports
+	-- one tank spiking steadily + one dps: not enough non-tank voters
+	check(G({
+		{ role = "TANK", windows = { { 10, 12 }, { 40, 42 } } },
+		{ role = "DAMAGER", windows = { { 40, 42 } } },
+	}) == nil, "one non-tank voter is not a group spike")
+
+	-- two dps spike together at 40 and 120; a healer CD covers only the
+	-- first (cast at 38)
+	local win, cds = G({
+		{ role = "TANK", windows = { { 5, 7 }, { 40, 42 }, { 120, 122 } } },
+		{ role = "DAMAGER", windows = { { 40, 42 }, { 120, 122 } } },
+		{ role = "DAMAGER", windows = { { 41, 43 }, { 121, 123 } } },
+		{ role = "HEALER", windows = {}, cdCasts = { 38 } },
+	})
+	check(win and #win == 2, ("two overlapping non-tank spikes = 2 group windows (%s)"):format(
+		win and #win or "nil"))
+	check(win and win[1][3] == true and win[2][3] == nil,
+		"the pre-cast raid CD covers the first window only")
+	check(cds == 1, ("raid-CD cast count aggregates (%s)"):format(tostring(cds)))
+
+	-- non-overlapping personal spikes (different mechanics per player)
+	-- never form a group window
+	check(G({
+		{ role = "DAMAGER", windows = { { 10, 12 } } },
+		{ role = "HEALER", windows = { { 80, 82 } } },
+	}) == nil, "non-overlapping personal spikes are not group spikes")
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")

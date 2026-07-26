@@ -66,6 +66,8 @@ function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAt
 		-- extended self-facts (X: wire, 2026-07-25): healthstones,
 		-- avoidance counts, swing damage, mitigation uptime
 		x = x,
+		-- group-spike inputs (local player's own; wire arrives via Y:)
+		g = x and x.g or nil,
 		at = time(),
 	}
 	-- prune stale
@@ -145,10 +147,49 @@ function Sync:RecordExtendedReport(guid, duration, x)
 	list[#list + 1] = { duration = duration, x = x, at = time() }
 end
 
+-- Group-spike inputs (Y: wire, 2026-07-25): role + personal spike
+-- window times + raid-CD cast times, aggregated across reporters at
+-- capture to rebuild the healer cdTiming metric on retail. Lists, so a
+-- separate message from the numbers-only X:.
+function Sync:BroadcastGroupInput(duration, g)
+	local channel = commChannel()
+	if not channel or not g then
+		return
+	end
+	local wins = {}
+	for _, w in ipairs(g.windows or {}) do
+		wins[#wins + 1] = ("%d-%d"):format(w[1], w[2])
+	end
+	local cds = {}
+	for _, t in ipairs(g.cdCasts or {}) do
+		cds[#cds + 1] = ("%d"):format(t)
+	end
+	self:SendCommMessage(PREFIX, ("Y:1:%s:%d:%s:%s:%s"):format(
+		UnitGUID("player"), math.floor(duration + 0.5), g.role or "D",
+		table.concat(wins, ";"), table.concat(cds, ";")),
+		channel)
+end
+
+function Sync:RecordGroupInput(guid, duration, g)
+	local list = self.reports[guid]
+	if not list then
+		list = {}
+		self.reports[guid] = list
+	end
+	for _, r in ipairs(list) do
+		if math.abs((r.duration or 0) - duration) <= 3 then
+			r.g = r.g or g
+			return
+		end
+	end
+	list[#list + 1] = { duration = duration, g = g, at = time() }
+end
+
 -- Attach pending peer reports to a freshly captured fight, matching by
 -- combat-window duration (a strong fingerprint since retail captures can
 -- arrive long after the pull, in bulk). Also stamps addon presence.
 function Sync:AttachReports(fight)
+	local groupInputs = {} -- retail group-spike aggregation across reporters
 	for guid, p in pairs(fight.players) do
 		-- Three-state presence: true = detected, false = confidently not
 		-- (our hello went out long enough ago that a reply would have
@@ -266,10 +307,50 @@ function Sync:AttachReports(fight)
 						m.combatRezzes = x.rz
 					end
 				end
+				-- capture group-spike input before the report is consumed
+				if report.g then
+					groupInputs[#groupInputs + 1] = { guid = guid, role = report.g.role,
+						windows = report.g.windows, cdCasts = report.g.cdCasts }
+				end
 				table.remove(list, bestIdx)
 				-- award inputs changed (Iron Wall reads defensives)
 				if TP.Scoring and TP.Scoring.Awards then
 					TP.Scoring.Awards.Invalidate(fight)
+				end
+			end
+		end
+	end
+
+	-- GROUP-SPIKE aggregation (retail, 2026-07-25): reporters' personal
+	-- spike windows + raid-CD casts rebuild the healer cdTiming metric
+	-- that MoP reads from summed raid intake. Only fills where nothing
+	-- else did (CLEU wins on Classic); needs 2+ non-tank reporters.
+	if #groupInputs >= 2 and TP.Spikes and TP.Spikes.GroupWindowsFromReports then
+		local wins, totalCds = TP.Spikes.GroupWindowsFromReports(groupInputs)
+		if wins and #wins > 0 then
+			local covered = 0
+			for _, w in ipairs(wins) do
+				if w[3] then
+					covered = covered + 1
+				end
+			end
+			for _, gi in ipairs(groupInputs) do
+				if gi.role == "HEALER" then
+					local p = fight.players[gi.guid]
+					local m = p and p.metrics
+					if m and m.groupSpikeWindows == nil then
+						m.groupSpikeWindows = #wins
+						m.groupSpikeCovered = covered
+						m.groupCdCasts = totalCds
+						-- the covering strip: the LOCAL healer draws bands
+						if p.isLocalPlayer and m.groupSpikeMap == nil then
+							local map = {}
+							for _, w in ipairs(wins) do
+								map[#map + 1] = { w[1], w[2], w[3] or nil, w[3] or nil }
+							end
+							m.groupSpikeMap = map
+						end
+					end
 				end
 			end
 		end
@@ -468,6 +549,36 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 				fights = tonumber(wFights), tops = tonumber(wTops), seen = time(),
 			}
 		end
+		return
+	end
+
+	-- group-spike inputs: Y:1:guid:dur:role:w-s;w-e:cd;cd (2026-07-25)
+	local yVer, yGuid, yDur, yRole, yWins, yCds =
+		message:match("^Y:(%d+):([^:]+):(%d+):(%a):([^:]*):(.*)$")
+	if yVer then
+		if yGuid == UnitGUID("player") then
+			return -- our own broadcast looping back
+		end
+		if not TP.Roster.players[yGuid] or not senderOwnsGuid(sender, yGuid) then
+			return
+		end
+		local ROLE = { T = "TANK", H = "HEALER", D = "DAMAGER", S = "SUPPORT" }
+		local windows = {}
+		for a, b in (yWins or ""):gmatch("(%d+)%-(%d+)") do
+			windows[#windows + 1] = { tonumber(a), tonumber(b) }
+			if #windows >= 30 then
+				break -- wire sanity bound
+			end
+		end
+		local cds = {}
+		for t in (yCds or ""):gmatch("%d+") do
+			cds[#cds + 1] = tonumber(t)
+			if #cds >= 30 then
+				break
+			end
+		end
+		self:RecordGroupInput(yGuid, tonumber(yDur) or 0,
+			{ role = ROLE[yRole] or "DAMAGER", windows = windows, cdCasts = cds })
 		return
 	end
 

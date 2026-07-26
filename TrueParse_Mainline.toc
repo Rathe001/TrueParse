@@ -31,6 +31,7 @@ Data\GroupBuffs.lua
 Data\Defensives.lua
 Data\Mitigation.lua
 Data\Lust.lua
+Data\HealerCDs.lua
 Data\SpellProfiles.lua
 Data\TankAnchors.lua
 Collect\Roster.lua
