@@ -158,8 +158,12 @@ jobs:
           # true-population totals for capped curves (cheap; same token)
           lua5.4 scripts/dump-capped.lua Data/Percentiles_Mists.lua Data/Percentiles_Mists_25.lua Data/KillTimes_Mists.lua > /tmp/capped.csv
           ./scripts/fetch-totals.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -BracketStyle classic -CappedCsv /tmp/capped.csv -OutFile "$PWD/Data/Totals_Mists.lua"
-          # top-parse spell profiles for the parse coach (~180 requests)
-          ./scripts/fetch-spellprofiles.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -OutFile "$PWD/Data/SpellProfiles_Mists.lua"
+          # consolidated report-table harvest: one report-discovery pass
+          # walks every boss and pulls Casts + Healing + DamageTaken per
+          # report in ONE query, emitting SpellProfiles + Overheal +
+          # DamageProfiles together (replaces the separate spellprofiles/
+          # overheal crawls). ~350 requests.
+          ./scripts/fetch-report-tables.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Suffix _Mists -OutSpell "$PWD/Data/SpellProfiles_Mists.lua" -OutOverheal "$PWD/Data/Overheal_Mists.lua" -OutDamage "$PWD/Data/DamageProfiles_Mists.lua"
 
       # ---- gate: any refreshed data must pass the full headless suite ----
       - name: Install Lua

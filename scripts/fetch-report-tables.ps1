@@ -145,7 +145,11 @@ foreach ($enc in $zone.encounters) {
     foreach ($extra in $bracketList) {
         foreach ($rs in $rankSpecs) {
             if ($bag.Count -ge $perEncCap) { break }
-            foreach ($page in @(1, 4)) {
+            # pages 1/4/10 = top, upper-mid, mid-pack: page 1 anchors the
+            # cast/damage "what competent raids do" signal, deeper pages
+            # give overheal its population spread (thin specs 404 deeper -
+            # skipped). Matches the old dedicated overheal crawler.
+            foreach ($page in @(1, 4, 10)) {
                 $q = "{ worldData { encounter(id: $($enc.id)) { characterRankings(metric: $($rs.metric), page: $page, className: `"$($rs.class)`", specName: `"$($rs.spec)`"$extra) } } }"
                 $cr = $null
                 try { $cr = (Invoke-GQL $q).worldData.encounter.characterRankings } catch { continue }
