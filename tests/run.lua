@@ -533,6 +533,19 @@ check(adviceA == nil or adviceA.kind == "throughput", "clean player gets through
 	local tpAdv = TP.Scoring.Coach.Advise(advResult("DAMAGER", {}, 20), rankedFight, { metrics = {} })
 	check(tpAdv and tpAdv.kind == "throughput", "clean ranked player falls to throughput coaching")
 
+	-- throughput coaches the ROLE's primary metric only (Josh 2026-07-26: a
+	-- 99 healing parse was told "your damage has room to grow")
+	local topHealer = { role = "HEALER", adjustDetail = {}, breakdown = {
+		healing = { applicable = true, pctile = 99, normalized = 99, effectiveWeight = 0.75 },
+		damage = { applicable = true, pctile = 37, normalized = 37, effectiveWeight = 0.10 } } }
+	check(TP.Scoring.Coach.Advise(topHealer, rankedFight, { metrics = {} }) == nil,
+		"a topped-out healer is never coached to pad damage")
+	local lowHealer = { role = "HEALER", adjustDetail = {}, breakdown = {
+		healing = { applicable = true, pctile = 40, normalized = 40, effectiveWeight = 0.75 },
+		damage = { applicable = true, pctile = 90, normalized = 90, effectiveWeight = 0.10 } } }
+	local lh = TP.Scoring.Coach.Advise(lowHealer, rankedFight, { metrics = {} })
+	check(lh and lh.kind == "throughput" and lh.text:find("healing"), "a low healer is coached on healing, not damage")
+
 	-- phrasing is deterministic per player+fight but varies between players
 	-- (Josh 2026-07-26: the coach shouldn't read the same on every card)
 	local res = advResult("DAMAGER", { avoidable = -15 }, 70)

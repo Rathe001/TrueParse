@@ -129,6 +129,9 @@ local function roster(duration, full, collapseAt)
 		groupSpikeWindows = 6, groupSpikeCovered = 5, groupCdCasts = 9,
 		groupSpikeMap = team({ [1] = "Guardian Spirit", [5] = "Guardian Spirit" }),
 		extWindows = 7, extCovered = 4,
+		-- holy priest: a shade under the top-parse cast rates
+		profCasts = { [596] = math.floor(6.4 * k / 60), [139] = math.floor(4.6 * k / 60),
+			[34861] = math.floor(2.5 * k / 60), [33076] = math.floor(3.1 * k / 60) },
 	})
 	p["MOCK-h3"] = player("MOCK-h3", "Kaelstrom", "SHAMAN", "HEALER", 264, 562, {
 		damage = 11000 * k, healing = 214000 * k,
@@ -141,6 +144,9 @@ local function roster(duration, full, collapseAt)
 		-- resto shaman: NO external in MoP — ext fields stay, the engine's
 		-- spec gate must ignore them (that's part of what this tests)
 		extWindows = 7, extCovered = 4,
+		-- top-parse healer: cast rates sit right at the profile (keeps pace)
+		profCasts = { [61295] = math.floor(4.3 * k / 60), [1064] = math.floor(8.0 * k / 60),
+			[403] = math.floor(9.3 * k / 60), [73920] = math.floor(2.0 * k / 60) },
 	})
 
 	local function dps(guid, name, class, specID, ilvl, dmgRate, m)

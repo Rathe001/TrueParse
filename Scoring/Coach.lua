@@ -44,24 +44,22 @@ function Coach.BiggestOpportunity(result)
 	if bestKey and bestGain >= MIN_CONCRETE then
 		return { kind = bestKey, gain = bestGain }
 	end
-	-- fall back to the throughput gap: the weakest weighted BASE metric
-	-- (damage/healing only — the parse the fight is really about)
-	local tKey, tGain, tNorm
-	for key, b in pairs(result.breakdown or {}) do
-		if b.applicable and (key == "damage" or key == "healing") then
-			local gain = (100 - (b.normalized or 0)) * (b.effectiveWeight or 0)
-			if not tKey or gain > tGain then
-				tKey, tGain, tNorm = key, gain, b.normalized
-			end
+	-- fall back to the throughput gap: the role's PRIMARY metric only.
+	-- Healers are judged on healing, everyone else on damage — coaching a
+	-- healer to pad damage (or a DPS to heal more) is noise (Josh 2026-07-26:
+	-- a 99 healing parse got told "your damage has room to grow"). A top
+	-- parse leaves a gap too small to clear the bar, so nothing fires.
+	local primary = result.role == "HEALER" and "healing" or "damage"
+	local b = (result.breakdown or {})[primary]
+	if b and b.applicable then
+		local gain = (100 - (b.normalized or 0)) * (b.effectiveWeight or 0)
+		if gain >= 5 then
+			return { kind = "throughput", key = primary, gain = gain, normalized = b.normalized }
 		end
 	end
-	if tKey and tGain >= 5 then
-		return { kind = "throughput", key = tKey, gain = tGain, normalized = tNorm }
-	end
-	-- a small concrete issue still beats silence
-	if bestKey then
-		return { kind = bestKey, gain = bestGain }
-	end
+	-- nothing cleared the bar (no mistake >= MIN_CONCRETE, no real
+	-- throughput gap): stay silent rather than nag about a -1. A clean
+	-- fight deserves no coach line.
 	return nil
 end
 
