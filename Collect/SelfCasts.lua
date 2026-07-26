@@ -50,6 +50,15 @@ local manaMinPct, dryAtOff
 local manaTicker, manaTracked
 local takenBuckets, maxHPAtPull
 local defCastTimes = {}
+local ownDeaths, firstDeathAt = 0, nil
+local brezCasts = 0
+-- own combat-rez casts (retail; CLEU sees these on Classic)
+local BREZ_SPELLS = {
+	[20484] = true, -- Rebirth
+	[61999] = true, -- Raise Ally
+	[391054] = true, -- Intercession
+	[20707] = true, -- Soulstone (cast on a dead player)
+}
 
 local function stopMitTicker()
 	if mitTicker then
@@ -301,6 +310,14 @@ local function finalizeFight()
 					x.dr = math.floor(dryAtOff + 0.5)
 				end
 			end
+			-- own deaths + first death time + combat rezzes cast
+			if ownDeaths > 0 then
+				x.de = ownDeaths
+				x.dt = math.floor((firstDeathAt or 0) + 0.5)
+			end
+			if brezCasts > 0 then
+				x.rz = brezCasts
+			end
 			-- personal spike windows from own intake buckets, coverage
 			-- from own defensive cast times (same slops the Classic
 			-- tracker uses). The map rides the LOCAL report only.
@@ -356,6 +373,8 @@ local function startWindow()
 	manaMinPct, dryAtOff, manaTracked = nil, nil, false
 	takenBuckets, maxHPAtPull = {}, nil
 	defCastTimes = {}
+	ownDeaths, firstDeathAt = 0, nil
+	brezCasts = 0
 	if TP.Compat.IS_RETAIL then
 		local okHP, hp = pcall(UnitHealthMax, "player")
 		if okHP and hp and not TP.Compat.IsSecret(hp) and hp > 0 then
@@ -481,6 +500,9 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 			if TP.Compat.IS_RETAIL and spellID == HEALTHSTONE_SPELL then
 				hsUsed = hsUsed + 1
 			end
+			if TP.Compat.IS_RETAIL and BREZ_SPELLS[spellID] then
+				brezCasts = brezCasts + 1
+			end
 			-- generic offensive-CD detection (retail lust parity): any
 			-- non-defensive button with a 60s+ base cooldown counts —
 			-- no per-spec curation needed
@@ -553,6 +575,14 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 		if combatStart then
 			local ok, count = pcall(countReadyDefensives)
 			readyAtDeath = ok and count or -1
+			-- own deaths are ground truth (Josh 2026-07-25: retail's
+			-- Deaths attribute reads secret->0 and deathTimeSeconds only
+			-- covers players still dead at the end, so a many-brez kill
+			-- reported "deathless")
+			ownDeaths = ownDeaths + 1
+			if not firstDeathAt then
+				firstDeathAt = GetTime() - combatStart
+			end
 		end
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		if not combatStart then

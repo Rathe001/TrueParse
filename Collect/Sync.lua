@@ -189,7 +189,16 @@ function Sync:AttachReports(fight)
 					p.metrics.defensives = report.defensives
 				end
 				p.metrics.consumables = report.consumables
-				p.deathReadyDefensives = report.readyAtDeath
+			p.deathReadyDefensives = report.readyAtDeath
+				-- a readyAtDeath report means this player DIED: retail's
+				-- Deaths attribute reads secret->0 and deathTimeSeconds
+				-- only covers players still dead at the end, so brez'd
+				-- deaths vanished (Josh 2026-07-25: a many-death kill
+				-- reported "deathless"). Works for old-version reporters
+				-- too - readyAtDeath has been on the wire since 1.0.
+				if report.readyAtDeath and (p.metrics.deaths or 0) == 0 then
+					p.metrics.deaths = 1
+				end
 				-- The one self-report that IS scored: Ebon Might uptime as a
 				-- fraction, feeding the SUPPORT role's buffUptime metric
 				if report.buffUptime then
@@ -244,6 +253,17 @@ function Sync:AttachReports(fight)
 					end
 					if m.spikeMap == nil and x.map then
 						m.spikeMap = x.map
+					end
+					-- own deaths are ground truth: they can only RAISE the
+					-- observed count (the meter undercounts brez'd deaths)
+					if x.de and (m.deaths or 0) < x.de then
+						m.deaths = x.de
+					end
+					if x.dt and x.dt > 0 and p.deathTime == nil then
+						p.deathTime = x.dt
+					end
+					if m.combatRezzes == nil and x.rz then
+						m.combatRezzes = x.rz
 					end
 				end
 				table.remove(list, bestIdx)
@@ -464,7 +484,7 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		-- compatible) but still numeric-only by construction
 		local CAPS = { hs = 10, sl = 20000, sa = 20000, sd = 2^43, mi = 100,
 			la = 7200, lc = 50, lo = 7200, dr = 7200, mm = 100,
-			sw = 50, sc = 50, du = 50 }
+			sw = 50, sc = 50, du = 50, de = 20, dt = 7200, rz = 10 }
 		local x = {}
 		for k, v in xFields:gmatch("(%a+)=(%-?%d+)") do
 			local n = tonumber(v)
