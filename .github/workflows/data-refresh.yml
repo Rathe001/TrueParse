@@ -134,8 +134,9 @@ jobs:
           # M+ totals refresh via character zoneRankings (zone 47 = current season)
           lua5.4 scripts/dump-capped.lua Data/Percentiles_Dungeons.lua > /tmp/capped_dung.csv
           ./scripts/fetch-totals-mplus.ps1 -ZoneId 47 -CappedCsv /tmp/capped_dung.csv -OutFile "$PWD/Data/Totals_Dungeons.lua"
-          # retail spell profiles for the SELF-coach (~180 requests)
-          ./scripts/fetch-spellprofiles.ps1 -GameBase "https://www.warcraftlogs.com" -ZoneId 46 -Brackets "5,4" -OutFile "$PWD/Data/SpellProfiles.lua"
+          # consolidated report-table harvest (retail): SpellProfiles +
+          # Overheal + DamageProfiles in one pass (zone 46 = current tier).
+          ./scripts/fetch-report-tables.ps1 -GameBase "https://www.warcraftlogs.com" -ZoneId 46 -Brackets "5,4" -Suffix "" -OutSpell "$PWD/Data/SpellProfiles.lua" -OutOverheal "$PWD/Data/Overheal.lua" -OutDamage "$PWD/Data/DamageProfiles.lua"
 
       # MoP percentiles are split by raid size: 4 brackets in one window
       # blew the 6h job cap (retail's 3 brackets took 4h52m). The two
