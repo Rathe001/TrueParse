@@ -1,6 +1,6 @@
 # TrueParse Changelog
 
-## Unreleased
+## 2.3.0
 
 **Self-reported metrics no longer go missing on retail.** A whole run could
 show none of the retail self-report data (activity, mana, dispels timing,
