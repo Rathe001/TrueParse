@@ -42,6 +42,14 @@ local swingsLanded, swingsAvoided, swingDamage = 0, 0, 0
 local mitSeconds = 0
 local mitTicker
 local mitTracked = false -- did this window sample mitigation at all?
+-- phase 2 (2026-07-25): lust window, mana timeline, personal spike
+-- windows — all from own-only signals, all retail (CLEU covers Classic)
+local lustAtOff, lustCastsN, lastOffAt
+local lustTicker
+local manaMinPct, dryAtOff
+local manaTicker, manaTracked
+local takenBuckets, maxHPAtPull
+local defCastTimes = {}
 
 local function stopMitTicker()
 	if mitTicker then
@@ -50,13 +58,27 @@ local function stopMitTicker()
 	end
 end
 
-local function isTankSpec()
+local function stopPhase2Tickers()
+	if lustTicker then
+		lustTicker:Cancel()
+		lustTicker = nil
+	end
+	if manaTicker then
+		manaTicker:Cancel()
+		manaTicker = nil
+	end
+end
+
+local function specRole()
 	if not (GetSpecialization and GetSpecializationInfo) then
-		return false
+		return nil
 	end
 	local spec = GetSpecialization()
-	local role = spec and select(5, GetSpecializationInfo(spec))
-	return role == "TANK"
+	return spec and select(5, GetSpecializationInfo(spec)) or nil
+end
+
+local function isTankSpec()
+	return specRole() == "TANK"
 end
 
 local function buildWatchList()
@@ -230,6 +252,7 @@ local function finalizeFight()
 	stopGrace()
 	stopUptimeTicker()
 	stopMitTicker()
+	stopPhase2Tickers()
 	if not combatStart then
 		return
 	end
@@ -262,6 +285,48 @@ local function finalizeFight()
 			if mitTracked and duration > 0 then
 				x.mi = math.min(100, math.floor(mitSeconds / duration * 100 + 0.5))
 			end
+			-- lust window: when OUR aura opened it, when we last spent a
+			-- big button, and how many landed inside the window
+			if lustAtOff then
+				x.la = math.floor(lustAtOff + 0.5)
+				x.lc = lustCastsN
+			end
+			if lastOffAt then
+				x.lo = math.floor(lastOffAt + 0.5)
+			end
+			-- healer mana timeline
+			if manaTracked and manaMinPct then
+				x.mm = math.floor(manaMinPct + 0.5)
+				if dryAtOff then
+					x.dr = math.floor(dryAtOff + 0.5)
+				end
+			end
+			-- personal spike windows from own intake buckets, coverage
+			-- from own defensive cast times (same slops the Classic
+			-- tracker uses). The map rides the LOCAL report only.
+			if maxHPAtPull and TP.Spikes and TP.Spikes.FindWindows
+				and next(takenBuckets or {}) then
+				local threshold = maxHPAtPull * (TP.Spikes.TANK_3S_SHARE or 0.45)
+				local ok, wins = pcall(TP.Spikes.FindWindows, takenBuckets, duration, threshold)
+				if ok and wins and #wins > 0 then
+					local map, covered = {}, 0
+					for _, w in ipairs(wins) do
+						local met
+						for _, ct in ipairs(defCastTimes) do
+							if ct >= w[1] - 8 and ct <= w[2] + 1.5 then
+								met = true
+								break
+							end
+						end
+						if met then
+							covered = covered + 1
+						end
+						map[#map + 1] = { math.floor(w[1]), math.floor(w[2]), met or nil }
+					end
+					x.sw, x.sc, x.du = #wins, covered, defensivesUsed
+					x.map = map -- table: local report only, never the wire
+				end
+			end
 			if not next(x) then
 				x = nil
 			end
@@ -286,6 +351,51 @@ local function startWindow()
 	mitSeconds = 0
 	mitTracked = false
 	stopMitTicker()
+	stopPhase2Tickers()
+	lustAtOff, lustCastsN, lastOffAt = nil, 0, nil
+	manaMinPct, dryAtOff, manaTracked = nil, nil, false
+	takenBuckets, maxHPAtPull = {}, nil
+	defCastTimes = {}
+	if TP.Compat.IS_RETAIL then
+		local okHP, hp = pcall(UnitHealthMax, "player")
+		if okHP and hp and not TP.Compat.IsSecret(hp) and hp > 0 then
+			maxHPAtPull = hp
+		end
+		-- the lust window opens when OUR OWN lust aura lands (own auras
+		-- are readable); one cheap check a second until found
+		if TP.LUST and C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
+			lustTicker = C_Timer.NewTicker(1, function()
+				if lustAtOff then
+					return
+				end
+				for spellId in pairs(TP.LUST) do
+					local okL, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, spellId)
+					if okL and aura and combatStart then
+						lustAtOff = GetTime() - combatStart
+						return
+					end
+				end
+			end)
+		end
+		-- healer mana timeline: minimum % and the moment the tank ran dry
+		if specRole() == "HEALER" and UnitPowerType and UnitPowerType("player") == 0 then
+			manaTracked = true
+			manaTicker = C_Timer.NewTicker(1, function()
+				local okP, cur = pcall(UnitPower, "player", 0)
+				local okM, max = pcall(UnitPowerMax, "player", 0)
+				if okP and okM and cur and max and max > 0
+					and not TP.Compat.IsSecret(cur) and not TP.Compat.IsSecret(max) then
+					local pct = cur / max * 100
+					if not manaMinPct or pct < manaMinPct then
+						manaMinPct = pct
+					end
+					if pct <= 1 and not dryAtOff and combatStart then
+						dryAtOff = GetTime() - combatStart
+					end
+				end
+			end)
+		end
+	end
 	-- own active-mitigation uptime, sampled once a second (own auras
 	-- are readable on retail); tanks only, and only when the buff list
 	-- for this client exists
@@ -333,6 +443,12 @@ if TP.Compat.IS_RETAIL then
 				swingsLanded = swingsLanded + 1
 				if type(amount) == "number" and not TP.Compat.IsSecret(amount) then
 					swingDamage = swingDamage + amount
+					-- per-second intake buckets: the personal spike
+					-- windows are computed from these at fight end
+					if takenBuckets then
+						local off = math.floor(GetTime() - combatStart)
+						takenBuckets[off] = (takenBuckets[off] or 0) + amount
+					end
 				end
 			elseif action == "DODGE" or action == "PARRY" or action == "MISS" then
 				swingsAvoided = swingsAvoided + 1
@@ -356,12 +472,30 @@ frame:RegisterEvent("ENCOUNTER_END")
 frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 	if event == "UNIT_SPELLCAST_SUCCEEDED" then
 		if unit == "player" and combatStart then
-			if TP.DEFENSIVES and TP.DEFENSIVES[spellID] then
+			local isDefensive = TP.DEFENSIVES and TP.DEFENSIVES[spellID]
+			if isDefensive then
 				defensivesUsed = defensivesUsed + 1
+				defCastTimes[#defCastTimes + 1] = GetTime() - combatStart
 			end
 			-- retail healthstone parity (CLEU counts these on Classic)
 			if TP.Compat.IS_RETAIL and spellID == HEALTHSTONE_SPELL then
 				hsUsed = hsUsed + 1
+			end
+			-- generic offensive-CD detection (retail lust parity): any
+			-- non-defensive button with a 60s+ base cooldown counts —
+			-- no per-spec curation needed
+			if TP.Compat.IS_RETAIL and spellID and not isDefensive
+				and GetSpellBaseCooldown then
+				local okCd, cd = pcall(GetSpellBaseCooldown, spellID)
+				if okCd and cd and not TP.Compat.IsSecret(cd) and cd >= 60000 then
+					local off = GetTime() - combatStart
+					lastOffAt = off
+					-- pre-lust grace matches the Classic tracker: casting
+					-- 10s ahead of the window is correct play
+					if lustAtOff and off >= lustAtOff - 10 and off <= lustAtOff + 42 then
+						lustCastsN = lustCastsN + 1
+					end
+				end
 			end
 			if watchedSpells and spellID and watchedSpells[spellID] then
 				ownCasts[spellID] = (ownCasts[spellID] or 0) + 1

@@ -30,10 +30,12 @@ Data\Potions.lua
 Data\GroupBuffs.lua
 Data\Defensives.lua
 Data\Mitigation.lua
+Data\Lust.lua
 Data\SpellProfiles.lua
 Data\TankAnchors.lua
 Collect\Roster.lua
 Metrics\Registry.lua
+Metrics\Spikes.lua
 Metrics\Damage.lua
 Metrics\Healing.lua
 Metrics\Taken.lua

@@ -114,7 +114,13 @@ function Sync:BroadcastExtendedReport(duration, x)
 	end
 	local parts = {}
 	for k, v in pairs(x) do
-		parts[#parts + 1] = ("%s=%d"):format(k, v)
+		-- numbers only: tables (the spike map) ride the local report
+		if type(v) == "number" then
+			parts[#parts + 1] = ("%s=%d"):format(k, v)
+		end
+	end
+	if #parts == 0 then
+		return
 	end
 	table.sort(parts) -- deterministic wire text
 	self:SendCommMessage(PREFIX, ("X:1:%s:%d:%s"):format(
@@ -215,6 +221,29 @@ function Sync:AttachReports(fight)
 					end
 					if m.mitigationPct == nil and x.mi then
 						m.mitigationPct = x.mi
+					end
+					-- lust window: any reporter's own aura stamps the
+					-- fight-level moment; per-player usage rides along
+					if fight.lustAt == nil and x.la then
+						fight.lustAt = x.la
+					end
+					if m.lustCasts == nil and x.lc then
+						m.lustCasts = x.lc
+					end
+					if m.lastOffensiveAt == nil and x.lo then
+						m.lastOffensiveAt = x.lo
+					end
+					if m.manaMinPct == nil and x.mm then
+						m.manaMinPct = x.mm
+						m.dryAt = x.dr
+					end
+					if m.spikeWindows == nil and x.sw then
+						m.spikeWindows = x.sw
+						m.spikeCovered = x.sc or 0
+						m.defensiveUses = x.du
+					end
+					if m.spikeMap == nil and x.map then
+						m.spikeMap = x.map
 					end
 				end
 				table.remove(list, bestIdx)
@@ -433,7 +462,9 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		end
 		-- sanity-bound every field; unknown keys are carried (forward
 		-- compatible) but still numeric-only by construction
-		local CAPS = { hs = 10, sl = 20000, sa = 20000, sd = 2^43, mi = 100 }
+		local CAPS = { hs = 10, sl = 20000, sa = 20000, sd = 2^43, mi = 100,
+			la = 7200, lc = 50, lo = 7200, dr = 7200, mm = 100,
+			sw = 50, sc = 50, du = 50 }
 		local x = {}
 		for k, v in xFields:gmatch("(%a+)=(%-?%d+)") do
 			local n = tonumber(v)
