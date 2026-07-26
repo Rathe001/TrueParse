@@ -1295,8 +1295,27 @@ function Panel:ShowFor(fight, result)
 				row:SetHeight(ROW_HEIGHT * 2)
 				y = y - ROW_HEIGHT -- the second line's room
 			end
-			row.tooltipData = { title = "Parse coach", lines = {
-				{ infoHelp().coach, 0.8, 0.8, 0.8, true } } }
+			-- the hover carries the FULL rotation, not just the one line on
+			-- the card (Josh 2026-07-25): every signature spell, you vs top
+			local tipLines = { { infoHelp().coach, 0.8, 0.8, 0.8, true } }
+			local rot = TP.Scoring.Insights.RotationGaps
+				and TP.Scoring.Insights.RotationGaps(player.specID, player.metrics, fight.duration)
+			if rot then
+				tipLines[#tipLines + 1] = { " ", 1, 1, 1 }
+				tipLines[#tipLines + 1] = { "Rotation vs top parses (casts/min):", 1, 1, 1 }
+				for _, r in ipairs(rot) do
+					-- green when you keep pace, red when well behind
+					local cr, cg, cb = 0.65, 0.65, 0.65
+					if r.delta <= -1 then
+						cr, cg, cb = 0.90, 0.45, 0.45
+					elseif r.delta >= -0.25 then
+						cr, cg, cb = 0.45, 0.85, 0.45
+					end
+					tipLines[#tipLines + 1] = {
+						("%s: you %.0f, top %.0f"):format(r.spell, r.myCpm, r.topCpm), cr, cg, cb }
+				end
+			end
+			row.tooltipData = { title = "Parse coach", lines = tipLines }
 			y = y - 6 -- breathe below the wash, matching the rule's rhythm
 		end
 	end

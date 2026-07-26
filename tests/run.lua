@@ -2475,6 +2475,20 @@ end)()
 	-- zero casts of everything still coaches (the biggest gap of all)
 	local zero = PG(105, { profCasts = {} }, 180)
 	check(zero and zero.spell == "Rejuvenation", "an empty fight coaches the top spell")
+	-- RotationGaps: the FULL comparison, worst-shortfall first, deltas signed
+	local RG = TP.Scoring.Insights.RotationGaps
+	local rot = RG(105, { profCasts = { [774] = 18, [33763] = 6, [100] = 27, [200] = 30 } }, 180)
+	check(rot and #rot == 3, ("rotation lists every signature spell (%s)"):format(rot and #rot or "nil"))
+	check(rot and rot[1].spell == "Rejuvenation" and rot[1].delta < 0,
+		"worst shortfall leads the rotation list")
+	-- over-casting shows too: [200] at 30 casts over 3min = 10/min, above profile
+	local over
+	for _, r in ipairs(rot or {}) do
+		if r.delta > 0 then over = r end
+	end
+	check(over ~= nil, "over-casting a spell surfaces as a positive delta")
+	check(RG(63, { profCasts = {} }, 180) == nil, "no profile -> no rotation")
+	check(RG(105, nil, 180) == nil, "no metrics -> no rotation")
 	-- profCasts NIL = the fight predates the cast counter: silence, not
 	-- "you 0" (Josh's card 2026-07-24 was such a fight)
 	check(PG(105, {}, 180) == nil, "pre-counter fights are never coached")

@@ -334,3 +334,36 @@ function Insights.ParseGap(specID, m, duration)
 		best.spell, best.myCpm, best.topCpm)
 	return best
 end
+
+-- The FULL rotation comparison (Josh 2026-07-25): every signature spell,
+-- your rate vs the top-parse rate, so the breakdown card can show the
+-- whole picture instead of only ParseGap's single biggest gap. Returns
+-- an ordered list { spell, myCpm, topCpm, delta } worst-shortfall first,
+-- or nil when no profile/cast data. `delta` negative = you cast it less
+-- than the top parses; positive = more (over-casting a filler shows too).
+function Insights.RotationGaps(specID, m, duration)
+	local prof = specID and TP.SpellProfiles and TP.SpellProfiles[specID]
+	if not (prof and prof.spells and m and m.profCasts and duration and duration >= 60) then
+		return nil
+	end
+	local durMin = duration / 60
+	local rows = {}
+	for _, sp in ipairs(prof.spells) do
+		if sp.cpm and sp.cpm > 0 then
+			local mine = 0
+			for _, id in ipairs(sp.ids or {}) do
+				mine = mine + ((m.profCasts[id]) or 0)
+			end
+			local myCpm = mine / durMin
+			rows[#rows + 1] = { spell = sp.name, myCpm = myCpm, topCpm = sp.cpm,
+				delta = myCpm - sp.cpm }
+		end
+	end
+	if #rows == 0 then
+		return nil
+	end
+	table.sort(rows, function(a, b)
+		return a.delta < b.delta -- biggest shortfall first
+	end)
+	return rows
+end
