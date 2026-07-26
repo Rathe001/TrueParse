@@ -269,23 +269,28 @@ local function groupSentence(ctx, seed, compact)
 		dps = TP.FormatNumber(t.damage / f.duration)
 	end
 	local avg, best = parseStats(ctx.results)
-	local word = avg and "parse" or "score"
+	-- outsider-legible context (Josh 2026-07-25: "group score of 59"
+	-- means nothing to non-users): WCL-backed fights say what the parse
+	-- average actually means; unranked content at least names the scale
+	local scoreText = avg and ("a parse of %d"):format(gs or 0)
+		or ("a score of %d out of 100"):format(gs or 0)
 	local parseClause = avg
-		and (", parsing %d on average with a %d on top"):format(avg, best) or ""
+		and (", the average player beating %d%% of ranked parses for their spec (%d on top)"):format(
+			avg, best) or ""
 	if gs and dps and compact then
 		return pick(seed, 11, {
-			("Group %s %d on %s DPS."):format(word, gs, dps),
-			("The group ran %s DPS for a %s of %d."):format(dps, word, gs),
+			("Group %s on %s DPS."):format(scoreText:gsub("^a ", ""), dps),
+			("The group ran %s DPS for %s."):format(dps, scoreText),
 		})
 	elseif gs and dps then
 		return pick(seed, 11, {
-			("The group put up %s DPS for a %s of %d%s."):format(dps, word, gs, parseClause),
-			("That's a group %s of %d on %s raid DPS%s."):format(word, gs, dps, parseClause),
+			("The group put up %s DPS for %s%s."):format(dps, scoreText, parseClause),
+			("That's %s on %s raid DPS%s."):format(scoreText, dps, parseClause),
 		})
 	elseif gs then
-		return ("Group %s %d%s."):format(word, gs, parseClause)
+		return capitalize(("%s for the group%s."):format(scoreText, parseClause))
 	elseif avg then
-		return ("The raid parsed %d on average, %d at best."):format(avg, best)
+		return ("The average player here beat %d%% of ranked parses for their spec, %d at best."):format(avg, best)
 	end
 end
 
@@ -574,9 +579,14 @@ local function buildRun(ctx)
 	end
 	local zone = ctx.zone or fights[1].zone or "The run"
 	local gs = ctx.groupScore or groupScore(ctx.results)
-	-- "parse" only when WCL data backed the run (Josh 2026-07-25)
-	local runWord = parseStats(ctx.results) and "parse" or "score"
-	local scoreClause = gs and (" for a run %s of %d"):format(runWord, gs) or ""
+	-- "parse" only when WCL data backed the run (Josh 2026-07-25);
+	-- unranked content names the scale so outsiders can read it
+	local scoreClause = ""
+	if gs then
+		scoreClause = parseStats(ctx.results)
+			and (" for a run parse of %d"):format(gs)
+			or (" for a run score of %d out of 100"):format(gs)
+	end
 	local s = {}
 	if wipes == 0 and kills > 0 then
 		s[#s + 1] = ("%s cleared: %s, no wipes, %s of fighting%s."):format(

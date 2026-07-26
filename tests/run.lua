@@ -3326,7 +3326,7 @@ end)()
 	check(kt:find("in 6:20", 1, true) ~= nil, ("kill opener carries the time (%s)"):format(kt))
 	check(kt:find("It took 3 pulls, the best prior attempt reaching 27%%", 1, false) ~= nil,
 		("pulls read as a sentence (%s)"):format(kt))
-	check(kt:find("Group score 70", 1, true) ~= nil, "group score present")
+	check(kt:find("70 out of 100", 1, true) ~= nil, ("score carries its scale (%s)"):format(kt))
 	check(kt:find("12 seconds faster than the last kill", 1, true) ~= nil, "speed-up celebrated")
 
 	local one = alltext(R.Run("fight", { fight = killFight, runFights = { killFight } }))
@@ -3358,7 +3358,7 @@ end)()
 		results = { { name = "Baddchi", score = 99 } },
 	})
 	local rt = alltext(rl)
-	check(rt:find("Siege of Orgrimmar: 2 kills, 1 wipe, 15:05 of fighting for a run score of 99", 1, true) ~= nil,
+	check(rt:find("Siege of Orgrimmar: 2 kills, 1 wipe, 15:05 of fighting for a run score of 99 out of 100", 1, true) ~= nil,
 		("run headline (%s)"):format(rt))
 	check(rt:find("2 deaths across the run, and 8%% of the damage taken was avoidable", 1, false) ~= nil,
 		("run deaths sentence (%s)"):format(rt))
