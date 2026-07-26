@@ -48,7 +48,7 @@ local REPORT_TTL = 7200
 -- readyAtDeath: -1/nil = didn't die; 0+ = defensives off cooldown at death
 -- buffUptime: -1/nil = not a support spec; 0-100 = Ebon Might uptime %
 -- activity: -1/nil = unknown; 0-100 = own active-time percent
-function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAtDeath, buffUptime, activity, casts)
+function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAtDeath, buffUptime, activity, casts, x)
 	local list = self.reports[guid]
 	if not list then
 		list = {}
@@ -63,6 +63,9 @@ function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAt
 		-- retail self-coach: own signature-spell counts, LOCAL reports
 		-- only (the wire never carries tables)
 		casts = casts,
+		-- extended self-facts (X: wire, 2026-07-25): healthstones,
+		-- avoidance counts, swing damage, mitigation uptime
+		x = x,
 		at = time(),
 	}
 	-- prune stale
@@ -98,6 +101,42 @@ function Sync:BroadcastFightReport(duration, defensives, consumables, readyAtDea
 		defensives or 0, consumables or 0, readyAtDeath or -1, buffUptime or -1,
 		activity or -1),
 		channel)
+end
+
+-- Extended self-facts ride a SEPARATE message: the F: parsers are
+-- $-anchored on every shipped version, so appending fields there would
+-- make old clients drop the whole report. Unknown prefixes are ignored,
+-- so X: is safe to introduce. key=value pairs, numbers only.
+function Sync:BroadcastExtendedReport(duration, x)
+	local channel = commChannel()
+	if not channel or not x or not next(x) then
+		return
+	end
+	local parts = {}
+	for k, v in pairs(x) do
+		parts[#parts + 1] = ("%s=%d"):format(k, v)
+	end
+	table.sort(parts) -- deterministic wire text
+	self:SendCommMessage(PREFIX, ("X:1:%s:%d:%s"):format(
+		UnitGUID("player"), math.floor(duration + 0.5), table.concat(parts, ",")),
+		channel)
+end
+
+-- Attach an extended report to its base entry (matched by the same
+-- duration fingerprint), or hold it alone until AttachReports runs
+function Sync:RecordExtendedReport(guid, duration, x)
+	local list = self.reports[guid]
+	if not list then
+		list = {}
+		self.reports[guid] = list
+	end
+	for _, r in ipairs(list) do
+		if math.abs((r.duration or 0) - duration) <= 3 then
+			r.x = r.x or x
+			return
+		end
+	end
+	list[#list + 1] = { duration = duration, x = x, at = time() }
 end
 
 -- Attach pending peer reports to a freshly captured fight, matching by
@@ -159,6 +198,24 @@ function Sync:AttachReports(fight)
 				-- LOCAL player's card (CLEU fills this on Classic)
 				if p.metrics.profCasts == nil and report.casts then
 					p.metrics.profCasts = report.casts
+				end
+				-- extended self-facts (X: wire, 2026-07-25): the MoP-grade
+				-- ingredients retail can't observe. CLEU fills these for
+				-- everyone on Classic, so the observation wins there
+				local x = report.x
+				if x then
+					local m = p.metrics
+					if m.healthstones == nil and x.hs then
+						m.healthstones = x.hs
+					end
+					if m.swingsLanded == nil and x.sl then
+						m.swingsLanded = x.sl
+						m.swingsAvoided = x.sa or 0
+						m.swingDamageTaken = x.sd
+					end
+					if m.mitigationPct == nil and x.mi then
+						m.mitigationPct = x.mi
+					end
 				end
 				table.remove(list, bestIdx)
 				-- award inputs changed (Iron Wall reads defensives)
@@ -361,6 +418,31 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 				week = tonumber(wWeek), gpa = tonumber(wGpa) / 10,
 				fights = tonumber(wFights), tops = tonumber(wTops), seen = time(),
 			}
+		end
+		return
+	end
+
+	-- extended self-facts: X:1:guid:duration:k=v,k=v (2026-07-25)
+	local xVersion, xGuid, xDur, xFields = message:match("^X:(%d+):([^:]+):(%d+):(.+)$")
+	if xVersion then
+		if xGuid == UnitGUID("player") then
+			return -- our own broadcast looping back
+		end
+		if not TP.Roster.players[xGuid] or not senderOwnsGuid(sender, xGuid) then
+			return
+		end
+		-- sanity-bound every field; unknown keys are carried (forward
+		-- compatible) but still numeric-only by construction
+		local CAPS = { hs = 10, sl = 20000, sa = 20000, sd = 2^43, mi = 100 }
+		local x = {}
+		for k, v in xFields:gmatch("(%a+)=(%-?%d+)") do
+			local n = tonumber(v)
+			if n and n >= 0 then
+				x[k] = math.min(n, CAPS[k] or n)
+			end
+		end
+		if next(x) then
+			self:RecordExtendedReport(xGuid, tonumber(xDur) or 0, x)
 		end
 		return
 	end

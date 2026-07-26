@@ -31,6 +31,34 @@ local channelStartAt
 local watchedSpells -- [spellID] = true, rebuilt per window from the profile
 local ownCasts -- [spellID] = count for the current window
 
+-- Extended self-facts (2026-07-25, /tp probe verdict): own UNIT_COMBAT
+-- events are fully readable on retail, so each install can donate the
+-- MoP-grade tanking ingredients (avoidance, swing damage) plus its own
+-- mitigation-buff uptime and healthstone use. Retail-only collectors:
+-- CLEU observes all of this for everyone on Classic.
+local HEALTHSTONE_SPELL = 6262
+local hsUsed = 0
+local swingsLanded, swingsAvoided, swingDamage = 0, 0, 0
+local mitSeconds = 0
+local mitTicker
+local mitTracked = false -- did this window sample mitigation at all?
+
+local function stopMitTicker()
+	if mitTicker then
+		mitTicker:Cancel()
+		mitTicker = nil
+	end
+end
+
+local function isTankSpec()
+	if not (GetSpecialization and GetSpecializationInfo) then
+		return false
+	end
+	local spec = GetSpecialization()
+	local role = spec and select(5, GetSpecializationInfo(spec))
+	return role == "TANK"
+end
+
 local function buildWatchList()
 	watchedSpells, ownCasts = nil, nil
 	if not (TP.Compat.IS_RETAIL and TP.SpellProfiles
@@ -201,6 +229,7 @@ end
 local function finalizeFight()
 	stopGrace()
 	stopUptimeTicker()
+	stopMitTicker()
 	if not combatStart then
 		return
 	end
@@ -218,8 +247,30 @@ local function finalizeFight()
 		-- ownCasts rides the LOCAL report only (retail self-coach);
 		-- the broadcast wire never carries it
 		local casts = ownCasts and next(ownCasts) and ownCasts or nil
-		TP.Sync:RecordFightReport(UnitGUID("player"), duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct, activityPct, casts)
+		-- extended self-facts (retail): only fields with something to
+		-- say ride along, and only where CLEU can't see them
+		local x
+		if TP.Compat.IS_RETAIL then
+			x = {}
+			if hsUsed > 0 then
+				x.hs = hsUsed
+			end
+			if swingsLanded + swingsAvoided > 0 then
+				x.sl, x.sa = swingsLanded, swingsAvoided
+				x.sd = math.floor(swingDamage + 0.5)
+			end
+			if mitTracked and duration > 0 then
+				x.mi = math.min(100, math.floor(mitSeconds / duration * 100 + 0.5))
+			end
+			if not next(x) then
+				x = nil
+			end
+		end
+		TP.Sync:RecordFightReport(UnitGUID("player"), duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct, activityPct, casts, x)
 		TP.Sync:BroadcastFightReport(duration, defensivesUsed, consumablesAtPull, readyAtDeath, uptimePct, activityPct)
+		if x then
+			TP.Sync:BroadcastExtendedReport(duration, x)
+		end
 	end
 	ownCasts = watchedSpells and {} or nil
 end
@@ -231,6 +282,26 @@ local function startWindow()
 	activeSecs = 0
 	lastCastAt = nil
 	castStartAt, castSpellID, channelStartAt = nil, nil, nil
+	hsUsed, swingsLanded, swingsAvoided, swingDamage = 0, 0, 0, 0
+	mitSeconds = 0
+	mitTracked = false
+	stopMitTicker()
+	-- own active-mitigation uptime, sampled once a second (own auras
+	-- are readable on retail); tanks only, and only when the buff list
+	-- for this client exists
+	if TP.Compat.IS_RETAIL and TP.MITIGATION_BUFFS and isTankSpec()
+		and C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
+		mitTracked = true
+		mitTicker = C_Timer.NewTicker(1, function()
+			for spellId in pairs(TP.MITIGATION_BUFFS) do
+				local okM, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, spellId)
+				if okM and aura then
+					mitSeconds = mitSeconds + 1
+					return
+				end
+			end
+		end)
+	end
 	buildWatchList()
 	local ok, count = pcall(countConsumables)
 	consumablesAtPull = ok and count or 0
@@ -241,6 +312,30 @@ local function startWindow()
 			local okA, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, EBON_MIGHT_SELF)
 			if okA and aura then
 				uptimeSeconds = uptimeSeconds + 1
+			end
+		end)
+	end
+end
+
+-- Own incoming combat events (probe-verified readable, 2026-07-25):
+-- WOUND counts + amounts and DODGE/PARRY/MISS give the avoidance and
+-- swing-damage ingredients the Tanking composite needs. Retail only;
+-- CLEU observes this for everyone on Classic.
+if TP.Compat.IS_RETAIL then
+	local ucFrame = CreateFrame("Frame")
+	local ok = pcall(ucFrame.RegisterUnitEvent, ucFrame, "UNIT_COMBAT", "player")
+	if ok then
+		ucFrame:SetScript("OnEvent", function(_, _, _, action, _, amount)
+			if not combatStart or TP.Compat.IsSecret(action) then
+				return
+			end
+			if action == "WOUND" then
+				swingsLanded = swingsLanded + 1
+				if type(amount) == "number" and not TP.Compat.IsSecret(amount) then
+					swingDamage = swingDamage + amount
+				end
+			elseif action == "DODGE" or action == "PARRY" or action == "MISS" then
+				swingsAvoided = swingsAvoided + 1
 			end
 		end)
 	end
@@ -263,6 +358,10 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 		if unit == "player" and combatStart then
 			if TP.DEFENSIVES and TP.DEFENSIVES[spellID] then
 				defensivesUsed = defensivesUsed + 1
+			end
+			-- retail healthstone parity (CLEU counts these on Classic)
+			if TP.Compat.IS_RETAIL and spellID == HEALTHSTONE_SPELL then
+				hsUsed = hsUsed + 1
 			end
 			if watchedSpells and spellID and watchedSpells[spellID] then
 				ownCasts[spellID] = (ownCasts[spellID] or 0) + 1
