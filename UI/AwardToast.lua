@@ -45,7 +45,17 @@ local function onFightCaptured(_, fight)
 	if not TP.Addon.db.profile.toasts then
 		return
 	end
-	local mine = TP.Scoring.Awards.Compute(fight)[UnitGUID("player")]
+	-- find the local player by the isLocalPlayer flag, not UnitGUID (every
+	-- other consumer does — a re-keyed/secret GUID diverges from the stored
+	-- key and silently dropped the toast, Josh 2026-07-26 audit)
+	local awards = TP.Scoring.Awards.Compute(fight)
+	local mine
+	for guid, p in pairs(fight.players or {}) do
+		if p.isLocalPlayer then
+			mine = awards[guid]
+			break
+		end
+	end
 	if not mine or #mine == 0 then
 		return
 	end

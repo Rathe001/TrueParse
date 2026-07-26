@@ -11,7 +11,10 @@ local currentInstance -- { name }
 local function updateInstance()
 	local name, instanceType = GetInstanceInfo()
 	if instanceType == "party" or instanceType == "raid" or instanceType == "scenario" then
-		currentInstance = { name = name }
+		-- the instance name is a SECRET inside retail instances; storing it
+		-- raw made the `~=` compare in collectRunFights throw on /tp run
+		-- (Josh 2026-07-26 audit). Sanitize on store like FightHistory does.
+		currentInstance = { name = (not (TP.Compat and TP.Compat.IsSecret and TP.Compat.IsSecret(name))) and name or nil }
 	else
 		currentInstance = nil
 	end
@@ -155,7 +158,7 @@ function RunSummary:Report(announce)
 		TP.Addon:Print("No fights captured in this instance yet.")
 		return
 	end
-	local run = TP.Scoring.Runs.Aggregate(fights, anchor)
+	local run = TP.Scoring.Runs.Aggregate(fights, anchor or "Run")
 	local results = TP.Scoring.Engine.ScoreFight(run, TP.GetScoringOptions())
 	if #results == 0 then
 		return
@@ -187,7 +190,7 @@ function RunSummary:Report(announce)
 	local groupScore = n > 0 and (total / n) or 0
 
 	TP.Addon:Print(("Run report — %s (%d fights, %d:%02d) · group score %s · True scores, whole run"):format(
-		anchor, #fights,
+		anchor or "Run", #fights,
 		math.floor(run.duration / 60), run.duration % 60,
 		TP.Scoring.Grades.ColoredScore(groupScore)))
 

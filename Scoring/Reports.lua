@@ -150,14 +150,20 @@ local function kickStats(fight)
 end
 
 local function spikeStats(fight)
-	-- the windows are stamped identically on every player record, so
-	-- any carrier speaks for the fight
+	-- windows are truncated at each player's DEATH (a corpse can't cover
+	-- later spikes), so an early-dier carries fewer than the survivors -
+	-- take the MAX for the fight's true count, not the first hash-order
+	-- player (Josh 2026-07-26 audit: was nondeterministic + under-reported,
+	-- breaking the "deterministic per fight" contract). Mirrors ForGroup.
+	local windows, uncovered
 	for _, p in pairs(fight.players or {}) do
 		local m = p.metrics or {}
-		if (m.groupSpikeWindows or 0) > 0 then
-			return m.groupSpikeWindows, m.groupSpikeWindows - (m.groupSpikeCovered or 0)
+		if (m.groupSpikeWindows or 0) > (windows or 0) then
+			windows = m.groupSpikeWindows
+			uncovered = m.groupSpikeWindows - (m.groupSpikeCovered or 0)
 		end
 	end
+	return windows, uncovered
 end
 
 local function personalsStats(fight)

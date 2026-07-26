@@ -4,6 +4,13 @@ local format = string.format
 
 -- 1234567 -> "1.23M"; keeps meter text short
 function TP.FormatNumber(n)
+	-- nil/secret guard (Josh 2026-07-26 audit): callers pass `x or 0` but
+	-- `or` doesn't stop a SECRET (the >= compare would taint first), and a
+	-- stray nil would crash. type() is safe on both. Closes the class for
+	-- every call site at once.
+	if type(n) ~= "number" then
+		return "0"
+	end
 	if n >= 1e9 then
 		return format("%.2fB", n / 1e9)
 	elseif n >= 1e6 then

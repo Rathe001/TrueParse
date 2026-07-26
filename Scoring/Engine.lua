@@ -823,8 +823,11 @@ local function normalizeMetric(p, role, key, ctx)
 				pctile = pct -- raw percentile, for the tooltip gauge
 				-- surfaced in tooltips: "the median of your spec does Y/s
 				-- here" — answers every 'but I topped the meter?!'
-				-- (converted back into the fight's own bracket terms)
-				specMedian = curveP50(entry.curve) / (scale or 1)
+				-- (converted back into the fight's own bracket terms).
+				-- curveP50 is nil for a curve with no p50 sample (a future
+				-- sparse crawl) — guard the divide (Josh 2026-07-26 audit)
+				local p50 = curveP50(entry.curve)
+				specMedian = p50 and p50 / (scale or 1) or nil
 			end
 		end
 		if not absolute and ctx.fightFactors then
@@ -888,7 +891,8 @@ local function normalizeMetric(p, role, key, ctx)
 				rolePooled = pooled
 				curveFrom = label
 				local pct = entryPercentileFor(entry, (scale or 1) * curveVal / ctx.duration)
-				specMedian = curveP50(entry.curve) / (scale or 1)
+				local p50 = curveP50(entry.curve) -- nil-safe divide (audit)
+				specMedian = p50 and p50 / (scale or 1) or nil
 				return pct, true, pct, nil, specMedian, pct, rolePooled, curveFrom
 			end
 		end
@@ -1249,8 +1253,13 @@ function Engine.ScoreFight(fight, opts)
 			-- spec's all-boss pool, but never to a role's generic mix
 			local dEntry, _, _, dScale = findCurve(ctx, "dps", p.specID, role, true)
 			local hEntry, _, _, hScale = findCurve(ctx, "hps", p.specID, role, true)
-			local d50 = dEntry and curveP50(dEntry.curve) / (dScale or 1)
-			local h50 = hEntry and curveP50(hEntry.curve) / (hScale or 1)
+			-- and-or precedence made this `dEntry and (curveP50()/scale)`,
+			-- which crashed when the curve had no p50 (Josh 2026-07-26
+			-- audit); split so the divide only runs on a real median
+			local d50 = dEntry and curveP50(dEntry.curve)
+			local h50 = hEntry and curveP50(hEntry.curve)
+			d50 = d50 and d50 / (dScale or 1)
+			h50 = h50 and h50 / (hScale or 1)
 			local budget = (weights.damage or 0) + (weights.healing or 0)
 			-- BOTH medians required: a missing curve means "no data", not
 			-- "zero output" — one-sided evidence must not zero a weight

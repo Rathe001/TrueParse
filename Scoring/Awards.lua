@@ -103,7 +103,7 @@ function Awards.Compute(fight)
 	-- Untouchable: avoidable damage hit the group and exactly ONE player
 	-- dodged every bit of it. Dodging what nobody else managed is an
 	-- award; standing in nothing on a clean fight is Tuesday.
-	if (fight.totals.avoidableTaken or 0) > 0 then
+	if ((fight.totals or {}).avoidableTaken or 0) > 0 then
 		local clean, cleanGuid, total = 0, nil, 0
 		for guid, p in pairs(fight.players) do
 			total = total + 1
@@ -134,7 +134,7 @@ function Awards.Compute(fight)
 	-- "Saving lives" requires healing OTHER people: mostly-self healing
 	-- earns Unbreakable instead (split only known on Classic captures;
 	-- without it the healing is assumed outward).
-	local totalHeal = (fight.totals.healing or 0) + (fight.totals.absorbs or 0)
+	local totalHeal = ((fight.totals or {}).healing or 0) + ((fight.totals or {}).absorbs or 0)
 	if totalHeal > 0 then
 		-- only the TOP qualifying off-healer: three DPS each over the bar
 		-- used to mean three ribbons
@@ -184,7 +184,7 @@ function Awards.Compute(fight)
 	end
 	-- nil means the deaths data never arrived (secret or missing session):
 	-- unknown is not the same as flawless
-	local noDeaths = fight.totals.deaths == 0
+	local noDeaths = (fight.totals or {}).deaths == 0
 
 	-- 90s+ only: a deathless 20-second heroic steamroll is not a save
 	if fight.isBoss and noDeaths and (fight.duration or 0) >= 90 then
@@ -210,8 +210,8 @@ function Awards.Compute(fight)
 	end
 
 	-- Deathless despite the group standing in everything
-	local avoidable = fight.totals.avoidableTaken or 0
-	local taken = fight.totals.damageTaken or 0
+	local avoidable = (fight.totals or {}).avoidableTaken or 0
+	local taken = (fight.totals or {}).damageTaken or 0
 	if noDeaths and avoidable > 0 and taken > 0 and avoidable / taken >= 0.15 then
 		grantHealers("healedStupid")
 	end

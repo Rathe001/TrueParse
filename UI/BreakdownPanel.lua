@@ -14,6 +14,13 @@ TP.BreakdownPanel = Panel
 local WIDTH = 300
 local ROW_HEIGHT = 16
 
+-- ScoreFight for the group-average comparison ticks is expensive and was
+-- re-run on EVERY row hover (a 20-player scorecard re-scored the fight
+-- ~20 times as the mouse moved down it, Josh 2026-07-26 audit). Memoize
+-- per fight record + score mode (Raw/True changes the result); weak keys
+-- let old fights get collected. Mirrors MeterWindow's displayCache.
+local groupAvgCache = setmetatable({}, { __mode = "k" })
+
 -- Mockup type (Josh 2026-07-24): the clean condensed sans of the
 -- quality-addon dialect (Details/WeakAuras ship it too) instead of
 -- Friz Quadrata everywhere. Falls back to the template's face on
@@ -1330,12 +1337,21 @@ function Panel:ShowFor(fight, result)
 		row.tooltipData = { title = award, lines = {
 			{ TP.Scoring.Awards.DESCRIPTIONS[award] or "Fight award.", 1, 1, 1 } } }
 	end
-	-- comparison ticks come from the whole card's results
+	-- comparison ticks come from the whole card's results — cached per
+	-- fight+mode so hovering a raid scorecard doesn't re-score every row
 	local groupAvg
 	do
-		local ok, all = pcall(TP.Scoring.Engine.ScoreFight, fight, TP.GetScoringOptions())
-		if ok and all then
-			groupAvg = TP.Scoring.Signals.GroupAverages(all, fight)
+		local mode = TP.Addon and TP.Addon.db and TP.Addon.db.profile.scoring
+			and TP.Addon.db.profile.scoring.mode or "contribution"
+		local cached = groupAvgCache[fight]
+		if cached and cached.mode == mode then
+			groupAvg = cached.groupAvg
+		else
+			local ok, all = pcall(TP.Scoring.Engine.ScoreFight, fight, TP.GetScoringOptions())
+			if ok and all then
+				groupAvg = TP.Scoring.Signals.GroupAverages(all, fight)
+			end
+			groupAvgCache[fight] = { mode = mode, groupAvg = groupAvg }
 		end
 	end
 	-- Raw mode = the WCL view (Josh 2026-07-24): only the throughput

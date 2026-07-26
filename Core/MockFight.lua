@@ -432,6 +432,11 @@ function MockFight:Clear(silent)
 	end
 	if removed > 0 then
 		FH:Persist()
+		-- clear the selector pin so it doesn't dangle on a removed mock
+		-- fight (Josh 2026-07-26 audit)
+		if TP.MeterWindow and TP.MeterWindow.ResetSelection then
+			TP.MeterWindow:ResetSelection()
+		end
 		if TP.MeterWindow and TP.MeterWindow.Refresh then
 			TP.MeterWindow:Refresh(true)
 		end

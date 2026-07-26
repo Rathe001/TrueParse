@@ -77,9 +77,14 @@ local function contextFor(def, fight)
 		ctx.runFights = anchor and fightsOfRun(anchor.runID)
 		ctx.zone = anchor and anchor.zone
 		if ctx.runFights and #ctx.runFights > 0 then
-			local run = TP.Scoring.Runs.Aggregate(ctx.runFights, ctx.zone or "Run")
-			local ok, results = pcall(TP.Scoring.Engine.ScoreFight, run, { normalizeIlvl = false })
-			ctx.results = ok and results or nil
+			-- Aggregate iterates fight.players unguarded; pcall it like the
+			-- ScoreFight below so a bad record degrades instead of throwing
+			-- out of the button/event handler (Josh 2026-07-26 audit)
+			local okA, run = pcall(TP.Scoring.Runs.Aggregate, ctx.runFights, ctx.zone or "Run")
+			if okA and run then
+				local ok, results = pcall(TP.Scoring.Engine.ScoreFight, run, { normalizeIlvl = false })
+				ctx.results = ok and results or nil
+			end
 		end
 		return ctx
 	end
@@ -373,11 +378,13 @@ function ReportsUI:OnEnable()
 		end
 	end)
 	-- run end: where the client announces completion (same events the
-	-- run summary trusts)
+	-- run summary trusts). Pass the NEWEST fight so the report aggregates
+	-- the run that just finished, not whatever the selector has pinned
+	-- (Josh 2026-07-26 audit).
 	pcall(self.RegisterEvent, self, "LFG_COMPLETION_REWARD", function()
-		autoRun("runEnd")
+		autoRun("runEnd", latestFight())
 	end)
 	pcall(self.RegisterEvent, self, "CHALLENGE_MODE_COMPLETED", function()
-		autoRun("runEnd")
+		autoRun("runEnd", latestFight())
 	end)
 end

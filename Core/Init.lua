@@ -280,13 +280,16 @@ function Addon:HandleSlash(input)
 			return
 		end
 		table.sort(rows, function(a, b)
-			return a.gpa > b.gpa
+			return (a.gpa or 0) > (b.gpa or 0)
 		end)
 		self:Print("This week's TrueParse standings:")
 		for i, r in ipairs(rows) do
+			-- synced week-board rows can carry nil numeric fields (a
+			-- malformed/old-version peer payload); default them so /tp guild
+			-- never errors on someone else's data (Josh 2026-07-26 audit)
 			self:Print(("  %d. %s %s - %d fights%s"):format(
-				i, TP.Scoring.Grades.ColoredScore(r.gpa), r.name, r.fights,
-				r.tops > 0 and (", top of the card %dx"):format(r.tops) or ""))
+				i, TP.Scoring.Grades.ColoredScore(r.gpa or 0), r.name or "?", r.fights or 0,
+				(r.tops or 0) > 0 and (", top of the card %dx"):format(r.tops) or ""))
 		end
 	elseif cmd == "coach" then
 		self.db.profile.coach = not self.db.profile.coach
@@ -367,9 +370,11 @@ function Addon:Debug(...)
 	self:Print("|cff888888[debug]|r " .. table.concat(out, " "))
 end
 
--- TEMPORARY diagnostics: these events fire synchronously inside the blocked
--- call, so debugstack() here reveals the offending call site. Remove once
--- the load error is fixed.
+-- Taint diagnostics: these events fire synchronously inside the blocked
+-- call, so debugstack() reveals the offending call site. The chat spew is
+-- gated behind /tp debug (Josh 2026-07-26 audit: it was printing red text
+-- to every user's chat in the public build); the silent SavedVariables
+-- record stays so a block can be inspected after the fact with /tp debug.
 local diag = CreateFrame("Frame")
 diag:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 diag:RegisterEvent("ADDON_ACTION_BLOCKED")
@@ -378,10 +383,12 @@ diag:SetScript("OnEvent", function(_, event, addonName, func)
 		return
 	end
 	local stack = debugstack(3, 20, 0)
-	print("|cffff4444TrueParse diag:|r", event, "->", tostring(func))
-	for line in stack:gmatch("[^\n]+") do
-		if line:find("TrueParse", 1, true) then
-			print("|cffff8888  at:|r", line)
+	if Addon.db and Addon.db.profile.debug then
+		print("|cffff4444TrueParse diag:|r", event, "->", tostring(func))
+		for line in stack:gmatch("[^\n]+") do
+			if line:find("TrueParse", 1, true) then
+				print("|cffff8888  at:|r", line)
+			end
 		end
 	end
 	if Addon.db then
