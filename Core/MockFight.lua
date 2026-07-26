@@ -183,6 +183,14 @@ local function roster(duration, full, collapseAt)
 	dps("MOCK-d3", "Nightbriar", "ROGUE", 261, 560, 231000, {
 		activityPct = 82, deaths = 1, defensives = 0, consumables = 1,
 		lustCasts = 1, lustPotion = 0, interrupts = 3, healthstones = 0,
+		avoidableTaken = 9000 * k, -- ate Exploding Iron Stars (avoidable)
+		-- per-ability taken (MoP/CLEU): the coach cross-refs these names
+		-- against the crawled Garrosh field, so it can say "you took
+		-- Exploding Iron Star 3 times, only 30% of players do"
+		takenByAbility = {
+			["Exploding Iron Star"] = { amount = 8000 * k, hits = 3 },
+			["Desecrated"] = { amount = 4000 * k, hits = 6 }, -- 0.81 hitRate: not flagged
+		},
 		spikeWindows = 2, spikeCovered = 0, defensiveUses = 0,
 		spikeMap = {
 			{ 198, 204, nil, nil, 580000, "Whirling Corruption" },

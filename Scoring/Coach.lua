@@ -140,6 +140,24 @@ function Coach.Advise(result, fight, player)
 	end
 
 	if k == "avoidable" then
+		-- name the specific mechanic when we can (MoP/CLEU for everyone;
+		-- retail for the local player's spike hits): far more actionable than
+		-- "the bad" (Josh 2026-07-26). Measured against the crawled field.
+		local mech = TP.Scoring.Insights and TP.Scoring.Insights.MechanicGaps
+			and TP.Scoring.Insights.MechanicGaps(player, fight)
+		if mech and mech.spell then
+			local field = math.floor((mech.hitRate or 0) * 100 + 0.5)
+			if (mech.hits or 1) > 1 then
+				return say(30, {
+					("You took %s %d times - only %d%% of players get hit by it. Sidestep it."):format(mech.spell, mech.hits, field),
+					("%s caught you %d times; most players avoid it (%d%% take it). Watch for it."):format(mech.spell, mech.hits, field),
+				})
+			end
+			return say(31, {
+				("You took %s - only %d%% of players get hit by it. Sidestep it."):format(mech.spell, field),
+				("%s caught you; most players avoid it (%d%% take it). Watch for it."):format(mech.spell, field),
+			})
+		end
 		local s = pctOf(m.avoidableTaken, m.damageTaken)
 		if s and s > 0 then
 			return say(1, {

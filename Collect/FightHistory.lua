@@ -967,6 +967,27 @@ function FightHistory:AddFromSegment(seg)
 				end
 				return math.max(0, av)
 			end)(),
+			-- per-ability damage taken (MoP/CLEU), top few by damage: mechanic
+			-- coaching cross-refs the names against the crawled field hitRate
+			takenByAbility = (function()
+				local bn = acc.taken and acc.taken.byName
+				if not bn then
+					return nil
+				end
+				local arr = {}
+				for name, e in pairs(bn) do
+					arr[#arr + 1] = { name = name, amount = e.amount, hits = e.hits }
+				end
+				if #arr == 0 then
+					return nil
+				end
+				table.sort(arr, function(a, b) return a.amount > b.amount end)
+				local out = {}
+				for i = 1, math.min(8, #arr) do
+					out[arr[i].name] = { amount = arr[i].amount, hits = arr[i].hits }
+				end
+				return out
+			end)(),
 			interrupts = acc.interrupts and acc.interrupts.kicks or 0,
 			dispels = acc.dispels and acc.dispels.count or 0,
 			deaths = acc.deaths and acc.deaths.total or 0,

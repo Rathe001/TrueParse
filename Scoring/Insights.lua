@@ -293,6 +293,66 @@ function Insights.RunAdvice(fights)
 	return out
 end
 
+-- Mechanic coaching: the most avoidable ability a player ate this fight,
+-- named and measured against the crawled field (Josh 2026-07-26). Source is
+-- client-shaped: MoP/CLEU records per-ability taken for EVERY player
+-- (metrics.takenByAbility); retail has no combat log, so it's best-effort
+-- from the local player's own self-reported spike map. Returns
+-- { spell, hits, amount, hitRate } or nil. PURE: cross-refs the crawled
+-- TP.DAMAGE_PROFILES via DeathCause.ProfilesFor.
+local MECHANIC_HITRATE = 0.5 -- below this, most players avoid it -> coachable
+
+local function mechanicsFromSpikeMap(map)
+	if type(map) ~= "table" then
+		return nil
+	end
+	local out
+	for _, w in ipairs(map) do
+		local name = w[6] -- { s, e, met, mine, amt, hitName, used, ... }
+		if name then
+			out = out or {}
+			local e = out[name]
+			if not e then
+				e = { amount = 0, hits = 0 }
+				out[name] = e
+			end
+			e.amount = e.amount + (w[5] or 0)
+			e.hits = e.hits + 1
+		end
+	end
+	return out
+end
+
+function Insights.MechanicGaps(player, fight)
+	local DC = TP.Scoring.DeathCause
+	local profiles = DC and DC.ProfilesFor and DC.ProfilesFor(fight)
+	if not profiles then
+		return nil -- no crawled data for this encounter
+	end
+	local m = player and player.metrics
+	if not m then
+		return nil
+	end
+	local byName = m.takenByAbility or mechanicsFromSpikeMap(m.spikeMap)
+	if not byName then
+		return nil
+	end
+	local best
+	for name, e in pairs(byName) do
+		local prof = profiles[name]
+		if prof and prof.hitRate and prof.hitRate < MECHANIC_HITRATE then
+			-- rank by damage AND how avoidable it is: a big hit that few
+			-- players take is the clearest thing to coach
+			local rank = (e.amount or 0) * (1 - prof.hitRate)
+			if not best or rank > best.rank then
+				best = { spell = name, hits = e.hits or 1, amount = e.amount or 0,
+					hitRate = prof.hitRate, rank = rank }
+			end
+		end
+	end
+	return best
+end
+
 -- The parse coach: compare a player's per-minute rate on their spec's
 -- signature spells against what TOP PARSES of that spec actually do
 -- (Data/SpellProfiles_*, crawled from WCL Casts tables). Returns the

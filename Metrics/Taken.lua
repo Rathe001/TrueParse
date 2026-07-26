@@ -49,6 +49,24 @@ local function addTaken(seg, dstGUID, amount, spellID, spellName, blocked, isSwi
 			end
 			e.total = e.total + amount
 			e.hits = e.hits + 1
+			-- per-player per-ability taken: mechanic coaching cross-refs
+			-- these names against the crawled field hitRate (Josh 2026-07-26).
+			-- Spells only - swings aren't dodgeable mechanics. Pruned to the
+			-- top few at capture (FightHistory) to bound the saved size.
+			if not isSwing and spellName then
+				local bn = acc.taken.byName
+				if not bn then
+					bn = {}
+					acc.taken.byName = bn
+				end
+				local be = bn[spellName]
+				if not be then
+					be = { amount = 0, hits = 0 }
+					bn[spellName] = be
+				end
+				be.amount = be.amount + amount
+				be.hits = be.hits + 1
+			end
 		end
 		-- ring buffer of the last hits: UNIT_DIED snapshots it into the
 		-- death recap (slot tables are reused; the hot path allocates
