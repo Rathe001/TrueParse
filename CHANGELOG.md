@@ -1,5 +1,78 @@
 # TrueParse Changelog
 
+## 2.2.0
+
+**Reports read like a debrief now.** The chat reports are rewritten from
+stat lists into plain-language summaries. A small narrator ranks every
+fact by how much it mattered this fight and composes the top few into
+sentences, with an outcome-driven tone: kills lead with "faster than N%
+of ranked kills on Warcraft Logs" and the group's DPS and parse
+averages; wipes lead with progress ("best pull today", or how far past
+the last attempt) and name what went wrong. Phrasing varies between
+fights but is stable for the same fight. Reports never name a player,
+and open with a "<TrueParse>" signature so readers know the source. The
+group score line explains itself for people who don't know the addon
+("the average player beating 45% of ranked parses for their spec").
+
+**Death coaching that names the cause.** A new engine reads each death's
+final hits against per-encounter damage data crawled from Warcraft
+Logs and tells you *why* someone died: an avoidable mechanic ("you died
+to Whirling Corruption, move out"), a tankbuster to pre-mitigate, a
+one-shot (forgiven), or chip damage (a healing gap, not a positioning
+one). The raid report distinguishes "4 of 6 deaths were avoidable
+mechanics" from "deaths were chip damage." Real data corrects old
+guesses — a heal-through mechanic no longer reads as a dodge-fail. It
+works today and sharpens as the monthly crawl refreshes.
+
+**Retail catches up to Classic.** Midnight hides the combat log, but
+your own client can see your own actions — so each TrueParse user now
+self-reports theirs, and the addon fills in what it couldn't observe.
+Retail tanks get the full Tanking composite (avoidance, mitigation
+uptime, swing data); healers get cooldown-timing on group damage
+spikes when enough people are reporting; and healthstones, Bloodlust
+usage, mana pacing, personal spike strips, and honest death counts
+(retail's meter misses combat-rezzed deaths — reports now say "everyone
+standing at the end" instead of a false "deathless") all light up.
+
+**New scoring and coaching from unused data.** Dispel reaction time is
+now scored and shown (fast clears earn, slow ones cost a little).
+Activity is judged against each spec's own top-parse idle rate instead
+of one fixed curve. The coach line's hover shows your whole rotation
+versus the top parses, not just the single biggest gap. The Tanking
+composite now earns a bonus when it beats the spec's population.
+
+**Reports panel.** A chat icon by the meter's cog opens a panel of
+shareable reports — Fight analysis, End of run, Death report,
+Preparation check — each with a channel picker (your own chat by
+default), a confirmation before broadcasting, and an always-local
+auto-run option. The old scattered announce/debrief options are retired
+into it.
+
+**Card and quality-of-life.** The score's hover shows the arithmetic
+behind it (each metric × weight, plus adjustments); letter grades now
+cover every bar; the header time reads "@10:34pm (6m20s)" from live
+pull stamps (fixing impossible times on delayed captures); a "Clear
+fight history" button (career stats kept); and the Off-healing split is
+retired so a tank's Healing is the plain WCL parse again.
+
+**Fixes.** A crash that aborted Classic captures when a tank took
+absorbed or avoided damage (the totals accumulation hit an
+uninitialized key). A crash on `/tp run` inside a retail dungeon
+(secret instance name). Retail players missing a role now derive it
+from their spec (tanks and healers were grading as DPS). A wipe called
+at the pull instant no longer corrupts a fight's stats. Plus a full
+audit pass hardening the capture, scoring, and UI paths against nil and
+secret values, and a performance fix so hovering a raid scorecard
+doesn't re-score the whole fight per row.
+
+## 2.1.2
+
+Fixes a crash that could abort a fight capture on Classic. When a tank
+took absorbed or avoided damage (a shielded hit, a dodge or parry), the
+totals accumulation hit an uninitialized key and errored, so the fight
+"didn't parse." Most visible in Celestial 5-mans with a Protection
+Paladin. Captures are reliable again.
+
 ## 2.1.1
 
 The chat icon now hides with the cog when the window collapses.
