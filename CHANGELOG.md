@@ -1,14 +1,16 @@
 # TrueParse Changelog
 
-## Unreleased
+## 2.4.0
 
-**Mechanic coaching.** The coach now names the specific avoidable ability
-that hurt you, measured against the crawled Warcraft Logs field: "You took
-Exploding Iron Star 3 times - only 30% of players get hit by it. Sidestep
-it." On MoP Classic this works for every player (the combat log sees every
-hit); on retail, where there's no combat log, it covers your own
-self-reported spike hits and otherwise falls back to the general "stood in
-bad." Uses the per-ability hit-rate data already crawled for death causes.
+**Mechanic coaching.** Instead of a generic "you took avoidable damage,"
+the coach now names the specific ability that hurt you and measures it
+against the crawled Warcraft Logs field: "You took Exploding Iron Star 3
+times (~627k each) - only 41% of players get hit by it. Sidestep it." On
+MoP Classic this works for every player (the combat log sees every hit);
+on retail, where there's no combat log, it covers your own self-reported
+spike hits and otherwise keeps the general "stood in bad." Built on the
+per-ability data already crawled for death causes, now with each ability's
+typical damage so the coaching carries real impact.
 
 ## 2.3.0
 
