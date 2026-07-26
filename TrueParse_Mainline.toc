@@ -33,6 +33,8 @@ Data\Mitigation.lua
 Data\Lust.lua
 Data\HealerCDs.lua
 Data\SpellProfiles.lua
+Data\Overheal.lua
+Data\DamageProfiles.lua
 Data\TankAnchors.lua
 Collect\Roster.lua
 Metrics\Registry.lua
