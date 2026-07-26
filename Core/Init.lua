@@ -20,7 +20,8 @@ local defaults = {
 		-- shareable reports (2026-07-25): per-report channel + auto flag
 		-- (auto delivery is always local-only regardless of channel)
 		reports = { ["*"] = { channel = "INFO", auto = false } },
-	wipeDebrief = true, -- local what-happened after each wipe capture
+	-- (wipeDebrief/announce/announceSummary defaults retired 2026-07-25:
+	-- the Reports panel owns chat output; saved values scrubbed at enable)
 		-- "Wipe it" header button: records the exact wipe-call moment and
 		-- syncs it to every TrueParse in the group (heuristic detection
 		-- stays as the fallback). Off by default; Classic only.
@@ -30,8 +31,6 @@ local defaults = {
 		practiceDummies = true,
 		toasts = true, -- on-screen flash when you earn an award
 		letterGrades = false, -- show D-/C/B+/S letter tiers instead of numbers
-		announce = false, -- opt-in: one MVP line to group chat on run completion
-		announceSummary = false, -- opt-in: one group strengths/weaknesses line
 		minimap = { hide = false },
 		bars = {
 			height = 18,
@@ -107,6 +106,12 @@ function Addon:OnEnable()
 	if not TP.Compat.IS_RETAIL then
 		TP.Scoring.Capabilities.SetMoPRules(true)
 	end
+	-- retired options must not linger in saved profiles (Josh 2026-07-25:
+	-- a stuck-on value with no UI to disable it would be unfixable) — the
+	-- defaults are gone too, so nil removes them outright
+	self.db.profile.wipeDebrief = nil
+	self.db.profile.announce = nil
+	self.db.profile.announceSummary = nil
 	checkBenchmarkAge()
 	TP.Roster:OnEnable()
 	TP.Segments:OnEnable()
@@ -287,12 +292,10 @@ function Addon:HandleSlash(input)
 		self.db.profile.coach = not self.db.profile.coach
 		self:Print("Post-fight coach line " .. (self.db.profile.coach and "on." or "off."))
 	elseif cmd == "announce" then
-		self.db.profile.announce = not self.db.profile.announce
-		self:Print("Run-MVP group chat announcement "
-			.. (self.db.profile.announce and "ON — one line to group chat when a run completes." or "off."))
-		-- announcer election runs over the hidden channel: tell the group
-		if TP.Sync and TP.Sync.QueueHello then
-			TP.Sync:QueueHello()
+		self:Print("Announcements moved to the Reports panel (chat icon on the meter, or /tp reports).")
+	elseif cmd == "reports" then
+		if TP.ReportsUI then
+			TP.ReportsUI.Toggle()
 		end
 	elseif cmd == "mode" then
 		local s = self.db.profile.scoring

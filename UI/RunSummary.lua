@@ -228,52 +228,9 @@ function RunSummary:Report(announce)
 		TP.Addon:Print(line)
 	end
 
-	if announce and IsInGroup() then
-		-- one announcer per group: defer to a groupmate whose TrueParse
-		-- is newer (or equal + lower GUID) — no duplicate lines
-		if TP.Sync and TP.Sync.ShouldAnnounce and not TP.Sync:ShouldAnnounce() then
-			return
-		end
-		local lines = {}
-		if TP.Addon.db.profile.announce then
-			-- MVP by the same per-fight-mean currency the report and the
-			-- window use; the WHY still reads the whole-run breakdown
-			local mvp = rows[1]
-			local why
-			local bestPct = 0
-			for _, r in ipairs(results) do
-				if r.guid == mvp.guid then
-					for key, b in pairs(r.breakdown or {}) do
-						if b.applicable and (b.pctile or 0) > bestPct and (b.effectiveWeight or 0) > 0 then
-							bestPct = b.pctile
-							why = (TP.METRIC_LABELS[key] or key):lower()
-						end
-					end
-				end
-			end
-			lines[#lines + 1] = ("TrueParse MVP: %s %d/100%s. Group: %d/100."):format(
-				mvp.name, math.floor(mvp.score + 0.5),
-				why and (" (%s p%d)"):format(why, bestPct + 0.5) or "",
-				math.floor(groupScore + 0.5))
-		end
-		if TP.Addon.db.profile.announceSummary then
-			lines[#lines + 1] = composeSummary(run, fights, results,
-				math.floor(groupScore + 0.5))
-		end
-		if #lines == 0 then
-			return
-		end
-		if TP.Compat.IS_RETAIL then
-			-- Midnight blocks SendChatMessage from addon-driven code
-			-- ("Interface action failed because of an AddOn"): posting
-			-- needs a hardware event, so offer a click instead
-			self:PromptPost(lines)
-		else
-			for _, line in ipairs(lines) do
-				SendChatMessage(line, groupChannel())
-			end
-		end
-	end
+	-- (the announce path retired 2026-07-25: the Reports panel owns
+	-- every group-chat output now — channels, confirmations, and the
+	-- no-names house rule; `announce` is ignored)
 end
 
 -- Retail post prompt: a small click-through so the send happens on a
@@ -434,19 +391,8 @@ function RunSummary:OnEnable()
 	LibStub("AceEvent-3.0"):Embed(self)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", updateInstance)
 	self:RegisterEvent("ZONE_CHANGED_NEW_AREA", updateInstance)
-	-- Auto-report on completion where the client tells us
-	pcall(self.RegisterEvent, self, "LFG_COMPLETION_REWARD", function()
-		RunSummary:Report(true)
-	end)
-	pcall(self.RegisterEvent, self, "CHALLENGE_MODE_COMPLETED", function()
-		RunSummary:Report(true)
-	end)
-	-- wipes get a debrief the moment they capture: that's when the group
-	-- is actually asking what happened
-	self:RegisterMessage("TrueParse_FIGHT_CAPTURED", function(_, fight)
-		if fight and fight.wipe and TP.Addon.db.profile.wipeDebrief then
-			RunSummary:WipeDebrief(fight)
-		end
-	end)
+	-- (completion auto-report + wipe debrief retired 2026-07-25: the
+	-- Reports panel's auto-run checkboxes are the one reporting system —
+	-- /tp run and /tp share remain as manual commands)
 	updateInstance()
 end

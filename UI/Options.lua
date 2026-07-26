@@ -64,12 +64,6 @@ local optionsTable = {
 					get = function() return profile().coach end,
 					set = function(_, v) profile().coach = v end,
 				},
-				wipeDebrief = {
-					type = "toggle", order = 2, name = "Post-wipe debrief",
-					desc = "After a wipe: deaths, how many followed avoidable damage, and the pull's top pointers. Notes when the wipe looked called - nothing after that point counts against anyone. Only you see this.",
-					get = function() return profile().wipeDebrief end,
-					set = function(_, v) profile().wipeDebrief = v end,
-				},
 				practiceDummies = {
 					type = "toggle", order = 2.7, name = "Score training dummies",
 					desc = "Raider's-dummy sessions of a minute or more get a practice card, scored against Iron Juggernaut's ranked parses (the tier's stand-and-hit fight). Never touches career stats. Target the dummy when you start.",
@@ -89,49 +83,27 @@ local optionsTable = {
 						end
 					end,
 				},
-				announce = {
-					type = "toggle", order = 3, name = "Announce run MVP to group",
-					desc = "When a dungeon/key completes, post ONE line to group chat: the run MVP, what earned it, and the group score. When several TrueParse users have announcements on, only one (the newest version) posts - no duplicates. On retail a Post button asks first; Blizzard blocks addons from sending chat on their own. Off by default; be considerate.",
-					get = function() return profile().announce end,
-					set = function(_, v)
-						profile().announce = v
-						-- the election reads groupmates' last-heard flags;
-						-- a silent change corrupts it (audit 2026-07-16)
-						if TP.Sync and TP.Sync.QueueHello then
-							TP.Sync:QueueHello()
-						end
-					end,
-				},
-				announceSummary = {
-					type = "toggle", order = 4, name = "Announce group summary",
-					desc = "When a run completes, post ONE line telling the group's story: the score, kill speed vs the group's own parses when they disagree (execution vs throughput), kick coverage, deaths, and the run's most useful pointer. No individual scores. Same one-announcer rule and retail Post button as the MVP line.",
-					get = function() return profile().announceSummary end,
-					set = function(_, v)
-						profile().announceSummary = v
-						if TP.Sync and TP.Sync.QueueHello then
-							TP.Sync:QueueHello()
-						end
-					end,
-				},
 			},
 		},
+		-- (the old announce/debrief toggles and run/share buttons retired
+		-- 2026-07-25: the Reports panel owns every chat output now, with
+		-- per-report channels, confirmations, and local-only auto-runs)
 		reports = {
 			type = "group", inline = true, name = "Reports", order = 4,
 			args = {
-				run = {
-					type = "execute", order = 1, name = "Run report",
-					desc = "Print the current run's report card to your chat: everyone's whole-run score, awards, and the run's top pointers. Only you see it.",
-					func = function() TP.RunSummary:Report() end,
+				open = {
+					type = "execute", order = 1, name = "Open reports panel",
+					desc = "Shareable fight/run reports: pick a channel, confirm, send. Also on the chat icon in the meter header.",
+					func = function()
+						if TP.ReportsUI then
+							TP.ReportsUI.Toggle()
+						end
+					end,
 				},
 				career = {
 					type = "execute", order = 2, name = "Career stats",
 					desc = "Print your GPA, trend, best fight, and strengths.",
 					func = function() TP.Career:PrintSummary() end,
-				},
-				share = {
-					type = "execute", order = 3, name = "Share kill to group",
-					desc = "Post the latest kill to group chat: completion time vs Warcraft Logs ranked kills, plus the group score.",
-					func = function() TP.RunSummary:Share() end,
 				},
 			},
 		},
