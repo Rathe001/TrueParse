@@ -3270,10 +3270,14 @@ end)()
 	TP.SpellProfiles = savedProf
 end)()
 
--- 39. Shareable chat reports (2026-07-25): plain lines, chat-sized,
--- aggregate metrics only — a report must NEVER name a player
+-- 39. Shareable chat reports (2026-07-25): narrated debriefs, not
+-- stat dumps. Phrasing varies by fight seed, so tests assert stable
+-- facts and invariants: no player names, no em/en dashes, chat-sized.
 ;(function()
 	local R = TP.Scoring.Reports
+	local function alltext(lines)
+		return table.concat(lines or {}, " ")
+	end
 	local wipeFight = {
 		name = "Garrosh Hellscream", isBoss = true, wipe = true,
 		bossPct = 27, duration = 343, calledWipeAt = 330, wipeCalledBy = "Thornveil",
@@ -3291,19 +3295,22 @@ end)()
 	}
 	local olderWipe = { name = "Garrosh Hellscream", isBoss = true, wipe = true, bossPct = 41 }
 	local wl = R.Run("fight", { fight = wipeFight, runFights = { wipeFight, olderWipe } })
-	check(wl and wl[1] == "Wipe: Garrosh Hellscream at 27% (5:43) - best pull today.",
-		("wipe headline (%s)"):format(tostring(wl and wl[1])))
-	check(wl[2] == "Deaths: 2 (1 before the call, first at 2:41); called at 5:30, ended 13s later.",
-		("deaths+call line (%s)"):format(tostring(wl[2])))
-	check(wl[3] == "1 player took avoidable damage (8% of all damage taken); 2 of 6 group spikes uncovered.",
-		("mechanics line (%s)"):format(tostring(wl[3])))
-	check(wl[4] == "Kicks 13/16 (3 missed); dispels 14.",
-		("kicks line (%s)"):format(tostring(wl[4])))
-	-- a deeper prior pull flips the headline to the honest comparison
+	local wt = alltext(wl)
+	check(wt:find("to 27%%", 1, false) ~= nil and (wt:find("Best pull") or wt:find("Deepest push")),
+		("wipe opener leads with the best-pull story (%s)"):format(wt))
+	check(wt:find("2 died getting there, 1 before the call, the first at 2:41 to avoidable damage", 1, true) ~= nil,
+		"deaths and the call read as one sentence")
+	check(wt:find("reset just 13 seconds after the call", 1, true) ~= nil, "fast reset praised")
+	check(wt:find("damage spikes had no cooldown answer", 1, true) ~= nil
+		and wt:find("died with defensives still ready", 1, true) ~= nil,
+		("top two concerns picked by salience (%s)"):format(wt))
+	check(wt:find("The 27% is real progress", 1, true) ~= nil, "best pull closes encouraging")
+
+	-- a deeper prior pull flips the opener to the honest comparison
 	local deeper = { name = "Garrosh Hellscream", isBoss = true, wipe = true, bossPct = 21 }
-	local wl2 = R.Run("fight", { fight = wipeFight, runFights = { wipeFight, deeper } })
-	check(wl2[1] == "Wipe: Garrosh Hellscream at 27% (5:43) - last pull reached 21%.",
-		("regressed headline (%s)"):format(tostring(wl2[1])))
+	local wt2 = alltext(R.Run("fight", { fight = wipeFight, runFights = { wipeFight, deeper } }))
+	check(wt2:find("at 27%% this time; the last pull reached 21%%", 1, false) ~= nil,
+		("regressed opener (%s)"):format(wt2))
 
 	local killFight = {
 		name = "Garrosh Hellscream", isBoss = true,
@@ -3315,13 +3322,15 @@ end)()
 		runFights = { killFight, wipeFight, wipeFight },
 		results = { { name = "Baddchi", score = 99 }, { name = "Beebcat", score = 40 } },
 	})
-	check(kl[1] == "Kill: Garrosh Hellscream in 6:20 (12s faster than last kill).",
-		("kill headline (%s)"):format(tostring(kl[1])))
-	check(kl[2] == "Pulls today: 3 (best prior attempt 27%).", ("pull line (%s)"):format(tostring(kl[2])))
-	check(kl[3] == "Group score 70.", ("group score line (%s)"):format(tostring(kl[3])))
-	check(kl[4] == "Deathless kill.", "deathless line")
-	local one = R.Run("fight", { fight = killFight, runFights = { killFight } })
-	check(one[2] == "One-pulled it.", ("one-pull line (%s)"):format(tostring(one[2])))
+	local kt = alltext(kl)
+	check(kt:find("in 6:20", 1, true) ~= nil, ("kill opener carries the time (%s)"):format(kt))
+	check(kt:find("It took 3 pulls, the best prior attempt reaching 27%%", 1, false) ~= nil,
+		("pulls read as a sentence (%s)"):format(kt))
+	check(kt:find("Group score 70", 1, true) ~= nil, "group score present")
+	check(kt:find("12 seconds faster than the last kill", 1, true) ~= nil, "speed-up celebrated")
+
+	local one = alltext(R.Run("fight", { fight = killFight, runFights = { killFight } }))
+	check(one:find("one pull", 1, true) ~= nil, ("one-pull brag in the opener (%s)"):format(one))
 
 	local rl = R.Run("run", {
 		zone = "Siege of Orgrimmar",
@@ -3329,34 +3338,45 @@ end)()
 			{ name = "Sha of Pride", isBoss = true, duration = 182, players = {} } },
 		results = { { name = "Baddchi", score = 99 } },
 	})
-	check(rl[1] == "Run: Siege of Orgrimmar - 2 kills, 1 wipe, 15:05 fought.",
-		("run headline (%s)"):format(tostring(rl[1])))
-	check(rl[3] == "Deaths: 2. Avoidable damage: 8% of all damage taken.",
-		("run deaths line (%s)"):format(tostring(rl[3])))
-	check(rl[4] == "Kicks across the run: 13/16.", ("run kicks line (%s)"):format(tostring(rl[4])))
-	check(rl[#rl] == "Fastest kill: Sha of Pride (3:02).", ("fastest line (%s)"):format(tostring(rl[#rl])))
+	local rt = alltext(rl)
+	check(rt:find("Siege of Orgrimmar: 2 kills, 1 wipe, 15:05 of fighting for a run score of 99", 1, true) ~= nil,
+		("run headline (%s)"):format(rt))
+	check(rt:find("2 deaths across the run, and 8%% of the damage taken was avoidable", 1, false) ~= nil,
+		("run deaths sentence (%s)"):format(rt))
+	check(rt:find("Kicks landed 13 of 16", 1, true) ~= nil, "run kicks sentence")
+	check(rt:find("Fastest kill: Sha of Pride at 3:02", 1, true) ~= nil, "fastest kill named")
 
-	local dl = R.Run("deaths", { fight = wipeFight })
-	check(dl[1] == "Deaths on Garrosh Hellscream: 2 (first at 2:41, last at 5:35).",
-		("death header (%s)"):format(tostring(dl[1])))
-	check(dl[2] == "1 of the killing blows was an avoidable hit.",
-		("avoidable blows line (%s)"):format(tostring(dl[2])))
-	check(dl[3] == "1 player died with 2+ defensives unused.",
-		("ready-defensives line (%s)"):format(tostring(dl[3])))
+	local dt = alltext(R.Run("deaths", { fight = wipeFight }))
+	check(dt:find("2 deaths on Garrosh Hellscream, the first at 2:41 and the last at 5:35", 1, true) ~= nil,
+		("death report header (%s)"):format(dt))
+	check(dt:find("One of the killing blows was an avoidable hit", 1, true) ~= nil, "avoidable blow line")
+	check(dt:find("1 player died with 2 or more defensives unused", 1, true) ~= nil, "ready-defensives line")
 
-	local pl = R.Run("prep", { fight = {
+	local pt = alltext(R.Run("prep", { fight = {
 		name = "Garrosh Hellscream",
 		players = {
 			a = { name = "Ready", metrics = { consumables = 2, healthstones = 1 } },
 			b = { name = "Naked", metrics = { consumables = 0, healthstones = 0 } },
 			c = { name = "NoAddon", metrics = {} },
 		},
-	} })
-	check(pl[1] == "Prep on Garrosh Hellscream: flask+food 1/2 (1 player missing).",
-		("prep line (%s)"):format(tostring(pl[1])))
-	check(pl[2] == "Healthstones eaten: 1/2.", ("healthstone line (%s)"):format(tostring(pl[2])))
+	} }))
+	check(pt:find("1 of 2 brought flask and food, 1 player short", 1, true) ~= nil,
+		("prep sentence (%s)"):format(pt))
+	check(pt:find("Healthstones eaten: 1 of 2", 1, true) ~= nil, "healthstone sentence")
 
-	-- the house rule itself: no report line ever carries a player name
+	-- retail records stamped deathTime=0 on players who never died: the
+	-- deaths counter is the authority
+	local ghost = alltext(R.Run("deaths", { fight = {
+		name = "Edwin VanCleef",
+		players = {
+			a = { name = "Alive1", deathTime = 0, metrics = { deaths = 0 } },
+			b = { name = "Alive2", deathTime = 0, metrics = { deaths = 0 } },
+		},
+	} }))
+	check(ghost == "Nobody died on Edwin VanCleef.",
+		("zero-stamped survivors are not deaths (%s)"):format(ghost))
+
+	-- house rules, every report: no names, no em/en dashes, chat-sized
 	for _, key in ipairs({ "fight", "run", "deaths", "prep" }) do
 		local lines = R.Run(key, { fight = wipeFight, zone = "Siege of Orgrimmar",
 			runFights = { wipeFight, olderWipe },
@@ -3366,22 +3386,17 @@ end)()
 				check(not line:find(banned, 1, true),
 					("report '%s' names nobody (%s)"):format(key, line))
 			end
+			local EM = string.char(226, 128, 148)
+			local EN = string.char(226, 128, 147)
+			check(not line:find(EM, 1, true) and not line:find(EN, 1, true),
+				("no em/en dashes (%s)"):format(line))
 			check(#line < 255 and not line:find("|c", 1, true), "chat-safe line")
 		end
 	end
 
-	-- retail records stamped deathTime=0 on players who never died: the
-	-- deaths counter is the authority (a deathless VanCleef kill read
-	-- "5 deaths at 0:00" — 2026-07-25)
-	local ghost = R.Run("deaths", { fight = {
-		name = "Edwin VanCleef",
-		players = {
-			a = { name = "Alive1", deathTime = 0, metrics = { deaths = 0 } },
-			b = { name = "Alive2", deathTime = 0, metrics = { deaths = 0 } },
-		},
-	} })
-	check(ghost[1] == "Nobody died on Edwin VanCleef.",
-		("zero-stamped survivors are not deaths (%s)"):format(tostring(ghost[1])))
+	-- determinism: the same fight always reads the same
+	local again = alltext(R.Run("fight", { fight = wipeFight, runFights = { wipeFight, olderWipe } }))
+	check(again == wt, "same fight, same words")
 
 	check(R.Run("fight", {}) == nil, "no fight, no report")
 	check(R.Run("nope", { fight = wipeFight }) == nil, "unknown report key returns nil")

@@ -1,10 +1,11 @@
--- Shareable chat reports (Josh 2026-07-25): each report turns a fight
--- (or a run) into a few plain-text lines fit for a chat channel — no
--- color codes, every line under the 255-char chat ceiling, no more
--- than ~6 lines so nobody gets spammed.
--- HOUSE RULE (Josh 2026-07-25): reports NEVER name a player. Group
--- metrics only — counts, shares, and timings. Shame stays on the
--- private scorecard; chat gets the team story.
+-- Shareable chat reports (Josh 2026-07-25): each report reads like a
+-- raid lead's debrief, not a stat dump. A small narrator ranks every
+-- available fact by how much it mattered THIS fight, keeps the top
+-- few, and composes them into plain sentences.
+-- HOUSE RULES: reports NEVER name a player (group metrics only); no
+-- em/en dashes in output (Josh: they read as AI); plain text; every
+-- chat line under the 255-char ceiling; phrasing varies between
+-- fights but is DETERMINISTIC per fight (same fight, same words).
 -- PURE LUA: builders read only the ctx they're handed; loaded
 -- headlessly by tests/run.lua. Delivery/UI lives in UI/ReportsWindow.
 local _, TP = ...
@@ -26,6 +27,47 @@ local function plural(n, word)
 	return ("%d %s%s"):format(n, word, n == 1 and "" or "s")
 end
 
+-- ===== deterministic phrasing: same fight always reads the same =====
+
+local function hashOf(s)
+	local h = 5381
+	for i = 1, #s do
+		h = (h * 33 + s:byte(i)) % 2147483647
+	end
+	return h
+end
+
+local function seedFor(fight, zone)
+	return hashOf(((fight and fight.name) or zone or "run") .. "#"
+		.. math.floor((fight and fight.duration) or 0))
+end
+
+local function pick(seed, salt, options)
+	return options[(seed + salt) % #options + 1]
+end
+
+local function capitalize(s)
+	return s:sub(1, 1):upper() .. s:sub(2)
+end
+
+-- sentences -> chat lines, greedily packed under the ceiling
+local function packLines(sentences)
+	local lines = {}
+	for _, s in ipairs(sentences) do
+		if s and s ~= "" then
+			local cur = lines[#lines]
+			if cur and #cur + #s + 1 <= 250 then
+				lines[#lines] = cur .. " " .. s
+			else
+				lines[#lines + 1] = s
+			end
+		end
+	end
+	return lines
+end
+
+-- ===== fact extraction (data only; words come later) =====
+
 local function groupScore(results)
 	local sum, n = 0, 0
 	for _, r in ipairs(results or {}) do
@@ -38,10 +80,10 @@ local function groupScore(results)
 end
 
 -- every death in a fight as { t, avoidable, readyDefensives }, oldest
--- first — times and causes, never names. The deaths COUNTER is the
--- authority: retail records stamped deathTime=0 on players who never
--- died (a deathless kill reported "5 deaths at 0:00", 2026-07-25), so
--- a player whose counter says zero contributes nothing.
+-- first. The deaths COUNTER is the authority: retail records stamped
+-- deathTime=0 on players who never died (a deathless kill reported
+-- "5 deaths at 0:00", 2026-07-25), so a zero counter contributes
+-- nothing regardless of stamps.
 local function deathList(fight)
 	local out = {}
 	for _, p in pairs(fight.players or {}) do
@@ -64,8 +106,7 @@ local function deathList(fight)
 	return out
 end
 
--- "3 players took avoidable damage (5% of all damage taken)"
-local function avoidableLine(fight)
+local function avoidableStats(fight)
 	local hit, avoid, taken = 0, 0, 0
 	for _, p in pairs(fight.players or {}) do
 		local m = p.metrics or {}
@@ -78,36 +119,29 @@ local function avoidableLine(fight)
 	if hit == 0 or taken <= 0 then
 		return nil
 	end
-	return ("%s took avoidable damage (%d%% of all damage taken)."):format(
-		plural(hit, "player"), math.floor(avoid / taken * 100 + 0.5))
+	return hit, math.floor(avoid / taken * 100 + 0.5)
 end
 
--- "Kicks 13/16; dispels 14." — whatever the totals actually carry
-local function kicksDispelsLine(fight)
+local function kickStats(fight)
 	local t = fight.totals or {}
-	local parts = {}
 	if (t.kickOpportunities or 0) > 0 then
-		local landed = t.kicksLanded or t.interrupts or 0
-		local miss = t.kickOpportunities - landed
-		parts[#parts + 1] = ("Kicks %d/%d%s"):format(landed, t.kickOpportunities,
-			miss > 0 and (" (%d missed)"):format(miss) or "")
-	elseif (t.interrupts or 0) > 0 then
-		parts[#parts + 1] = ("Kicks %d"):format(t.interrupts)
+		return t.kicksLanded or t.interrupts or 0, t.kickOpportunities
 	end
-	if (t.dispels or 0) > 0 then
-		parts[#parts + 1] = ("dispels %d"):format(t.dispels)
-	end
-	if #parts == 0 then
-		return nil
-	end
-	return table.concat(parts, "; ") .. "."
 end
 
--- "2 players never used a defensive; healthstones eaten 5/9." — counts
--- only, and only where the data reported
-local function personalsLine(fight)
-	local noDef, defReporting = 0, 0
-	local hsEaten, hsReporting = 0, 0
+local function spikeStats(fight)
+	-- the windows are stamped identically on every player record, so
+	-- any carrier speaks for the fight
+	for _, p in pairs(fight.players or {}) do
+		local m = p.metrics or {}
+		if (m.groupSpikeWindows or 0) > 0 then
+			return m.groupSpikeWindows, m.groupSpikeWindows - (m.groupSpikeCovered or 0)
+		end
+	end
+end
+
+local function personalsStats(fight)
+	local noDef, defReporting, hsEaten, hsReporting = 0, 0, 0, 0
 	for _, p in pairs(fight.players or {}) do
 		local m = p.metrics or {}
 		if m.defensives ~= nil then
@@ -123,66 +157,7 @@ local function personalsLine(fight)
 			end
 		end
 	end
-	local parts = {}
-	if defReporting > 0 and noDef > 0 then
-		parts[#parts + 1] = ("%s never used a defensive"):format(plural(noDef, "player"))
-	end
-	if hsReporting > 0 then
-		parts[#parts + 1] = ("healthstones eaten %d/%d"):format(hsEaten, hsReporting)
-	end
-	if #parts == 0 then
-		return nil
-	end
-	local line = table.concat(parts, "; ") .. "."
-	return line:sub(1, 1):upper() .. line:sub(2)
-end
-
--- "Tough boss: top 24% of the tier by kill time." — context, so a
--- rough report on a rough boss reads fairly
-local function toughnessLine(fight)
-	local E = TP.Scoring and TP.Scoring.Engine
-	if not (E and E.EncounterToughness) then
-		return nil
-	end
-	local ok, rank, bosses = pcall(E.EncounterToughness, fight)
-	if ok and rank and rank >= 0.7 then
-		return ("Tough boss: top %d%% of the tier's %d bosses by kill time."):format(
-			(1 - rank) * 100 + 1, bosses or 0)
-	end
-end
-
--- the previous pull of the same boss in the run (older = later in the
--- newest-first list), for boss-% progress comparisons
-local function prevPullPct(ctx)
-	local f = ctx.fight
-	local seen
-	for _, rf in ipairs(ctx.runFights or {}) do
-		if seen and rf.name == f.name and rf.wipe and rf.bossPct then
-			return rf.bossPct
-		end
-		if rf == f then
-			seen = true
-		end
-	end
-end
-
--- is this wipe the run's deepest push on its boss? (needs company —
--- a first pull is not "best")
-local function isBestPullTonight(ctx)
-	local f = ctx.fight
-	if not f.bossPct then
-		return false
-	end
-	local others = 0
-	for _, rf in ipairs(ctx.runFights or {}) do
-		if rf ~= f and rf.name == f.name and rf.wipe then
-			others = others + 1
-			if rf.bossPct and rf.bossPct <= f.bossPct then
-				return false
-			end
-		end
-	end
-	return others > 0
+	return noDef, defReporting, hsEaten, hsReporting
 end
 
 -- real WCL percentiles across the group: average + best (primary
@@ -207,148 +182,66 @@ local function parseStats(results)
 	return math.floor(sum / n + 0.5), math.floor(best + 0.5)
 end
 
--- "Group score 63, raid DPS 1.6M, parse avg 41 (best 94)." — the
--- addon's calling card: our score, the raw output, and real WCL
--- percentiles in one line
-local function groupLine(ctx)
-	local f = ctx.fight
-	local parts = {}
-	local gs = ctx.groupScore or groupScore(ctx.results)
-	if gs then
-		parts[#parts + 1] = ("Group score %d"):format(gs)
-	end
-	local t = f and f.totals or {}
-	if (t.damage or 0) > 0 and (f.duration or 0) > 0 and TP.FormatNumber then
-		parts[#parts + 1] = ("raid DPS %s"):format(TP.FormatNumber(t.damage / f.duration))
-	end
-	local avg, best = parseStats(ctx.results)
-	if avg then
-		parts[#parts + 1] = ("parse avg %d (best %d)"):format(avg, best)
-	end
-	if #parts == 0 then
+-- "top N% boss by kill time" context; only fires on the tier's rough end
+local function toughnessTop(fight)
+	local E = TP.Scoring and TP.Scoring.Engine
+	if not (E and E.EncounterToughness) then
 		return nil
 	end
-	local line = table.concat(parts, ", ") .. "."
-	return line:sub(1, 1):upper() .. line:sub(2)
+	local ok, rank = pcall(E.EncounterToughness, fight)
+	if ok and rank and rank >= 0.7 then
+		return math.floor((1 - rank) * 100 + 1)
+	end
 end
 
--- "faster than 78% of ranked kills on Warcraft Logs" — only when it
--- is a real ranking, never a bounded ceiling guess
-local function killSpeedPart(fight)
+-- WCL kill-speed percentile, real rankings only (bounded ceilings
+-- never brag)
+local function killSpeedPct(fight)
 	local E = TP.Scoring and TP.Scoring.Engine
 	if not (E and E.KillSpeedPercentile) then
-		return ""
+		return nil
 	end
 	local ok, pct, _, _, bounded = pcall(E.KillSpeedPercentile, fight)
 	if ok and pct and not bounded then
-		return (" - faster than %d%% of ranked kills on Warcraft Logs"):format(
-			math.floor(pct + 0.5))
+		return math.floor(pct + 0.5)
 	end
-	return ""
 end
 
-local function buildWipe(ctx)
+-- the previous pull of the same boss in the run (older = later in the
+-- newest-first list)
+local function prevPullPct(ctx)
 	local f = ctx.fight
-	if not f then
-		return nil
-	end
-	local lines = {}
-	-- headline: boss %, and the progress story — "best pull today"
-	-- outranks the last-pull delta when both apply
-	local vs = ""
-	if isBestPullTonight(ctx) then
-		vs = " - best pull today"
-	else
-		local prev = prevPullPct(ctx)
-		if f.bossPct and prev then
-			if prev > f.bossPct then
-				vs = (" - %d%% further than last pull"):format(prev - f.bossPct)
-			elseif prev < f.bossPct then
-				vs = (" - last pull reached %d%%"):format(prev)
-			else
-				vs = " - same as last pull"
-			end
+	local seen
+	for _, rf in ipairs(ctx.runFights or {}) do
+		if seen and rf.name == f.name and rf.wipe and rf.bossPct then
+			return rf.bossPct
+		end
+		if rf == f then
+			seen = true
 		end
 	end
-	lines[#lines + 1] = ("Wipe: %s%s (%s)%s."):format(f.name or "?",
-		f.bossPct and (" at %d%%"):format(f.bossPct) or "", mmss(f.duration), vs)
-	-- deaths + the call, one line: count, how many fell pre-call, when
-	-- it started, and how fast the raid actually reset
-	local deaths = deathList(f)
-	if #deaths > 0 then
-		local d
-		if f.calledWipeAt then
-			local pre = 0
-			for _, dd in ipairs(deaths) do
-				if dd.t < f.calledWipeAt then
-					pre = pre + 1
-				end
-			end
-			d = ("Deaths: %d (%d before the call, first at %s); called at %s, ended %ds later."):format(
-				#deaths, pre, mmss(deaths[1].t), mmss(f.calledWipeAt),
-				math.floor((f.duration or 0) - f.calledWipeAt + 0.5))
-		else
-			d = ("Deaths: %d (first at %s)."):format(#deaths, mmss(deaths[1].t))
-		end
-		lines[#lines + 1] = d
-	end
-	local gl = groupLine(ctx)
-	if gl then
-		lines[#lines + 1] = gl
-	end
-	-- avoidable damage + spike coverage, one mechanics line
-	local mech = {}
-	local av = avoidableLine(f)
-	if av then
-		mech[#mech + 1] = av:sub(1, -2) -- drop the period, we re-join
-	end
-	-- group spike coverage: the windows are stamped identically on every
-	-- player record, so any carrier speaks for the fight
-	for _, p in pairs(f.players or {}) do
-		local m = p.metrics or {}
-		if (m.groupSpikeWindows or 0) > 0 then
-			local un = m.groupSpikeWindows - (m.groupSpikeCovered or 0)
-			if un > 0 then
-				mech[#mech + 1] = ("%d of %d group spikes uncovered"):format(
-					un, m.groupSpikeWindows)
-			end
-			break
-		end
-	end
-	if #mech > 0 then
-		lines[#lines + 1] = table.concat(mech, "; ") .. "."
-	end
-	local kd = kicksDispelsLine(f)
-	if kd then
-		lines[#lines + 1] = kd
-	end
-	local tough = toughnessLine(f)
-	if tough then
-		lines[#lines + 1] = tough
-	end
-	return lines
 end
 
-local function buildKill(ctx)
+-- is this wipe the run's deepest push on its boss? (needs company)
+local function isBestPullToday(ctx)
 	local f = ctx.fight
-	if not f then
-		return nil
+	if not f.bossPct then
+		return false
 	end
-	local lines = {}
-	local vs = ""
-	if f.prevKillDuration and f.duration then
-		local diff = math.floor(f.prevKillDuration - f.duration + 0.5)
-		if diff > 0 then
-			vs = (" (%ds faster than last kill)"):format(diff)
-		elseif diff < 0 then
-			vs = (" (%ds slower than last kill)"):format(-diff)
-		else
-			vs = " (same as last kill)"
+	local others = 0
+	for _, rf in ipairs(ctx.runFights or {}) do
+		if rf ~= f and rf.name == f.name and rf.wipe then
+			others = others + 1
+			if rf.bossPct and rf.bossPct <= f.bossPct then
+				return false
+			end
 		end
 	end
-	lines[#lines + 1] = ("Kill: %s in %s%s%s."):format(f.name or "?", mmss(f.duration),
-		vs, killSpeedPart(f))
-	-- pulls + best prior attempt, from the run's fights on this boss
+	return others > 0
+end
+
+local function pullCount(ctx)
+	local f = ctx.fight
 	local pulls, bestPct = 0, nil
 	for _, rf in ipairs(ctx.runFights or {}) do
 		if rf.name == f.name then
@@ -358,38 +251,247 @@ local function buildKill(ctx)
 			end
 		end
 	end
-	if pulls == 1 then
-		lines[#lines + 1] = "One-pulled it."
-	elseif pulls > 1 then
-		lines[#lines + 1] = ("Pulls today: %d%s."):format(pulls,
-			bestPct and (" (best prior attempt %d%%)"):format(bestPct) or "")
+	return pulls, bestPct
+end
+
+-- ===== shared sentences =====
+
+-- "The group put up 62.6k DPS for a score of 61, parsing 45 on
+-- average with a 90 on top."
+local function groupSentence(ctx)
+	local f = ctx.fight
+	local gs = ctx.groupScore or groupScore(ctx.results)
+	local dps
+	local t = f and f.totals or {}
+	if (t.damage or 0) > 0 and (f.duration or 0) > 0 and TP.FormatNumber then
+		dps = TP.FormatNumber(t.damage / f.duration)
 	end
-	local gl = groupLine(ctx)
-	if gl then
-		lines[#lines + 1] = gl
+	local avg, best = parseStats(ctx.results)
+	local parseClause = avg
+		and (", parsing %d on average with a %d on top"):format(avg, best) or ""
+	if gs and dps then
+		return ("The group put up %s DPS for a score of %d%s."):format(dps, gs, parseClause)
+	elseif gs then
+		return ("Group score %d%s."):format(gs, parseClause)
+	elseif avg then
+		return ("The raid parsed %d on average, %d at best."):format(avg, best)
 	end
+end
+
+-- The concern pool: every "went wrong" fact scored by how much it
+-- mattered this fight; the top picks get the ink. This is what keeps
+-- a long metric list from becoming a stat dump.
+local function concerns(fight, deaths, seed)
+	local pool = {}
+	local windows, uncovered = spikeStats(fight)
+	if windows and uncovered and uncovered > 0 then
+		pool[#pool + 1] = { sal = 30 + uncovered / windows * 50,
+			text = ("%d of %d damage spikes had no cooldown answer"):format(uncovered, windows) }
+	end
+	local hit, share = avoidableStats(fight)
+	if hit then
+		pool[#pool + 1] = { sal = 20 + share * 2 + hit * 4,
+			text = ("%s took avoidable damage, %d%% of everything taken"):format(
+				plural(hit, "player"), share) }
+	end
+	local landed, opps = kickStats(fight)
+	if landed and landed < opps then
+		local miss = opps - landed
+		pool[#pool + 1] = { sal = 25 + miss / opps * 50,
+			text = pick(seed, 3, {
+				("%d of %d kicks got away"):format(miss, opps),
+				("only %d of %d kicks landed"):format(landed, opps),
+			}) }
+	end
+	local ready = 0
+	for _, d in ipairs(deaths or {}) do
+		if (d.readyDefensives or 0) >= 2 then
+			ready = ready + 1
+		end
+	end
+	if ready > 0 then
+		pool[#pool + 1] = { sal = 45,
+			text = ("%s died with defensives still ready"):format(plural(ready, "player")) }
+	end
+	local noDef, defReporting, hsEaten, hsReporting = personalsStats(fight)
+	if defReporting > 0 and noDef > 0 then
+		pool[#pool + 1] = { sal = 18,
+			text = ("%s never pressed a defensive"):format(plural(noDef, "player")) }
+	end
+	if hsReporting > 0 and hsEaten < hsReporting then
+		pool[#pool + 1] = { sal = 15,
+			text = ("only %d of %d ate a healthstone"):format(hsEaten, hsReporting) }
+	end
+	table.sort(pool, function(a, b)
+		return a.sal > b.sal
+	end)
+	return pool
+end
+
+local function concernSentence(pool, seed, gentle)
+	if #pool == 0 then
+		return nil
+	end
+	if #pool == 1 or gentle then
+		local intro = gentle
+			and pick(seed, 5, { "Only loose thread: ", "One thing to tighten: " })
+			or pick(seed, 5, { "But ", "Still, " })
+		return capitalize(intro .. pool[1].text .. ".")
+	end
+	local pivot = pick(seed, 7, { "But ", "Still, " })
+	return capitalize(pivot .. pool[1].text .. ", and " .. pool[2].text .. ".")
+end
+
+-- ===== the stories =====
+
+local function buildKill(ctx)
+	local f = ctx.fight
+	if not f then
+		return nil
+	end
+	local seed = seedFor(f, ctx.zone)
 	local deaths = deathList(f)
+	local pulls = pullCount(ctx)
+	local s = {}
+
+	-- opener: outcome plus its short brags
+	local extras = {}
+	if pulls == 1 then
+		extras[#extras + 1] = "one pull"
+	end
 	if #deaths == 0 then
-		lines[#lines + 1] = "Deathless kill."
-	else
+		extras[#extras + 1] = pick(seed, 1, { "nobody died", "no deaths" })
+	end
+	s[#s + 1] = ("%s %s %s%s."):format(f.name or "The boss",
+		pick(seed, 2, { "down in", "dead in" }), mmss(f.duration),
+		#extras > 0 and (", " .. table.concat(extras, ", ")) or "")
+
+	local speed = killSpeedPct(f)
+	if speed then
+		s[#s + 1] = ("That's faster than %d%% of ranked kills on Warcraft Logs."):format(speed)
+	end
+
+	if pulls > 1 then
+		local _, bestPct = pullCount(ctx)
+		s[#s + 1] = ("It took %s%s."):format(plural(pulls, "pull"),
+			bestPct and (", the best prior attempt reaching %d%%"):format(bestPct) or "")
+	end
+
+	s[#s + 1] = groupSentence(ctx)
+
+	if #deaths > 0 then
 		local avoidable = 0
 		for _, d in ipairs(deaths) do
 			if d.avoidable then
 				avoidable = avoidable + 1
 			end
 		end
-		lines[#lines + 1] = ("Deaths: %d%s."):format(#deaths,
-			avoidable > 0 and (" (%d to avoidable hits)"):format(avoidable) or "")
+		s[#s + 1] = ("%d died on the way%s."):format(#deaths,
+			avoidable > 0 and (", %d to avoidable hits"):format(avoidable) or "")
 	end
-	local kd = kicksDispelsLine(f)
-	if kd then
-		lines[#lines + 1] = kd
+
+	local pool = concerns(f, deaths, seed)
+	-- a slower kill is a concern too, not a headline
+	if f.prevKillDuration and f.duration then
+		local diff = math.floor(f.prevKillDuration - f.duration + 0.5)
+		if diff < 0 then
+			pool[#pool + 1] = { sal = 38,
+				text = ("it ran %d seconds slower than the last kill"):format(-diff) }
+			table.sort(pool, function(a, b)
+				return a.sal > b.sal
+			end)
+		elseif diff > 0 then
+			s[#s + 1] = ("%d seconds faster than the last kill."):format(diff)
+		end
 	end
-	local tough = toughnessLine(f)
-	if tough then
-		lines[#lines + 1] = tough
+	s[#s + 1] = concernSentence(pool, seed, #deaths == 0)
+
+	local top = toughnessTop(f)
+	if top then
+		s[#s + 1] = ("And this is a top %d%% boss in the tier by kill time."):format(top)
 	end
-	return lines
+	return packLines(s)
+end
+
+local function buildWipe(ctx)
+	local f = ctx.fight
+	if not f then
+		return nil
+	end
+	local seed = seedFor(f, ctx.zone)
+	local deaths = deathList(f)
+	local best = isBestPullToday(ctx)
+	local prev = prevPullPct(ctx)
+	local s = {}
+
+	-- opener: how deep, and what that means
+	local at = f.calledWipeAt and mmss(f.calledWipeAt) or mmss(f.duration)
+	if best and f.bossPct then
+		s[#s + 1] = ("%s: %s to %d%% before it came apart at %s."):format(
+			pick(seed, 1, { "Best pull of the day", "Deepest push yet" }),
+			f.name or "the boss", f.bossPct, at)
+	elseif f.bossPct and prev and prev > f.bossPct then
+		s[#s + 1] = ("%s to %d%%, %d points past the last pull, before it came apart at %s."):format(
+			f.name or "The boss", f.bossPct, prev - f.bossPct, at)
+	elseif f.bossPct and prev and prev < f.bossPct then
+		s[#s + 1] = ("%s at %d%% this time; the last pull reached %d%%."):format(
+			f.name or "The boss", f.bossPct, prev)
+	elseif f.bossPct then
+		s[#s + 1] = ("Wipe on %s at %d%% (%s)."):format(f.name or "the boss",
+			f.bossPct, mmss(f.duration))
+	else
+		s[#s + 1] = ("Wipe on %s (%s)."):format(f.name or "the boss", mmss(f.duration))
+	end
+
+	if #deaths > 0 then
+		local first = deaths[1]
+		local d
+		if f.calledWipeAt then
+			local pre = 0
+			for _, dd in ipairs(deaths) do
+				if dd.t < f.calledWipeAt then
+					pre = pre + 1
+				end
+			end
+			d = ("%d died getting there, %d before the call, the first at %s%s."):format(
+				#deaths, pre, mmss(first.t),
+				first.avoidable and " to avoidable damage" or "")
+		else
+			d = ("%d died, the first at %s%s."):format(#deaths, mmss(first.t),
+				first.avoidable and " to avoidable damage" or "")
+		end
+		s[#s + 1] = d
+	end
+	if f.calledWipeAt and f.duration then
+		local tail = math.floor(f.duration - f.calledWipeAt + 0.5)
+		if tail <= 20 then
+			s[#s + 1] = ("The raid reset just %d seconds after the call."):format(tail)
+		else
+			s[#s + 1] = ("The pull ended %d seconds after the call."):format(tail)
+		end
+	end
+
+	s[#s + 1] = groupSentence(ctx)
+	s[#s + 1] = concernSentence(concerns(f, deaths, seed), seed, false)
+
+	if best and f.bossPct then
+		s[#s + 1] = ("The %d%% is real progress."):format(f.bossPct)
+	else
+		local top = toughnessTop(f)
+		if top then
+			s[#s + 1] = ("For what it's worth, this is a top %d%% boss in the tier by kill time."):format(top)
+		end
+	end
+	return packLines(s)
+end
+
+-- one report, two stories: the fight's outcome decides which (Josh
+-- 2026-07-25: you'd never run a kill report on a wipe)
+local function buildFight(ctx)
+	if ctx.fight and ctx.fight.wipe then
+		return buildWipe(ctx)
+	end
+	return buildKill(ctx)
 end
 
 local function buildRun(ctx)
@@ -422,27 +524,34 @@ local function buildRun(ctx)
 			taken = taken + (m.damageTaken or 0)
 		end
 	end
-	local lines = {}
-	lines[#lines + 1] = ("Run: %s - %s, %s, %s fought."):format(
-		ctx.zone or fights[1].zone or "?", plural(kills, "kill"), plural(wipes, "wipe"),
-		mmss(fought))
+	local zone = ctx.zone or fights[1].zone or "The run"
 	local gs = ctx.groupScore or groupScore(ctx.results)
-	if gs then
-		lines[#lines + 1] = ("Group run score %d."):format(gs)
+	local scoreClause = gs and (" for a run score of %d"):format(gs) or ""
+	local s = {}
+	if wipes == 0 and kills > 0 then
+		s[#s + 1] = ("%s cleared: %s, no wipes, %s of fighting%s."):format(
+			zone, plural(kills, "kill"), mmss(fought), scoreClause)
+	else
+		s[#s + 1] = ("%s: %s, %s, %s of fighting%s."):format(
+			zone, plural(kills, "kill"), plural(wipes, "wipe"), mmss(fought), scoreClause)
 	end
-	local dl = ("Deaths: %d."):format(deaths)
-	if taken > 0 and avoid > 0 then
-		dl = dl .. (" Avoidable damage: %d%% of all damage taken."):format(
-			math.floor(avoid / taken * 100 + 0.5))
+	if deaths == 0 then
+		s[#s + 1] = "Nobody died all run."
+	else
+		local avClause = ""
+		if taken > 0 and avoid > 0 then
+			avClause = (", and %d%% of the damage taken was avoidable"):format(
+				math.floor(avoid / taken * 100 + 0.5))
+		end
+		s[#s + 1] = ("%s across the run%s."):format(capitalize(plural(deaths, "death")), avClause)
 	end
-	lines[#lines + 1] = dl
 	if kicksO > 0 then
-		lines[#lines + 1] = ("Kicks across the run: %d/%d."):format(kicksL, kicksO)
+		s[#s + 1] = ("Kicks landed %d of %d."):format(kicksL, kicksO)
 	end
 	if fastest and kills > 1 then
-		lines[#lines + 1] = ("Fastest kill: %s (%s)."):format(fastest.name or "?", mmss(fastest.duration))
+		s[#s + 1] = ("Fastest kill: %s at %s."):format(fastest.name or "?", mmss(fastest.duration))
 	end
-	return lines
+	return packLines(s)
 end
 
 local function buildDeaths(ctx)
@@ -454,8 +563,9 @@ local function buildDeaths(ctx)
 	if #deaths == 0 then
 		return { ("Nobody died on %s."):format(f.name or "?") }
 	end
-	local lines = { ("Deaths on %s: %d (first at %s, last at %s)."):format(
-		f.name or "?", #deaths, mmss(deaths[1].t), mmss(deaths[#deaths].t)) }
+	local s = { ("%s on %s, the first at %s and the last at %s."):format(
+		capitalize(plural(#deaths, "death")), f.name or "?",
+		mmss(deaths[1].t), mmss(deaths[#deaths].t)) }
 	local avoidable, ready = 0, 0
 	for _, d in ipairs(deaths) do
 		if d.avoidable then
@@ -466,18 +576,19 @@ local function buildDeaths(ctx)
 		end
 	end
 	if avoidable > 0 then
-		lines[#lines + 1] = avoidable == 1
-			and "1 of the killing blows was an avoidable hit."
+		s[#s + 1] = avoidable == 1
+			and "One of the killing blows was an avoidable hit."
 			or ("%d of the killing blows were avoidable hits."):format(avoidable)
 	end
 	if ready > 0 then
-		lines[#lines + 1] = ("%s died with 2+ defensives unused."):format(plural(ready, "player"))
+		s[#s + 1] = ("%s died with 2 or more defensives unused."):format(plural(ready, "player"))
 	end
-	local av = avoidableLine(f)
-	if av then
-		lines[#lines + 1] = av
+	local hit, share = avoidableStats(f)
+	if hit then
+		s[#s + 1] = ("%s took avoidable damage, %d%% of everything taken."):format(
+			plural(hit, "player"), share)
 	end
-	return lines
+	return packLines(s)
 end
 
 local function buildPrep(ctx)
@@ -486,7 +597,6 @@ local function buildPrep(ctx)
 		return nil
 	end
 	local reporting, ready = 0, 0
-	local hsReporting, hsEaten = 0, 0
 	for _, p in pairs(f.players or {}) do
 		local m = p.metrics or {}
 		if m.consumables ~= nil then
@@ -495,36 +605,25 @@ local function buildPrep(ctx)
 				ready = ready + 1
 			end
 		end
-		if m.healthstones ~= nil then
-			hsReporting = hsReporting + 1
-			if m.healthstones > 0 then
-				hsEaten = hsEaten + 1
-			end
-		end
 	end
+	local _, _, hsEaten, hsReporting = personalsStats(f)
 	if reporting == 0 and hsReporting == 0 then
 		return { ("No preparation data for %s."):format(f.name or "?") }
 	end
-	local lines = {}
+	local s = {}
 	if reporting > 0 then
-		local missing = reporting - ready
-		lines[#lines + 1] = ("Prep on %s: flask+food %d/%d%s."):format(
-			f.name or "?", ready, reporting,
-			missing > 0 and (" (%s missing)"):format(plural(missing, "player")) or "")
+		if ready == reporting then
+			s[#s + 1] = ("Everyone came prepared on %s: %d of %d with flask and food."):format(
+				f.name or "?", ready, reporting)
+		else
+			s[#s + 1] = ("Prep on %s: %d of %d brought flask and food, %s short."):format(
+				f.name or "?", ready, reporting, plural(reporting - ready, "player"))
+		end
 	end
 	if hsReporting > 0 then
-		lines[#lines + 1] = ("Healthstones eaten: %d/%d."):format(hsEaten, hsReporting)
+		s[#s + 1] = ("Healthstones eaten: %d of %d."):format(hsEaten, hsReporting)
 	end
-	return lines
-end
-
--- one report, two shapes: the fight's outcome decides which story to
--- tell (Josh 2026-07-25: you'd never run a kill report on a wipe)
-local function buildFight(ctx)
-	if ctx.fight and ctx.fight.wipe then
-		return buildWipe(ctx)
-	end
-	return buildKill(ctx)
+	return packLines(s)
 end
 
 -- The registry the panel renders, in display order. trigger names the
@@ -533,26 +632,26 @@ end
 Reports.LIST = {
 	{
 		key = "fight", name = "Fight analysis", trigger = "fight",
-		desc = "The selected fight's story. Kills: WCL kill-speed rank, time vs last kill, pulls, group score/DPS/parses. Wipes: boss % progress, deaths and the call, avoidable damage, spikes. No names.",
-		example = "Kill: Garrosh Hellscream in 6:20 - faster than 78% of ranked kills on Warcraft Logs. / Wipe: Garrosh at 27% - best pull today.",
+		desc = "The selected fight's story, told like a debrief. Kills: speed rank, pulls, group score/DPS/parses, what to tighten. Wipes: progress, deaths and the call, what went wrong. No names.",
+		example = "Edwin VanCleef down in 1:03, one pull, nobody died. That's faster than 78% of ranked kills on Warcraft Logs. The group put up 62.6k DPS for a score of 61. Only loose thread: 3 of 5 kicks got away.",
 		build = buildFight,
 	},
 	{
 		key = "run", name = "End of run", trigger = "runEnd",
-		desc = "The whole visit in one report: kills, wipes, time fought, run score, deaths with avoidable share, and the fastest kill.",
-		example = "Run: Siege of Orgrimmar - 8 kills, 3 wipes, 1:42:10 fought. Group run score 63. Deaths: 14.",
+		desc = "The whole visit in a few sentences: kills, wipes, time fought, run score, deaths with the avoidable share, and the fastest kill.",
+		example = "Deadmines cleared: 6 kills, no wipes, 4:32 of fighting for a run score of 73. Nobody died all run. Fastest kill: Captain Greenskin at 0:19.",
 		build = buildRun,
 	},
 	{
 		key = "deaths", name = "Death report",
-		desc = "Death count and timing on the selected fight, avoidable killing blows, and deaths with defensives sitting unused. No names.",
-		example = "Deaths on Garrosh Hellscream: 6 (first at 2:41, last at 5:50). 3 of the killing blows were avoidable hits.",
+		desc = "Deaths on the selected fight: count and timing, avoidable killing blows, and deaths with defensives sitting unused. No names.",
+		example = "6 deaths on Garrosh Hellscream, the first at 2:41 and the last at 5:50. 3 of the killing blows were avoidable hits.",
 		build = buildDeaths,
 	},
 	{
 		key = "prep", name = "Preparation check",
-		desc = "How many brought flask and food, and healthstone use where a warlock provided them. Counts only, no names.",
-		example = "Prep on Garrosh Hellscream: flask+food 8/10 (2 players missing). Healthstones eaten: 6/9.",
+		desc = "Who brought flask and food, and healthstone use where a warlock provided them. Counts only, no names.",
+		example = "Prep on Garrosh Hellscream: 8 of 10 brought flask and food, 2 players short. Healthstones eaten: 6 of 9.",
 		build = buildPrep,
 	},
 }
