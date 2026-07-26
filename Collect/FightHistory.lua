@@ -965,7 +965,16 @@ function FightHistory:AddFromSegment(seg)
 			potionHealing = acc.potions and acc.potions.healing or 0,
 		}
 		for k, v in pairs(m) do
-			totals[k] = totals[k] + v
+			-- default nil to 0: the metrics table carries keys the totals
+			-- init doesn't pre-declare (the Tanking-composite ingredients
+			-- absorbedTaken/swingsAvoided/etc. added in v2.0.0), and
+			-- `nil + v` crashed AddFromSegment on any fight with a tank
+			-- taking absorbed/avoided damage (MrFIXlT's Celestial run,
+			-- 2026-07-26). Numeric-only so a future table metric can't
+			-- crash here either.
+			if type(v) == "number" then
+				totals[k] = (totals[k] or 0) + v
+			end
 		end
 		-- CLEU sees everyone's defensive casts on Classic (added after the
 		-- totals loop: it's a count, not a summable throughput stat)
