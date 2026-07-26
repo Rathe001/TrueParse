@@ -1,5 +1,21 @@
 # TrueParse Changelog
 
+## Unreleased
+
+**Coaching that names your actual mistake.** The post-fight coach used to
+say the same "cast X more often" line on nearly every fight, even when a
+much bigger issue was staring at you. It now ranks every scored
+adjustment and leads with the single biggest one you can recover, phrased
+specifically: standing in avoidable damage ("34% of your intake, move out
+of the bad"), too much downtime ("active only 55% of the fight"), losing
+threat as the tank, overkilling a dying target, overhealing full bars,
+missing cooldown windows, and more. It names the death cause for a fatal
+mistake and only falls back to rotation/throughput advice when nothing
+concrete went wrong. Coaching now stays quiet on fights shorter than 90
+seconds (too little signal, and short pulls swing wildly on the group)
+and on unranked content like Celestial and Timewalking, which are too
+chaotic to coach meaningfully.
+
 ## 2.2.0
 
 **Reports read like a debrief now.** The chat reports are rewritten from

@@ -501,7 +501,36 @@ end
 local advice = TP.Scoring.Coach.BiggestOpportunity(coachByName.DpsB)
 check(advice ~= nil and advice.kind == "avoidable", "penalized player coached about avoidable damage first")
 local adviceA = TP.Scoring.Coach.BiggestOpportunity(coachByName.DpsA)
-check(adviceA == nil or adviceA.kind == "metric", "clean player gets metric advice or none")
+check(adviceA == nil or adviceA.kind == "throughput", "clean player gets throughput advice or none")
+
+-- 9b. Coach.Advise: specific, actionable text; ranked + long fights only.
+-- Wrapped in an IIFE so its locals don't count against the main chunk's
+-- 200-local ceiling (same pattern as the file's other sections).
+;(function()
+	local function advResult(role, adjustDetail, pctile)
+		return {
+			role = role,
+			adjustDetail = adjustDetail,
+			breakdown = { [role == "HEALER" and "healing" or "damage"] =
+				{ applicable = true, pctile = pctile, normalized = pctile, effectiveWeight = 1 } },
+		}
+	end
+	local rankedFight, shortFight = { duration = 200 }, { duration = 60 }
+	local advPlayer = { metrics = { avoidableTaken = 340000, damageTaken = 1000000, activityPct = 55 } }
+	local av = TP.Scoring.Coach.Advise(advResult("DAMAGER", { avoidable = -15, activity = -4 }, 70), rankedFight, advPlayer)
+	check(av and av.kind == "avoidable" and av.text:find("avoidable"), "advise leads with the biggest mistake (avoidable)")
+	check(av and av.text:find("34"), "advise quantifies the avoidable share")
+	check(TP.Scoring.Coach.Advise(advResult("DAMAGER", { avoidable = -15 }, 70), shortFight, advPlayer) == nil,
+		"no coaching on fights under 90s (too little signal)")
+	check(TP.Scoring.Coach.Advise(advResult("DAMAGER", { avoidable = -15 }, nil), rankedFight, advPlayer) == nil,
+		"no coaching on unranked content (Celestial/Timewalking have no pctile)")
+	local act = TP.Scoring.Coach.Advise(advResult("DAMAGER", { activity = -6, overkill = -2 }, 70), rankedFight, advPlayer)
+	check(act and act.kind == "activity" and act.text:find("55"), "advise coaches downtime with the active percent")
+	local dh = TP.Scoring.Coach.Advise(advResult("DAMAGER", { deaths = -10 }, 70), rankedFight, { metrics = {} })
+	check(dh and dh.kind == "deaths", "advise coaches staying alive when deaths dominate")
+	local tpAdv = TP.Scoring.Coach.Advise(advResult("DAMAGER", {}, 20), rankedFight, { metrics = {} })
+	check(tpAdv and tpAdv.kind == "throughput", "clean ranked player falls to throughput coaching")
+end)()
 
 -- 10. Run aggregation
 local runFights = {
@@ -580,7 +609,7 @@ check(math.abs(buffByName.SlackPriest.penaltyDetail.buffs - 1.0) < 0.01,
 	("half-covered provider loses 1.0 (%.2f)"):format(buffByName.SlackPriest.penaltyDetail.buffs))
 check(buffByName.DpsA.penaltyDetail.buffs == 0, "non-providers aren't penalized")
 local buffAdvice = TP.Scoring.Coach.BiggestOpportunity({
-	penaltyDetail = { buffs = 4 }, breakdown = {},
+	adjustDetail = { buffs = -4 }, breakdown = {},
 })
 check(buffAdvice and buffAdvice.kind == "buffs", "coach flags buff coverage")
 

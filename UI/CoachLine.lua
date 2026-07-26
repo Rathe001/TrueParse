@@ -38,43 +38,13 @@ local function onFightCaptured(_, fight)
 	local msg = ("%s — %s"):format(
 		TP.Scoring.Grades.ColoredScore(me.score), fight.name or "fight")
 
-	local advice = TP.Scoring.Coach.BiggestOpportunity(me)
+	-- one specific, actionable line: the biggest recoverable mistake this
+	-- fight, phrased for the player (Josh 2026-07-26). Advise ranks all
+	-- scored adjustments and stays quiet on fights too short to judge, so
+	-- short pulls show just the grade and any awards.
+	local advice = TP.Scoring.Coach.Advise(me, fight, fight.players[me.guid])
 	if advice then
-		if advice.kind == "avoidable" then
-			msg = msg .. (" · biggest opportunity: avoidable damage (-%.0f)"):format(advice.gain)
-		elseif advice.kind == "deaths" then
-			msg = msg .. (" · biggest opportunity: staying alive (-%.0f)"):format(advice.gain)
-			-- name the cause (Josh 2026-07-25): constructive beats "you died"
-			local p = fight.players[me.guid]
-			local DC = TP.Scoring.DeathCause
-			if p and p.deathRecap and DC then
-				local c = DC.Classify(p.deathRecap, p.maxHP, DC.ProfilesFor(fight))
-				if c.category == "avoidable" and c.spell then
-					msg = msg .. (" — you died to %s, an avoidable hit; move out"):format(c.spell)
-				elseif c.category == "tankbuster" and c.spell then
-					msg = msg .. (" — %s was a tankbuster; pre-mitigate it"):format(c.spell)
-				elseif c.category == "chip" then
-					msg = msg .. ((p.deathReadyDefensives or 0) >= 2
-						and " — you were chipped down with a defensive still ready"
-						or " — you were chipped down; a defensive buys the healers time")
-				end
-				-- oneShot / unknown: say nothing extra (nothing to coach)
-			end
-		elseif advice.kind == "buffs" then
-			msg = msg .. (" · biggest opportunity: buff your group before the pull (-%.0f)"):format(advice.gain)
-		else
-			local label = TP.METRIC_LABELS[advice.key] or advice.key
-			msg = msg .. (" · biggest opportunity: %s (+%.0f potential)"):format(label:lower(), advice.gain)
-			-- the parse coach says HOW: when throughput is the gap, name
-			-- the signature spell top parses lean on that you didn't
-			if advice.key == "damage" or advice.key == "healing" then
-				local p = fight.players[me.guid]
-				local gap = p and TP.Scoring.Insights.ParseGap(p.specID, p.metrics, fight.duration)
-				if gap then
-					msg = msg .. " — " .. gap.text
-				end
-			end
-		end
+		msg = msg .. " · " .. advice.text
 	end
 
 	local mine = TP.Scoring.Awards.Compute(fight)[me.guid]

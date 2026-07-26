@@ -1234,10 +1234,13 @@ function Panel:ShowFor(fight, result)
 	-- the coach resolves FIRST: when it exists, its full-width wash IS
 	-- the header divider (the rule hides, margin keeps the separation);
 	-- without one the rule draws as before (Josh 2026-07-25)
+	-- the card leads with the single biggest recoverable mistake, phrased
+	-- specifically (Josh 2026-07-26): a -15 avoidable or lost aggro beats
+	-- the old generic "cast X more often". Coach.Advise ranks all scored
+	-- adjustments and gates out fights too short to judge. Raw stays pure.
 	local coachGap
-	if not result.parse and player and player.metrics and player.metrics.profCasts
-		and player.specID and TP.Scoring.Insights.ParseGap then
-		coachGap = TP.Scoring.Insights.ParseGap(player.specID, player.metrics, fight.duration)
+	if not result.parse and TP.Scoring.Coach and TP.Scoring.Coach.Advise then
+		coachGap = TP.Scoring.Coach.Advise(result, fight, player)
 	end
 	if not frame.headerRule then
 		frame.headerRule = frame:CreateTexture(nil, "ARTWORK")
@@ -1322,7 +1325,7 @@ function Panel:ShowFor(fight, result)
 						("%s: you %.0f, top %.0f"):format(r.spell, r.myCpm, r.topCpm), cr, cg, cb }
 				end
 			end
-			row.tooltipData = { title = "Parse coach", lines = tipLines }
+			row.tooltipData = { title = "Coaching", lines = tipLines }
 			y = y - 6 -- breathe below the wash, matching the rule's rhythm
 		end
 	end
