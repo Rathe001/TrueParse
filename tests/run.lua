@@ -27,6 +27,10 @@ loadModule("Scoring/Reports.lua", TP)
 loadModule("Metrics/Registry.lua", TP)
 loadModule("Metrics/Spikes.lua", TP) -- FindWindows/Compute are pure at capture time
 
+-- Default to the Classic feature set (CLEU present): death counts are
+-- authoritative there. Retail-specific tests flip HAS_CLEU locally.
+TP.Compat = TP.Compat or { HAS_CLEU = true, IS_RETAIL = false }
+
 -- Awards memoize per fight record; production fights never mutate after
 -- capture (late reports invalidate explicitly), but test fixtures do —
 -- bypass the memo so every Compute call reflects the current fixture.
@@ -3419,6 +3423,25 @@ end)()
 
 	check(R.Run("fight", {}) == nil, "no fight, no report")
 	check(R.Run("nope", { fight = wipeFight }) == nil, "unknown report key returns nil")
+
+	-- retail can't see brez'd deaths of non-addon players, so a KILL's
+	-- zero count proves only "everyone standing at the end" and a
+	-- nonzero count is a floor (Josh 2026-07-25). Wipes stay certain.
+	TP.Compat.HAS_CLEU = false
+	local rk = alltext(R.Run("fight", { fight = killFight, runFights = { killFight },
+		results = { { name = "A", score = 61 } } }))
+	check(rk:find("everyone standing at the end", 1, true) ~= nil
+		and rk:find("deathless", 1, true) == nil,
+		("retail kill hedges the deathless claim (%s)"):format(rk))
+	local rd = alltext(R.Run("deaths", { fight = killFight }))
+	check(rd:find("Everyone was standing when", 1, true) ~= nil,
+		("retail death report hedges zero (%s)"):format(rd))
+	-- a wipe stays certain even on retail (the dead stay dead)
+	local rw = alltext(R.Run("deaths", { fight = { name = "Boss", wipe = true, players = {
+		a = { name = "D", deathTime = 30, deathTimes = { 30 }, metrics = { deaths = 1 } } } } }))
+	check(rw:find("1 death on Boss", 1, true) ~= nil and rw:find("At least", 1, true) == nil,
+		("wipe deaths stay certain on retail (%s)"):format(rw))
+	TP.Compat.HAS_CLEU = true
 end)()
 
 print("")

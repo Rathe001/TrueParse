@@ -107,6 +107,17 @@ local function deathList(fight)
 	return out
 end
 
+-- Retail's meter can't see brez'd deaths of players without the addon,
+-- so a zero count on a KILL proves only "everyone was standing at the
+-- end" (Josh 2026-07-25). CLEU (Classic) counts everyone; wipes are
+-- reliable on both clients because the dead stay dead.
+local function deathsUncertain(fight)
+	if fight.wipe then
+		return false
+	end
+	return not (TP.Compat and TP.Compat.HAS_CLEU)
+end
+
 local function avoidableStats(fight)
 	local hit, avoid, taken = 0, 0, 0
 	for _, p in pairs(fight.players or {}) do
@@ -405,7 +416,9 @@ local function buildKill(ctx)
 		extras[#extras + 1] = "one pull"
 	end
 	if #deaths == 0 then
-		extras[#extras + 1] = pick(seed, 1, { "nobody died", "no deaths", "deathless" })
+		extras[#extras + 1] = deathsUncertain(f)
+			and "everyone standing at the end"
+			or pick(seed, 1, { "nobody died", "no deaths", "deathless" })
 	end
 	s[#s + 1] = ("%s %s %s%s."):format(f.name or "The boss",
 		pick(seed, 2, { "down in", "dead in", "dropped in" }), mmss(f.duration),
@@ -430,7 +443,10 @@ local function buildKill(ctx)
 				avoidable = avoidable + 1
 			end
 		end
-		s[#s + 1] = ("%d died on the way%s."):format(#deaths,
+		-- on retail a kill's count is a floor: brez'd deaths of players
+		-- without the addon are invisible
+		s[#s + 1] = ("%s%d died on the way%s."):format(
+			deathsUncertain(f) and "At least " or "", #deaths,
 			avoidable > 0 and (", %d to avoidable hits"):format(avoidable) or "")
 	end
 
@@ -596,15 +612,24 @@ local function buildRun(ctx)
 		s[#s + 1] = ("%s: %s, %s, %s of fighting%s."):format(
 			zone, plural(kills, "kill"), plural(wipes, "wipe"), mmss(fought), scoreClause)
 	end
+	-- a run's kills carry uncertain death counts on retail (brez'd
+	-- deaths of non-addon players are invisible); all-wipe runs and
+	-- Classic stay certain
+	local runUncertain = kills > 0 and not (TP.Compat and TP.Compat.HAS_CLEU)
 	if deaths == 0 then
-		s[#s + 1] = "Nobody died all run."
+		s[#s + 1] = runUncertain
+			and "No deaths recorded, everyone standing at the end of each fight."
+			or "Nobody died all run."
 	else
 		local avClause = ""
 		if taken > 0 and avoid > 0 then
 			avClause = (", and %d%% of the damage taken was avoidable"):format(
 				math.floor(avoid / taken * 100 + 0.5))
 		end
-		s[#s + 1] = ("%s across the run%s."):format(capitalize(plural(deaths, "death")), avClause)
+		s[#s + 1] = ("%s%s across the run%s."):format(
+			runUncertain and "At least " or "",
+			runUncertain and plural(deaths, "death") or capitalize(plural(deaths, "death")),
+			avClause)
 	end
 	if kicksO > 0 then
 		s[#s + 1] = ("Kicks landed %d of %d."):format(kicksL, kicksO)
@@ -621,12 +646,16 @@ local function buildDeaths(ctx)
 		return nil
 	end
 	local deaths = deathList(f)
+	local uncertain = deathsUncertain(f)
 	if #deaths == 0 then
-		return { ("Nobody died on %s."):format(f.name or "?") }
+		return { uncertain
+			and ("Everyone was standing when %s died."):format(f.name or "the boss")
+			or ("Nobody died on %s."):format(f.name or "?") }
 	end
-	local s = { ("%s on %s, the first at %s and the last at %s."):format(
-		capitalize(plural(#deaths, "death")), f.name or "?",
-		mmss(deaths[1].t), mmss(deaths[#deaths].t)) }
+	local s = { ("%s%s on %s, the first at %s and the last at %s."):format(
+		uncertain and "At least " or "",
+		uncertain and plural(#deaths, "death") or capitalize(plural(#deaths, "death")),
+		f.name or "?", mmss(deaths[1].t), mmss(deaths[#deaths].t)) }
 	local avoidable, ready = 0, 0
 	for _, d in ipairs(deaths) do
 		if d.avoidable then
