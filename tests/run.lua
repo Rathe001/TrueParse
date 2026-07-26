@@ -3656,8 +3656,8 @@ end)()
 	-- mechanic coaching (Josh 2026-07-26): name the avoidable ability a
 	-- player ate, measured against the crawled field hitRate
 	TP.DAMAGE_PROFILES = { ids = { [777] = "Mech Boss" }, ["Mech Boss"] = {
-		["Whirling Corruption"] = { hitRate = 0.98 }, -- everyone eats it: not coachable
-		["Iron Star"] = { hitRate = 0.20 },           -- avoidable, most dodge it
+		["Whirling Corruption"] = { hitRate = 0.98 },              -- everyone eats it: not coachable
+		["Iron Star"] = { hitRate = 0.20, avgDmg = 240000 },       -- avoidable, most dodge it
 	} }
 	local mFight = { name = "Mech Boss", duration = 200, encounterID = 777 }
 	local mPlayer = { metrics = { avoidableTaken = 300000, damageTaken = 900000, takenByAbility = {
@@ -3665,8 +3665,9 @@ end)()
 		["Iron Star"] = { amount = 300000, hits = 2 },
 	} } }
 	local mg = TP.Scoring.Insights.MechanicGaps(mPlayer, mFight)
-	check(mg and mg.spell == "Iron Star" and mg.hits == 2,
-		("mechanic coaching names the avoidable hit, skips the unavoidable (%s)"):format(tostring(mg and mg.spell)))
+	check(mg and mg.spell == "Iron Star" and mg.hits == 2 and mg.avgDmg == 240000,
+		("mechanic coaching names the avoidable hit + carries impact (%s, %s)"):format(
+			tostring(mg and mg.spell), tostring(mg and mg.avgDmg)))
 	check(TP.Scoring.Insights.MechanicGaps(mPlayer, { name = "Nowhere", duration = 200 }) == nil,
 		"no crawled profiles for the encounter -> no mechanic coaching")
 	local rmg = TP.Scoring.Insights.MechanicGaps(
@@ -3676,8 +3677,9 @@ end)()
 	local mAdv = TP.Scoring.Coach.Advise(
 		{ role = "DAMAGER", adjustDetail = { avoidable = -8 },
 			breakdown = { damage = { applicable = true, pctile = 55 } } }, mFight, mPlayer)
-	check(mAdv and mAdv.text:find("Iron Star", 1, true) ~= nil,
-		("coach names the mechanic in the avoidable line (%s)"):format(tostring(mAdv and mAdv.text)))
+	check(mAdv and mAdv.text:find("Iron Star", 1, true) and mAdv.text:find("2 times", 1, true)
+		and mAdv.text:find("~", 1, true),
+		("coach names the mechanic + hits + impact (%s)"):format(tostring(mAdv and mAdv.text)))
 	TP.DAMAGE_PROFILES = nil
 
 	-- the raid report names the death CAUSE, not just the count

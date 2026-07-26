@@ -346,7 +346,7 @@ function Insights.MechanicGaps(player, fight)
 			local rank = (e.amount or 0) * (1 - prof.hitRate)
 			if not best or rank > best.rank then
 				best = { spell = name, hits = e.hits or 1, amount = e.amount or 0,
-					hitRate = prof.hitRate, rank = rank }
+					hitRate = prof.hitRate, avgDmg = prof.avgDmg, rank = rank }
 			end
 		end
 	end

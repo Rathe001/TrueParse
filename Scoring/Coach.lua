@@ -147,15 +147,22 @@ function Coach.Advise(result, fight, player)
 			and TP.Scoring.Insights.MechanicGaps(player, fight)
 		if mech and mech.spell then
 			local field = math.floor((mech.hitRate or 0) * 100 + 0.5)
-			if (mech.hits or 1) > 1 then
-				return say(30, {
-					("You took %s %d times - only %d%% of players get hit by it. Sidestep it."):format(mech.spell, mech.hits, field),
-					("%s caught you %d times; most players avoid it (%d%% take it). Watch for it."):format(mech.spell, mech.hits, field),
-				})
+			-- impact context from the crawled field: "~240k each" (avgDmg is
+			-- per-taker, from the table). Degrades cleanly when absent.
+			local dmg = (mech.avgDmg and mech.avgDmg > 0 and TP.FormatNumber)
+				and TP.FormatNumber(mech.avgDmg) or nil
+			local hits = mech.hits or 1
+			local lead
+			if hits > 1 then
+				lead = dmg and ("You took %s %d times (~%s each)"):format(mech.spell, hits, dmg)
+					or ("You took %s %d times"):format(mech.spell, hits)
+			else
+				lead = dmg and ("You took %s (~%s)"):format(mech.spell, dmg)
+					or ("You took %s"):format(mech.spell)
 			end
-			return say(31, {
-				("You took %s - only %d%% of players get hit by it. Sidestep it."):format(mech.spell, field),
-				("%s caught you; most players avoid it (%d%% take it). Watch for it."):format(mech.spell, field),
+			return say(30, {
+				("%s - only %d%% of players get hit by it. Sidestep it."):format(lead, field),
+				("%s; most players avoid it (%d%% take it). Watch for it."):format(lead, field),
 			})
 		end
 		local s = pctOf(m.avoidableTaken, m.damageTaken)
