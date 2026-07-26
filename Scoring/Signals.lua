@@ -230,20 +230,21 @@ function Signals.ForResult(result, fight, player)
 			out[#out + 1] = row
 		end
 	end
-	for _, key in ipairs(order) do
-		emitThroughput(key)
-	end
-
-	-- SUPPORT's signature metric: Ebon Might uptime (retail Aug — 35% of
-	-- the grade; the old bullets showed it and the redesign lost it)
+	-- SUPPORT's signature metric LEADS (Josh 2026-07-25: it carries half
+	-- the grade, so it belongs on top — "Amplified 9" leading while Ebon
+	-- Might sat third made the score unexplainable at a glance)
 	local bu = result.breakdown.buffUptime
 	if role == "SUPPORT" and bu and bu.applicable then
 		local row = barRow("buffUptime", ICONS.buffUptime, "Ebon Might",
 			bu.normalized or 0, nil)
 		row.b = bu
-		row.base = true -- 35% of the Aug's grade: part of the raw score
+		row.base = true -- half the Aug's grade: part of the raw score
 		row.raw = true -- scored vs its own anchor, not a parse population
 		out[#out + 1] = row
+	end
+
+	for _, key in ipairs(order) do
+		emitThroughput(key)
 	end
 
 	-- 2) activity: a chip like the other counted verdicts (Josh

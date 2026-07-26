@@ -1188,6 +1188,39 @@ function Panel:ShowFor(fight, result)
 	sh.tipTitle = "Trend"
 	sh.tipLines = { trendText and { trendText, 1, 1, 1 }
 		or { "No prior kills of this boss recorded.", 0.7, 0.7, 0.7 } }
+	-- how the score was BUILT (Josh 2026-07-25: a 9-parse Aug at 57 was
+	-- unexplainable): each base metric's weighted contribution, largest
+	-- weight first, then the earned adjustments
+	if not result.parse and result.breakdown then
+		local comp = {}
+		for key, b in pairs(result.breakdown) do
+			local w = b.applicable and (b.effectiveWeight or 0) or 0
+			if w > 0.005 then
+				local v = b.pctile or b.normalized or 0
+				comp[#comp + 1] = { key = key, w = w, v = v }
+			end
+		end
+		if #comp > 0 then
+			table.sort(comp, function(a, b2)
+				return a.w > b2.w
+			end)
+			sh.tipLines[#sh.tipLines + 1] = { " ", 1, 1, 1 }
+			for _, c in ipairs(comp) do
+				local label = (TP.METRIC_LABELS and TP.METRIC_LABELS[c.key]) or c.key
+				sh.tipLines[#sh.tipLines + 1] = {
+					("%s %d x %d%% = %d"):format(label, c.v + 0.5, c.w * 100 + 0.5,
+						c.v * c.w + 0.5), 0.8, 0.8, 0.8 }
+			end
+			local adj = result.adjust or 0
+			if math.abs(adj) >= 0.5 then
+				sh.tipLines[#sh.tipLines + 1] = {
+					("Earned adjustments %+d"):format(adj >= 0 and math.floor(adj + 0.5)
+						or -math.floor(-adj + 0.5)), 0.8, 0.8, 0.8 }
+			end
+			sh.tipLines[#sh.tipLines + 1] = {
+				("= %d TrueParse"):format(result.score or 0), 1, 1, 1 }
+		end
+	end
 
 	local y = -56 -- three header lines now (name, boss, time)
 	-- the coach resolves FIRST: when it exists, its full-width wash IS
