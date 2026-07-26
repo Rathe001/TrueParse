@@ -518,6 +518,23 @@ function FightHistory:Persist()
 	TP.Addon.db.char.recentFights = self.fights
 end
 
+-- Options' "Clear fight history" (Josh 2026-07-25): this character's
+-- captured fights only — career stats and week standings stay.
+function FightHistory:Clear()
+	wipe(self.fights)
+	self:Persist()
+	if TP.MeterWindow then
+		if TP.MeterWindow.ResetSelection then
+			TP.MeterWindow:ResetSelection()
+		end
+		TP.MeterWindow:Invalidate()
+	end
+	if TP.BreakdownPanel and TP.BreakdownPanel.HideAll then
+		TP.BreakdownPanel:HideAll()
+	end
+	TP.Addon:Print("Fight history cleared for this character.")
+end
+
 -- Best PRIOR score for this player on this encounter+difficulty — the
 -- personal-best tag. Scores prior kills through the engine on demand,
 -- memoized; the history-count in the key self-invalidates on capture.

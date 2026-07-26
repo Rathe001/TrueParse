@@ -526,6 +526,12 @@ function MeterWindow:SelectedFight()
 	return pinnedFight
 end
 
+-- back to Current (a cleared history would leave the pin dangling)
+function MeterWindow:ResetSelection()
+	pinnedFight = nil
+	scrollOffset = 0
+end
+
 function MeterWindow:UpdateModeButtons()
 	if not (window and window.modeReal) then
 		return

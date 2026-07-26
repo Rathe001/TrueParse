@@ -105,6 +105,17 @@ local optionsTable = {
 					desc = "Print your GPA, trend, best fight, and strengths.",
 					func = function() TP.Career:PrintSummary() end,
 				},
+				clearHistory = {
+					type = "execute", order = 3, name = "Clear fight history",
+					desc = "Delete this character's captured fights (the fight selector list and run averages). Career stats and week standings are kept.",
+					confirm = true,
+					confirmText = "Delete this character's entire fight history? This cannot be undone.",
+					func = function()
+						if TP.FightHistory and TP.FightHistory.Clear then
+							TP.FightHistory:Clear()
+						end
+					end,
+				},
 			},
 		},
 		minimap = {
