@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+**Self-reported metrics no longer go missing on retail.** A whole run could
+show none of the retail self-report data (activity, mana, dispels timing,
+spike coverage, flask/food, defensives) even for your own character. The
+cause was a race: the meter bulk-unlocks at combat end while the
+self-report finalizes on its own timer, so if the capture landed first, the
+report was recorded too late and never attached - and nothing re-attached
+it. Reports now re-attach to their captured fight whenever they arrive, so
+late reports (including the local player's own) still land.
+
 **Flask and food now cost points if missing.** Each is worth a point, so
 turning up without both costs -1, and without either costs -2 (it was
 praise-only before). Applies to any role on either client, and only when a

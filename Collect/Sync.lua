@@ -76,6 +76,36 @@ function Sync:RecordFightReport(guid, duration, defensives, consumables, readyAt
 			table.remove(list, i)
 		end
 	end
+	-- a report can arrive AFTER its fight was already captured: on retail the
+	-- meter bulk-unlocks at combat end while the self-report finalizes on its
+	-- own grace timer, so either can land first. AttachReports runs only at
+	-- capture, so a report that lands second was orphaned - even the LOCAL
+	-- player's own facts (Josh 2026-07-26: a whole retail run showed no
+	-- self-report). Re-attach the matching recent capture now.
+	self:ReattachRecent(duration)
+end
+
+-- Re-run AttachReports on a recently-captured fight whose duration matches a
+-- just-arrived report. AttachReports only fills nil fields, so this is
+-- idempotent and safe to repeat. Duration-gated so it's one cheap merge, not
+-- a sweep of the whole history.
+function Sync:ReattachRecent(duration)
+	local fights = TP.FightHistory and TP.FightHistory.fights
+	if not (fights and duration) then
+		return
+	end
+	-- fights is newest-first, so the recent captures are at the front
+	for i = 1, math.min(5, #fights) do
+		local f = fights[i]
+		local d = math.abs((f.duration or 0) - duration)
+		if f.rawDuration then
+			d = math.min(d, math.abs(f.rawDuration - duration))
+		end
+		if d <= math.max(8, (f.duration or 0) * 0.2) then
+			pcall(self.AttachReports, self, f)
+			return -- one matching capture is enough
+		end
+	end
 end
 
 -- LFR/LFD are INSTANCE groups: plain IsInGroup()/"RAID" never saw them,
@@ -138,13 +168,18 @@ function Sync:RecordExtendedReport(guid, duration, x)
 		list = {}
 		self.reports[guid] = list
 	end
+	local merged
 	for _, r in ipairs(list) do
 		if math.abs((r.duration or 0) - duration) <= 3 then
 			r.x = r.x or x
-			return
+			merged = true
+			break
 		end
 	end
-	list[#list + 1] = { duration = duration, x = x, at = time() }
+	if not merged then
+		list[#list + 1] = { duration = duration, x = x, at = time() }
+	end
+	self:ReattachRecent(duration) -- late X: report -> attach to its capture
 end
 
 -- Group-spike inputs (Y: wire, 2026-07-25): role + personal spike
@@ -176,13 +211,18 @@ function Sync:RecordGroupInput(guid, duration, g)
 		list = {}
 		self.reports[guid] = list
 	end
+	local merged
 	for _, r in ipairs(list) do
 		if math.abs((r.duration or 0) - duration) <= 3 then
 			r.g = r.g or g
-			return
+			merged = true
+			break
 		end
 	end
-	list[#list + 1] = { duration = duration, g = g, at = time() }
+	if not merged then
+		list[#list + 1] = { duration = duration, g = g, at = time() }
+	end
+	self:ReattachRecent(duration) -- late Y: report -> attach to its capture
 end
 
 -- Attach pending peer reports to a freshly captured fight, matching by
