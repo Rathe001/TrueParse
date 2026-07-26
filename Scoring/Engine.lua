@@ -1658,6 +1658,18 @@ function Engine.ScoreFight(fight, opts)
 					put("manaDry", -(A.manaDryPenalty or 1))
 				end
 			end
+			-- Dispel REACTION time (Josh 2026-07-25): clearing a debuff fast
+			-- is a real skill the data separates cleanly (field p25 2.4s /
+			-- med 3.7s / p75 5.8s; 34% average >5s). Orthogonal to the
+			-- dispel COUNT adjustment (volume vs speed), so no double-count.
+			-- Needs 2+ dispels for the average to mean something.
+			if m.dispelReactAvg and (m.dispels or 0) >= 2 then
+				if m.dispelReactAvg <= (A.dispelReactFast or 2.5) then
+					put("dispelReact", A.dispelReactBonus or 1)
+				elseif m.dispelReactAvg >= (A.dispelReactSlow or 6) then
+					put("dispelReact", -(A.dispelReactPenalty or 1))
+				end
+			end
 			-- Dying without ever using a defensive (counted, not inferred;
 			-- forgiven post-call deaths and one-shots judge nothing).
 			-- Availability: a self/peer readiness report of ZERO defensives

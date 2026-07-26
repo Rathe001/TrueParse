@@ -223,6 +223,13 @@ function Bullets.ForResult(result, awards, extra)
 		out[#out + 1] = { kind = "info", key = "manaDry", symbol = "-", color = BAD,
 			text = "Ran out of mana mid-fight" .. pts(ad.manaDry) }
 	end
+	if (ad.dispelReact or 0) ~= 0 and extra and extra.dispelReactAvg then
+		local good = ad.dispelReact > 0
+		out[#out + 1] = { kind = "info", key = "dispelReact",
+			symbol = good and "+" or "-", color = good and GOOD or BAD,
+			text = (good and "Fast dispels - %.1fs reaction" or "Slow dispels - %.1fs reaction")
+				:format(extra.dispelReactAvg) .. pts(ad.dispelReact) }
+	end
 	if extra and extra.offensiveCDs and result.role ~= "HEALER" and result.role ~= "TANK" then
 		out[#out + 1] = { kind = "info", key = "offensives", symbol = "+", color = GOOD,
 			text = extra.offensiveCDs == 1 and "Used an offensive cooldown"

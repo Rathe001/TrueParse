@@ -992,6 +992,7 @@ local function infoHelp()
 			coach = "The biggest gap between this fight and top parses of this spec.",
 			interrupts = "Casts this player interrupted.",
 			dispels = "Debuffs this player dispelled.",
+			dispelReact = "How fast debuffs got cleared. Top healers react under 2s; over 6s costs a point.",
 		}
 	end
 	return INFO_HELP

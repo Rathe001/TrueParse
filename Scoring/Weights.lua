@@ -54,6 +54,11 @@ Weights.adjustments = {
 	kicksFullIntensity = 6, -- group kicks at which a fight is "kick-heavy" (p90)
 	dispelsMax = 4,
 	dispelsFullIntensity = 8,
+	-- dispel REACTION time (Classic CLEU): small ± for how fast debuffs
+	-- get cleared, on top of the volume adjustment above. Field: p25
+	-- 2.4s, med 3.7s, p75 5.8s.
+	dispelReactBonus = 1, dispelReactFast = 2.5,
+	dispelReactPenalty = 1, dispelReactSlow = 6,
 	shareCenter = 55, -- smoothed share score that reads as "did your part"
 	-- avoidable damage (meter data, everyone): clean play earns a little,
 	-- standing in bad costs up to the old penalty cap

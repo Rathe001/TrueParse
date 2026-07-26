@@ -2050,6 +2050,18 @@ end
 	fnl.players.a = dps("NoLock", { metrics = { healthstones = 0 } })
 	check(adFor(fnl, "NoLock").healthstone == nil, "no warlock in group: healthstone ignored")
 
+	-- 25h2b. dispel reaction (2026-07-25): fast +1, slow -1, needs 2+
+	-- dispels; orthogonal to the dispel-count adjustment
+	local fdr = ctxFight({})
+	fdr.players.a = dps("Snappy", { metrics = { dispels = 4, dispelReactAvg = 1.8 } })
+	fdr.players.b = dps("Sluggish", { metrics = { dispels = 4, dispelReactAvg = 7.5 } })
+	fdr.players.c = dps("Middling", { metrics = { dispels = 4, dispelReactAvg = 3.7 } })
+	fdr.players.d = dps("OneOff", { metrics = { dispels = 1, dispelReactAvg = 1.0 } })
+	check((adFor(fdr, "Snappy").dispelReact or 0) == 1, "fast dispels earn +1")
+	check((adFor(fdr, "Sluggish").dispelReact or 0) == -1, "slow dispels cost -1")
+	check(adFor(fdr, "Middling").dispelReact == nil, "mid-pace dispels: neutral")
+	check(adFor(fdr, "OneOff").dispelReact == nil, "one dispel: not enough to judge reaction")
+
 	-- 25h3. tanking composite bonus (2026-07-25): strong survival earns,
 	-- weak survival is NOT re-charged (the gauge already shows it)
 	local ftk = ctxFight({})

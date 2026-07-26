@@ -397,6 +397,7 @@ function Signals.ForResult(result, fight, player)
 		-- (healers are bonus-only for kicks, so "down" never fires on them)
 		{ key = "kicks", up = "Kicked anyway", down = "No interrupts", icon = ICONS.interrupts },
 		{ key = "dispels", up = "Dispels", down = "No dispels", icon = ICONS.dispels },
+		{ key = "dispelReact", up = "Fast dispels", down = "Slow dispels", icon = ICONS.dispels },
 	}
 	local shown = {}
 	for _, row in ipairs(out) do
