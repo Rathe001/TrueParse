@@ -98,16 +98,25 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 							or TP.Roster.players[guid]
 						local specIconID = (not IsSecret(src.specIconID)) and src.specIconID or nil
 						local iconInfo = specIconID and specIconMap and specIconMap[specIconID]
+						local specID = (iconInfo and iconInfo.specID)
+							or (rosterInfo and rosterInfo.specID) or nil
+						-- role from the roster snapshot, else DERIVE it from the
+						-- spec (Josh 2026-07-25: 20% of retail player-fights had
+						-- no role because the bulk-unlock roster missed them, so
+						-- tanks/healers graded as DPS until EffectiveRole
+						-- recovered it at scoring — now the stored record is
+						-- correct too, so reports/coach/awards agree)
+						local role = (rosterInfo and rosterInfo.role)
+							or (specID and TP.SPEC_ROLES and TP.SPEC_ROLES[specID]) or nil
 						p = {
 							guid = guid,
 							name = (not IsSecret(src.name)) and src.name or UNKNOWN,
 							class = (not IsSecret(src.classFilename)) and src.classFilename or nil,
 							specIconID = specIconID,
-							specID = (iconInfo and iconInfo.specID)
-								or (rosterInfo and rosterInfo.specID) or nil,
+							specID = specID,
 							ilvl = rosterInfo and rosterInfo.ilvl or nil,
 							isLocalPlayer = src.isLocalPlayer and true or false,
-							role = rosterInfo and rosterInfo.role or nil,
+							role = role,
 							-- 0 means "didn't die", not "died at the pull" (Josh
 							-- 2026-07-25: a deathless kill reported 5 deaths
 							-- at 0:00) — only a real timestamp is a death
