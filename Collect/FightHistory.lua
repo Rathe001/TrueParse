@@ -108,7 +108,12 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 							ilvl = rosterInfo and rosterInfo.ilvl or nil,
 							isLocalPlayer = src.isLocalPlayer and true or false,
 							role = rosterInfo and rosterInfo.role or nil,
-							deathTime = (not IsSecret(src.deathTimeSeconds)) and src.deathTimeSeconds or nil,
+							-- 0 means "didn't die", not "died at the pull" (Josh
+							-- 2026-07-25: a deathless kill reported 5 deaths
+							-- at 0:00) — only a real timestamp is a death
+							deathTime = (not IsSecret(src.deathTimeSeconds))
+								and (src.deathTimeSeconds or 0) > 0
+								and src.deathTimeSeconds or nil,
 							metrics = {},
 						}
 						for _, mm in ipairs(metrics) do

@@ -38,19 +38,24 @@ local function groupScore(results)
 end
 
 -- every death in a fight as { t, avoidable, readyDefensives }, oldest
--- first — times and causes, never names
+-- first — times and causes, never names. The deaths COUNTER is the
+-- authority: retail records stamped deathTime=0 on players who never
+-- died (a deathless kill reported "5 deaths at 0:00", 2026-07-25), so
+-- a player whose counter says zero contributes nothing.
 local function deathList(fight)
 	local out = {}
 	for _, p in pairs(fight.players or {}) do
-		local times = p.deathTimes or (p.deathTime and { p.deathTime }) or {}
-		for _, t in ipairs(times) do
-			local avoidable
-			-- the recap describes the LAST death; attach it there only
-			if t == times[#times] and p.deathRecap and #p.deathRecap > 0 then
-				avoidable = p.deathRecap[#p.deathRecap].avoidable
+		if ((p.metrics or {}).deaths or 0) > 0 then
+			local times = p.deathTimes or (p.deathTime and { p.deathTime }) or {}
+			for _, t in ipairs(times) do
+				local avoidable
+				-- the recap describes the LAST death; attach it there only
+				if t == times[#times] and p.deathRecap and #p.deathRecap > 0 then
+					avoidable = p.deathRecap[#p.deathRecap].avoidable
+				end
+				out[#out + 1] = { t = t, avoidable = avoidable,
+					readyDefensives = t == times[#times] and (p.deathReadyDefensives or 0) or 0 }
 			end
-			out[#out + 1] = { t = t, avoidable = avoidable,
-				readyDefensives = t == times[#times] and (p.deathReadyDefensives or 0) or 0 }
 		end
 	end
 	table.sort(out, function(a, b)

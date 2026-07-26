@@ -3370,6 +3370,19 @@ end)()
 		end
 	end
 
+	-- retail records stamped deathTime=0 on players who never died: the
+	-- deaths counter is the authority (a deathless VanCleef kill read
+	-- "5 deaths at 0:00" — 2026-07-25)
+	local ghost = R.Run("deaths", { fight = {
+		name = "Edwin VanCleef",
+		players = {
+			a = { name = "Alive1", deathTime = 0, metrics = { deaths = 0 } },
+			b = { name = "Alive2", deathTime = 0, metrics = { deaths = 0 } },
+		},
+	} })
+	check(ghost[1] == "Nobody died on Edwin VanCleef.",
+		("zero-stamped survivors are not deaths (%s)"):format(tostring(ghost[1])))
+
 	check(R.Run("fight", {}) == nil, "no fight, no report")
 	check(R.Run("nope", { fight = wipeFight }) == nil, "unknown report key returns nil")
 end)()
