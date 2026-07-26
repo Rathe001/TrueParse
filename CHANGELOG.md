@@ -1,5 +1,13 @@
 # TrueParse Changelog
 
+## 2.1.2
+
+Fixes a crash that could abort a fight capture on Classic. When a tank
+took absorbed or avoided damage (a shielded hit, a dodge or parry), the
+totals accumulation hit an uninitialized key and errored, so the fight
+"didn't parse." Most visible in Celestial 5-mans with a Protection
+Paladin. Captures are reliable again.
+
 ## 2.1.1
 
 The chat icon now hides with the cog when the window collapses.
