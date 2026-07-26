@@ -24,14 +24,14 @@ TP.Scoring.Weights = Weights
 -- accurately on what we can verify. Ratios preserve the old
 -- damage:healing:taken proportions per role.
 Weights.roleWeights = {
-	-- TANK realigned 2026-07-25 (Josh: "raw 6 + 15 should read 21, not
-	-- 64"): the base is the WCL parse — and WCL ranks tank damage
-	-- against other tanks of the same spec, so that IS their parse. The
-	-- old damageTaken 0.50 slice was group-relative share that pinned
-	-- near 100 for any tank doing the job, quietly re-importing the
-	-- floor the transform retirement removed. Soaking/Tanking stays on
-	-- the card as display; survival earns through adjustments.
-	TANK    = { damage = 0.86, healing = 0.14, damageTaken = 0 },
+	-- TANK (Josh 2026-07-26): survival is a tank's job, so it leads. The
+	-- Tanking metric = active-mitigation UPTIME scored against the spec's
+	-- real WCL field (Data/TankAnchors, crawled from the Buffs table), the
+	-- one survival stat WCL exposes - WCL-relative, not the old arbitrary
+	-- anchors. Damage + healing (self-heal) are the other WCL parses. The
+	-- old damageTaken 0.50 SHARE was retired (it pinned ~100 for any tank);
+	-- soak/avoid/block stay on the card as context, not scored.
+	TANK    = { tanking = 0.55, damage = 0.31, healing = 0.14 },
 	HEALER  = { damage = 0.21, healing = 0.79 },
 	DAMAGER = { damage = 0.86, healing = 0.14 },
 	-- Augmentation & friends: personal damage is a small, expected slice

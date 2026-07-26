@@ -37,6 +37,22 @@ local function normalizeRole(p)
 	return TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID)
 end
 
+-- Map a raw value to a 0-100 percentile-like score against a spec's
+-- crawled {p25, p50, p75} field: the anchors land on 25/50/75, linear
+-- between, extrapolated and clamped past the ends. This is how the tank
+-- mitigation-uptime metric stays WCL-relative instead of arbitrary (Josh
+-- 2026-07-26). Guards degenerate/uncalibrated anchors against div-by-zero.
+local function anchorScore(v, p25, p50, p75)
+	if v <= p25 then
+		return math.max(0, 25 * v / math.max(p25, 1))
+	elseif v <= p50 then
+		return 25 + (v - p25) / math.max(p50 - p25, 1) * 25
+	elseif v <= p75 then
+		return 50 + (v - p50) / math.max(p75 - p50, 1) * 25
+	end
+	return math.min(100, 75 + (v - p75) / math.max(p75 - p50, 1) * 25)
+end
+
 -- Difficulties whose runs actually populate the WCL dungeon rankings
 local DUNGEON_ABSOLUTE_DIFFICULTY = {
 	["Mythic Keystone"] = true,
@@ -771,6 +787,26 @@ local function normalizeMetric(p, role, key, ctx)
 		return math.min(100, 100 * perMin / (W.prescienceCadenceAnchor or 5)), true
 	end
 
+	if key == "tanking" then
+		-- A tank's primary metric (Josh 2026-07-26): active-mitigation
+		-- UPTIME scored as a percentile against the spec's real WCL field
+		-- (Data/TankAnchors, crawled) - "you held mitigation up 57%, the
+		-- average Guardian holds 66%". WCL-relative, not arbitrary: the one
+		-- survival stat WCL actually exposes (its Buffs table). Absent (no
+		-- self-report, or a spec/client without mit tracking) -> weight
+		-- redistributes to damage/healing, like any missing capability.
+		if role ~= "TANK" then
+			return 0, false
+		end
+		local up = p.metrics and p.metrics.mitigationPct
+		if not up then
+			return 0, false
+		end
+		local AN = TP.TANK_ANCHORS or {}
+		local a = (p.specID and AN[p.specID]) or AN.default or { 30, 55, 75 }
+		return anchorScore(up, a[1], a[2], a[3]), true
+	end
+
 	-- Damage soaked: no external population exists (WCL doesn't rank damage
 	-- taken), so it's your share of the group's damage taken against the
 	-- expected tank share SPLIT BY TANK COUNT. Co-tanks splitting duty both
@@ -1345,6 +1381,13 @@ function Engine.ScoreFight(fight, opts)
 				-- the tooltip phrases these as "Kicked 2 of the group's 7"
 				breakdown[key].groupTotal = ctx.totals[key] > 0 and ctx.totals[key] or nil
 			end
+			-- Tanking: the row's number is the mitigation-uptime percentile;
+			-- the tooltip shows the raw uptime vs the spec's WCL median
+			if key == "tanking" then
+				breakdown[key].value = (p.metrics and p.metrics.mitigationPct) or 0
+				local AN = TP.TANK_ANCHORS or {}
+				breakdown[key].anchors = (p.specID and AN[p.specID]) or AN.default
+			end
 			-- Aug damage: the row's number is EFFECTIVE (own + buffs
 			-- enabled); the tooltip shows the split
 			if key == "damage" and ctx.attribution and ctx.attribution[p.guid] then
@@ -1602,26 +1645,10 @@ function Engine.ScoreFight(fight, opts)
 			if (m.defensives or 0) >= 2 then
 				put("defensives", A.defensivesBonus or 0)
 			end
-			-- the Tanking composite EARNS like any other adjustment (Josh
-			-- 2026-07-25: the card said tanking was worth 0% of a tank's
-			-- grade — survival skill must move the score). Judged against
-			-- the spec's population anchors, BONUS-ONLY (Josh: the gauge
-			-- on top already shows weak tanking; no double charge). Legacy
-			-- records without composite ingredients stay neutral.
-			if role == "TANK" then
-				local S = TP.Scoring.Signals
-				local bdt = breakdown and breakdown.damageTaken
-				local tv = S and S.TankingComposite
-					and S.TankingComposite(m, bdt and bdt.normalized)
-				if tv then
-					local AN = TP.TANK_ANCHORS or {}
-					local anc = (p.specID and AN[p.specID]) or AN.default or { 30, 55, 75 }
-					local tpts = ramp(tv, anc[1], anc[3], A.tankingMax or 4)
-					if tpts > 0 then
-						put("tanking", tpts)
-					end
-				end
-			end
+			-- (the Tanking bonus-adjustment retired 2026-07-26: survival is
+			-- now the tank's PRIMARY weighted metric, mitigation uptime vs
+			-- the spec's WCL field - see normalizeMetric "tanking". Scoring
+			-- it as a bonus on top would double-count.)
 			-- healthstone discipline (Josh 2026-07-25): +1 for eating one,
 			-- -1 for sitting on it — judged only when a warlock was in the
 			-- group to provide them. Retail leaves the metric nil (other

@@ -132,31 +132,33 @@ function Signals.TankingComposite(m, soakNormalized)
 	return sum / n, parts
 end
 
-local function tankingRow(m, b, specID, pts)
-	local v, parts = Signals.TankingComposite(m, b.normalized)
-	if not v then
-		return nil -- legacy record: not enough ingredients for a composite
+-- The Tanking row reads breakdown.tanking: the SCORE is mitigation-uptime
+-- percentile vs the spec's crawled WCL field (Josh 2026-07-26 - the tank's
+-- primary metric, WCL-relative not arbitrary). The tip leads with that
+-- headline, then shows the rest of the survival story as context.
+local function tankingRow(m, b, specID)
+	if not (b and b.applicable) then
+		return nil -- no mitigation data reported: weight redistributed
 	end
-	local row = barRow("damageTaken", ICONS.damageTaken, "Tanking", v, nil)
-	-- the composite earns as a bonus-only adjustment now (2026-07-25):
-	-- the tip footer says what it moved, not "worth 0% of the grade"
-	local rounded = pts and math.floor(pts + 0.5) or 0
-	row.tipFooter = rounded > 0
-		and ("score %.0f \194\183 %+d to your score"):format(v, rounded)
-		or ("score %.0f \194\183 no bonus earned"):format(v)
+	local row = barRow("tanking", ICONS.damageTaken, "Tanking", b.normalized or 0, nil)
 	row.b = b
-	row.base = true
-	-- per-spec population anchors (Data/TankAnchors.lua): each tank spec
-	-- ranks against ITS OWN field, so DK recovery and bear avoidance are
-	-- the same skill at the same tier. Uncalibrated specs use the
-	-- provisional default until analyze-history emits theirs.
-	local A = TP.TANK_ANCHORS or {}
-	local a = (specID and A[specID]) or A.default or { 30, 55, 75 }
-	row.tier = anchorTier(v, a[1], a[2], a[3])
+	row.base = true -- the primary tank metric: part of the raw score
+	row.raw = true -- scored vs the spec's own WCL uptime field, not a parse
 	row.tipTitle = "Tanking"
-	-- one ingredient per line (Josh 2026-07-24: the dot-joined line
-	-- overflowed the tip)
-	row.tipText = table.concat(parts, "\n")
+	local up = b.value or 0
+	local anc = b.anchors
+	local lines = {}
+	lines[#lines + 1] = anc
+		and ("Mitigation up %.0f%%; the spec median holds %.0f%%"):format(up, anc[2])
+		or ("Mitigation up %.0f%% of the fight"):format(up)
+	-- context: the rest of the survival story (shown, not scored)
+	local _, parts = Signals.TankingComposite(m, nil)
+	for _, pt in ipairs(parts or {}) do
+		if not pt:find("mitigation up") then -- the headline already has it
+			lines[#lines + 1] = pt
+		end
+	end
+	row.tipText = table.concat(lines, "\n")
 	return row
 end
 
@@ -188,38 +190,25 @@ function Signals.ForResult(result, fight, player)
 	local function emitThroughput(key)
 		local b = result.breakdown[key]
 		if b and b.applicable and not b.lowDemand then
-			-- tanks with a modern record get the composite Tanking gauge
-			-- instead of the grey soak share (Raw keeps the plain share:
-			-- the composite is ours, not WCL's)
-			local handled
-			if key == "damageTaken" and role == "TANK" and not result.parse then
-				local trow = tankingRow(m, b, player and player.specID, ad.tanking)
-				if trow then
-					out[#out + 1] = trow
-					handled = true
-				end
+			local label = key == "damageTaken" and "Soaking"
+				or key:sub(1, 1):upper() .. key:sub(2)
+			-- an Aug's "damage" is what their buffs enabled, not output
+			if key == "damage" and role == "SUPPORT" and (b.attribution or b.noInput) then
+				label = "Amplified"
 			end
-			if not handled then
-				local label = key == "damageTaken" and "Soaking"
-					or key:sub(1, 1):upper() .. key:sub(2)
-				-- an Aug's "damage" is what their buffs enabled, not output
-				if key == "damage" and role == "SUPPORT" and (b.attribution or b.noInput) then
-					label = "Amplified"
-				end
-				-- (the Off-healing split retired 2026-07-25: a tank's
-				-- Healing is the plain WCL parse again — the Tanking
-				-- composite is the stat that reads self-healing directly)
-				out[#out + 1] = barRow(key, ICONS[key], label, b.pctile or b.normalized or 0, nil)
-				out[#out].b = b -- the tooltip's gauge needs the full breakdown
-				out[#out].base = true -- makes the raw score; Raw mode keeps these
-				-- bracket colors are for PARSES only: a group-relative share
-				-- wears neutral, not purple
-				out[#out].raw = not (b.pctile or b.absolute) or nil
-				if b.noInput then
-					-- an Aug with no Ebon Might report: the 50 is a PIN, not
-					-- a measurement — "?" keeps it from reading as mid-pack
-					out[#out].num = "?"
-				end
+			-- (the Off-healing split retired 2026-07-25: a tank's
+			-- Healing is the plain WCL parse again — the Tanking
+			-- metric reads mitigation uptime directly)
+			out[#out + 1] = barRow(key, ICONS[key], label, b.pctile or b.normalized or 0, nil)
+			out[#out].b = b -- the tooltip's gauge needs the full breakdown
+			out[#out].base = true -- makes the raw score; Raw mode keeps these
+			-- bracket colors are for PARSES only: a group-relative share
+			-- wears neutral, not purple
+			out[#out].raw = not (b.pctile or b.absolute) or nil
+			if b.noInput then
+				-- an Aug with no Ebon Might report: the 50 is a PIN, not
+				-- a measurement — "?" keeps it from reading as mid-pack
+				out[#out].num = "?"
 			end
 		elseif b and b.applicable and b.lowDemand and key == "healing" and role == "HEALER" then
 			-- a healer's primary metric can't just vanish: the base sits
@@ -256,11 +245,13 @@ function Signals.ForResult(result, fight, player)
 		out[#out + 1] = row
 	end
 
-	-- 2b) the Tanking/Soaking gauge closes the gauge zone
-	-- (mitigation uptime lives inside the Tanking composite — its own
-	-- row double-dipped the survival story, Josh 2026-07-25)
+	-- 2b) the Tanking gauge (mitigation-uptime percentile vs the spec's
+	-- WCL field): the tank's primary metric, so it closes the gauge zone
 	if role == "TANK" then
-		emitThroughput("damageTaken")
+		local trow = tankingRow(m, result.breakdown.tanking, player and player.specID)
+		if trow then
+			out[#out + 1] = trow
+		end
 	end
 
 	-- 4) cooldown timing as per-event squares with the availability cap

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+**Tanks are scored on tanking.** Survival is now a tank's primary metric
+instead of a bonus that barely moved the score. The Tanking metric is your
+active-mitigation uptime scored against your spec's real Warcraft Logs
+field, crawled from WCL's buff data: "you held mitigation up 57%, the
+median Guardian holds 24%." It's WCL-relative like a damage parse, not an
+arbitrary target, and each spec is judged against its own population (a
+Guardian's Savage Defense and a Blood DK's Blood Shield sit at very
+different uptimes, so equally skilled tanks of different specs parse
+alike). A tank who tanks well but pulls modest damage now grades fairly.
+The coach follows suit, pointing tanks at their mitigation uptime rather
+than telling them to pad damage. Weighting is tanking 55%, damage 31%,
+self-healing 14%. (Retail baselines land once the retail mit-buff ids are
+verified; until then retail tanks use a provisional default.)
+
 **Augmentation Evokers score Prescience, not Ebon Might.** The Ebon Might
 uptime metric was double-counting: Ebon Might already drives the
 "Amplified" number (your effective damage is your allies' damage times

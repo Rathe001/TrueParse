@@ -49,7 +49,8 @@ function Coach.BiggestOpportunity(result)
 	-- healer to pad damage (or a DPS to heal more) is noise (Josh 2026-07-26:
 	-- a 99 healing parse got told "your damage has room to grow"). A top
 	-- parse leaves a gap too small to clear the bar, so nothing fires.
-	local primary = result.role == "HEALER" and "healing" or "damage"
+	local primary = (result.role == "HEALER" and "healing")
+		or (result.role == "TANK" and "tanking") or "damage"
 	local b = (result.breakdown or {})[primary]
 	if b and b.applicable then
 		local gain = (100 - (b.normalized or 0)) * (b.effectiveWeight or 0)
@@ -266,6 +267,16 @@ function Coach.Advise(result, fight, player)
 			"You left debuffs up that you could have cleared. Watch for them.",
 		})
 	elseif k == "throughput" then
+		-- a tank's throughput gap is mitigation uptime, not damage
+		if opp.key == "tanking" then
+			return say(26, m.mitigationPct and {
+				("You held active mitigation up %d%%. Keep it rolling more of the fight."):format(m.mitigationPct),
+				("Mitigation uptime was %d%%, under your spec's field. Press it more often."):format(m.mitigationPct),
+			} or {
+				"Your active mitigation uptime is low. Keep it rolling through the fight.",
+				"You're letting active mitigation drop. Hold it up more of the fight.",
+			})
+		end
 		-- the rotation gap: ParseGap names the signature spell top parses
 		-- lean on, so it's already personalized; a varied plain line covers
 		-- the no-profile case

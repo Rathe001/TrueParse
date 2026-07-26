@@ -17,6 +17,7 @@ loadModule("Scoring/Engine.lua", TP)
 loadModule("Scoring/Grades.lua", TP)
 loadModule("Data/Benchmarks.lua", TP)
 loadModule("Data/HealerCDs_Mists.lua", TP) -- RAID_CDS feeds the assignment line
+loadModule("Data/TankAnchors_Mists.lua", TP) -- per-spec mit-uptime baselines
 loadModule("Scoring/Awards.lua", TP)
 loadModule("Scoring/Coach.lua", TP)
 loadModule("Scoring/Runs.lua", TP)
@@ -138,7 +139,7 @@ local fight = {
 	name = "Synthetic Boss", duration = 60,
 	players = {
 		t = mkPlayer("t", "Tank", "WARRIOR", "TANK",
-			{ damage = 600000, healing = 80000, damageTaken = 500000, interrupts = 2 }),
+			{ damage = 600000, healing = 80000, damageTaken = 500000, interrupts = 2, mitigationPct = 50 }),
 		h = mkPlayer("h", "Heal", "PRIEST", "HEALER",
 			{ damage = 60000, healing = 700000, damageTaken = 100000, dispels = 3 }),
 		d1 = mkPlayer("d1", "DpsA", "MAGE", "DAMAGER",
@@ -180,12 +181,15 @@ check(byName.DpsA.penalty == 0, "DpsA not penalized")
 check(byName.DpsB.penaltyDetail.avoidable == 15, "avoidable penalty capped at 15")
 check(byName.DpsB.penaltyDetail.deaths == 10, "one death costs 10")
 
--- 6. Cross-role fairness, post-2026-07-25 realignment: a tank's BASE is
--- their WCL parse (tank damage ranks against tanks), not the soak share
--- that pinned near 100 for anyone doing the job. Survival earns through
--- adjustments; soak carries zero base weight.
-check((byName.Tank.breakdown.damageTaken.effectiveWeight or 0) == 0,
-	"tank soak carries no base weight (parse-pure base)")
+-- 6. Cross-role fairness (Josh 2026-07-26): a tank's PRIMARY metric is
+-- survival - active-mitigation UPTIME scored vs the spec's WCL field - not
+-- damage. The old soak-share metric is gone; tanking leads at 55%.
+check(byName.Tank.breakdown.damageTaken == nil,
+	"soak share is no longer a scored tank metric")
+check(byName.Tank.breakdown.tanking and byName.Tank.breakdown.tanking.applicable,
+	"tank's mitigation uptime is the scored Tanking metric")
+check(math.abs((byName.Tank.breakdown.tanking.effectiveWeight or 0) - 0.55) < 1e-9,
+	("tanking is the tank's biggest weight, 55%% (%.2f)"):format(byName.Tank.breakdown.tanking.effectiveWeight or 0))
 check(byName.Tank.score >= 40, ("well-played tank still competes (%.1f)"):format(byName.Tank.score))
 check(byName.Heal.score >= 62, ("well-played healer scores high (%.1f)"):format(byName.Heal.score))
 
@@ -1646,11 +1650,8 @@ end
 check(bear.breakdown.healing.rolePooled == true, "spec without a curve pools to its role")
 check(math.abs(bear.breakdown.healing.absolute - 50) < 1.5,
 	("pooled tank healing at pooled p50 ~50 (%.1f)"):format(bear.breakdown.healing.absolute))
--- co-tank soak: both split evenly -> both score the same capped-high value,
--- nobody gets a structural 100
-check(math.abs(bear.breakdown.damageTaken.normalized - blood.breakdown.damageTaken.normalized) < 0.001,
-	"even co-tank soak scores equally")
-check(bear.breakdown.damageTaken.normalized < 100, "no structural 100 for the bigger soaker")
+-- (the co-tank soak-share test retired 2026-07-26: soak is no longer a
+-- scored metric - the Tanking metric is mitigation uptime vs WCL)
 TP.Percentiles = nil
 
 -- self-sustain phrasing: mostly-self healing reads as sustain, not off-heals
@@ -2137,8 +2138,9 @@ end
 	check(adFor(fdr, "Middling").dispelReact == nil, "mid-pace dispels: neutral")
 	check(adFor(fdr, "OneOff").dispelReact == nil, "one dispel: not enough to judge reaction")
 
-	-- 25h3. tanking composite bonus (2026-07-25): strong survival earns,
-	-- weak survival is NOT re-charged (the gauge already shows it)
+	-- 25h3. tanking = mitigation-uptime percentile vs the spec's WCL field
+	-- (Josh 2026-07-26): a base metric now, high uptime scores high, low
+	-- scores low - no longer a bonus-only adjustment.
 	local ftk = ctxFight({})
 	ftk.players.a = dps("Wall", { role = "TANK", specID = 250, metrics = { damageTaken = 1000000,
 		swingsLanded = 40, swingsAvoided = 160, swingDamageTaken = 400000,
@@ -2146,9 +2148,16 @@ end
 	ftk.players.b = dps("Paper", { role = "TANK", specID = 250, metrics = { damageTaken = 1000000,
 		swingsLanded = 190, swingsAvoided = 10, swingDamageTaken = 900000,
 		mitigationPct = 15, selfHealing = 50000, absorbedTaken = 20000, selfAbsorbs = 0 } })
-	local tks, tkw = adFor(ftk, "Wall"), adFor(ftk, "Paper")
-	check((tks.tanking or 0) > 0, ("strong composite earns a bonus (%s)"):format(tostring(tks.tanking)))
-	check(tkw.tanking == nil, ("weak composite is not charged (%s)"):format(tostring(tkw.tanking)))
+	local function tankMetric(name)
+		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(ftk, { normalizeIlvl = false })) do
+			if r.name == name then return r.breakdown.tanking end
+		end
+	end
+	local wallT, paperT = tankMetric("Wall"), tankMetric("Paper")
+	check(wallT and wallT.applicable and (wallT.normalized or 0) > 60,
+		("high mitigation uptime scores high (%s)"):format(tostring(wallT and wallT.normalized)))
+	check(paperT and (paperT.normalized or 100) < 30,
+		("low mitigation uptime scores low (%s)"):format(tostring(paperT and paperT.normalized)))
 
 	-- 25i. per-spec overheal thresholds: a shield-heavy spec's population
 	-- runs high overheal; its p75 exempts what the fixed 45 would charge
@@ -3120,48 +3129,32 @@ end)()
 		selfHealing = 350000, -- recovery = (350k+50k)/1000k = 40%
 	}
 	local sigs = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
-		breakdown = { damageTaken = { applicable = true, normalized = 60, value = 1000000 } } },
+		breakdown = { tanking = { applicable = true, normalized = 52, value = 57, anchors = { 20, 40, 60 } } } },
 		{}, { metrics = m })
 	local row
 	for _, r in ipairs(sigs) do
-		if r.key == "damageTaken" then
+		if r.key == "tanking" then
 			row = r
 		end
 	end
-	-- (60 + 40 + 20 + 40) / 4 = 40
-	check(row and row.label == "Tanking" and math.abs(row.value - 40) < 0.5,
-		("tanking composite averages its ingredients (%s, %s)"):format(
-			tostring(row and row.label), tostring(row and row.value)))
-	check(row and row.tier and row.b and row.base,
-		"tanking row is population-tiered, tooltipped, and base")
-	check(row and row.tipText and row.tipText:find("avoided 40%% of 100 attacks") ~= nil
-		and row.tipText:find("self%-recovered") ~= nil,
-		("tanking tooltip itemizes (%s)"):format(tostring(row and row.tipText)))
+	check(row and row.label == "Tanking" and row.b and row.base and row.raw,
+		("tanking row reads breakdown.tanking, base + raw (%s)"):format(tostring(row and row.label)))
+	check(row and row.value == 52,
+		("the row's number is the uptime percentile (%s)"):format(tostring(row and row.value)))
+	check(row and row.tipText and row.tipText:find("Mitigation up 57%%") ~= nil
+		and row.tipText:find("median") ~= nil
+		and row.tipText:find("avoided 40%% of 100 attacks") ~= nil,
+		("tanking tip leads with WCL uptime, then context (%s)"):format(tostring(row and row.tipText)))
 
-	-- legacy record (no new fields): plain Soaking share survives
-	local legacy = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
-		breakdown = { damageTaken = { applicable = true, normalized = 60, value = 1000000 } } },
-		{}, { metrics = { damageTaken = 1000000 } })
-	local lrow
-	for _, r in ipairs(legacy) do
-		if r.key == "damageTaken" then
-			lrow = r
-		end
+	-- no mitigation data reported: the Tanking row doesn't render at all
+	-- (its weight redistributes to damage/healing, like any absence)
+	local none = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
+		breakdown = { damage = { applicable = true, pctile = 60 } } }, {}, { metrics = {} })
+	local hasT
+	for _, r in ipairs(none) do
+		if r.key == "tanking" then hasT = true end
 	end
-	check(lrow and lrow.label == "Soaking" and lrow.raw,
-		"legacy tank records keep the Soaking share bar")
-
-	-- Raw mode: the composite is ours, not WCL's — plain share there too
-	local rawSigs = S.ForResult({ role = "TANK", parse = true, adjustDetail = {}, penaltyDetail = {},
-		breakdown = { damageTaken = { applicable = true, normalized = 60, value = 1000000 } } },
-		{}, { metrics = m })
-	local rrow
-	for _, r in ipairs(rawSigs) do
-		if r.key == "damageTaken" then
-			rrow = r
-		end
-	end
-	check(rrow and rrow.label == "Soaking", "Raw keeps the plain soak share")
+	check(not hasT, "no mitigation data -> no Tanking row")
 
 	-- avoidance no longer double-credits: recovery is judged against
 	-- would-have-taken damage (avoided swings priced at the average hit)
@@ -3192,25 +3185,23 @@ end)()
 	check(mfound, "the tooltip itemizes the mitigation ingredient")
 	dc.mitigationPct = nil
 
-	-- per-spec anchors: the same composite wears a different tier when
-	-- the spec's own population says so
-	local savedTA = TP.TANK_ANCHORS
-	TP.TANK_ANCHORS = { default = { 30, 55, 75 }, [250] = { 20, 40, 60 } }
-	local function tierFor(specID)
-		local sigs2 = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
-			breakdown = { damageTaken = { applicable = true, normalized = 60, value = 1000000 } } },
-			{}, { specID = specID, metrics = m })
-		for _, r in ipairs(sigs2) do
-			if r.key == "damageTaken" then
-				return r.tier
-			end
+	-- per-spec anchors: the SAME mitigation uptime scores differently by
+	-- the spec's own WCL field. 45% uptime is well above a Guardian's field
+	-- (median ~24) but below a Blood DK's (median ~56), so the bear ranks
+	-- higher for the same number - "equally skilled tanks parse similarly".
+	local function tScore(specID)
+		local f = { name = "F", duration = 120, players = {
+			a = { guid = "a", name = "A", class = "WARRIOR", role = "TANK", specID = specID,
+				metrics = { damage = 1000, healing = 1000, mitigationPct = 45 } },
+			d = { guid = "d", name = "D", class = "MAGE", role = "DAMAGER", metrics = { damage = 1000 } },
+		} }
+		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(f, {})) do
+			if r.guid == "a" then return r.breakdown.tanking and r.breakdown.tanking.normalized end
 		end
 	end
-	local dkTier, defTier = tierFor(250), tierFor(73)
-	check(dkTier and defTier and dkTier > defTier,
-		("spec anchors rank vs their own field (DK %.0f > default %.0f)"):format(
-			dkTier or -1, defTier or -1))
-	TP.TANK_ANCHORS = savedTA
+	local bearS, dkS = tScore(104), tScore(250)
+	check(bearS and dkS and bearS > dkS,
+		("same uptime ranks by the spec's own field (bear %.0f > DK %.0f)"):format(bearS or -1, dkS or -1))
 
 	-- a tank's Healing is the PLAIN WCL parse again (Josh 2026-07-25 —
 	-- the Off-healing split lied in the field; self-sustain is the
@@ -3246,25 +3237,21 @@ end)()
 				tostring(hrow and hrow.label)))
 	end
 
-	-- stagger purified counts toward recovery (Josh 2026-07-24)
+	-- stagger purified counts toward recovery in the composite (which feeds
+	-- the Tanking tip's context), Josh 2026-07-24
 	local mm2 = {
 		damageTaken = 1000000,
 		swingsLanded = 60, swingsAvoided = 40,
 		absorbedTaken = 250000, selfAbsorbs = 0,
 		selfHealing = 200000, staggerPurified = 200000, -- recovery = 40%
 	}
-	local bsigs = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
-		breakdown = { damageTaken = { applicable = true, normalized = 60, value = 1000000 } } },
-		{}, { metrics = mm2 })
-	local brow
-	for _, r in ipairs(bsigs) do
-		if r.key == "damageTaken" then
-			brow = r
-		end
+	local _, bparts = S.TankingComposite(mm2, nil)
+	local rec, pur
+	for _, part in ipairs(bparts or {}) do
+		if part:find("400.0k self%-recovered") then rec = true end
+		if part:find("stagger purified") then pur = true end
 	end
-	check(brow and brow.tipText:find("stagger purified") ~= nil
-		and brow.tipText:find("400.0k self%-recovered") ~= nil,
-		("purifies join recovery with the ~ mark (%s)"):format(tostring(brow and brow.tipText)))
+	check(rec and pur, ("purifies join recovery with the ~ mark (%s / %s)"):format(tostring(rec), tostring(pur)))
 
 	-- the purify estimator: fresh tick x 10 credits, stale ticks don't
 	;(function()

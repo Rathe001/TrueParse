@@ -1,0 +1,221 @@
+# WCL tank active-mitigation uptime harvester (Josh 2026-07-26). Emits
+# Data/TankAnchors.lua = per-spec { p25, p50, p75 } of active-mitigation
+# UPTIME %, the WCL-relative baseline the Tanking metric scores against
+# ("you held mitigation up 57%, the average Guardian holds 71%"). Replaces
+# the arbitrary { 30, 55, 75 } guess.
+#
+# Method (probe-verified 2026-07-26): the Buffs table filtered to an
+# abilityID returns one entry PER PLAYER who carried that buff, with the
+# spec icon ("Druid-Guardian") and per-band start/end times. We union each
+# player's bands across ALL of their spec's mitigation buffs (matching the
+# addon's reference-counted union in Metrics/Mitigation.lua), divide by the
+# fight duration (data.totalTime), and collect one uptime% per tank per
+# fight. Per spec: p25/p50/p75 of the sample.
+#
+# NEVER run while another WCL crawl is active (single-active tokens).
+#  MoP:    -GameBase https://classic.warcraftlogs.com -ZoneId 1054 -Brackets "3x10,3x25" -MitIds mists
+#  Retail: -GameBase https://www.warcraftlogs.com     -ZoneId 46   -Brackets "5,4"       -MitIds retail
+param(
+    [string]$GameBase = "https://classic.warcraftlogs.com",
+    [int]$ZoneId = 1054,
+    [string]$Brackets = "3x10,3x25",
+    [int]$MaxReports = 200,
+    [int]$MinSamples = 20,   # specs with fewer tank-fights stay on the default
+    [string]$MitIds = "mists", # "mists" | "retail" | comma-separated ids
+    [string]$OutFile = "TankAnchors.lua",
+    [string]$ClientFile = "$PSScriptRoot\wcl-v2-client.local.txt"
+)
+$ErrorActionPreference = "Stop"
+
+# mitigation-buff id sets mirror Data/Mitigation*.lua (buff ids, not casts)
+$mitSets = @{
+    mists  = @(115307, 132404, 112048, 132403, 132402, 77535, 115295, 123402, 115308, 65148)
+    retail = @(132404, 132403, 192081, 77535, 203819, 215479)
+}
+if ($mitSets.ContainsKey($MitIds)) { $mitList = $mitSets[$MitIds] }
+else { $mitList = @($MitIds -split "," | ForEach-Object { [int]$_.Trim() }) }
+
+if (-not (Test-Path $ClientFile)) { Write-Error "Missing $ClientFile (line 1 = client id, line 2 = secret)." }
+$creds = Get-Content $ClientFile
+$clientId = $creds[0].Trim(); $clientSecret = $creds[1].Trim()
+function Get-Token {
+    $pair = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$clientId`:$clientSecret"))
+    (Invoke-RestMethod -Method Post -Uri "$GameBase/oauth/token" -Headers @{ Authorization = "Basic $pair" } -Body @{ grant_type = "client_credentials" }).access_token
+}
+$script:token = Get-Token
+Write-Host "OAuth OK; endpoint $GameBase/api/v2/client"
+
+function Invoke-GQL($query) {
+    for ($attempt = 1; $attempt -le 6; $attempt++) {
+        try {
+            $body = @{ query = $query } | ConvertTo-Json -Compress
+            $resp = Invoke-RestMethod -Method Post -Uri "$GameBase/api/v2/client" `
+                -Headers @{ Authorization = "Bearer $script:token"; "Content-Type" = "application/json" } `
+                -Body $body -TimeoutSec 180
+            if ($resp.errors) { throw ("GraphQL: " + ($resp.errors | ConvertTo-Json -Compress)) }
+            Start-Sleep -Milliseconds 350
+            return $resp.data
+        } catch {
+            if ($attempt -eq 6) { throw }
+            $wait = @(5, 15, 60, 180, 600)[$attempt - 1]
+            if ($_.Exception.Message -match "429|point") { $wait = 900 }
+            Write-Warning "retry $attempt in ${wait}s: $($_.Exception.Message)"
+            Start-Sleep -Seconds $wait
+            if ($attempt -ge 2) { $script:token = Get-Token }
+        }
+    }
+}
+function Assert-Points {
+    $d = Invoke-GQL "{ rateLimitData { pointsSpentThisHour pointsResetIn } }"
+    if ([double]$d.rateLimitData.pointsSpentThisHour -gt 3300) {
+        $nap = [int]$d.rateLimitData.pointsResetIn + 30
+        Write-Warning "Near point limit; sleeping ${nap}s"; Start-Sleep -Seconds $nap; $script:token = Get-Token
+    }
+}
+
+$specByIcon = @{
+    "Paladin-Protection" = 66; "Warrior-Protection" = 73; "Druid-Guardian" = 104
+    "DeathKnight-Blood" = 250; "Monk-Brewmaster" = 268; "DemonHunter-Vengeance" = 581
+}
+$tankRanks = @(
+    @{ class = "DeathKnight"; spec = "Blood" }
+    @{ class = "Warrior"; spec = "Protection" }
+    @{ class = "Paladin"; spec = "Protection" }
+    @{ class = "Druid"; spec = "Guardian" }
+    @{ class = "Monk"; spec = "Brewmaster" }
+    @{ class = "DemonHunter"; spec = "Vengeance" }
+)
+
+$bracketList = @()
+foreach ($b in ($Brackets -split ",")) {
+    $b = $b.Trim()
+    if ($b -match "^(\d+)x(\d+)$") { $bracketList += (", difficulty: {0}, size: {1}" -f [int]$Matches[1], [int]$Matches[2]) }
+    elseif ($b -ne "") { $bracketList += (", difficulty: {0}" -f [int]$b) }
+}
+if ($bracketList.Count -eq 0) { $bracketList = @("") }
+
+$zone = (Invoke-GQL "{ worldData { zone(id: $ZoneId) { name encounters { id name } } } }").worldData.zone
+Write-Host ("Zone: {0} ({1} encounters)" -f $zone.name, $zone.encounters.Count)
+
+# ---- phase 1: discover report refs via tank rankings, all bosses ----
+$refs = New-Object System.Collections.ArrayList
+$seen = @{}
+foreach ($enc in $zone.encounters) {
+    Assert-Points
+    foreach ($extra in $bracketList) {
+        foreach ($rs in $tankRanks) {
+            foreach ($page in @(1, 3, 6)) {
+                if ($refs.Count -ge $MaxReports * 2) { break }
+                $q = "{ worldData { encounter(id: $($enc.id)) { characterRankings(metric: dps, page: $page, className: `"$($rs.class)`", specName: `"$($rs.spec)`"$extra) } } }"
+                $cr = $null
+                try { $cr = (Invoke-GQL $q).worldData.encounter.characterRankings } catch { continue }
+                if ($cr -is [string]) { $cr = $cr | ConvertFrom-Json }
+                if (-not ($cr -and $cr.rankings)) { continue }
+                foreach ($r in ($cr.rankings | Select-Object -First 4)) {
+                    if (-not ($r.report -and $r.report.code)) { continue }
+                    $key = "$($r.report.code)#$($r.report.fightID)"
+                    if (-not $seen.ContainsKey($key)) {
+                        $seen[$key] = $true
+                        [void]$refs.Add(@{ code = $r.report.code; fight = [int]$r.report.fightID })
+                    }
+                }
+            }
+        }
+    }
+    Write-Host ("  {0}: {1} refs so far" -f $enc.name, $refs.Count)
+}
+Write-Host ("Discovered {0} report refs" -f $refs.Count)
+
+# ---- phase 2: one aliased Buffs query per report; union bands per tank ----
+function Merge-Uptime($bands) {
+    if ($bands.Count -eq 0) { return 0 }
+    $sorted = $bands | Sort-Object { $_[0] }
+    $total = 0.0; $curS = $sorted[0][0]; $curE = $sorted[0][1]
+    for ($i = 1; $i -lt $sorted.Count; $i++) {
+        $s = $sorted[$i][0]; $e = $sorted[$i][1]
+        if ($s -le $curE) { if ($e -gt $curE) { $curE = $e } }
+        else { $total += ($curE - $curS); $curS = $s; $curE = $e }
+    }
+    $total += ($curE - $curS)
+    return $total
+}
+
+$aliases = @()
+for ($i = 0; $i -lt $mitList.Count; $i++) { $aliases += "m${i}: table(fightIDs: [FIGHT], dataType: Buffs, abilityID: $($mitList[$i]))" }
+$samples = @{}  # specID -> ArrayList of uptime%
+$done = 0
+foreach ($ref in $refs) {
+    if ($done -ge $MaxReports) { break }
+    Assert-Points
+    # case-SENSITIVE: a plain -replace also rewrites the "fight" in
+    # "fightIDs" (PowerShell -replace is case-insensitive)
+    $body = ($aliases -join " ") -creplace "FIGHT", "$($ref.fight)"
+    $q = "{ reportData { report(code: `"$($ref.code)`") { $body } } }"
+    $rep = $null
+    try { $rep = (Invoke-GQL $q).reportData.report } catch { continue }
+    if (-not $rep) { continue }
+    $done++
+    $byPlayer = @{}   # guid -> @{ specID; bands = ArrayList }
+    $totalTime = 0
+    for ($i = 0; $i -lt $mitList.Count; $i++) {
+        $t = $rep."m$i"
+        if ($t -is [string]) { $t = $t | ConvertFrom-Json }
+        if (-not ($t -and $t.data)) { continue }
+        if ($t.data.totalTime -gt $totalTime) { $totalTime = [double]$t.data.totalTime }
+        foreach ($a in $t.data.auras) {
+            $spec = $specByIcon[$a.icon]
+            if (-not $spec) { continue }
+            if (-not $byPlayer.ContainsKey($a.guid)) { $byPlayer[$a.guid] = @{ specID = $spec; bands = (New-Object System.Collections.ArrayList) } }
+            foreach ($b in $a.bands) { [void]$byPlayer[$a.guid].bands.Add(@([double]$b.startTime, [double]$b.endTime)) }
+        }
+    }
+    if ($totalTime -le 0) { continue }
+    foreach ($guid in $byPlayer.Keys) {
+        $pl = $byPlayer[$guid]
+        $up = (Merge-Uptime $pl.bands) / $totalTime * 100.0
+        if ($up -le 0 -or $up -gt 100) { continue }
+        if (-not $samples.ContainsKey($pl.specID)) { $samples[$pl.specID] = New-Object System.Collections.ArrayList }
+        [void]$samples[$pl.specID].Add($up)
+    }
+    if ($done % 25 -eq 0) { Write-Host ("  processed $done/$MaxReports reports") }
+}
+
+function Quantile($sorted, $q) {
+    $n = $sorted.Count
+    if ($n -eq 0) { return 0 }
+    $idx = [math]::Min($n - 1, [math]::Max(0, [int][math]::Floor($q * ($n - 1) + 0.5)))
+    return $sorted[$idx]
+}
+
+$specNames = @{ 66 = "Prot Paladin"; 73 = "Prot Warrior"; 104 = "Guardian Druid"; 250 = "Blood DK"; 268 = "Brewmaster"; 581 = "Vengeance DH" }
+$lines = New-Object System.Collections.ArrayList
+foreach ($spec in ($samples.Keys | Sort-Object)) {
+    $arr = @($samples[$spec] | Sort-Object)
+    if ($arr.Count -lt $MinSamples) { Write-Host ("  spec ${spec}: only $($arr.Count) samples (< $MinSamples), skipped"); continue }
+    $p25 = [math]::Round((Quantile $arr 0.25), 1)
+    $p50 = [math]::Round((Quantile $arr 0.50), 1)
+    $p75 = [math]::Round((Quantile $arr 0.75), 1)
+    Write-Host ("  spec $spec ($($specNames[$spec])): n=$($arr.Count) p25=$p25 p50=$p50 p75=$p75")
+    [void]$lines.Add(("`t[{0}] = {{ {1}, {2}, {3} }}, -- {4} (n={5})" -f $spec, $p25, $p50, $p75, $specNames[$spec], $arr.Count))
+}
+
+$header = @"
+-- Per-spec active-mitigation UPTIME baselines: { p25, p50, p75 } of the
+-- fraction of a fight tanks of this spec hold active mitigation up,
+-- crawled from Warcraft Logs (scripts/fetch-tank-mitigation.ps1). The
+-- Tanking metric scores a tank's own uptime as a percentile against its
+-- spec's field, so "equally skilled tanks parse similarly" holds the same
+-- way damage parses do. WCL-relative, never hand-tuned (Josh 2026-07-26).
+-- Regenerated by CI; the provisional default applies to any spec without
+-- enough samples yet.
+local _, TP = ...
+
+TP.TANK_ANCHORS = {
+	default = { 30, 55, 75 }, -- provisional, pre-calibration
+$($lines -join "`n")
+}
+"@
+$outPath = if ([System.IO.Path]::IsPathRooted($OutFile)) { $OutFile } else { Join-Path (Split-Path $PSScriptRoot -Parent) "Data\$OutFile" }
+$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+[System.IO.File]::WriteAllText($outPath, $header, $utf8Bom)
+Write-Host ("Wrote {0} ({1} specs, {2} reports processed)" -f $outPath, $lines.Count, $done)
