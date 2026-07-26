@@ -23,13 +23,15 @@ local DeathCause = {}
 TP.Scoring.DeathCause = DeathCause
 
 -- Tunable thresholds (asserted in tests so a retune is deliberate).
+-- NOTE: WCL's DamageTaken table gives per-ability hitRate/tankOnly/share
+-- but NOT per-hit target HP (verified by probe 2026-07-25), so there is
+-- no crawled hitPct — "how hard" comes from the live recap's own share.
 local T = {
 	oneShotHP = 0.9, -- a hit this fraction of max HP is unavoidable-once-hit
 	avoidableHitRate = 0.4, -- abilities <40% of players take are dodgeable
 	contributorShare = 0.30, -- a hit worth this much of the recap can name the death
 	dominantShare = 0.60, -- a single hit this big means it wasn't chip
-	tankbusterHitPct = 0.6, -- a tank-only hit landing this hard is a buster
-	tankbusterShare = 0.40,
+	tankbusterShare = 0.40, -- a tank-only killing blow this big is a buster
 }
 DeathCause.THRESHOLDS = T
 
@@ -81,10 +83,13 @@ function DeathCause.Classify(deathRecap, maxHP, profiles)
 		return profiles and spell and profiles[spell] or nil
 	end
 
-	-- 2) tankbuster: the killing blow is a hard tank-only hit the player
-	-- should have pre-mitigated (not forgiven — that's the skill).
+	-- 2) tankbuster: the killing blow is a tank-only hit that dominated
+	-- the recap — the player should have pre-mitigated it (not forgiven,
+	-- that's the skill). "How hard" is the killing blow's share of the
+	-- recap (the crawl has no per-hit HP; the profile only tells us the
+	-- ability is tank-only).
 	local kbP = prof(killingBlow.spell)
-	if kbP and kbP.tankOnly and (kbP.hitPct or 0) >= T.tankbusterHitPct
+	if kbP and kbP.tankOnly
 		and total > 0 and (killingBlow.amount or 0) >= total * T.tankbusterShare then
 		return { category = "tankbuster", spell = killingBlow.spell,
 			share = (killingBlow.amount or 0) / total }

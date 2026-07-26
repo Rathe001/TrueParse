@@ -3524,7 +3524,7 @@ end)()
 ;(function()
 	local DC = TP.Scoring.DeathCause
 	local profiles = {
-		["Annihilate"] = { tankOnly = true, hitPct = 0.7, hitRate = 0.1 },
+		["Annihilate"] = { tankOnly = true, hitRate = 0.1 },
 		["Whirling Corruption"] = { hitRate = 0.31 },
 		["Melee"] = { hitRate = 1.0 },
 		["Desecrated"] = { hitRate = 0.9 },
@@ -3565,7 +3565,7 @@ end)()
 
 	-- thresholds table present (a retune must be deliberate)
 	check(DC.THRESHOLDS and DC.THRESHOLDS.oneShotHP == 0.9
-		and DC.THRESHOLDS.avoidableHitRate == 0.4, "threshold constants pinned")
+		and DC.THRESHOLDS.avoidableHitRate == 0.4 and DC.THRESHOLDS.tankbusterHitPct == nil, "threshold constants pinned")
 
 	-- ProfilesFor: encounterID first, then stripped name
 	TP.DAMAGE_PROFILES = { ids = { [1623] = "Garrosh Hellscream" },
