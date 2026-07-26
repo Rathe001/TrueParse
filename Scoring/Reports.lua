@@ -50,13 +50,14 @@ local function capitalize(s)
 	return s:sub(1, 1):upper() .. s:sub(2)
 end
 
--- sentences -> chat lines, greedily packed under the ceiling
+-- sentences -> chat lines, greedily packed under the ceiling (with
+-- headroom for the "<TrueParse> " prefix delivery adds to line one)
 local function packLines(sentences)
 	local lines = {}
 	for _, s in ipairs(sentences) do
 		if s and s ~= "" then
 			local cur = lines[#lines]
-			if cur and #cur + #s + 1 <= 250 then
+			if cur and #cur + #s + 1 <= 235 then
 				lines[#lines] = cur .. " " .. s
 			else
 				lines[#lines + 1] = s

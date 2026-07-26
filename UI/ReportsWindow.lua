@@ -120,8 +120,10 @@ local function deliver(lines, channel)
 		deliver(lines, "INFO")
 		return
 	end
-	for _, line in ipairs(lines) do
-		SendChatMessage(line, channel)
+	for i, line in ipairs(lines) do
+		-- the first line carries the signature so readers know which
+		-- addon to look up (Josh 2026-07-25)
+		SendChatMessage(i == 1 and ("<TrueParse> " .. line) or line, channel)
 	end
 end
 
