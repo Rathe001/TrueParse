@@ -1185,28 +1185,26 @@ function MeterWindow:RenderScorecard(fight)
 		row.name:SetTextColor(1, 1, 1)
 		row.score:SetText(TP.Scoring.Grades.ScoreLabel(groupScore))
 		row.score:SetTextColor(sr, sg, sb)
-		-- the group's AVERAGE net adjustment: the row's score is an
-		-- average, so its adjustment speaks the same currency (a 26-player
-		-- summed "+80" was meaningless and overflowed the column)
-		local adjSum = 0
-		for _, r in ipairs(results) do
-			adjSum = adjSum + (r.adjust or -(r.penalty or 0))
-		end
-		-- the group score is an AVERAGE, so its adjustment is too - and an
-		-- average lands in the sub-1 dead zone far more than an individual's
-		-- whole-number adjustment does, so the column read blank when the net
-		-- was small (Josh 2026-07-26). Show a decimal there so the group row
-		-- carries a +/- like the player rows instead of nothing.
-		local adjAvg = adjSum / #results
-		local mag = math.abs(adjAvg)
-		if mag >= 0.05 then
-			local sign = adjAvg > 0 and "+" or "-"
-			local color = adjAvg > 0 and "44cc44" or "ff4444"
-			local num = (mag >= 0.95) and ("%.0f"):format(mag) or ("%.1f"):format(mag)
-			row.penalty:SetText(("|cff%s%s%s|r"):format(color, sign, num))
-		else
-			row.penalty:SetText("")
-		end
+			-- the group +/- = the sum of the group CARD's scored chips, so the
+			-- row and the details card ALWAYS agree (Josh 2026-07-26: the old
+			-- average-of-player-adjustments showed a -6 the card couldn't
+			-- explain - those points live on the individual cards). This is the
+			-- group-LEVEL net: kicks, raid buffs, and the like.
+			local groupNet = 0
+			local okg, gsigs = pcall(TP.Scoring.Signals.GroupRows, results, fight)
+			if okg then
+				for _, s in ipairs(gsigs) do
+					groupNet = groupNet + (s.points or 0)
+				end
+			end
+			local n = groupNet >= 0 and math.floor(groupNet + 0.5) or -math.floor(-groupNet + 0.5)
+			if n > 0 then
+				row.penalty:SetText(("|cff44cc44+%d|r"):format(n))
+			elseif n < 0 then
+				row.penalty:SetText(("|cffff4444%d|r"):format(n))
+			else
+				row.penalty:SetText("")
+			end
 		if runScore then
 			row.runAvg:SetText(TP.Scoring.Grades.ScoreLabel(runScore))
 			row.runAvg:SetTextColor(TP.Scoring.Grades.ColorForScore(runScore))

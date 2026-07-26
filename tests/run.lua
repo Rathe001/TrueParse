@@ -550,6 +550,17 @@ check(adviceA == nil or adviceA.kind == "throughput", "clean player gets through
 	local lh = TP.Scoring.Coach.Advise(lowHealer, rankedFight, { metrics = {} })
 	check(lh and lh.kind == "throughput" and lh.text:find("healing"), "a low healer is coached on healing, not damage")
 
+	-- throughput only fires BELOW the median parse (Josh 2026-07-26: a 93
+	-- damage parse and an 86 healing parse were told "tighten the rotation")
+	check(TP.Scoring.Coach.Advise(advResult("DAMAGER", {}, 93), rankedFight, { metrics = {} }) == nil,
+		"a 93 damage parse gets no rotation nag")
+	local hiHealer = { role = "HEALER", adjustDetail = {}, breakdown = {
+		healing = { applicable = true, pctile = 86, normalized = 86, effectiveWeight = 0.79 } } }
+	check(TP.Scoring.Coach.Advise(hiHealer, rankedFight, { metrics = {} }) == nil,
+		"an 86 healing parse gets no rotation nag")
+	local midDps = TP.Scoring.Coach.Advise(advResult("DAMAGER", {}, 45), rankedFight, { metrics = {} })
+	check(midDps and midDps.kind == "throughput", "a below-median parse still gets rotation coaching")
+
 	-- phrasing is deterministic per player+fight but varies between players
 	-- (Josh 2026-07-26: the coach shouldn't read the same on every card)
 	local res = advResult("DAMAGER", { avoidable = -15 }, 70)

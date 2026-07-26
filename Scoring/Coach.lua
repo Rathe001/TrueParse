@@ -53,9 +53,14 @@ function Coach.BiggestOpportunity(result)
 		or (result.role == "TANK" and "mitigation") or "damage"
 	local b = (result.breakdown or {})[primary]
 	if b and b.applicable then
-		local gain = (100 - (b.normalized or 0)) * (b.effectiveWeight or 0)
-		if gain >= 5 then
-			return { kind = "throughput", key = primary, gain = gain, normalized = b.normalized }
+		-- only coach throughput when the parse is genuinely BELOW AVERAGE
+		-- (Josh 2026-07-26: a 93 parse was told "your damage was low, tighten
+		-- the rotation" because the old gain*weight test caught high parses -
+		-- (100-93)*0.86 cleared the bar). Above the median there's nothing to
+		-- nag about, so stay quiet.
+		local parse = b.pctile or b.normalized or 100
+		if parse < 50 then
+			return { kind = "throughput", key = primary, gain = 100 - parse, normalized = parse }
 		end
 	end
 	-- nothing cleared the bar (no mistake >= MIN_CONCRETE, no real

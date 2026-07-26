@@ -15,9 +15,17 @@ three-section treatment as player cards: its verdicts are chips in bonus,
 penalty, and neutral grids now, with plain-ink labels and only the +/-
 value colored, instead of full-width colored sentences. The group nuance
 (which player, what percent) moves to each chip's hover. The group row on
-the main window shows its +/- like the player rows now, with a decimal
-when the group's average adjustment is under a point (so it never reads
-blank when the net is small).
+the main window shows a +/- like the player rows now - the sum of the
+group card's own scored chips, so the row and the card always agree
+(before, it averaged the individual adjustments and could show a penalty
+the group card never listed).
+
+**Coaching only nags low parses.** The "tighten the rotation" line was
+firing on excellent fights - a 93 damage parse or an 86 healing parse
+would still get told their output was low, because the old threshold
+scaled with the metric's weight and caught high parses. It now fires only
+when the parse is genuinely below the median, so top players just get
+their grade and awards.
 
 **Tanks are scored on mitigation.** Survival is now a tank's primary
 metric instead of a bonus that barely moved the score. The Mitigation
