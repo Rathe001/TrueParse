@@ -25,13 +25,14 @@ TP.Scoring.Weights = Weights
 -- damage:healing:taken proportions per role.
 Weights.roleWeights = {
 	-- TANK (Josh 2026-07-26): survival is a tank's job, so it leads. The
-	-- Tanking metric = active-mitigation UPTIME scored against the spec's
+	-- Mitigation metric = active-mitigation UPTIME scored against the spec's
 	-- real WCL field (Data/TankAnchors, crawled from the Buffs table), the
 	-- one survival stat WCL exposes - WCL-relative, not the old arbitrary
-	-- anchors. Damage + healing (self-heal) are the other WCL parses. The
-	-- old damageTaken 0.50 SHARE was retired (it pinned ~100 for any tank);
-	-- soak/avoid/block stay on the card as context, not scored.
-	TANK    = { tanking = 0.55, damage = 0.31, healing = 0.14 },
+	-- anchors (avoidance/block/soak are passive, gear, or double-count the
+	-- mit buffs, so they're context, not scored). Damage + healing
+	-- (self-heal) are the other WCL parses. Named "Mitigation", not the old
+	-- "Tanking" composite, because that IS what it measures now.
+	TANK    = { mitigation = 0.55, damage = 0.31, healing = 0.14 },
 	HEALER  = { damage = 0.21, healing = 0.79 },
 	DAMAGER = { damage = 0.86, healing = 0.14 },
 	-- Augmentation & friends: personal damage is a small, expected slice
@@ -70,7 +71,6 @@ Weights.adjustments = {
 	activityHigh = 89, -- real p75
 	preparedBonus = 1, -- flask + food at the pull
 	healthstoneBonus = 1, -- ate a healthstone (warlock in group only)
-	tankingMax = 4, -- Tanking composite vs spec anchors (tanks only)
 	healthstonePenalty = 1, -- sat on it (warlock in group only)
 	defensivesBonus = 2, -- used 2+ defensives (real p90 behavior)
 	readyAtDeathPenalty = 3, -- died with 2+ defensives sitting unused

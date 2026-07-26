@@ -50,7 +50,7 @@ function Coach.BiggestOpportunity(result)
 	-- a 99 healing parse got told "your damage has room to grow"). A top
 	-- parse leaves a gap too small to clear the bar, so nothing fires.
 	local primary = (result.role == "HEALER" and "healing")
-		or (result.role == "TANK" and "tanking") or "damage"
+		or (result.role == "TANK" and "mitigation") or "damage"
 	local b = (result.breakdown or {})[primary]
 	if b and b.applicable then
 		local gain = (100 - (b.normalized or 0)) * (b.effectiveWeight or 0)
@@ -268,7 +268,7 @@ function Coach.Advise(result, fight, player)
 		})
 	elseif k == "throughput" then
 		-- a tank's throughput gap is mitigation uptime, not damage
-		if opp.key == "tanking" then
+		if opp.key == "mitigation" then
 			return say(26, m.mitigationPct and {
 				("You held active mitigation up %d%%. Keep it rolling more of the fight."):format(m.mitigationPct),
 				("Mitigation uptime was %d%%, under your spec's field. Press it more often."):format(m.mitigationPct),

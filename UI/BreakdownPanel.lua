@@ -996,7 +996,7 @@ local function infoHelp()
 			overkill = "Damage wasted on already-dead targets.",
 			prepared = "Flask and food up at the pull.",
 			healthstone = "Healthstone use, from the combat log. Judged only when a warlock provided them.",
-			tanking = "Bonus for a strong Tanking composite vs this spec's population. The gauge above holds the measurement.",
+			mitigation = "Active-mitigation uptime scored against this spec's real Warcraft Logs field. The higher your uptime vs the spec median, the higher the score.",
 			kicks = "Interrupts vs your fair share of the group's.",
 			rez = "Combat rez cast, from the combat log.",
 			coach = "The biggest gap between this fight and top parses of this spec.",

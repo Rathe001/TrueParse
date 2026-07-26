@@ -186,10 +186,10 @@ check(byName.DpsB.penaltyDetail.deaths == 10, "one death costs 10")
 -- damage. The old soak-share metric is gone; tanking leads at 55%.
 check(byName.Tank.breakdown.damageTaken == nil,
 	"soak share is no longer a scored tank metric")
-check(byName.Tank.breakdown.tanking and byName.Tank.breakdown.tanking.applicable,
+check(byName.Tank.breakdown.mitigation and byName.Tank.breakdown.mitigation.applicable,
 	"tank's mitigation uptime is the scored Tanking metric")
-check(math.abs((byName.Tank.breakdown.tanking.effectiveWeight or 0) - 0.55) < 1e-9,
-	("tanking is the tank's biggest weight, 55%% (%.2f)"):format(byName.Tank.breakdown.tanking.effectiveWeight or 0))
+check(math.abs((byName.Tank.breakdown.mitigation.effectiveWeight or 0) - 0.55) < 1e-9,
+	("tanking is the tank's biggest weight, 55%% (%.2f)"):format(byName.Tank.breakdown.mitigation.effectiveWeight or 0))
 check(byName.Tank.score >= 40, ("well-played tank still competes (%.1f)"):format(byName.Tank.score))
 check(byName.Heal.score >= 62, ("well-played healer scores high (%.1f)"):format(byName.Heal.score))
 
@@ -2150,7 +2150,7 @@ end
 		mitigationPct = 15, selfHealing = 50000, absorbedTaken = 20000, selfAbsorbs = 0 } })
 	local function tankMetric(name)
 		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(ftk, { normalizeIlvl = false })) do
-			if r.name == name then return r.breakdown.tanking end
+			if r.name == name then return r.breakdown.mitigation end
 		end
 	end
 	local wallT, paperT = tankMetric("Wall"), tankMetric("Paper")
@@ -3129,15 +3129,15 @@ end)()
 		selfHealing = 350000, -- recovery = (350k+50k)/1000k = 40%
 	}
 	local sigs = S.ForResult({ role = "TANK", adjustDetail = {}, penaltyDetail = {},
-		breakdown = { tanking = { applicable = true, normalized = 52, value = 57, anchors = { 20, 40, 60 } } } },
+		breakdown = { mitigation = { applicable = true, normalized = 52, value = 57, anchors = { 20, 40, 60 } } } },
 		{}, { metrics = m })
 	local row
 	for _, r in ipairs(sigs) do
-		if r.key == "tanking" then
+		if r.key == "mitigation" then
 			row = r
 		end
 	end
-	check(row and row.label == "Tanking" and row.b and row.base and row.raw,
+	check(row and row.label == "Mitigation" and row.b and row.base and row.raw,
 		("tanking row reads breakdown.tanking, base + raw (%s)"):format(tostring(row and row.label)))
 	check(row and row.value == 52,
 		("the row's number is the uptime percentile (%s)"):format(tostring(row and row.value)))
@@ -3152,7 +3152,7 @@ end)()
 		breakdown = { damage = { applicable = true, pctile = 60 } } }, {}, { metrics = {} })
 	local hasT
 	for _, r in ipairs(none) do
-		if r.key == "tanking" then hasT = true end
+		if r.key == "mitigation" then hasT = true end
 	end
 	check(not hasT, "no mitigation data -> no Tanking row")
 
@@ -3196,7 +3196,7 @@ end)()
 			d = { guid = "d", name = "D", class = "MAGE", role = "DAMAGER", metrics = { damage = 1000 } },
 		} }
 		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(f, {})) do
-			if r.guid == "a" then return r.breakdown.tanking and r.breakdown.tanking.normalized end
+			if r.guid == "a" then return r.breakdown.mitigation and r.breakdown.mitigation.normalized end
 		end
 	end
 	local bearS, dkS = tScore(104), tScore(250)

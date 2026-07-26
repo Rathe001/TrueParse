@@ -132,19 +132,20 @@ function Signals.TankingComposite(m, soakNormalized)
 	return sum / n, parts
 end
 
--- The Tanking row reads breakdown.tanking: the SCORE is mitigation-uptime
--- percentile vs the spec's crawled WCL field (Josh 2026-07-26 - the tank's
--- primary metric, WCL-relative not arbitrary). The tip leads with that
--- headline, then shows the rest of the survival story as context.
-local function tankingRow(m, b, specID)
+-- The Mitigation row reads breakdown.mitigation: the SCORE is active-
+-- mitigation uptime as a percentile vs the spec's crawled WCL field (Josh
+-- 2026-07-26 - the tank's primary metric, WCL-relative not arbitrary). The
+-- tip leads with that headline, then shows the rest of the survival story
+-- as context (soak/avoid/block aren't scored, just shown).
+local function mitigationRow(m, b, specID)
 	if not (b and b.applicable) then
 		return nil -- no mitigation data reported: weight redistributed
 	end
-	local row = barRow("tanking", ICONS.damageTaken, "Tanking", b.normalized or 0, nil)
+	local row = barRow("mitigation", ICONS.damageTaken, "Mitigation", b.normalized or 0, nil)
 	row.b = b
 	row.base = true -- the primary tank metric: part of the raw score
 	row.raw = true -- scored vs the spec's own WCL uptime field, not a parse
-	row.tipTitle = "Tanking"
+	row.tipTitle = "Mitigation"
 	local up = b.value or 0
 	local anc = b.anchors
 	local lines = {}
@@ -245,10 +246,10 @@ function Signals.ForResult(result, fight, player)
 		out[#out + 1] = row
 	end
 
-	-- 2b) the Tanking gauge (mitigation-uptime percentile vs the spec's
-	-- WCL field): the tank's primary metric, so it closes the gauge zone
+	-- 2b) the Mitigation gauge (active-mitigation uptime percentile vs the
+	-- spec's WCL field): the tank's primary metric, closes the gauge zone
 	if role == "TANK" then
-		local trow = tankingRow(m, result.breakdown.tanking, player and player.specID)
+		local trow = mitigationRow(m, result.breakdown.mitigation, player and player.specID)
 		if trow then
 			out[#out + 1] = trow
 		end
@@ -376,10 +377,8 @@ function Signals.ForResult(result, fight, player)
 		{ key = "manaDry", up = nil, down = "Mana ran dry", icon = ICONS.activity },
 		{ key = "prepared", up = "Flask + food", down = nil, icon = ICONS.consumables },
 		{ key = "healthstone", up = "Healthstone", down = "No healthstone", icon = ICONS.healthstone },
-		-- the composite's points ride a chip; the gauge above carries the
-		-- measurement. Bonus-only (Josh 2026-07-25: the gauge already
-		-- shows weak tanking — no penalty chip on top of it)
-		{ key = "tanking", up = "Tanking", down = nil, icon = ICONS.damageTaken },
+		-- (the tanking bonus chip retired 2026-07-26: mitigation is a scored
+		-- base metric now, the gauge above carries it - no chip)
 		{ key = "buffs", up = nil, down = "Buff missing", icon = ICONS.buffUptime },
 		{ key = "pull", up = nil, down = "Pulled early", icon = ICONS.avoidable },
 		{ key = "aggro", up = nil, down = "Ripped aggro", icon = ICONS.avoidable },

@@ -787,7 +787,7 @@ local function normalizeMetric(p, role, key, ctx)
 		return math.min(100, 100 * perMin / (W.prescienceCadenceAnchor or 5)), true
 	end
 
-	if key == "tanking" then
+	if key == "mitigation" then
 		-- A tank's primary metric (Josh 2026-07-26): active-mitigation
 		-- UPTIME scored as a percentile against the spec's real WCL field
 		-- (Data/TankAnchors, crawled) - "you held mitigation up 57%, the
@@ -1381,9 +1381,9 @@ function Engine.ScoreFight(fight, opts)
 				-- the tooltip phrases these as "Kicked 2 of the group's 7"
 				breakdown[key].groupTotal = ctx.totals[key] > 0 and ctx.totals[key] or nil
 			end
-			-- Tanking: the row's number is the mitigation-uptime percentile;
-			-- the tooltip shows the raw uptime vs the spec's WCL median
-			if key == "tanking" then
+			-- Mitigation: the row's number is the uptime percentile; the
+			-- tooltip shows the raw uptime vs the spec's WCL median
+			if key == "mitigation" then
 				breakdown[key].value = (p.metrics and p.metrics.mitigationPct) or 0
 				local AN = TP.TANK_ANCHORS or {}
 				breakdown[key].anchors = (p.specID and AN[p.specID]) or AN.default
