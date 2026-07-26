@@ -362,6 +362,9 @@ local function createWindow()
 	-- header button, a collapse/expand cycle reshuffles mouse priority
 	-- among siblings and the collapse button starts eating the clicks
 	window.cog:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
+	-- the chat icon too (Josh 2026-07-25: unclickable on retail — the
+	-- header's collapse button was swallowing it)
+	window.chat:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
 	window.fightDrop:RegisterForClicks("LeftButtonUp")
 	window.fightDrop:RegisterForDrag("LeftButton")
 	window.fightDrop:SetScript("OnDragStart", startDrag)
