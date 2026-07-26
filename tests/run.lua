@@ -530,6 +530,22 @@ check(adviceA == nil or adviceA.kind == "throughput", "clean player gets through
 	check(dh and dh.kind == "deaths", "advise coaches staying alive when deaths dominate")
 	local tpAdv = TP.Scoring.Coach.Advise(advResult("DAMAGER", {}, 20), rankedFight, { metrics = {} })
 	check(tpAdv and tpAdv.kind == "throughput", "clean ranked player falls to throughput coaching")
+
+	-- phrasing is deterministic per player+fight but varies between players
+	-- (Josh 2026-07-26: the coach shouldn't read the same on every card)
+	local res = advResult("DAMAGER", { avoidable = -15 }, 70)
+	local nf = { name = "Some Boss", duration = 200 }
+	local p1 = { guid = "aaa", metrics = { avoidableTaken = 340000, damageTaken = 1000000 } }
+	check(TP.Scoring.Coach.Advise(res, nf, p1).text == TP.Scoring.Coach.Advise(res, nf, p1).text,
+		"same player+fight always reads the same")
+	local seen = {}
+	for i = 1, 12 do
+		local p = { guid = "player" .. i, metrics = { avoidableTaken = 340000, damageTaken = 1000000 } }
+		seen[TP.Scoring.Coach.Advise(res, nf, p).text] = true
+	end
+	local variants = 0
+	for _ in pairs(seen) do variants = variants + 1 end
+	check(variants >= 2, ("coach phrasing varies between players (%d distinct)"):format(variants))
 end)()
 
 -- 10. Run aggregation
