@@ -2024,6 +2024,20 @@ end
 	check((adFor(f7, "DiedEarly").activity or 0) == 0, "dead time doesn't double as inactivity")
 	check((adFor(f7, "Afk").activity or 0) < 0, "living low activity still charged")
 
+	-- 25g2. per-spec activity calibration (2026-07-25): a caster whose
+	-- top parses idle at 99% is judged against 80-99, not the fixed
+	-- 70-89. 88% activity is +4 on the fixed curve but negative for a
+	-- 99-anchored caster.
+	local savedAP = TP.SpellProfiles
+	TP.SpellProfiles = { [64] = { activity = 99 } } -- mage, top parses idle ~99
+	local fac = ctxFight({})
+	fac.players.a = dps("Caster", { specID = 64, metrics = { activityPct = 88 } })
+	check((adFor(fac, "Caster").activity or 0) < 0,
+		("88%% reads negative against a 99-anchored spec (%s)"):format(tostring(adFor(fac, "Caster").activity)))
+	TP.SpellProfiles = nil -- no profile: fixed 70/89, 88% is strongly positive
+	check((adFor(fac, "Caster").activity or 0) > 0, "no profile falls back to fixed anchors")
+	TP.SpellProfiles = savedAP
+
 	-- 25h. kick share scaled by alive fraction: a player dead at 10%
 	-- couldn't kick for the other 90%
 	local f8 = ctxFight({ totals = nil })

@@ -1555,8 +1555,19 @@ function Engine.ScoreFight(fight, opts)
 
 			-- ---- addon-reported extras: absence is always neutral ----
 			if m.activityPct then
-				local pts = ramp(m.activityPct, A.activityLow or 70, A.activityHigh or 89,
-					A.activityMax or 4)
+				-- per-spec calibration (Josh 2026-07-25): a caster's top
+				-- parses idle near 99% while a melee's sit ~92%, so judging
+				-- both on a fixed 70/89 curve was wrong. When the spell
+				-- profile carries this spec's top-parse activity, anchor the
+				-- HIGH there and keep the same 19-point spread; fall back to
+				-- the fixed anchors otherwise.
+				local lo, hi = A.activityLow or 70, A.activityHigh or 89
+				local prof = TP.SpellProfiles and p.specID and TP.SpellProfiles[p.specID]
+				if prof and prof.activity and prof.activity > 0 then
+					hi = prof.activity
+					lo = hi - ((A.activityHigh or 89) - (A.activityLow or 70))
+				end
+				local pts = ramp(m.activityPct, lo, hi, A.activityMax or 4)
 				-- dead time reads as inactivity, and the death already
 				-- cost: don't charge the same corpse-minutes twice
 				if pts < 0 and (m.deaths or 0) > 0 then
