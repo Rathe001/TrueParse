@@ -4,23 +4,27 @@
 
 *A parse that shows you actually did your job.*
 
-TrueParse is a World of Warcraft group meter that grades players on a
-**Group Contribution Score** — a 0–99 number in the parse colors you
-already know from Warcraft Logs — instead of raw damage or healing.
-The score is a **verifiable WCL base plus visible adjustments**: your
-throughput measured against real Warcraft Logs percentile curves, then
-signed nudges for the rest — kicks earn more on kick-heavy fights,
-staying out of the bad gains points and standing in it costs them, and
-every bullet shows its exact impact ("Excellent interrupting (+5)").
-A tank or healer can top the card just as easily as a DPS.
+TrueParse is a World of Warcraft group meter that grades every player on a
+**Group Contribution Score**, a 0 to 99 number in the parse colors you
+already know from Warcraft Logs, instead of raw damage or healing. A tank
+or healer can top the card as easily as a DPS, because each role is scored
+on its own job: damage for DPS, healing for healers, active-mitigation
+uptime for tanks, and enabled damage for Augmentation Evokers.
 
-It also knows things meters don't: it credits an Augmentation Evoker
-for the damage their buffs enabled, it detects when the raid leader
-called a wipe and stops counting the on-purpose deaths after it, and
-its advice names the actual problem ("9 interruptible casts got
-through") instead of "do more healing."
+The score is a **verifiable Warcraft Logs base plus visible adjustments**:
+your throughput measured against real ranked parse curves for your spec and
+encounter, then signed nudges for everything else, each showing its exact
+impact ("Excellent interrupting (+5)"). Staying out of the bad earns
+points, standing in it costs them, and you are never penalized for lacking
+an ability your spec doesn't have.
 
-Supports retail (Midnight) and Mists of Pandaria Classic.
+Most meters answer "who did the most damage?" TrueParse answers "who played
+their role well, and how do I get better?" After each fight it names the one
+change that would raise your score most, calls out the specific mechanic you
+keep eating ("you took Exploding Iron Star 3 times, only 41% of players get
+hit by it"), and explains every death.
+
+Supports retail and Mists of Pandaria Classic.
 
 ## What it does
 
@@ -42,28 +46,35 @@ Supports retail (Midnight) and Mists of Pandaria Classic.
   shows 92. Raw disables itself on content WCL doesn't rank instead of
   inventing a number.
 - **Fair by construction**: real WCL population curves per encounter,
-  spec, and bracket for BOTH damage and healing — a Disc priest's damage
-  and a Blood DK's self-healing count the way their populations say they
-  should. Metrics your spec can't perform redistribute; mechanics that
-  force damage onto you never count against you; fights with nothing to
-  heal don't scold healers; item level is normalized (toggleable).
+  spec, and bracket for damage and healing, so a Disc priest's damage and a
+  Blood DK's self-healing count the way their populations say they should.
+  Tanks are scored on active-mitigation uptime against their own spec's
+  field. Metrics your spec can't perform redistribute; nothing that forces
+  damage onto you counts as a penalty; fights with nothing to heal don't
+  scold healers; item level is normalized (toggleable).
 - **A real group story**: the Raid card reads like an analysis, not an
   average — kill speed vs every ranked kill, kick coverage, deaths and
   avoidable pressure as facts, and an execution-vs-parses verdict when
   the group killed faster (or slower) than its meters predict.
-- **Augmentation attribution**: an Aug Evoker's card shows their own
-  damage plus the damage their buffs enabled ("27.9k own + 18.1k buffs
-  enabled"), scored against the real DPS population — calibrated to
-  land within a few points of WCL's own attributed parses.
+- **Augmentation attribution**: an Aug Evoker's card credits the damage
+  their buffs enabled ("27.9k own + 18.1k buffs enabled"), scored against
+  the real DPS population and calibrated to land within a few points of
+  WCL's own attributed parses, plus a Prescience-upkeep metric for the buff
+  no meter can otherwise see.
 - **Called-wipe forgiveness** (MoP): when group damage output collapses
   and never recovers, the raid stopped trying — avoidable damage,
   deaths, and inactivity after that moment don't count. A wipe fought
   to the last death counts everything.
-- **Coach line & wipe debrief**: after bosses, one private line with
-  your grade and the single change that would have raised it most;
-  after wipes, what happened — deaths, how many followed avoidable
-  damage, and the pull's top pointers. Advice is always specific
-  ("the healer ran dry in 3 fights"), and a clean run gets none.
+- **Coaching that names the problem**: after a fight, one private line
+  with the single change that would raise your score most. It names the
+  specific avoidable ability you kept eating and how often the field takes
+  it, or points at downtime, a mistimed cooldown, or where your rotation
+  trails the top parses. Wipe debriefs say what happened; a clean fight
+  gets none.
+- **Every death explained**: read against crawled per-encounter data, each
+  death is labeled an avoidable hit, a tankbuster to pre-mitigate, a slow
+  chip-down (a healing gap, not the dead player's fault), or an unavoidable
+  one-shot.
 - **Awards that mean something**: one per player per fight, rarest
   wins, and winning must be earned — Untouchable goes to a sole dodger,
   Giant Slayer needs a 25% margin, Not on My Watch needs a real fight.
@@ -91,7 +102,7 @@ scorecard, right-click for options (`/tp config`).
 `/tp mode` TrueParse/Raw · `/tp letters` letter grades · `/tp run` run
 report · `/tp share` post group summary · `/tp career` · `/tp trends` ·
 `/tp fights` history · `/tp score [n]` · `/tp buffs` pre-pull diagnostic ·
-`/tp ilvl` · `/tp coach` · `/tp announce`
+`/tp ilvl` · `/tp coach` · `/tp announce` · `/tp mock` demo raid
 
 ## How scoring works (short version)
 
@@ -101,11 +112,13 @@ addon or not: damage and healing measured against **Warcraft Logs
 percentile curves** sampled from the full ranked population for your
 spec, on that boss, in your bracket (10/25-player on Classic;
 Normal/Heroic/Mythic on retail; timed-top-run curves for dungeons),
-split per spec by its own population's damage/healing mix — plus tank
-soak share. When your exact spec+bracket has no curve, the fallback
-ladder was calibrated by measuring six million parses: your spec on
-other bosses first, then ratio-corrected neighboring difficulties,
-then role pools — and the tooltip names the population used.
+split per spec by its own population's damage/healing mix. Tanks lead on
+active-mitigation uptime, scored against their spec's own crawled uptime
+field the same way, so survival is the base and not a bolt-on. When your
+exact spec+bracket has no curve, the fallback ladder was calibrated by
+measuring six million parses: your spec on other bosses first, then
+ratio-corrected neighboring difficulties, then role pools, and the tooltip
+names the population used.
 
 Everything else is a **signed, context-scaled adjustment on top**:
 kicks swing up to ±6 on a kick-heavy fight and barely register on a
@@ -166,12 +179,13 @@ table.
   bracket zones as segments with a white marker at your position — the
   zone structure IS the judgment, so the row shows the population, not
   just a fill. WCL percentiles mark their percentile; quantile-anchored
-  metrics (Active, Mitigation, the composite Tanking gauge) mark their
-  population TIER while the number stays the raw %. One marker, nothing
-  else: the field median is the gauge's own green/blue seam. Own-rules
-  bars (coverage, shares) stay solid verdict-colored fills — no
-  population, no brackets. (Tanking's anchors are provisional until
-  enough field data recalibrates them; Active's traveled the same road.)
+  metrics (Active, and the tank Mitigation gauge scored against the spec's
+  crawled uptime field) mark their population TIER while the number stays
+  the raw %. One marker, nothing else: the field median is the gauge's own
+  green/blue seam. Own-rules bars (coverage, shares) stay solid
+  verdict-colored fills — no population, no brackets. (Mitigation's retail
+  anchors are provisional until enough field data recalibrates them;
+  Active's traveled the same road.)
 - A thin **comparison tick** on solid-fill bars marks the group's
   average: your fill vs the tick is the "my shape vs the group's
   shape" read. Gauges never carry one — two white ticks read as noise.
