@@ -9,12 +9,15 @@ ignore:
   - README.md
   - .pkgmeta
   - .github
+  - .release-notes.md
 
-# the map form with markup-type is required for CurseForge to RENDER the
-# markdown; the shorthand string form defaults to plain text and shows the
+# .release-notes.md holds ONLY the latest version's section, extracted from
+# CHANGELOG.md by the release workflow before packaging - otherwise the
+# whole 37-version history rendered as one wall on every file's "What's
+# New". map form + markup-type so CurseForge renders it as markdown, not
 # raw #/##/** (Josh 2026-07-26).
 manual-changelog:
-  filename: CHANGELOG.md
+  filename: .release-notes.md
   markup-type: markdown
 
 license-output: LICENSE

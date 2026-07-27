@@ -261,6 +261,13 @@ jobs:
           echo "published=true" >> "$GITHUB_OUTPUT"
           echo "Published **v$NEW** (data refresh)." >> "$GITHUB_STEP_SUMMARY"
 
+      # only the latest CHANGELOG section becomes the CurseForge "What's New"
+      # (see release.yml) - the finalize step already put the new version on
+      # top of CHANGELOG.md
+      - name: Extract this release's changelog section
+        if: steps.cfg.outputs.slice == 'finalize' && env.AUTO_PUBLISH == 'true' && steps.finalize.outputs.published == 'true'
+        run: awk '/^## /{c++} c==1' CHANGELOG.md > .release-notes.md
+
       # Inline packaging: only when armed AND finalize actually published. The
       # packager reads the tag created above from this same checkout, so no
       # PAT is needed (a GITHUB_TOKEN-pushed tag can't trigger release.yml).

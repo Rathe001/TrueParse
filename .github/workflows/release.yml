@@ -19,6 +19,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      # CurseForge's "What's New" shows the whole manual-changelog file, so
+      # feed it ONLY the latest version's section (the top `## x.y.z` block),
+      # not the full history. awk: print between the 1st and 2nd `## `.
+      - name: Extract this release's changelog section
+        run: awk '/^## /{c++} c==1' CHANGELOG.md > .release-notes.md
+
       - name: Package and release
         uses: BigWigsMods/packager@v2
         env:
