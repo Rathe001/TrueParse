@@ -10,6 +10,11 @@ ignore:
   - .pkgmeta
   - .github
 
-manual-changelog: CHANGELOG.md
+# the map form with markup-type is required for CurseForge to RENDER the
+# markdown; the shorthand string form defaults to plain text and shows the
+# raw #/##/** (Josh 2026-07-26).
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
 
 license-output: LICENSE
