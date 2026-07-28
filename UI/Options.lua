@@ -55,15 +55,13 @@ local optionsTable = {
 		-- (Scoring section removed 2026-07-13: the window's own radios
 		-- switch the lens, ilvl normalization is simply how scoring works,
 		-- and the resizable window replaced the max-rows cap.)
+		-- Classic-only settings. The group HIDES on retail rather than
+		-- rendering an empty box (the coach line was the last retail entry
+		-- and it retired 2026-07-28).
 		chat = {
-			type = "group", inline = true, name = "Chat", order = 3,
+			type = "group", inline = true, name = "Fights", order = 3,
+			hidden = function() return TP.Compat.IS_RETAIL end,
 			args = {
-				coach = {
-					type = "toggle", order = 1, name = "Post-fight coach line",
-					desc = "After bosses and long pulls: your grade plus the one change that would have raised it most. Only you see this.",
-					get = function() return profile().coach end,
-					set = function(_, v) profile().coach = v end,
-				},
 				practiceDummies = {
 					type = "toggle", order = 2.7, name = "Score training dummies",
 					desc = "Raider's-dummy sessions of a minute or more get a practice card, scored against Iron Juggernaut's ranked parses (the tier's stand-and-hit fight). Never touches career stats. Target the dummy when you start.",

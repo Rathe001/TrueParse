@@ -1,5 +1,55 @@
 # TrueParse Changelog
 
+## 2.5.0
+
+**Scores on content Warcraft Logs doesn't rank.** A dungeon run on Normal,
+a Timewalking clear, an old expansion's dungeon - none of these have a
+ranked population to parse against, so scores there used to collapse to
+near-zero or float to a meaningless 99. Every score now carries an
+evidence tier, shown as a chip in the fight selector:
+
+- **I - Precise.** A 1:1 comparison against Warcraft Logs, ranked at the
+  difficulty you played. Any Mythic+ key counts.
+- **II - Approximate.** The dungeon's real curves scaled to your gear,
+  because WCL only ranks it at Mythic+.
+- **III - Rough.** Nothing covers this fight, so it's measured against the
+  average of every dungeon we do have data for.
+
+Tiers II and III scale your output into the ranked population's terms
+before reading the curve, so 50 still means "an average player at your
+item level". The reference gear is read per client from the crawl itself,
+and the extrapolation is capped so a leveling group can't peg at 99. Both
+knobs were tuned against 183 real captures until the derived tiers tracked
+tier I's score distribution across every quantile.
+
+MoP Classic ships no dungeon curves at all, so Celestial dungeons fall
+back to pooling the raid curves rather than giving up.
+
+**Fixes**
+
+- Duplicate runs filed under a continent or city ("Eastern Kingdoms",
+  "Silvermoon City") are recognised and dropped, including re-reads that
+  came back hours later reporting a different duration. This also stops
+  the reports panel auto-running once per phantom on login.
+- A wipe followed by a difficulty change now registers as a wipe. Switching
+  difficulty starts a new run, which hid the later kill from the check that
+  infers "this boss was pulled again, so that attempt didn't kill it".
+- Verdict matching prefers the difficulty you actually played, so a Normal
+  kill can no longer consume a Heroic wipe's verdict.
+- Realm names are dropped from the scorecard, giving names room to breathe.
+- The first tooltip after a reload no longer renders on top of itself.
+- The "wipe it" button is no longer suppressed by a raid leader who runs
+  TrueParse but never enabled it, and any group member can call it in a
+  dungeon.
+
+**Changes**
+
+- The header is now a grid: the fight selector ends where the class bars
+  end, and the tier chip, reports icon and cog line up with the columns
+  beneath them. The wordmark is a mark, and the selector has a real caret.
+- The post-fight coach line in chat is gone. The breakdown card already
+  shows the same advice, so the chat copy was just noise after every pull.
+
 ## 2.4.0
 
 **Mechanic coaching.** Instead of a generic "you took avoidable damage,"

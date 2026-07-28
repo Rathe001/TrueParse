@@ -442,6 +442,22 @@ foreach ($name in ($encounters.Keys | Sort-Object)) {
     }
 }
 
+# Content kind per encounter. The scoring engine's derived tiers need to
+# know which curves are DUNGEON populations (M+ / Challenge Mode, crawled
+# unfiltered into a single "all" bracket) versus raid ones, so a Timewalking
+# dungeon is never measured against raid volumes. It could be inferred from
+# the bracket shape - a dungeon crawl runs with no -Brackets filter, so "all"
+# is its only bracket - but stating it outright keeps the data
+# self-describing (Engine falls back to the shape check for older files).
+Emit ""
+Emit "TP.Percentiles.kinds = TP.Percentiles.kinds or {}"
+$contentKind = if ($Brackets.Trim()) { "raid" } else { "dungeon" }
+foreach ($name in ($encounters.Keys | Sort-Object)) {
+    if ($encounters[$name].Count -eq 0) { continue }
+    $luaName = $name -replace '"', '\"'
+    Emit ("TP.Percentiles.kinds[`"{0}`"] = `"{1}`"" -f $luaName, $contentKind)
+}
+
 # ENCOUNTER_START ids -> the English WCL name keys above. Non-English
 # clients see localized boss names that can never string-match the keys;
 # the numeric encounterID is the same on every locale.

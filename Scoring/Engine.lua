@@ -466,6 +466,207 @@ local function globalPool(P, bracketKey, kind, accept, cacheKey)
 	return pooled
 end
 
+-- === Derived tiers (Josh 2026-07-28) ===================================
+-- T1 DIRECT   the fight's difficulty matches the population the curves were
+--             sampled from: a Normal raid against the Normal curve, ANY M+
+--             key against the M+ dungeon curve (Josh chose the BRACKET, not
+--             per-key). Scored 1:1 — unchanged behaviour.
+-- T2 DERIVED  curves exist for this encounter, sampled at a difficulty the
+--             player didn't run (a Normal or leveling clear of a dungeon
+--             WCL only ranks at M+).
+-- T3 DERIVED  no curves at all (Timewalking, an old-expansion dungeon, a
+--             capture that lost its instance context) -> the AVERAGE
+--             SEASONAL DUNGEON, pooled from the M+ curves already shipped.
+--             No extra crawl.
+-- T2/T3 scale the player's rate INTO the curve population's terms before
+-- interpolating (the `scale` argument normalizeMetric already threads into
+-- entryPercentileFor), so 50 keeps meaning "average player at your gear"
+-- instead of the group comparison's "whoever topped the meter is a 99".
+
+-- Dungeon-keyed data: the dungeon crawls run with no -Brackets filter, so
+-- their encounters carry exactly one unfiltered "all" bracket, while raid
+-- crawls key by difficulty. Newer files say so outright (P.kinds, emitted by
+-- fetch-percentiles-v2.ps1); the shape check reads already-shipped ones.
+local function isDungeonKeyed(P, name, enc)
+	local kinds = P.kinds
+	if kinds and kinds[name] then
+		return kinds[name] == "dungeon"
+	end
+	if type(enc.all) ~= "table" then
+		return false
+	end
+	for k, v in pairs(enc) do
+		if k ~= "all" and k ~= "_mono" and type(v) == "table" then
+			return false -- has real difficulty brackets: a raid encounter
+		end
+	end
+	return true
+end
+
+-- The T3 reference population: every shipped curve for a spec, pooled
+-- sample-weighted into one synthetic encounter — "what does this spec put
+-- out, across everything we have data for". Same construction as
+-- rolePooledEntry/globalPool.
+--
+-- Prefers DUNGEON-keyed curves, so a Timewalking dungeon is measured against
+-- dungeon volumes rather than raid ones (the 2026-07-16 cross-instance-type
+-- bug). When a client ships no dungeon curves at all — MoP Classic is
+-- exactly this: Percentiles_Mists is SoO raid data only, so Celestial
+-- dungeons had nothing — it falls back to pooling the RAID curves rather
+-- than giving up (Josh 2026-07-28: "find the median for ALL WCL data for
+-- that spec, then scale for ilvl"). That cross-type pooling is only safe
+-- BECAUSE the derived path gear-scales and labels the result; the 2026-07-16
+-- bug was the unscaled, unlabelled version of it.
+-- Returns the encounter and the pool's kind ("dungeon" | "raid").
+local avgDungeonCache = setmetatable({}, { __mode = "k" })
+
+local function poolAllCurves(P, wantDungeon)
+	local out = { dps = {}, hps = {} }
+	local sums, weights, totals = {}, {}, {}
+	for name, enc in pairs(P.encounters or {}) do
+		if (not wantDungeon) or isDungeonKeyed(P, name, enc) then
+			for bk, bracket in pairs(enc) do
+				if bk ~= "_mono" and type(bracket) == "table" then
+					for _, kind in ipairs({ "dps", "hps" }) do
+						for specID, entry in pairs(bracket[kind] or {}) do
+							if entry.curve then
+								local n = entry.n or 0
+								sums[kind] = sums[kind] or {}
+								weights[kind] = weights[kind] or {}
+								totals[kind] = totals[kind] or {}
+								sums[kind][specID] = sums[kind][specID] or {}
+								weights[kind][specID] = (weights[kind][specID] or 0) + n
+								-- entry.total is the real population behind
+								-- the sample; entryPercentileFor needs it to
+								-- undo the 2000-char sampling cap
+								totals[kind][specID] = (totals[kind][specID] or 0) + (entry.total or n)
+								for _, pt in ipairs(entry.curve) do
+									sums[kind][specID][pt[1]] = (sums[kind][specID][pt[1]] or 0) + pt[2] * n
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	local any = false
+	for _, kind in ipairs({ "dps", "hps" }) do
+		for specID, byPct in pairs(sums[kind] or {}) do
+			local n = weights[kind][specID]
+			if n and n > 0 then
+				local curve = {}
+				for _, pct in ipairs(QUANTS) do
+					if byPct[pct] then
+						curve[#curve + 1] = { pct, byPct[pct] / n }
+					end
+				end
+				-- per-quantile averages can cross; percentileFor's contract
+				-- is a descending curve
+				for i = 2, #curve do
+					if curve[i][2] > curve[i - 1][2] then
+						curve[i][2] = curve[i - 1][2]
+					end
+				end
+				if #curve > 1 then
+					out[kind][specID] = { n = n, total = totals[kind][specID], curve = curve }
+					any = true
+				end
+			end
+		end
+	end
+	if not any then
+		return nil
+	end
+	-- shaped like a sanitized encounter so findCurve can walk it unchanged
+	return { _mono = true, all = out }
+end
+
+local function averageSeasonalDungeon(P)
+	local hit = avgDungeonCache[P]
+	if hit ~= nil then
+		if not hit then
+			return nil
+		end
+		return hit.enc, hit.kind
+	end
+	local enc, kind = poolAllCurves(P, true), "dungeon"
+	if not enc then
+		enc, kind = poolAllCurves(P, false), "raid"
+	end
+	if not enc then
+		avgDungeonCache[P] = false
+		return nil
+	end
+	avgDungeonCache[P] = { enc = enc, kind = kind }
+	return enc, kind
+end
+
+-- Gear the shipped curves were sampled at. Data-driven, because this is
+-- per-client: retail's curves sit near ilvl 274, MoP Classic's SoO
+-- population near 563 — a hardcoded retail constant would have scaled every
+-- MoP player's rate down by two thirds. Order of preference:
+--   1. the data file's own statement (P.refIlvl), once the crawler emits it
+--   2. the median ilvlMedian across the Benchmarks encounters for THIS
+--      client (retail 291, MoP 563) — same crawl, same population
+--   3. the fitted constant in Weights (retail-derived; last resort)
+local refIlvlCache = setmetatable({}, { __mode = "k" })
+
+local function percentileRefIlvl(P)
+	if P and P.refIlvl then
+		return P.refIlvl
+	end
+	local B = TP.Benchmarks
+	if B then
+		local hit = refIlvlCache[B]
+		if hit == nil then
+			local ils = {}
+			for _, set in pairs(B.encounters or {}) do
+				if set.ilvlMedian then
+					ils[#ils + 1] = set.ilvlMedian
+				end
+			end
+			table.sort(ils)
+			hit = ils[math.ceil(#ils / 2)] or false
+			refIlvlCache[B] = hit
+		end
+		if hit then
+			return hit
+		end
+	end
+	return TP.Scoring.Weights.derivedRefIlvl or 274
+end
+
+-- Multiplier that carries a player's rate from the content they actually ran
+-- into the population the curve was sampled from. Two parts:
+--   * gear: the Benchmarks ilvl slope over the gap to the curve's reference
+--     item level, with the gap CAPPED — the slope is fitted in a narrow
+--     max-level band and compounds absurdly across a leveling gap.
+--   * difficulty: a flat lift for running below the ranked difficulty.
+-- Applied regardless of the /tp ilvl toggle: for a derived tier the gear
+-- scale isn't an optional normalization, it's what makes the comparison mean
+-- anything (uncapped OR unapplied, a leveling group reads straight 0s).
+local function derivedScale(ctx, p)
+	local d = ctx.derived
+	if not d then
+		return 1
+	end
+	local W = TP.Scoring.Weights
+	local scale = d.offDifficulty or 1
+	local B = TP.Benchmarks
+	if B and B.ilvlSlopePct and d.refIlvl and p.ilvl and p.ilvl > 0 then
+		local cap = W.derivedIlvlCap or 90
+		local gap = d.refIlvl - p.ilvl
+		if gap > cap then
+			gap = cap
+		elseif gap < -cap then
+			gap = -cap
+		end
+		scale = scale * (1 + B.ilvlSlopePct / 100) ^ gap
+	end
+	return scale
+end
+
 local function curveP50(curve)
 	if not curve then
 		return nil
@@ -716,6 +917,9 @@ function Engine.InvalidateNameIndex(P)
 	nameIndexCache[key] = nil
 	globalPoolCache[key] = nil
 	ratioCache[key] = nil
+	-- the derived T3 pool is built from the whole encounters table: it must
+	-- drop with the rest or a stale pool outlives the data it summarised
+	avgDungeonCache[key] = nil
 	-- poolCache is keyed by BRACKET tables inside the data file; wipe it
 	-- whole (drop-together invariant, audit 2026-07-16)
 	for k in pairs(poolCache) do
@@ -856,8 +1060,10 @@ local function normalizeMetric(p, role, key, ctx)
 				rolePooled = pooled
 				curveFrom = label
 				-- scale converts the player's rate INTO the borrowed
-				-- bracket's population before interpolating
-				local pct = entryPercentileFor(entry, (scale or 1) * curveVal / ctx.duration)
+				-- bracket's population before interpolating; on a derived
+				-- tier it also carries the gear + off-difficulty lift
+				scale = (scale or 1) * derivedScale(ctx, p)
+				local pct = entryPercentileFor(entry, scale * curveVal / ctx.duration)
 				-- True's base IS the percentile (Josh 2026-07-25); the old
 				-- 30 + 0.7x softener predated adjustments, which now do the
 				-- earning-back honestly. Knobs neutral in Weights.
@@ -1188,9 +1394,56 @@ function Engine.ScoreFight(fight, opts)
 			-- a bulk-unlocked TW dungeon lost its instance context, read
 			-- as "not a dungeon", and its level-scaled mage was laddered
 			-- into max-level raid pools (parsed 9 while topping Details)
+			-- M+ ranks as ONE population regardless of key level (Josh
+			-- 2026-07-28: the bracket, not the key) — any key is a direct
+			-- comparison against the dungeon's curves.
+			local isMplus = fight.keystoneLevel ~= nil or fight.difficultyID == 8
+				or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or false
 			if (enc or bracketKey) and not (isDungeon and not enc) then
 				ctx.curves = { P = P, enc = enc, order = bracketSearchOrder(bracketKey),
 					exact = bracketKey, dungeonOnly = isDungeon or nil }
+				-- T2: the curves cover this encounter but not the difficulty
+				-- that was actually played. Dungeons only — a raid missing
+				-- its own bracket already gets the measured bracketRatio
+				-- correction walking BRACKET_NEIGHBORS, which is strictly
+				-- better evidence than a flat lift.
+				if isDungeon and enc and not isMplus then
+					ctx.derived = {
+						tier = 2,
+						refIlvl = percentileRefIlvl(P),
+						offDifficulty = W.derivedOffDifficulty or 1,
+						label = fight.zone,
+					}
+				end
+			elseif fight.duration and fight.duration > 0 then
+				-- T3: nothing covers this fight. Rather than hand the room's
+				-- best a 99 by definition, compare against the pooled average
+				-- of every seasonal dungeon we ship.
+				local avg, poolKind = averageSeasonalDungeon(P)
+				if avg then
+					-- The DERIVED comparison is True's alone. Raw means "your
+					-- actual WCL parse", and there is no parse to show on
+					-- content nobody ranks — so Raw keeps the old
+					-- group-relative approximation and the panel disables the
+					-- lens. The tier itself is still recorded in both modes:
+					-- that flag is exactly what tells the UI to disable Raw.
+					if not ctx.parseMode then
+						ctx.curves = { P = P, enc = avg, order = { "all" },
+							exact = nil, dungeonOnly = true }
+					end
+					ctx.derived = {
+						tier = 3,
+						refIlvl = percentileRefIlvl(P),
+						-- the off-difficulty lift corrects for the DUNGEON
+						-- curves being top-runs-skewed. A raid-pooled
+						-- fallback (a client with no dungeon data, e.g. MoP
+						-- Celestials) is already a real population spread —
+						-- lifting it too would just inflate the scores.
+						offDifficulty = (poolKind == "dungeon")
+							and (W.derivedOffDifficulty or 1) or 1,
+						pool = poolKind,
+					}
+				end
 			end
 		end
 	end
@@ -1375,6 +1628,13 @@ function Engine.ScoreFight(fight, opts)
 				pctile = pctile, -- raw population percentile (tooltip gauge)
 				rolePooled = rolePooled, -- scored vs the ROLE's pooled curve
 				curveFrom = curveFrom, -- comparison population when zoomed out
+				-- derived tier: this percentile came from WCL data sampled on
+				-- OTHER content, gear- and difficulty-scaled to fit (tier 2 =
+				-- this dungeon's M+ curves, tier 3 = the seasonal average).
+				-- pctile is set only where a curve produced the score — the
+				-- fightFactors/cohort fallbacks aren't derived, they're just
+				-- the old approximations.
+				derived = (pctile and ctx.derived) and ctx.derived.tier or nil,
 				value = metricValue(p, key),
 			}
 			if key == "interrupts" or key == "dispels" then
@@ -1840,6 +2100,12 @@ function Engine.ScoreFight(fight, opts)
 			role = role,
 			-- Raw-mode results say so: the card strips to throughput only
 			parse = ctx.parseMode or nil,
+			-- 2 or 3 when this fight's score is DERIVED from WCL data
+			-- sampled on other content (see the derived tiers above). The
+			-- panel badges it and hides the Raw lens — there is no real
+			-- parse to show on content nobody ranks.
+			derived = ctx.derived and ctx.derived.tier or nil,
+			derivedFrom = ctx.derived and ctx.derived.label or nil,
 			-- 99 cap, WCL semantics: 100 doesn't exist. The base already
 			-- tops at 99.3; without the cap the positive adjustments were
 			-- minting routine 100s (and overflowing the run column).

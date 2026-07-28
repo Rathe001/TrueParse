@@ -77,14 +77,44 @@ end
 
 -- Is there already a properly-placed capture of this same fight? Same boss,
 -- same length within a couple of seconds (a re-read drifts a little), and
--- close enough in time to be the same play session rather than a re-farm.
+-- either the same meter session or close enough in time to be the same play
+-- session rather than a re-farm.
+--
+-- The sessionID arm matters (Josh 2026-07-28): his Murder Row run came back
+-- a second time as "Silvermoon City" ELEVEN HOURS later, so the original
+-- 3-hour window missed it and the phantoms survived — which also fired the
+-- Reports panel's auto-run on login, once per re-read fight, looking like
+-- "auto announce happens on login". The meter kept its session numbering
+-- across the relog, and a re-read carries the same sessionID as the capture
+-- it duplicates. Name + duration + session number together are conclusive
+-- enough, and the record being dropped is the one with no zone, no
+-- difficulty and no encounterID — the placed twin is strictly better.
+-- A re-read does not always report the SAME duration as the original capture
+-- (Josh 2026-07-28, round two): his Belo'ren pulls came back as 335s and 412s
+-- against placed originals of 191s and 225s, so the duration test alone let
+-- them through while their siblings were caught. Two arms now:
+--   1. same length (±3s) and either the same meter session or the same play
+--      session — the ordinary re-read;
+--   2. same meter session with an EARLIER placed capture, any duration — the
+--      re-read that also lost the clock. Bounded to a week so a session
+--      number recycled months later can't reach back.
+-- Both require a PLACED twin: a placeless capture with no twin is the real
+-- record for bulk-unlocked (LFR-style) fights and must always survive.
+local TWIN_SESSION_WINDOW = 7 * 24 * 3600
+
 local function hasPlacedTwin(fights, fight)
 	for i = 1, #fights do
 		local f = fights[i]
-		if f ~= fight and f.name == fight.name and not isPlaceless(f)
-			and math.abs((f.duration or 0) - (fight.duration or 0)) <= 3
-			and math.abs((f.capturedAt or 0) - (fight.capturedAt or 0)) <= 10800 then
-			return true
+		if f ~= fight and f.name == fight.name and not isPlaceless(f) then
+			local sameSession = (f.sessionID == fight.sessionID)
+			local gap = (fight.capturedAt or 0) - (f.capturedAt or 0)
+			if math.abs((f.duration or 0) - (fight.duration or 0)) <= 3
+				and (sameSession or math.abs(gap) <= 10800) then
+				return true
+			end
+			if sameSession and gap > 0 and gap <= TWIN_SESSION_WINDOW then
+				return true
+			end
 		end
 	end
 	return false
@@ -255,11 +285,21 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		if outcomes and #outcomes > 0 then
 			local live = sessionContext[sessionID]
 			local anchor = (live and live.at) or time()
-			local bestIdx, bestDiff
+			-- The list is keyed by NAME alone, so a boss pulled on two
+			-- difficulties in one sitting pools both verdicts — and nearest
+			-- -timestamp alone let a Normal capture eat a Heroic wipe
+			-- (Josh 2026-07-28: Sporefall heroic wipes, then Normal for the
+			-- kill). The verdict already records its difficultyID; prefer a
+			-- matching one and only fall back to any when none matches.
+			local want = live and live.difficultyID
+			local bestIdx, bestDiff, bestExact
 			for i, o in ipairs(outcomes) do
 				local diff = math.abs((o.at or 0) - anchor)
-				if not bestDiff or diff < bestDiff then
-					bestIdx, bestDiff = i, diff
+				local exact = (want ~= nil and o.difficultyID == want)
+				-- an exact difficulty match always beats a closer timestamp
+				if (exact and not bestExact)
+					or (exact == bestExact and (not bestDiff or diff < bestDiff)) then
+					bestIdx, bestDiff, bestExact = i, diff, exact
 				end
 			end
 			outcome = table.remove(outcomes, bestIdx)
@@ -1351,14 +1391,26 @@ local RAID_DIFficulties = {
 	[14] = true, [15] = true, [16] = true, [17] = true,
 }
 
+-- How long after a pull a later pull of the same boss still implies the
+-- earlier one didn't kill it. Generous enough for one raid night, short
+-- enough that next week's farm doesn't retro-flag this week's kill.
+local REPULL_WINDOW = 6 * 3600
+
 function FightHistory:BackfillWipes()
-	local pulledLater = {} -- [runID:name], walking newest -> oldest
+	-- Keyed by ZONE, not runID (Josh 2026-07-28). Wiping on Heroic and
+	-- switching to Normal for the kill INCREMENTS the run, so the kill was
+	-- invisible to the heroic pulls and the last wipe of the night rendered
+	-- as a kill. The zone survives a difficulty change; the time window below
+	-- does the job runID was really there for.
+	local pulledLater = {} -- [zone:name] = capturedAt of the newest pull seen
 	for i = 1, #self.fights do
 		local f = self.fights[i]
 		if f.isBoss then
-			local key = tostring(f.runID) .. ":" .. (f.name or "")
+			local key = (f.zone or "?") .. ":" .. (f.name or "")
 			if f.wipe == nil and not f.hadVerdict then
-				if pulledLater[key] and RAID_DIFficulties[f.difficultyID or 0] then
+				local later = pulledLater[key]
+				if later and RAID_DIFficulties[f.difficultyID or 0]
+					and (later - (f.capturedAt or 0)) <= REPULL_WINDOW then
 					f.wipe = true
 				else
 					local anyone, allDied = false, true
@@ -1374,7 +1426,9 @@ function FightHistory:BackfillWipes()
 					end
 				end
 			end
-			pulledLater[key] = true
+			-- newest wins: we walk newest -> oldest, so the first sighting
+			-- of a key is the most recent pull of that boss
+			pulledLater[key] = pulledLater[key] or f.capturedAt or 0
 		end
 	end
 end

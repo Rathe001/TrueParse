@@ -158,6 +158,52 @@ Weights.absoluteAnchor = 0.75
 Weights.trueAbsFloor = 0
 Weights.trueAbsSlope = 1
 
+-- === Derived scoring (Engine's three tiers, Josh 2026-07-28) ===
+-- Content WCL doesn't rank at the difficulty you played it (a Normal or
+-- leveling run of a dungeon only ranked at M+, a Timewalking dungeon with no
+-- curves at all) used to fall through to a group comparison, where the
+-- room's best is a 99 by definition. Instead the shipped curves are reused
+-- as a DERIVED comparison: the player's rate is scaled into the curve
+-- population's terms before it's interpolated, so 50 still means "an average
+-- player at YOUR item level".
+--
+-- Reference gear is resolved per client in Engine (percentileRefIlvl): the
+-- data file's own P.refIlvl, else the median ilvlMedian of that client's
+-- Benchmarks encounters — retail 291, MoP Classic 563. It MUST stay
+-- data-driven; a hardcoded retail number scaled every MoP player's rate down
+-- by two thirds. This constant is only the last-resort fallback for a client
+-- shipping neither. (An independent fit of Josh's own captures — regressing
+-- ln(rate / curve p50) on ilvl — put retail at 274, close enough to the
+-- crawl's stated 291 to trust the crawl's.)
+Weights.derivedRefIlvl = 291
+
+-- Anti-collapse guard. Benchmarks' 1.489%/ilvl slope is fitted inside a
+-- narrow max-level band; run it raw across a 170-ilvl leveling gap and it
+-- compounds to 15x+, which pegs a whole leveling group at 99. Capping the
+-- extrapolated gap is what keeps the off-difficulty populations consistent
+-- with each other — uncapped, Josh's Normal-dungeon and Heroic-dungeon
+-- medians land at 0.58x and 0.29x of the curve median respectively; capped
+-- they agree, so a single lift can serve both.
+--
+-- BOTH knobs below were tuned empirically, not derived: scored against all
+-- 183 of Josh's captures, swept, and picked for the pair whose T2/T3 score
+-- distributions track TIER 1's — the direct-comparison baseline he already
+-- accepts — across every quantile (2026-07-28, 674/81/535 player-scores):
+--   T1 direct   p5 6  p25 24  median 43  p75 66  p95 89
+--   T2 derived  p5 8  p25 24  median 46  p75 69  p95 92
+--   T3 derived  p5 7  p25 21  median 38  p75 66  p95 96
+-- Deriving them analytically instead overshot badly (median 72): the dungeon
+-- curves are compressed (p99/p50 = 1.26 vs 2.09 in raids), so a small change
+-- in the rate ratio swings the percentile hard. Retune the same way — sweep
+-- against real captures, match T1's quantiles — if the curves are recrawled.
+Weights.derivedIlvlCap = 90
+
+-- Off-difficulty lift. Even at equal gear, players running content BELOW the
+-- difficulty WCL ranks put out less than the ranked population (smaller
+-- pulls, no consumables, no coordination) — and the dungeon curves are
+-- top-runs-skewed on top of that. See the tuning note above.
+Weights.derivedOffDifficulty = 1.4
+
 Weights.penalties = {
 	-- Avoidable damage: penalize taking MORE than your equal share of the
 	-- group's avoidable damage. Eating ~40% above your share = full cap.

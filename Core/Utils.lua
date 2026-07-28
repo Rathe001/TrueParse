@@ -21,6 +21,20 @@ function TP.FormatNumber(n)
 	return format("%.0f", n)
 end
 
+-- "Beautzibub-Undermine" -> "Beautzibub". Cross-realm groups make the realm
+-- suffix the single biggest waste of row width, and it tells you nothing you
+-- act on (Josh 2026-07-28). DISPLAY ONLY: the stored name keeps its realm,
+-- because peer sync and fight records key off the full name.
+-- Character names can't contain a hyphen, so the first one always starts the
+-- realm. Same type() guard as FormatNumber: names arrive secret often enough
+-- (UnitName mid-encounter) that every string helper has to survive one.
+function TP.ShortName(name)
+	if type(name) ~= "string" then
+		return name
+	end
+	return name:match("^([^%-]+)") or name
+end
+
 function TP.ClassColor(class)
 	local c = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
 	if c then

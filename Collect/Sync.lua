@@ -418,28 +418,9 @@ function Sync:SendHello()
 		(me and me.specID) or 0,
 		(me and me.ilvl) or 0,
 		addonVersion(),
-		(p.announce or p.announceSummary) and 1 or 0) -- announcer election
+		p.wipeButton and 1 or 0) -- see wipeFlag below
 	self:SendCommMessage(PREFIX, msg, channel)
 	self.helloAt = time() -- presence stamps stay "unknown" until replies had time
-end
-
--- One announcer per group: among TrueParse users with announcements
--- enabled, the newest addon version wins (its lines are the best ones);
--- ties break on lowest GUID — deterministic, no negotiation round.
--- Builds too old to carry the flag can't be suppressed remotely, so
--- they don't vote.
-function Sync:ShouldAnnounce()
-	local myGUID = UnitGUID("player")
-	local mine = addonVersion()
-	for guid, u in pairs(self.users) do
-		if guid ~= myGUID and u.announces and TP.Roster.players[guid] then
-			local cmp = TP.CompareVersions(u.addonVersion or "0", mine)
-			if cmp > 0 or (cmp == 0 and guid < myGUID) then
-				return false -- they outrank us: stay quiet
-			end
-		end
-	end
-	return true
 end
 
 -- Roster changes fire in bursts (zoning, joins); send one hello per burst
@@ -468,13 +449,21 @@ local function unitIsOfficer(unit)
 	return unit and (UnitIsGroupLeader(unit) or UnitIsGroupAssistant(unit))
 end
 
+-- An officer only OWNS the wipe call if they can actually make one: running
+-- TrueParse is not enough, the button has to be enabled for them too (Josh
+-- 2026-07-28). Otherwise a lead who never turned it on silently suppressed
+-- everyone else's button and nobody could call a wipe.
 function Sync:WipeCallPermitted(guid)
 	local anyOfficerHasAddon = false
 	for g, info in pairs(TP.Roster.players) do
-		if info.unit and unitIsOfficer(info.unit)
-			and (self.users[g] or UnitIsUnit(info.unit, "player")) then
-			anyOfficerHasAddon = true
-			break
+		if info.unit and unitIsOfficer(info.unit) then
+			local isMe = UnitIsUnit(info.unit, "player")
+			local enabled = isMe and TP.Addon.db.profile.wipeButton
+				or (self.users[g] and self.users[g].wipeButton)
+			if enabled then
+				anyOfficerHasAddon = true
+				break
+			end
 		end
 	end
 	local unit
@@ -500,7 +489,13 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		return
 	end
 
-	local version, guid, specID, ilvl, remoteAddonVersion, announceFlag =
+	-- Field 6 used to carry the announcer election. That feature is gone, so
+	-- it now says "I have the wipe button enabled" — reused rather than
+	-- appended, because the patterns below are $-anchored and an extra field
+	-- would make older clients drop the hello outright. Worst case from a
+	-- pre-change peer: an officer with the old announce toggle on reads as
+	-- wipe-enabled, which only suppresses OUR button. Harmless.
+	local version, guid, specID, ilvl, remoteAddonVersion, wipeFlag =
 		message:match("^H:(%d+):([^:]+):(%d+):(%d+):([%d%.]+):(%d)$")
 	if not version then
 		version, guid, specID, ilvl, remoteAddonVersion =
@@ -530,7 +525,7 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		end
 		self.users[guid] = { version = tonumber(version), seen = time(),
 			addonVersion = remoteAddonVersion,
-			announces = announceFlag == "1" or nil }
+			wipeButton = wipeFlag == "1" or nil }
 		specID = tonumber(specID)
 		ilvl = tonumber(ilvl)
 		-- clamp remote claims: a bogus ilvl of 1e8 turns the gear curve
@@ -679,9 +674,9 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		if not TP.Roster.players[fGuid] or not senderOwnsGuid(sender, fGuid) then
 			return -- not in our group, or claiming someone else's GUID
 		end
-		-- merge, never replace: a full overwrite here destroyed the
-	-- addonVersion/announces learned from the hello, so the announcer
-	-- election forgot its voters after the first fight (audit 2026-07-16)
+		-- merge, never replace: a full overwrite here destroys the
+	-- addonVersion and wipeButton flags learned from the hello (audit
+	-- 2026-07-16, when it cost the announcer election its voters)
 	local known = self.users[fGuid]
 	if known then
 		known.version = tonumber(fVersion)

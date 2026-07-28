@@ -16,7 +16,6 @@ local defaults = {
 			locked = false, shown = true, collapsed = false, autoCollapse = true,
 			clickThroughCombat = false,
 		},
-		coach = true,
 		-- shareable reports (2026-07-25): per-report channel + auto flag
 		-- (auto delivery is always local-only regardless of channel)
 		reports = { ["*"] = { channel = "INFO", auto = false } },
@@ -112,12 +111,14 @@ function Addon:OnEnable()
 	self.db.profile.wipeDebrief = nil
 	self.db.profile.announce = nil
 	self.db.profile.announceSummary = nil
+	-- coach chat line retired 2026-07-28: the breakdown card already shows
+	-- the advice, so the chat copy was just noise after every pull
+	self.db.profile.coach = nil
 	checkBenchmarkAge()
 	TP.Roster:OnEnable()
 	TP.Segments:OnEnable()
 	TP.EnableCombatLog()
 	TP.FightHistory:OnEnable()
-	TP.CoachLine:OnEnable()
 	TP.Career:OnEnable()
 	TP.AwardToast:OnEnable()
 	TP.Sync:OnEnable()
@@ -291,9 +292,6 @@ function Addon:HandleSlash(input)
 				i, TP.Scoring.Grades.ColoredScore(r.gpa or 0), r.name or "?", r.fights or 0,
 				(r.tops or 0) > 0 and (", top of the card %dx"):format(r.tops) or ""))
 		end
-	elseif cmd == "coach" then
-		self.db.profile.coach = not self.db.profile.coach
-		self:Print("Post-fight coach line " .. (self.db.profile.coach and "on." or "off."))
 	elseif cmd == "announce" then
 		self:Print("Announcements moved to the Reports panel (chat icon on the meter, or /tp reports).")
 	elseif cmd == "reports" then
@@ -349,7 +347,7 @@ function Addon:HandleSlash(input)
 		self:Print("  /tp career - your stats · /tp trends - where they're heading")
 		self:Print("  /tp fights - capture history · /tp score [n] - rescore one")
 		self:Print("  /tp buffs - pre-pull raid buff diagnostic")
-		self:Print("  /tp coach · /tp announce · /tp ilvl - toggles")
+		self:Print("  /tp announce · /tp ilvl - toggles")
 		self:Print("  /tp lock - lock the window · /tp reset - re-center it")
 		self:Print("Bugs: github.com/Rathe001/TrueParse/issues")
 	end

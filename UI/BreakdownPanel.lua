@@ -173,9 +173,17 @@ local function showMetricTip(anchor, data)
 
 	if b.specMedian and duration and duration > 0 then
 		-- curveFrom names the comparison population when the evidence
-		-- ladder had to zoom out (other bracket, all bosses, everyone)
-		metricTip.median:SetText(("%s median: %s/s"):format(
-			b.curveFrom or (b.rolePooled and "role" or "spec"), TP.FormatNumber(b.specMedian)))
+		-- ladder had to zoom out (other bracket, all bosses, everyone).
+		-- On a derived tier the median has already been converted back into
+		-- THIS player's gear, so say whose median it is (Josh 2026-07-28).
+		local who = b.curveFrom or (b.rolePooled and "role" or "spec")
+		if b.derived then
+			metricTip.median:SetText(("%s median at your item level: %s/s"):format(
+				who, TP.FormatNumber(b.specMedian)))
+		else
+			metricTip.median:SetText(("%s median: %s/s"):format(
+				who, TP.FormatNumber(b.specMedian)))
+		end
 	elseif b.lowDemand then
 		metricTip.median:SetText("barely anything to heal - scored neutral")
 	elseif COUNT_METRICS[key] and b.groupTotal and not wclBacked then
@@ -210,6 +218,24 @@ local function showMetricTip(anchor, data)
 	metricTip.footer:SetText(footer or (wPct >= 0.5
 		and ("score %d · worth %d%% of the grade"):format(b.normalized or 0, wPct)
 		or ("score %d · context, not weighted into the grade"):format(b.normalized or 0)))
+
+	-- Derived tiers (Josh 2026-07-28): the score came from real WCL curves
+	-- sampled on content at a DIFFERENT difficulty, scaled to this player's
+	-- gear — not a 1:1 parse, and the card should never imply it is. Kept to
+	-- one short line: the footer word-wraps and its height is computed from
+	-- the value block above, so a paragraph here would clip. The median line
+	-- carries the "vs whom" half ("... median at your item level").
+	-- NEVER :format() the concatenation: the footer already reads "worth 97%
+	-- of the grade", and that literal % makes format expect an argument
+	-- (live error 2026-07-28). Build the suffix, then concatenate.
+	-- Wording tracks the tier strip under the meter window (MeterWindow
+	-- TIERS): same numerals, same colours, so the two surfaces agree.
+	if b.derived then
+		local note = (b.derived == 2)
+			and " |cfff2cc4d· tier II approximate, M+ curve scaled to your gear|r"
+			or " |cffe66659· tier III rough, no data covers this fight|r"
+		metricTip.footer:SetText((metricTip.footer:GetText() or "") .. note)
+	end
 
 	-- fit the tip to its longest line (same rule as the card): text never
 	-- truncates and never spills past the border
@@ -995,12 +1021,12 @@ local function infoHelp()
 			overheal = "Healing onto full health bars, judged against this spec's normal range from ranked logs.",
 			offensives = "Offensive cooldowns cast. Softens a missed Bloodlust window.",
 			avoidable = "Avoidable damage taken, vs your fair share of the group's.",
-			cdTiming = "Damage spikes answered in time: raid CDs on group spikes, your external on tank spikes. Judged only on spikes your cooldowns could reach.",
+			cdTiming = "Damage spikes answered in time by a cooldown that could reach them.",
 			manaDry = "Ran out of mana before the fight's final stretch.",
 			overkill = "Damage wasted on already-dead targets.",
 			prepared = "Flask and food up at the pull.",
 			healthstone = "Healthstone use, from the combat log. Judged only when a warlock provided them.",
-			mitigation = "Active-mitigation uptime scored against this spec's real Warcraft Logs field. The higher your uptime vs the spec median, the higher the score.",
+			mitigation = "Active-mitigation uptime, against this spec's real Warcraft Logs field.",
 			kicks = "Interrupts vs your fair share of the group's.",
 			rez = "Combat rez cast, from the combat log.",
 			coach = "The biggest gap between this fight and top parses of this spec.",
@@ -1101,7 +1127,7 @@ function Panel:ShowFor(fight, result)
 	end
 
 	local cr, cg, cb = TP.ClassColor(result.class)
-	frame.title:SetText(result.name or "?")
+	frame.title:SetText(TP.ShortName(result.name) or "?")
 	frame.title:SetTextColor(cr, cg, cb)
 	-- spec icon before the name (Josh 2026-07-25); hover names the spec
 	ensureSpecIcon()
@@ -1132,7 +1158,7 @@ function Panel:ShowFor(fight, result)
 	end
 	-- the NAME hovers too, spec icon inline (Josh 2026-07-25)
 	local th = headerHover("titleHover", frame.title)
-	th.tipTitle = result.name or "?"
+	th.tipTitle = TP.ShortName(result.name) or "?"
 	th.tipLines = { { (specIcon and ("|T" .. specIcon .. ":16|t ") or "") .. specLine,
 		cr, cg, cb } }
 	frame.role:SetText(ROLE_LABELS[result.role] or result.role or "")
@@ -1889,7 +1915,7 @@ function Panel:ShowForGroup(fight, results)
 			sigs[#sigs + 1] = { key = "killSpeed", kind = "glyph", icon = GICONS.speed,
 				label = "Past fastest 1000", good = true,
 				tooltip = { title = "Kill speed", lines = {
-					{ ("Killed in %s. WCL only ranks the fastest 1000 kills, and this was slower than all of them - so the exact speed percentile can't be known."):format(mmss(fight.duration or 0)), 0.8, 0.8, 0.8, true },
+					{ ("Killed in %s. Slower than the fastest 1000 kills Warcraft Logs ranks, so there is no exact percentile."):format(mmss(fight.duration or 0)), 0.8, 0.8, 0.8, true },
 				} } }
 		else
 			-- a REAL population percentile: bracket colors with authority
@@ -1919,7 +1945,7 @@ function Panel:ShowForGroup(fight, results)
 				label = up and "Execution carried" or "Output outran kill", good = up,
 				tooltip = { title = "The whole vs the parts", lines = {
 					{ ("speed p%d \194\183 output p%d"):format(ga.killPct + 0.5, ga.outputPct + 0.5), 1, 1, 1 },
-					{ up and "The group killed faster than its parses predict: mechanics and timing carried beyond raw output."
+					{ up and "Killed faster than the parses predict. Mechanics and timing carried it."
 						or "Parses outran the kill: output went somewhere other than winning.", 0.8, 0.8, 0.8, true },
 				} } }
 		end

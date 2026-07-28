@@ -2,7 +2,7 @@
 ## Title: TrueParse
 ## Notes: A parse that shows you actually did your job. Group contribution meter.
 ## Author: Josh
-## Version: 2.4.0
+## Version: 2.5.0
 ## SavedVariables: TrueParseDB
 ## X-Category: Combat
 ## X-Website: https://github.com/rathe001/TrueParse
@@ -74,7 +74,6 @@ Core\Trends.lua
 UI\Tooltip.lua
 UI\Scorecard.lua
 UI\BreakdownPanel.lua
-UI\CoachLine.lua
 UI\RunSummary.lua
 UI\ReportsWindow.lua
 UI\AwardToast.lua

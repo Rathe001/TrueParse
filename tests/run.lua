@@ -54,6 +54,59 @@ local function check(cond, label)
 	end
 end
 
+-- 0. Display helpers
+check(TP.ShortName("Beautzibub-Undermine") == "Beautzibub", "ShortName drops the realm")
+check(TP.ShortName("Vlora-AltarofStorms") == "Vlora", "ShortName drops a spaced-out realm")
+check(TP.ShortName("Nu") == "Nu", "ShortName leaves a bare name alone")
+-- names arrive secret/nil often enough that every string helper must survive one
+check(TP.ShortName(nil) == nil, "ShortName survives a non-string")
+
+-- 0b. Tooltip doctrine, enforced (Josh 2026-07-28). One concise line;
+-- anything that genuinely needs more splits into a larger TL;DR plus a
+-- detail line rather than growing into a paragraph. This walks the UI
+-- sources because the copy lives in table literals, not behind an API.
+;(function()
+	local LIMIT = 100
+	local long = {}
+	for _, path in ipairs({ "UI/BreakdownPanel.lua", "UI/MeterWindow.lua" }) do
+		local fh = io.open(path)
+		if fh then
+			local n = 0
+			for line in fh:lines() do
+				n = n + 1
+				-- tooltip copy only: help tables and AddLine/summary strings.
+				-- Skip comments and the empty-state body text, which is prose
+				-- in the window itself, not a hover.
+				if not line:match("^%s*%-%-") and (line:match("^%s*%w+ = \"")
+					or line:match("tooltip = ") or line:match("AddLine%(\"")) then
+					for str in line:gmatch('"([^"]*)"') do
+						local _, spaces = str:gsub("%s+", "")
+						if #str > LIMIT and spaces >= 8 then
+							long[#long + 1] = ("%s:%d (%d chars) %s"):format(path, n, #str, str:sub(1, 60))
+						end
+					end
+				end
+			end
+			fh:close()
+		end
+	end
+	check(#long == 0, ("tooltip copy stays under %d chars (%s)"):format(
+		LIMIT, #long == 0 and "all clear" or table.concat(long, " | ")))
+end)()
+
+-- 0c. UI/Tooltip.lua against a WoW widget stub (tests/uistub.lua). The
+-- scoring engine is pure Lua and always testable; the UI was not, and three
+-- separate render bugs shipped to Josh in one day because of it — a SetFont
+-- type error, first-hover line overlap, and a frame drawn under its own
+-- backdrop. The stub enforces the argument types WoW actually enforces, so
+-- those fail here instead of in his combat log.
+;(function()
+	local ok, failures = pcall(dofile, "tests/tooltip.lua")
+	check(ok and failures == 0,
+		("tooltip renders against the widget stub (%s)"):format(
+			ok and (failures .. " failures") or tostring(failures)))
+end)()
+
 -- 1. Every role's weights sum to 1.0
 for role, weights in pairs(TP.Scoring.Weights.roleWeights) do
 	local sum = 0
@@ -1315,7 +1368,122 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(dungeonFight, { mode = "parse", 
 				tostring(r.breakdown.damage.curveFrom)))
 	end
 end
-TP.Percentiles.encounters["Pool Dungeon"] = nil
+-- 18d1b. DERIVED TIERS (Josh 2026-07-28). Off-difficulty and unranked
+-- content used to fall through to a group comparison, where the room's best
+-- is a 99 by definition. Now the shipped curves are reused as a derived
+-- comparison, gear- and difficulty-scaled.
+;(function()
+	local Engine = TP.Scoring.Engine
+	local W = TP.Scoring.Weights
+	Engine.InvalidateNameIndex(TP.Percentiles)
+	-- refIlvl resolves from Benchmarks; pin the knobs so the assertions
+	-- don't move when the constants are retuned
+	local savedCap, savedOff, savedRef = W.derivedIlvlCap, W.derivedOffDifficulty, W.derivedRefIlvl
+	W.derivedIlvlCap, W.derivedOffDifficulty = 90, 1.4
+	TP.Percentiles.refIlvl = 300 -- explicit: the data file's own statement wins
+
+	local function mk(over)
+		local f = {
+			name = "(!) Some Boss", isBoss = true, duration = 100,
+			zone = "Pool Dungeon", instanceType = "party",
+			players = {
+				d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER",
+					specID = 63, ilvl = 200,
+					metrics = { damage = 20000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+				d2 = { guid = "d2", name = "Deeps2", class = "MAGE", role = "DAMAGER",
+					specID = 63, ilvl = 200,
+					metrics = { damage = 10000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } },
+			},
+		}
+		for k, v in pairs(over or {}) do f[k] = v end
+		return f
+	end
+	local function deeps(f, opts)
+		for _, r in ipairs(Engine.ScoreFight(f, opts or { normalizeIlvl = false })) do
+			if r.name == "Deeps" then return r end
+		end
+	end
+
+	TP.Percentiles.encounters["Pool Dungeon"] = { ["all"] = {
+		dps = { [63] = { n = 800, curve = { { 99, 1000 }, { 95, 900 }, { 90, 800 },
+			{ 75, 650 }, { 50, 500 }, { 25, 380 }, { 10, 300 } } } },
+		hps = {},
+	} }
+
+	-- T1: ANY M+ key compares 1:1 against the dungeon's curve (Josh chose the
+	-- BRACKET, not per-key), so no derived flag and no scaling.
+	local t1 = deeps(mk({ difficulty = "Mythic Keystone", keystoneLevel = 10 }))
+	check(t1.derived == nil, "M+ at any key level is a DIRECT comparison (tier 1)")
+	check(math.abs(t1.breakdown.damage.pctile
+		- Engine.EntryPercentileFor(TP.Percentiles.encounters["Pool Dungeon"].all.dps[63], 200)) < 0.001,
+		("T1 reads the curve unscaled - 200/s straight in (%.1f)"):format(t1.breakdown.damage.pctile))
+
+	-- T2: same dungeon on Normal. The curve exists but the difficulty was
+	-- never ranked, so the rate is scaled into the population's terms.
+	local t2 = deeps(mk({ difficulty = "Normal", difficultyID = 1 }))
+	check(t2.derived == 2, ("off-difficulty dungeon is derived tier 2 (%s)"):format(tostring(t2.derived)))
+	check(t2.breakdown.damage.derived == 2, "the breakdown entry carries the tier for the UI")
+	check(t2.breakdown.damage.pctile > t1.breakdown.damage.pctile,
+		("T2 scales the rate UP toward the ranked population (%.1f > %.1f)"):format(
+			t2.breakdown.damage.pctile, t1.breakdown.damage.pctile))
+	-- gear scale = 1.489%/ilvl over (300 - 200), CAPPED at 90; then the
+	-- off-difficulty lift. Uncapped this would be 1.5x larger and peg at 99.
+	local expected = 200 * (1 + TP.Benchmarks.ilvlSlopePct / 100) ^ 90 * 1.4
+	check(math.abs(t2.breakdown.damage.pctile
+		- Engine.EntryPercentileFor(TP.Percentiles.encounters["Pool Dungeon"].all.dps[63], expected)) < 0.01,
+		"T2 percentile = capped gear scale x off-difficulty lift")
+	-- the median shown is converted back into the player's own gear terms
+	check(t2.breakdown.damage.specMedian < 500,
+		("derived median is restated at the player's item level (%.0f)"):format(
+			t2.breakdown.damage.specMedian))
+
+	-- the cap is what stops a leveling group pegging at 99
+	W.derivedIlvlCap = 10000
+	local uncapped = deeps(mk({ difficulty = "Normal", difficultyID = 1,
+		players = { d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER",
+			specID = 63, ilvl = 40,
+			metrics = { damage = 2000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } } } }))
+	check(uncapped.breakdown.damage.pctile > 98,
+		("uncapped, a 260-ilvl gap pegs the curve (%.1f)"):format(uncapped.breakdown.damage.pctile))
+	W.derivedIlvlCap = 90
+	local capped = deeps(mk({ difficulty = "Normal", difficultyID = 1,
+		players = { d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER",
+			specID = 63, ilvl = 40,
+			metrics = { damage = 2000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } } } }))
+	check(capped.breakdown.damage.pctile < 60,
+		("the cap keeps a leveling group honest (%.1f)"):format(capped.breakdown.damage.pctile))
+
+	-- T3: a dungeon with NO curves of its own falls back to the pooled
+	-- average of every dungeon-keyed encounter we ship.
+	local t3 = deeps(mk({ zone = "Unranked Dungeon", difficulty = "Timewalking", difficultyID = 24 }))
+	check(t3.derived == 3, ("unranked content is derived tier 3 (%s)"):format(tostring(t3.derived)))
+	check(t3.breakdown.damage.pctile ~= nil, "T3 scores against a real curve, not the group")
+
+	-- Raw is NOT derived: a parse means a parse. T3 keeps the old
+	-- group-relative approximation, but still reports the tier so the panel
+	-- can disable the lens.
+	local raw3 = deeps(mk({ zone = "Unranked Dungeon", difficulty = "Timewalking", difficultyID = 24 }),
+		{ mode = "parse", normalizeIlvl = false })
+	check(raw3.derived == 3, "Raw still reports the tier (the UI disables the lens off it)")
+	check(raw3.breakdown.damage.pctile == nil,
+		"Raw never borrows the derived pool - there is no parse to show")
+
+	-- A client with NO dungeon-keyed data at all (MoP Classic ships SoO raid
+	-- curves only, so Celestial dungeons had nothing) pools the RAID curves
+	-- rather than giving up — Josh 2026-07-28.
+	local savedDungeon = TP.Percentiles.encounters["Pool Dungeon"]
+	TP.Percentiles.encounters["Pool Dungeon"] = nil
+	Engine.InvalidateNameIndex(TP.Percentiles)
+	local raidOnly = deeps(mk({ zone = "Unranked Dungeon", difficulty = "Timewalking", difficultyID = 24 }))
+	check(raidOnly.derived == 3 and raidOnly.breakdown.damage.pctile ~= nil,
+		"no dungeon data anywhere: tier 3 pools the raid curves instead")
+	TP.Percentiles.encounters["Pool Dungeon"] = savedDungeon
+
+	TP.Percentiles.encounters["Pool Dungeon"] = nil
+	TP.Percentiles.refIlvl = nil
+	W.derivedIlvlCap, W.derivedOffDifficulty, W.derivedRefIlvl = savedCap, savedOff, savedRef
+	Engine.InvalidateNameIndex(TP.Percentiles)
+end)()
 
 -- 18d2. Punctuation-insensitive encounter matching: WCL says "Chimaerus,
 -- the Undreamt God"; the in-game encounter has no comma

@@ -11,7 +11,60 @@ local HEADER_HEIGHT = 26
 local COLHEAD_HEIGHT = 0 -- header labels removed: tooltips explain the columns
 local COL_RESERVE = 66 -- right-side score columns the class bar never enters
 local MODE_HEIGHT = 16 -- bottom strip: Mode: (*)Real ( )Raw
+-- sized to fit "III" with even padding all round, then centred in the
+-- penalty column (Josh 2026-07-28)
+local TIER_CHIP_W, TIER_CHIP_H = 18, 14
+local LOGO_SIZE = 14 -- the mark that replaced the "TrueParse" wordmark
+
+-- Header/row grid (Josh 2026-07-28: "so things all line up in a nice grid").
+-- These MIRROR UI/Scorecard.lua's row columns, measured as an inset from the
+-- ROW's right edge — change one and you must change the other:
+--   runAvg   RIGHT -3,  width 15   -> the cog sits here
+--   score    RIGHT -22, width 17   -> the reports icon sits here
+--   penalty  RIGHT -45, width 19   -> the evidence-tier chip sits here
+-- and the class bar ends COL_RESERVE short of the row's right edge, which is
+-- where the fight selector now ends too.
+local COL = {
+	runAvg  = { right = 3,  w = 15 },
+	score   = { right = 22, w = 17 },
+	penalty = { right = 45, w = 19 },
+}
 local PADDING = 6
+
+-- Evidence tiers, in the engine's own numbering (Scoring/Engine.lua): I is
+-- the strongest evidence, III the weakest, and the colour says so. Josh
+-- 2026-07-28 asked for these to stay consistent with the engine rather than
+-- reading as a 1-2-3 quality ladder in the other direction, so DO NOT
+-- renumber one without the other.
+--
+-- The chip rides INSIDE the fight selector rather than under the window
+-- (Josh 2026-07-28, option D): the tier describes the SELECTED ENCOUNTER, so
+-- it belongs next to the encounter's name — changing the selection visibly
+-- changes the chip. The header band is also the collapsed bar, so it stays
+-- visible collapsed without hanging anything off the frame to clip.
+-- Copy rule (Josh 2026-07-28): `what` is the whole answer for anyone who
+-- just wants one — it leads, one sentence, at a larger size. `how` is the
+-- footnote for anyone who doesn't believe it, and it earns at most a line.
+-- If a `how` grows past ~140 characters it has stopped being a footnote.
+-- One word each, and all three on the SAME axis — precision (Josh
+-- 2026-07-28). That constraint is what rules out "Derived": it names where a
+-- number came from, not how exact it is, so it can't be ranked against
+-- "Precise". Precise > Approximate > Rough reads as a scale on sight, and
+-- the colour reinforces it rather than carrying it alone. The severity Josh
+-- wanted on III lives in the copy ("Don't quote this number") instead of in
+-- a loaded title — the tier is imprecise, not dishonest.
+local TIERS = {
+	{ tier = 1, numeral = "I", title = "Precise", r = 0.35, g = 0.85, b = 0.4,
+		what = "A 1:1 comparison against Warcraft Logs.",
+		how = "Ranked at the difficulty you played. Any Mythic+ key counts." },
+	{ tier = 2, numeral = "II", title = "Approximate", r = 0.95, g = 0.8, b = 0.3,
+		what = "This dungeon's real curves, scaled to your gear.",
+		how = "Not a real parse: WCL only ranks this dungeon at Mythic+, so the difficulty gap is corrected." },
+	{ tier = 3, numeral = "III", title = "Rough", r = 0.9, g = 0.4, b = 0.35,
+		what = "Nothing on Warcraft Logs covers this fight.",
+		how = "Averaged across every dungeon we have and scaled to your gear. Don't quote this number." },
+}
+local lastTier = 1
 local SCORECARD_ROW_HEIGHT = 18 -- Details-proportioned rows: icon = row height
 
 local window
@@ -114,8 +167,11 @@ local function createWindow()
 		edgeSize = 12,
 		insets = { left = 3, right = 3, top = 3, bottom = 3 },
 	})
-	window:SetBackdropColor(0.04, 0.04, 0.05, 1)
-	window:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
+	-- Palette (Josh 2026-07-28, from the design review): the neutrals carry
+	-- a violet bias rather than sitting on a default grey, and the border
+	-- picks the same hue instead of a flat 40% grey. #14111f / #38314c.
+	window:SetBackdropColor(0.078, 0.067, 0.122, 1)
+	window:SetBackdropBorderColor(0.220, 0.192, 0.298, 0.95)
 	-- REAL saved height from the start: a placeholder height let the
 	-- first layout derive (and persist) the screen-half pin from a
 	-- transient rect — the window walked on every reload
@@ -213,11 +269,21 @@ local function createWindow()
 		end
 	end)
 
+	-- The word "TrueParse" spent 74px of header telling you which addon you
+	-- were already looking at (Josh 2026-07-28). The mark says it in 14, and
+	-- the selector starts where the word used to.
+	window.logo = window:CreateTexture(nil, "OVERLAY")
+	window.logo:SetSize(LOGO_SIZE, LOGO_SIZE)
+	window.logo:SetPoint("LEFT", window, "TOPLEFT", PADDING, -HEADER_HEIGHT / 2)
+	-- extension omitted on purpose: the client resolves .tga/.blp itself
+	window.logo:SetTexture("Interface\\AddOns\\TrueParse\\Logo")
+
+	-- Mode tag, not a title. TrueParse is the default, so it says nothing;
+	-- Raw is the deviation and earns a word. Collapse still shows the mode,
+	-- which is why this can't just live on the footer radios (those hide).
 	window.title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	-- centered in the header band, which is also the whole collapsed bar:
-	-- the title must not move when the window toggles
-	window.title:SetPoint("LEFT", window, "TOPLEFT", PADDING, -HEADER_HEIGHT / 2)
-	window.title:SetText("TrueParse")
+	window.title:SetPoint("LEFT", window.logo, "RIGHT", 5, 0)
+	window.title:SetText("")
 
 	-- The fight picker looks like a real dropdown: bordered inset box with
 	-- the classic round arrow button, sized into the header
@@ -227,8 +293,10 @@ local function createWindow()
 		edgeFile = "Interface\\Buttons\\WHITE8X8",
 		edgeSize = 1,
 	})
-	window.fightDrop:SetBackdropColor(0, 0, 0, 0.55)
-	window.fightDrop:SetBackdropBorderColor(0.38, 0.38, 0.38, 0.9)
+	-- one step up from the window ground so the pill reads as an inset
+	-- control, not a hole punched in the frame (#221d31 / #3a3350)
+	window.fightDrop:SetBackdropColor(0.133, 0.114, 0.192, 0.9)
+	window.fightDrop:SetBackdropBorderColor(0.227, 0.200, 0.314, 0.95)
 	-- options cog at the header's right edge; the dropdown yields the room
 	window.cog = CreateFrame("Button", nil, window)
 	window.cog:SetSize(14, 14)
@@ -264,32 +332,139 @@ local function createWindow()
 
 	window.fightDrop:SetHeight(16)
 	local dropInset = (HEADER_HEIGHT - 16) / 2 -- even air above and below
-	window.cog:SetPoint("TOPRIGHT", -PADDING, -(dropInset + 1))
-	window.chat:SetPoint("TOPRIGHT", -(PADDING + 18), -(dropInset + 1))
-	window.fightDrop:SetPoint("TOPRIGHT", -(PADDING + 36), -dropInset)
-	window.fightDrop:SetPoint("TOPLEFT", 74, -dropInset) -- clears the mode title
-	window.fightDrop.arrowTex = window.fightDrop:CreateTexture(nil, "OVERLAY")
-	window.fightDrop.arrowTex:SetSize(16, 16)
-	window.fightDrop.arrowTex:SetPoint("RIGHT", 0, 0)
-	window.fightDrop.arrowTex:SetTexture("Interface\\Buttons\\UI-ScrollBar-ScrollDownButton-Up")
+	MeterWindow:LayoutHeader() -- owns the selector's, chip's, chat's and
+	-- cog's points; re-run at the end of createWindow once they all exist
+
+	-- A drawn chevron, not a borrowed texture (Josh 2026-07-28, twice: "the
+	-- handle doesn't read as a handle"). Every stock candidate carries button
+	-- chrome around the glyph — UI-ScrollBar-ScrollDownButton is literally a
+	-- scrollbar nub, and Arrow-Down-Up smudges at this size. Two thin bars
+	-- rotated into a "v" gives the clean caret a dropdown wants, with no
+	-- dependency on an atlas that may not exist on both clients.
+	window.fightDrop.caret = CreateFrame("Frame", nil, window.fightDrop)
+	window.fightDrop.caret:SetSize(9, 6)
+	window.fightDrop.caret:SetPoint("RIGHT", -6, 0)
+	do
+		local caret = window.fightDrop.caret
+		caret.arms = {}
+		-- arms meet at the bottom centre: left arm slopes down to the right
+		-- (clockwise = negative), right arm slopes back up (positive)
+		for i, spec in ipairs({ { -2, -math.pi / 4 }, { 2, math.pi / 4 } }) do
+			local arm = caret:CreateTexture(nil, "OVERLAY")
+			arm:SetSize(6, 1.6)
+			arm:SetPoint("CENTER", caret, "CENTER", spec[1], 0)
+			arm:SetColorTexture(0.82, 0.79, 0.90, 1)
+			-- SetRotation is modern-engine only; MoP Classic ships that
+			-- engine, but degrade to a flat bar rather than erroring
+			pcall(arm.SetRotation, arm, spec[2])
+			caret.arms[i] = arm
+		end
+	end
 	window.fightDrop:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
 	window.fightDrop:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
 
-	window.subtitle = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	-- Evidence-tier chip: a small filled plate carrying the roman numeral,
+	-- parked at the right end of the selector box beside the dropdown arrow.
+	-- Everything that sits ON the selector pill — the encounter name and the
+	-- tier chip — has to draw ABOVE it. Both used to hang off `window` at
+	-- the pill's own frame level, so the pill's backdrop painted straight
+	-- over them: at the old 55%-alpha black that merely dimmed the name, but
+	-- against the new near-opaque pill it swallowed the chip entirely and
+	-- left the encounter unreadable (Josh 2026-07-28).
+	-- Parenting them to the pill would fix the layering and break collapse
+	-- (the pill hides there, these must not). A sibling overlay frame at a
+	-- higher level does both.
+	window.headerOverlay = CreateFrame("Frame", nil, window)
+	window.headerOverlay:SetAllPoints(window)
+	window.headerOverlay:SetFrameLevel(window.fightDrop:GetFrameLevel() + 5)
+
+	window.tierChip = CreateFrame("Button", nil, window.headerOverlay)
+	window.tierChip:SetSize(TIER_CHIP_W, TIER_CHIP_H)
+	window.tierChip.bg = window.tierChip:CreateTexture(nil, "BACKGROUND")
+	window.tierChip.bg:SetAllPoints()
+	window.tierChip.bg:SetColorTexture(1, 1, 1, 1)
+	-- 1px inset frame, drawn as four edges so it never washes the fill
+	window.tierChip.edges = {}
+	for i = 1, 4 do
+		local e = window.tierChip:CreateTexture(nil, "BORDER")
+		e:SetColorTexture(1, 1, 1, 1)
+		if i == 1 then
+			e:SetPoint("TOPLEFT"); e:SetPoint("TOPRIGHT"); e:SetHeight(1)
+		elseif i == 2 then
+			e:SetPoint("BOTTOMLEFT"); e:SetPoint("BOTTOMRIGHT"); e:SetHeight(1)
+		elseif i == 3 then
+			e:SetPoint("TOPLEFT"); e:SetPoint("BOTTOMLEFT"); e:SetWidth(1)
+		else
+			e:SetPoint("TOPRIGHT"); e:SetPoint("BOTTOMRIGHT"); e:SetWidth(1)
+		end
+		window.tierChip.edges[i] = e
+	end
+	window.tierChip.label = window.tierChip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	do
+		local fontPath = window.tierChip.label:GetFont()
+		window.tierChip.label:SetFont(fontPath, 9, "")
+	end
+	window.tierChip.label:SetPoint("CENTER", 0, 0)
+	window.tierChip:SetScript("OnEnter", function(self)
+		local t = self.tierDef
+		if not t then
+			return
+		end
+		-- summary leads at +2pt and near-white; the footnote drops back to
+		-- the default size and dims, so the eye lands on the answer first
+		local body = {
+			{ t.what, 0.95, 0.95, 0.95, size = 13 },
+			{ t.how, 0.66, 0.66, 0.70 },
+		}
+		-- The chip is the only tier surface, so it carries the legend too —
+		-- as real chips, matching the one in the header. The active plate is
+		-- coloured and the other two are grey, which says "you are here"
+		-- without a marker glyph (WoW's fonts have no bullet: U+25CF/U+25CB
+		-- rendered as tofu squares, the same trap that made TP.STAR a
+		-- texture escape rather than a Unicode star).
+		for i, other in ipairs(TIERS) do
+			body[#body + 1] = {
+				other.title,
+				other.r, other.g, other.b,
+				chip = other.numeral,
+				active = (other.tier == t.tier),
+				-- the hairline splits "about this tier" from "all tiers"
+				rule = (i == 1) or nil,
+				gapBefore = (i == 1) and 4 or nil,
+			}
+		end
+		TP.Tooltip:Show(self, "TOP", ("Tier %s · %s"):format(t.numeral, t.title), body)
+	end)
+	window.tierChip:SetScript("OnLeave", function()
+		TP.Tooltip:Hide()
+	end)
+
+	-- on the overlay, not the window: see headerOverlay above
+	window.subtitle = window.headerOverlay:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	window.subtitle:SetWordWrap(false)
+	-- GameFontDisableSmall is a 50% grey. That read acceptably on the old
+	-- near-black pill, but the pill is now a lighter violet (it reads as an
+	-- inset control instead of a hole) and the grey vanished into it — the
+	-- encounter name was unreadable. The design review's #cfc8de is what
+	-- that pill was drawn with; use it. Embedded |cff..| runs in the text
+	-- still override this per segment.
+	window.subtitle:SetTextColor(0.812, 0.784, 0.871)
 
 	-- the subtitle lives INSIDE the dropdown box normally, but spans the
 	-- header when collapsed (the box hides there)
+	-- The chip is no longer inside the pill — LayoutHeader parks it in the
+	-- penalty column — so expanded, the encounter name owns the whole
+	-- selector out to the caret. Collapsed, the pill is hidden and the name
+	-- spans the bar, still stopping short of the chip.
 	local function layoutSubtitle(collapsed)
 		window.subtitle:ClearAllPoints()
 		if collapsed then
-			-- centered like the title (the collapsed bar is one text line)
-			window.subtitle:SetPoint("RIGHT", -PADDING, 0)
 			window.subtitle:SetPoint("LEFT", window.title, "RIGHT", 6, 0)
+			window.subtitle:SetPoint("RIGHT", window.tierChip, "LEFT", -6, 0)
 			window.subtitle:SetJustifyH("RIGHT")
 		else
 			window.subtitle:SetPoint("LEFT", window.fightDrop, "LEFT", 6, 0)
-			window.subtitle:SetPoint("RIGHT", window.fightDrop.arrowTex, "LEFT", -2, 0)
+			window.subtitle:SetPoint("RIGHT", window.fightDrop.caret, "LEFT", -4, 0)
 			window.subtitle:SetJustifyH("LEFT")
 		end
 	end
@@ -432,7 +607,10 @@ local function createWindow()
 
 	-- Mode strip along the bottom edge: Real = the full contribution score,
 	-- Raw = pure throughput vs WCL top logs (damage, healing for healers)
-	local function makeRadio(labelText, mode, tooltip)
+	-- summary leads at +2pt, detail sits under it at the default size (the
+	-- house pattern, Josh 2026-07-28): the one-liner is the whole answer for
+	-- anyone who just wants one.
+	local function makeRadio(labelText, mode, summary, detail)
 		local btn = CreateFrame("CheckButton", nil, window)
 		btn:SetSize(11, 11)
 		btn:SetNormalTexture("Interface\\Buttons\\UI-RadioButton")
@@ -454,9 +632,12 @@ local function createWindow()
 			MeterWindow:Invalidate()
 		end)
 		btn:SetScript("OnEnter", function(self)
-			local body = { { tooltip, 0.8, 0.8, 0.8 } }
+			local body = { { summary, 0.95, 0.95, 0.95, size = 13 } }
+			if detail then
+				body[#body + 1] = { detail, 0.66, 0.66, 0.70 }
+			end
 			if not self:IsEnabled() then
-				body[#body + 1] = { "Unavailable: no Warcraft Logs data covers this fight.", 0.95, 0.5, 0.5 }
+				body[#body + 1] = { "No Warcraft Logs data covers this fight.", 0.95, 0.5, 0.5 }
 			end
 			TP.Tooltip:Show(self, "TOP", labelText, body)
 		end)
@@ -467,9 +648,11 @@ local function createWindow()
 	end
 	-- Column labels over the two number columns, aligned to their edges
 	window.modeReal = makeRadio("TrueParse", "contribution",
-		"Considers damage, healing, damage taken, interrupts, and much more compared to others of your same spec and role.")
+		"Scores your whole contribution.",
+		"Damage, healing, damage taken, interrupts and more, weighted for your spec and role.")
 	window.modeRaw = makeRadio("Raw", "parse",
-		"Straight comparison to Warcraft Logs parses for your spec on this fight: damage for DPS and tanks, healing for healers.")
+		"Your Warcraft Logs parse only.",
+		"Damage for DPS and tanks, healing for healers, against ranked logs for your spec.")
 	-- right-aligned in the footer: ... Mode:  (*)True  ( )Raw]
 	-- 16px of clearance on the right for the resize grip
 	window.modeRaw:SetPoint("BOTTOMRIGHT",
@@ -518,6 +701,9 @@ local function createWindow()
 		MeterWindow:ToggleCollapse()
 	end)
 	MeterWindow:UpdateModeButtons()
+	MeterWindow:UpdateTierChip(nil)
+	-- every header widget now exists, so the grid can actually be laid
+	MeterWindow:LayoutHeader()
 end
 
 -- the fight pinned in the selector (nil = Current); the reports panel
@@ -532,6 +718,56 @@ function MeterWindow:ResetSelection()
 	scrollOffset = 0
 end
 
+-- Lays the header onto the same grid as the rows below it. The selector ends
+-- where the class bars end; the tier chip, reports icon and cog each sit
+-- centred in the row column beneath them (penalty / score / run average).
+-- Recomputed rather than fixed: the "RAW" tag comes and goes, and the
+-- selector should take that width back either way.
+function MeterWindow:LayoutHeader()
+	if not (window and window.fightDrop) then
+		return
+	end
+	local dropInset = (HEADER_HEIGHT - 16) / 2
+	local mid = -(dropInset + 8) -- vertical centre of the selector band
+
+	-- selector: from just past the mark, out to where the class bars end
+	local tagW = window.title:GetStringWidth() or 0
+	local left = PADDING + LOGO_SIZE + 5 + (tagW > 0 and (tagW + 5) or 0)
+	window.fightDrop:ClearAllPoints()
+	window.fightDrop:SetPoint("TOPLEFT", left, -dropInset)
+	window.fightDrop:SetPoint("TOPRIGHT", -(PADDING + COL_RESERVE), -dropInset)
+
+	-- one helper so all three land the same way: centred in their column
+	local function place(widget, col)
+		if not widget then
+			return
+		end
+		local centreFromRight = PADDING + col.right + col.w / 2
+		widget:ClearAllPoints()
+		widget:SetPoint("CENTER", window, "TOPRIGHT", -centreFromRight, mid)
+	end
+	place(window.chat, COL.score)
+	place(window.cog, COL.runAvg)
+
+	-- Collapsed, the chat and cog are hidden and there is no row grid to line
+	-- up with — so the chip takes the far right edge and hands the two
+	-- columns it was leaving empty back to the encounter name (Josh
+	-- 2026-07-28). Expanded, it sits in the penalty column like a header.
+	-- The nil guard is not optional: createWindow calls LayoutHeader once to
+	-- position the selector BEFORE the chip exists, and a window saved in the
+	-- collapsed state took this branch and errored on PLAYER_LOGIN.
+	if not window.tierChip then
+		return
+	end
+	if db().window.collapsed or autoCollapsed then
+		window.tierChip:ClearAllPoints()
+		window.tierChip:SetPoint("CENTER", window, "TOPRIGHT",
+			-(PADDING + TIER_CHIP_W / 2), mid)
+	else
+		place(window.tierChip, COL.penalty)
+	end
+end
+
 function MeterWindow:UpdateModeButtons()
 	if not (window and window.modeReal) then
 		return
@@ -539,6 +775,39 @@ function MeterWindow:UpdateModeButtons()
 	local raw = db().scoring.mode == "parse"
 	window.modeReal:SetChecked(not raw)
 	window.modeRaw:SetChecked(raw)
+end
+
+-- Set the chip to the tier the SELECTED encounter's score came from.
+-- Engine numbering throughout (1 = direct); see TIERS. tier = nil means
+-- nothing is scored on screen (empty/waiting state) and the chip hides
+-- rather than describing a fight that isn't there.
+function MeterWindow:UpdateTierChip(tier)
+	lastTier = tier
+	if not (window and window.tierChip) then
+		return
+	end
+	local def
+	for _, t in ipairs(TIERS) do
+		if t.tier == tier then
+			def = t
+		end
+	end
+	window.tierChip.tierDef = def
+	if not def then
+		window.tierChip:Hide()
+		return
+	end
+	window.tierChip:Show()
+	window.tierChip.label:SetText(def.numeral)
+	window.tierChip.label:SetTextColor(def.r, def.g, def.b)
+	-- filled plate, not a dimmed sibling: the fill is what makes the tier
+	-- read at 9px against a class-coloured row or open terrain. Sitting on
+	-- the selector pill rather than the window ground, it needs more fill
+	-- and a firmer edge than the mockup's values to separate.
+	window.tierChip.bg:SetColorTexture(def.r, def.g, def.b, 0.26)
+	for _, e in ipairs(window.tierChip.edges) do
+		e:SetColorTexture(def.r, def.g, def.b, 0.85)
+	end
 end
 
 local function setModeStripShown(shown)
@@ -626,7 +895,11 @@ function MeterWindow:UpdateWipeButton()
 		and not seg.manualWipeAt
 		and UnitAffectingCombat("player")
 		and (IsInGroup() or practice)
-		and TP.Sync and TP.Sync.WipeCallPermitted and TP.Sync:WipeCallPermitted()
+		-- A dungeon has no lead/assist hierarchy worth deferring to, so
+		-- anyone may call it there; raids keep the officer rule (Josh
+		-- 2026-07-28).
+		and (IsInRaid() == false
+			or (TP.Sync and TP.Sync.WipeCallPermitted and TP.Sync:WipeCallPermitted()))
 	if show then
 		-- hang off whichever window edge faces screen center, so the
 		-- button never runs off-screen and never sits on the header
@@ -786,6 +1059,15 @@ end
 -- MUST be defined above every caller: a later definition compiles callers'
 -- references as globals (nil) — exactly the blank-window bug this fixes.
 local function anyWclEvidence(parseResults)
+	-- A DERIVED fight has no parse to show (Josh 2026-07-28). Its True score
+	-- comes from WCL curves sampled on OTHER content, gear- and
+	-- difficulty-scaled to fit; calling that a "parse" would be a lie, and
+	-- the unscaled comparison Raw would otherwise draw reads ~0 for everyone
+	-- in a leveling dungeon. The engine flags the tier in BOTH modes so this
+	-- check works off the parse results it already has.
+	if parseResults[1] and parseResults[1].derived then
+		return false
+	end
 	for _, r in ipairs(parseResults) do
 		for _, b in pairs(r.breakdown) do
 			if b.absolute then
@@ -887,6 +1169,19 @@ local function setSpecIcon(icon, player, class)
 end
 
 local lastRawAvailable = true
+-- Tier of the fight currently on the card. Remembered separately from
+-- lastTier (which is whatever the STRIP is showing) because the cheap
+-- re-render path below returns early: without this, zoning to a
+-- nothing-recorded state blanked the strip, and coming back to the SAME
+-- fight took the early return and never re-lit it (Josh 2026-07-28).
+local lastFightTier = 1
+
+-- Every row of a scored fight carries the same tier, but a fight can score
+-- to an empty result set; read it defensively and default to DIRECT.
+local function tierOfResults(results)
+	local r = results and results[1]
+	return (r and r.derived) or 1
+end
 
 function MeterWindow:RenderScorecard(fight)
 	local isRawSetting = TP.Addon.db.profile.scoring.mode == "parse"
@@ -922,7 +1217,10 @@ function MeterWindow:RenderScorecard(fight)
 	end
 
 	if lastRenderedFight == fight and lastScrollOffset == scrollOffset then
-		-- scores are static once captured; only the subtitle changes
+		-- scores are static once captured; only the subtitle changes.
+		-- The strip still gets re-asserted: something else (the empty state)
+		-- may have blanked it while this same fight stayed pinned.
+		MeterWindow:UpdateTierChip(lastFightTier)
 		window.subtitle:SetText(subtitleText(lastRawAvailable))
 		return
 	end
@@ -931,6 +1229,9 @@ function MeterWindow:RenderScorecard(fight)
 
 	local results, rawAvailable = scoreForDisplay(fight)
 	lastRawAvailable = rawAvailable
+	-- the strip below the window says what the score is built on
+	lastFightTier = tierOfResults(results)
+	MeterWindow:UpdateTierChip(lastFightTier)
 	window.subtitle:SetText(subtitleText(rawAvailable))
 	-- effective mode for THIS card: raw only when WCL evidence backs it
 	local isRaw = isRawSetting and rawAvailable
@@ -941,6 +1242,14 @@ function MeterWindow:RenderScorecard(fight)
 		if rawAvailable then
 			window.modeRaw:Enable()
 		else
+			-- Pinning a fight whose Raw is unavailable used to leave the Raw
+			-- radio checked but greyed while the card showed True numbers —
+			-- the reading was right, the radio lied about it. Move the
+			-- setting to match what is actually on screen (Josh 2026-07-28).
+			if isRawSetting then
+				db().scoring.mode = "contribution"
+				MeterWindow:UpdateModeButtons()
+			end
 			window.modeRaw:Disable()
 			-- a disabled button fires no OnEnter, so the "why is this
 			-- disabled" tooltip was unreachable (audit 2026-07-16)
@@ -1083,7 +1392,7 @@ function MeterWindow:RenderScorecard(fight)
 		-- no award star here: it wrapped long cross-realm names and the
 		-- row already carries a lot (awards live in the breakdown + toasts)
 		-- Details-style rank prefix: position in THIS fight's standings
-		row.name:SetText(("%d. %s"):format(i + scrollOffset, r.name))
+		row.name:SetText(("%d. %s"):format(i + scrollOffset, TP.ShortName(r.name)))
 		row.name:SetTextColor(1, 1, 1)
 		row.playerName = r.name
 
@@ -1104,9 +1413,9 @@ function MeterWindow:RenderScorecard(fight)
 		-- signed net adjustment on top of the WCL base: green earns, red costs
 		local netAdj = r.adjust or -(r.penalty or 0)
 		if netAdj >= 0.5 then
-			row.penalty:SetText(("|cff44cc44+%.0f|r"):format(netAdj))
+			row.penalty:SetText(("|cff6bc46f+%.0f|r"):format(netAdj))
 		elseif netAdj <= -0.5 then
-			row.penalty:SetText(("|cffff4444-%.0f|r"):format(-netAdj))
+			row.penalty:SetText(("|cffe05a4f-%.0f|r"):format(-netAdj))
 		else
 			row.penalty:SetText("")
 		end
@@ -1154,7 +1463,7 @@ function MeterWindow:RenderScorecard(fight)
 		-- renders of a recycled footer row hide it explicitly
 		if not row.groupDivider then
 			row.groupDivider = row:CreateTexture(nil, "ARTWORK")
-			row.groupDivider:SetColorTexture(0.5, 0.5, 0.55, 0.3)
+			row.groupDivider:SetColorTexture(0.361, 0.322, 0.459, 0.35) -- #5c5275
 		end
 		row.groupDivider:ClearAllPoints()
 		-- pixel-snapped so it always rasterizes 1px like the card rules
@@ -1199,9 +1508,9 @@ function MeterWindow:RenderScorecard(fight)
 			end
 			local n = groupNet >= 0 and math.floor(groupNet + 0.5) or -math.floor(-groupNet + 0.5)
 			if n > 0 then
-				row.penalty:SetText(("|cff44cc44+%d|r"):format(n))
+				row.penalty:SetText(("|cff6bc46f+%d|r"):format(n))
 			elseif n < 0 then
-				row.penalty:SetText(("|cffff4444%d|r"):format(n))
+				row.penalty:SetText(("|cffe05a4f%d|r"):format(n))
 			else
 				row.penalty:SetText("")
 			end
@@ -1214,7 +1523,7 @@ function MeterWindow:RenderScorecard(fight)
 			row.runAvg:SetWidth(1)
 		end
 		row.sep2:SetShown(runScore ~= nil)
-		row.bg:SetColorTexture(0.60, 0.48, 0.10, 0.95)
+		row.bg:SetColorTexture(0.541, 0.459, 0.188, 0.95) -- #8a7530
 		local barArea = math.max(40, width - COL_RESERVE)
 		row.track:SetWidth(barArea)
 		row.bg:SetWidth(math.max(8, barArea * math.min(math.max(groupScore, 0), 100) / 100))
@@ -1346,8 +1655,11 @@ local function refreshImpl(self, force)
 	if not window or not window:IsShown() then
 		return
 	end
-	-- the title carries the selected mode; the subtitle no longer tags raw
-	local modeTitle = (db().scoring.mode == "parse") and "Raw" or "TrueParse"
+	-- Mode indicator, COLLAPSED ONLY (Josh 2026-07-28). Expanded, the footer
+	-- radios already say which mode you are in, so a tag in the header just
+	-- repeats them and costs selector width. Collapsed, those radios are
+	-- hidden and the tag is the only thing that can say it.
+	local modeTag = (db().scoring.mode == "parse") and "RAW" or ""
 	if db().window.collapsed or autoCollapsed then
 		releaseAllRows()
 		lastRenderedFight = nil
@@ -1358,7 +1670,8 @@ local function refreshImpl(self, force)
 			window.scrollUp:Hide()
 			window.scrollDown:Hide()
 		end
-		window.title:SetText(modeTitle .. " (+)")
+		window.title:SetText(modeTag ~= "" and (modeTag .. " (+)") or "(+)")
+		MeterWindow:LayoutHeader() -- chip moves to the right edge when collapsed
 		-- a pinned fight is explicit: its summary wins over the waiting state
 		local waitingZone, waitingUnsupported
 		if not pinnedFight then
@@ -1377,6 +1690,17 @@ local function refreshImpl(self, force)
 		else
 			window.subtitle:SetText("")
 		end
+		-- Resolve the tier HERE too. Only RenderScorecard did it, and this
+		-- branch returns before ever reaching it — so a window that started
+		-- collapsed showed no chip until it was expanded once (Josh
+		-- 2026-07-28). scoreForDisplay is memoised per fight, so on the
+		-- collapsed path this is a table lookup after the first call.
+		if latest and not waitingZone then
+			lastFightTier = tierOfResults(scoreForDisplay(latest))
+			MeterWindow:UpdateTierChip(lastFightTier)
+		else
+			MeterWindow:UpdateTierChip(nil)
+		end
 		window.fightDrop:Hide()
 		window.cog:Hide()
 		window.chat:Hide()
@@ -1393,7 +1717,8 @@ local function refreshImpl(self, force)
 		applyWindowHeight(HEADER_HEIGHT)
 		return
 	end
-	window.title:SetText(modeTitle)
+	window.title:SetText("") -- expanded: the footer radios carry the mode
+	MeterWindow:LayoutHeader()
 	window.fightDrop:Show()
 	window.cog:Show()
 	window.chat:Show()
@@ -1446,6 +1771,9 @@ local function refreshImpl(self, force)
 		end
 		window.emptyTitle:Show()
 		window.emptyMsg:Show()
+		-- nothing scored on screen: no tier applies, so the chip hides
+		-- (leaving the last fight's tier up would describe the wrong fight)
+		MeterWindow:UpdateTierChip(nil)
 		if window.scrollUp then
 			window.scrollUp:Hide()
 			window.scrollDown:Hide()
@@ -1464,6 +1792,6 @@ function MeterWindow:Refresh(force)
 	local ok, err = pcall(refreshImpl, self, force)
 	if not ok and not refreshErrorShown then
 		refreshErrorShown = true
-		print("|cffff4444TrueParse render error (please report):|r " .. tostring(err))
+		print("|cffe05a4fTrueParse render error (please report):|r " .. tostring(err))
 	end
 end
