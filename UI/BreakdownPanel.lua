@@ -1194,7 +1194,7 @@ function Panel:ShowFor(fight, result)
 	-- hero line: name + big bracket-colored score (mockup header,
 	-- Josh 2026-07-24); the subheader is one dim compact line
 	frame.bigScore:SetText((approx and "~" or "")
-		.. TP.Scoring.Grades.ColoredScore(result.score, TP.Scoring.Grades.IsShamed(result)))
+		.. TP.Scoring.Grades.ColoredScore(result.score, TP.Scoring.Grades.IsShamed(result), result.unclamped))
 	local runR = self.runScores and self.runScores[result.guid]
 	local sub = { fight.name or "this fight" }
 	if fight.wipe then

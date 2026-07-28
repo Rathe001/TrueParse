@@ -143,6 +143,18 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 				if guid and IsSecret(guid) then
 					guid = nil
 				end
+				-- PLAYERS ONLY (Josh 2026-07-28: a death knight's ghoul showed
+				-- up as a 6th member of a 5-man, named "Unknown" because pet
+				-- names come back secret). C_DamageMeter lists pets and
+				-- guardians as their own combat sources, and it has ALREADY
+				-- attributed their output to the owner - every pet row in the
+				-- field data carried zero damage and zero healing. So this
+				-- drops phantom rows, never real contribution.
+				-- MockFight builds its fixtures straight into FightHistory
+				-- and never reaches this loop, so its MOCK- guids are safe.
+				if guid and not guid:find("^Player%-") then
+					guid = nil
+				end
 				if guid then
 					local p = players[guid]
 					if not p then
@@ -1503,9 +1515,21 @@ function FightHistory:OnEnable()
 		if not f.isBoss or f.instanceType == "scenario"
 			or TP.UNSUPPORTED_DIFFICULTY[f.difficultyID or 0] then
 			table.remove(self.fights, i)
-		elseif f.name then
-			-- older captures stored Blizzard's "(!) " prefix in the name
-			f.name = f.name:gsub("^%(!%)%s*", "")
+		else
+			-- Pets captured as group members before the Player- filter
+			-- (2026-07-28). They carry no output — their damage was always
+			-- credited to the owner — but they take a scorecard row and
+			-- inflate the head count the dispel fair-share divides by.
+			-- MOCK- fixtures are deliberate and must survive.
+			for guid in pairs(f.players or {}) do
+				if not guid:find("^Player%-") and not guid:find("^MOCK") then
+					f.players[guid] = nil
+				end
+			end
+			if f.name then
+				-- older captures stored Blizzard's "(!) " prefix in the name
+				f.name = f.name:gsub("^%(!%)%s*", "")
+			end
 		end
 		-- Records captured before the v1.5.4 sampler rewrite (epoch below =
 		-- its exact commit) carry running-MIN percentages that phase bosses

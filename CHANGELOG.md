@@ -1,5 +1,50 @@
 # TrueParse Changelog
 
+## 2.6.0
+
+**Mythic+ parses were wrong for everyone.** Every M+ score read between 94
+and 99 regardless of how the fight actually went - a p10 player and a p90
+player got the same number. Warcraft Logs orders dungeon rankings by
+keystone score rather than by damage or healing, so the correction that
+converts a sampled rank into a true percentile was reading a keystone-sorted
+list as if it were sorted by output. M+ now reports a real percentile, and
+a round-trip test pins it: a player built at exactly p75 of the curve scores
+75, in every raid bracket and every dungeon, on both clients.
+
+**Scores on unranked content are steadier.** Tiers II and III used to scale
+against the dungeon's own Mythic+ curves, and those curves are far too flat
+to scale against - half the p50-to-p99 range is only 25% of output, while
+the gear correction multiplies by three to five times. Nothing landed in the
+middle. They now scale against the raid curves, which have the range to
+absorb it, and tiers II and III carry separate corrections instead of
+sharing one. A player of unchanged skill now scores within a point of
+themselves across a 100-item-level range, where before it moved 20 points.
+
+**Grades.** F is now reserved for a score of zero. Everything under 25 used
+to fail, so a whole band of ordinary grey parses all read as F; they now get
+real letters. S+ has to be earned - the parse plus its bonuses must clear 99
+- so it means something when it appears. Score colours are unchanged.
+
+**Fixes**
+
+- Pets no longer appear as group members. A death knight's ghoul was showing
+  up as a sixth player in a five-man, named "Unknown" because pet names come
+  back hidden. Their damage was always credited to the owner, so nothing is
+  lost. Existing history is cleaned on load.
+- Tank mitigation was never being tracked on retail. The spec check relied on
+  a positional API return that no longer holds, so tanks silently didn't
+  register as tanks and reported no uptime at all. Added `/tp mit`, which
+  reports what your spec resolves to and which mitigation buffs are being
+  watched - useful because the retail buff list is still unverified.
+- The addon downloads about half a megabyte smaller.
+
+Under the hood, scoring is now covered by a validation suite that scores
+synthetic players at known percentiles and checks the engine reports them
+back: damage, healing, tank mitigation anchors, gear independence, role
+fairness, and randomised bounds checking on the adjustment layer. Every role
+scores identically at matched percentiles, which is the promise the addon is
+built on.
+
 ## 2.5.0
 
 **Scores on content Warcraft Logs doesn't rank.** A dungeon run on Normal,

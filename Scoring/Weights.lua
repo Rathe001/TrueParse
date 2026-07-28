@@ -202,7 +202,13 @@ Weights.derivedIlvlCap = 90
 -- difficulty WCL ranks put out less than the ranked population (smaller
 -- pulls, no consumables, no coordination) — and the dungeon curves are
 -- top-runs-skewed on top of that. See the tuning note above.
-Weights.derivedOffDifficulty = 1.4
+-- Tier II and tier III need DIFFERENT lifts and used to share one knob,
+-- which is why no single value fit either (validation pass 2026-07-28).
+-- Tier II is a real difficulty of real content: once gear-scaled against the
+-- raid pool it needs no lift at all. Tier III is mostly Timewalking, where
+-- the content itself rescales players, so it needs a large one.
+Weights.derivedOffDifficulty = 1.0    -- tier II
+Weights.derivedOffDifficultyT3 = 2.5  -- tier III
 
 Weights.penalties = {
 	-- Avoidable damage: penalize taking MORE than your equal share of the

@@ -590,9 +590,9 @@ local function averageSeasonalDungeon(P)
 		end
 		return hit.enc, hit.kind
 	end
-	local enc, kind = poolAllCurves(P, true), "dungeon"
+	local enc, kind = poolAllCurves(P, false), "raid"
 	if not enc then
-		enc, kind = poolAllCurves(P, false), "raid"
+		enc, kind = poolAllCurves(P, true), "dungeon"
 	end
 	if not enc then
 		avgDungeonCache[P] = false
@@ -717,9 +717,18 @@ end
 -- population turns that rank into an honest percentile — same construction
 -- as the kill-speed rescale. Below the sampled tail only a ceiling is
 -- known, so the fade-to-zero anchors there instead of at p10.
-local function entryPercentileFor(entry, rate)
+-- sampleIsMetricOrdered = false disables the correction entirely. It rests on
+-- the sample being the TOP n of the population BY THIS METRIC — only then does
+-- "rank n of total" mean anything. WCL orders DUNGEON rankings by keystone
+-- score instead (see sanitizeEncounter, which exists to unshuffle them), so a
+-- dungeon's 2000 samples are a slice of good KEYS, not of high damage.
+-- Correcting them anyway mapped the entire sampled range onto p99: with
+-- total/n = 114, every probe from p10 to p90 came back 99 (validation pass,
+-- 2026-07-28). Straight interpolation against the sample is the honest read,
+-- and "timed top runs" already labels what that population is.
+local function entryPercentileFor(entry, rate, sampleIsMetricOrdered)
 	local curve, n, total = entry.curve, entry.n, entry.total
-	if not (n and total and total > n) then
+	if sampleIsMetricOrdered == false or not (n and total and total > n) then
 		return percentileFor(curve, rate)
 	end
 	local last = curve[#curve]
@@ -1063,7 +1072,10 @@ local function normalizeMetric(p, role, key, ctx)
 				-- bracket's population before interpolating; on a derived
 				-- tier it also carries the gear + off-difficulty lift
 				scale = (scale or 1) * derivedScale(ctx, p)
-				local pct = entryPercentileFor(entry, scale * curveVal / ctx.duration)
+				-- dungeon samples are keystone-ordered, not metric-ordered
+				local metricOrdered = not (ctx.curves and ctx.curves.dungeonOnly)
+				local pct = entryPercentileFor(entry,
+					scale * curveVal / ctx.duration, metricOrdered)
 				-- True's base IS the percentile (Josh 2026-07-25); the old
 				-- 30 + 0.7x softener predated adjustments, which now do the
 				-- earning-back honestly. Knobs neutral in Weights.
@@ -1139,7 +1151,9 @@ local function normalizeMetric(p, role, key, ctx)
 			if entry then
 				rolePooled = pooled
 				curveFrom = label
-				local pct = entryPercentileFor(entry, (scale or 1) * curveVal / ctx.duration)
+				local metricOrdered = not (ctx.curves and ctx.curves.dungeonOnly)
+				local pct = entryPercentileFor(entry,
+					(scale or 1) * curveVal / ctx.duration, metricOrdered)
 				local p50 = curveP50(entry.curve) -- nil-safe divide (audit)
 				specMedian = p50 and p50 / (scale or 1) or nil
 				return pct, true, pct, nil, specMedian, pct, rolePooled, curveFrom
@@ -1400,8 +1414,14 @@ function Engine.ScoreFight(fight, opts)
 			local isMplus = fight.keystoneLevel ~= nil or fight.difficultyID == 8
 				or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or false
 			if (enc or bracketKey) and not (isDungeon and not enc) then
-				ctx.curves = { P = P, enc = enc, order = bracketSearchOrder(bracketKey),
-					exact = bracketKey, dungeonOnly = isDungeon or nil }
+				local useEnc, dOnly = enc, isDungeon or nil
+				if isDungeon and enc and not isMplus then
+					local pooled = averageSeasonalDungeon(P)
+					if pooled then useEnc, dOnly = pooled, nil end
+				end
+				ctx.curves = { P = P, enc = useEnc,
+					order = (useEnc ~= enc) and { "all" } or bracketSearchOrder(bracketKey),
+					exact = (useEnc == enc) and bracketKey or nil, dungeonOnly = dOnly }
 				-- T2: the curves cover this encounter but not the difficulty
 				-- that was actually played. Dungeons only — a raid missing
 				-- its own bracket already gets the measured bracketRatio
@@ -1439,8 +1459,7 @@ function Engine.ScoreFight(fight, opts)
 						-- fallback (a client with no dungeon data, e.g. MoP
 						-- Celestials) is already a real population spread —
 						-- lifting it too would just inflate the scores.
-						offDifficulty = (poolKind == "dungeon")
-							and (W.derivedOffDifficulty or 1) or 1,
+						offDifficulty = W.derivedOffDifficultyT3 or 1,
 						pool = poolKind,
 					}
 				end

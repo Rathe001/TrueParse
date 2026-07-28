@@ -159,6 +159,31 @@ function Addon:HandleSlash(input)
 	elseif cmd == "debug" then
 		self.db.profile.debug = not self.db.profile.debug
 		self:Print("Debug " .. (self.db.profile.debug and "on." or "off."))
+	elseif cmd == "mit" then
+		-- Mitigation tracking is self-reported and silent when it fails: a
+		-- wrong buff id or a spec that doesn't read as TANK both just produce
+		-- no number. This says which, in one line, while standing in the
+		-- world (Josh 2026-07-28: a tank showing 0% uptime).
+		local role = TP.SelfCasts and TP.SelfCasts.DebugRole and TP.SelfCasts.DebugRole()
+		self:Print(("Spec role reads: %s"):format(tostring(role)))
+		if role ~= "TANK" then
+			self:Print("  Not a tank spec, so mitigation is not tracked (expected).")
+			return
+		end
+		local list = TP.MITIGATION_BUFFS or {}
+		local found, checked = {}, 0
+		for spellId in pairs(list) do
+			checked = checked + 1
+			local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, spellId)
+			local name = C_Spell and C_Spell.GetSpellName and select(1, pcall(C_Spell.GetSpellName, spellId))
+			if ok and aura then
+				found[#found + 1] = tostring(spellId)
+			end
+		end
+		self:Print(("  Watching %d mitigation buff ids; %d up right now%s"):format(
+			checked, #found, #found > 0 and (": " .. table.concat(found, ", ")) or ""))
+		self:Print("  Use your active-mitigation button, then run this again -"
+			.. " if the count stays 0 the id for your spec is wrong.")
 	elseif cmd == "mock" then
 		if rest == "clear" then
 			TP.MockFight:Clear()

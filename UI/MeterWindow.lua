@@ -1408,7 +1408,8 @@ function MeterWindow:RenderScorecard(fight)
 				end
 			end
 		end
-		row.score:SetText((approx and "~" or "") .. TP.Scoring.Grades.ScoreLabel(r.score))
+		row.score:SetText((approx and "~" or "")
+			.. TP.Scoring.Grades.ScoreLabel(r.score, r.unclamped))
 		row.score:SetTextColor(gcr, gcg, gcb)
 		-- signed net adjustment on top of the WCL base: green earns, red costs
 		local netAdj = r.adjust or -(r.penalty or 0)

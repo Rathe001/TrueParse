@@ -10,6 +10,7 @@ ignore:
   - .pkgmeta
   - .github
   - .release-notes.md
+  - Logo.png
 
 # .release-notes.md holds ONLY the latest version's section, extracted from
 # CHANGELOG.md by the release workflow before packaging - otherwise the

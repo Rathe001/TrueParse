@@ -82,16 +82,38 @@ local function stopPhase2Tickers()
 	end
 end
 
+-- Role of the player's own spec. Derived from OUR spec table rather than
+-- GetSpecializationInfo's fifth return value (Josh 2026-07-28): every other
+-- caller in the addon trusts only return 1 (the specID) — Roster does, and
+-- its specIDs are demonstrably correct in the field — so leaning on a
+-- positional role here is the one place a shifted signature could silently
+-- disable tank mitigation tracking, with no error to notice. 17 of 21
+-- addon-running tanks reported every other self-report field but no
+-- mitigation at all, which is exactly what this failure looks like.
 local function specRole()
 	if not (GetSpecialization and GetSpecializationInfo) then
 		return nil
 	end
 	local spec = GetSpecialization()
-	return spec and select(5, GetSpecializationInfo(spec)) or nil
+	if not spec then
+		return nil
+	end
+	local specID = select(1, GetSpecializationInfo(spec))
+	local known = specID and TP.SPEC_ROLES and TP.SPEC_ROLES[specID]
+	if known then
+		return known
+	end
+	return select(5, GetSpecializationInfo(spec)) -- fallback for an unlisted spec
 end
 
 local function isTankSpec()
 	return specRole() == "TANK"
+end
+
+-- exposed for /tp mit, which is the only way to tell a wrong buff id apart
+-- from a spec that never read as TANK
+function SelfCasts.DebugRole()
+	return specRole()
 end
 
 local function buildWatchList()
