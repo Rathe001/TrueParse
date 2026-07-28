@@ -120,6 +120,12 @@ function Addon:OnEnable()
 	TP.EnableCombatLog()
 	TP.FightHistory:OnEnable()
 	TP.Career:OnEnable()
+	-- career totals are accumulated at capture, so a scoring change leaves
+	-- them averaging old numbers against new ones; retire them once per
+	-- scoring epoch and say so, otherwise it just reads as lost data
+	if TP.Career.ResetIfStale() then
+		self:Print("Scoring changed - career stats reset and will re-accumulate.")
+	end
 	TP.AwardToast:OnEnable()
 	TP.Sync:OnEnable()
 	TP.Readiness:OnEnable()

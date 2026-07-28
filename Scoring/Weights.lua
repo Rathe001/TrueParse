@@ -205,6 +205,31 @@ Weights.derivedRefIlvl = 291
 --   Timewalking, level-scaled   0.23 %/ilvl   (corr 0.22)
 -- Applying the shipped 1.489 there over-corrects ~6.5x - a 3.8x boost where
 -- reality is 1.23x - which is exactly why Timewalking scores read high.
+-- A DERIVED tier cannot certify an elite parse (Josh 2026-07-28: "players
+-- shouldn't consistently hit a 99, let alone multiple"). Tier II and III
+-- compare against a population that never played this content, and no amount
+-- of correction makes that evidence strong enough to say "top 1%". The
+-- reference is also measurably tighter than the rooms we score - pooled
+-- spread 1.97x against 2.48x observed in real 5-mans - so everyone above
+-- average lands at the top of a curve that has no top left. Ceilings say
+-- what the tier labels already say: approximate, and rough.
+Weights.derivedCeiling = { [2] = 95, [3] = 90 }
+-- COMPRESSED, not clamped (Josh 2026-07-28: "doesn't that mean we'll see a
+-- bunch of players pegged at 90 instead of 99?" - measured, and a hard clamp
+-- put 38% of tier-3 scores on exactly 90, which is a worse failure than the
+-- 99s it replaced). Everything below the knee is untouched; the range above
+-- it is squeezed into knee..ceiling, so the ordering survives and nobody
+-- piles up except players the curve genuinely cannot separate.
+Weights.derivedCeilingKnee = 70
+
+-- Dispersion between the reference curve and the rooms we score does NOT
+-- line up (2.48x observed against 1.97x pooled), and damping the
+-- deviation to match was tried and REVERTED 2026-07-28: measured against
+-- real fights it moved score ORDERING by 1 point in 215 pairs. The
+-- inversions it was meant to fix are mostly legitimate - two specs are
+-- held to different bars, and tier 1 shows the same 6% rate on curves we
+-- know are right. Do not re-add without a measurement that moves.
+
 Weights.derivedIlvlSlopeScaled = 0.23
 
 Weights.derivedIlvlCap = 90
@@ -232,7 +257,14 @@ Weights.penalties = {
 	-- Avoidable damage: penalize taking MORE than your equal share of the
 	-- group's avoidable damage. Eating ~40% above your share = full cap.
 	avoidablePerExcessShare = 37.5,
-	avoidableCap = 15,
+	-- 9, not the old 15 (Josh 2026-07-28: "+/-15 seems like too much
+	-- reward/penalty"). Measured before changing anything: the typical
+	-- adjustment is 1.8 points and only 2.7% of scores reach the total cap,
+	-- so the TOTAL was not the problem. The problem was that this one cap
+	-- EQUALLED the total, so avoidable damage alone could max the whole
+	-- budget - 22 of the 31 capped scores were this metric by itself.
+	-- Reaching the full 15 should take more than a single mistake.
+	avoidableCap = 9,
 	perDeath = 10,
 	deathsCap = 20,
 	-- Deaths hurt less the later they happen: a death at the very end of

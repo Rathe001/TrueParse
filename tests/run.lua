@@ -113,7 +113,7 @@ end)()
 -- (Timewalking's bimodal spread, the unbuildable Celestial fixture) are
 -- listed in its own output; this gate only fails on NEW breakage.
 ;(function()
-	local KNOWN = 4 -- see tests/validate.lua's printed problem list
+	local KNOWN = 2 -- see tests/validate.lua's printed problem list
 	local ok, count = pcall(dofile, "tests/validate.lua")
 	check(ok and type(count) == "number" and count <= KNOWN,
 		("score validation finds no new problems (%s)"):format(
@@ -264,7 +264,7 @@ end
 -- 5. Penalties: DpsB ate all avoidable damage and died once
 check(byName.DpsB.penalty > 10, ("DpsB penalized (%.1f)"):format(byName.DpsB.penalty))
 check(byName.DpsA.penalty == 0, "DpsA not penalized")
-check(byName.DpsB.penaltyDetail.avoidable == 15, "avoidable penalty capped at 15")
+check(byName.DpsB.penaltyDetail.avoidable == 9, "avoidable penalty capped at 9")
 check(byName.DpsB.penaltyDetail.deaths == 10, "one death costs 10")
 
 -- 6. Cross-role fairness (Josh 2026-07-26): a tank's PRIMARY metric is
@@ -591,7 +591,10 @@ for _, r in ipairs(coachResults) do
 	coachByName[r.name] = r
 end
 local advice = TP.Scoring.Coach.BiggestOpportunity(coachByName.DpsB)
-check(advice ~= nil and advice.kind == "avoidable", "penalized player coached about avoidable damage first")
+-- avoidableCap dropped to 9, so the DEATH (10) is now the larger loss here
+-- and the coach leads with it. Ranking is by cost, which is the point.
+check(advice ~= nil and advice.kind == "deaths",
+	("coach leads with the biggest loss (%s)"):format(tostring(advice and advice.kind)))
 local adviceA = TP.Scoring.Coach.BiggestOpportunity(coachByName.DpsA)
 check(adviceA == nil or adviceA.kind == "throughput", "clean player gets throughput advice or none")
 
@@ -1475,22 +1478,32 @@ end
 		("derived median is restated at the player's item level (%.0f)"):format(
 			t2.breakdown.damage.specMedian))
 
-	-- the cap is what stops a leveling group pegging at 99
-	W.derivedIlvlCap = 10000
-	local uncapped = deeps(mk({ difficulty = "Normal", difficultyID = 1,
-		players = { d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER",
-			specID = 63, ilvl = 40,
-			metrics = { damage = 2000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } } } }))
-	check(uncapped.breakdown.damage.pctile > 90,
-		("uncapped, a 260-ilvl gap runs away up the curve (%.1f)"):format(uncapped.breakdown.damage.pctile))
+	-- The cap bounds how far the gear extrapolation can carry a player up
+	-- the curve. Asserted on the OBSERVABLE contract - a tighter cap must
+	-- never score higher - across a range of rates, rather than on one
+	-- synthetic fixture whose reference population has moved twice.
+	local savedCeiling = W.derivedCeiling
+	W.derivedCeiling = nil -- the ceiling clamps both sides and hides the cap
+	local function atCap(rate, cap)
+		W.derivedIlvlCap = cap
+		local r = deeps(mk({ difficulty = "Normal", difficultyID = 1,
+			players = { d = { guid = "d", name = "Deeps", class = "MAGE",
+				role = "DAMAGER", specID = 63, ilvl = 120,
+				metrics = { damage = rate * 100, healing = 0, interrupts = 0,
+					dispels = 0, deaths = 0 } } } }))
+		return r.breakdown.damage.pctile or 0
+	end
+	local capMonotone, capBinds = true, false
+	for _, rate in ipairs({ 50, 200, 500, 1200, 2500 }) do
+		local tight, loose = atCap(rate, 20), atCap(rate, 10000)
+		if tight > loose + 0.01 then capMonotone = false end
+		if loose > tight + 10 then capBinds = true end
+	end
+	check(capMonotone, "a tighter ilvl cap never scores higher")
+	check(capBinds, "the cap actually binds - uncapped runs away up the curve")
+	W.derivedCeiling = savedCeiling
 	W.derivedIlvlCap = 90
-	local capped = deeps(mk({ difficulty = "Normal", difficultyID = 1,
-		players = { d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER",
-			specID = 63, ilvl = 40,
-			metrics = { damage = 2000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } } } }))
-	check(capped.breakdown.damage.pctile < 60,
-		("the cap keeps a leveling group honest (%.1f)"):format(capped.breakdown.damage.pctile))
-
+	W.derivedIlvlCap = 90
 	-- T3: a dungeon with NO curves of its own falls back to the pooled
 	-- average of every dungeon-keyed encounter we ship.
 	local t3 = deeps(mk({ zone = "Unranked Dungeon", difficulty = "Timewalking", difficultyID = 24 }))
@@ -1975,10 +1988,12 @@ check(math.abs((adjByName.Kicker.adjustDetail.avoidable or 0) - 3) < 0.1,
 	("clean under heavy avoidable pressure: +3 (%.1f)"):format(adjByName.Kicker.adjustDetail.avoidable or 0))
 check((adjByName.Slacker.adjustDetail.kicks or 0) < -3,
 	("kick-capable non-kicker on a kick-heavy fight loses points (%.1f)"):format(adjByName.Slacker.adjustDetail.kicks or 0))
-check(math.abs((adjByName.Slacker.adjustDetail.avoidable or 0) + 15) < 0.1,
-	("ate the whole group's avoidable: old cap applies (%.1f)"):format(adjByName.Slacker.adjustDetail.avoidable or 0))
-check(adjByName.Slacker.adjust == -15, "net adjustment clamps at the total cap")
-check(adjByName.Slacker.penaltyDetail.avoidable == 15, "legacy penaltyDetail mirrors the negative side")
+check(math.abs((adjByName.Slacker.adjustDetail.avoidable or 0) + 9) < 0.1,
+	("ate the whole group's avoidable: its own cap applies (%.1f)"):format(adjByName.Slacker.adjustDetail.avoidable or 0))
+-- one mistake no longer spends the whole budget: -9 of the -15 total
+check(adjByName.Slacker.adjust > -15,
+	("one metric alone cannot max the total cap (%.1f)"):format(adjByName.Slacker.adjust))
+check(adjByName.Slacker.penaltyDetail.avoidable == 9, "legacy penaltyDetail mirrors the negative side")
 check(math.abs(adjByName.Kicker.score - math.min(99, adjByName.Kicker.base + adjByName.Kicker.adjust)) < 0.001,
 	"score = clamp(base + net adjustment), 99 ceiling")
 
@@ -3374,8 +3389,15 @@ end)()
 			row = r
 		end
 	end
-	check(row and row.label == "Mitigation" and row.b and row.base and row.raw,
-		("tanking row reads breakdown.tanking, base + raw (%s)"):format(tostring(row and row.label)))
+	-- `tier` not `raw` since 2026-07-28: the anchors are crawled WCL
+	-- quantiles, so the score is a population percentile and wears the
+	-- bracket gauge like damage and healing rather than flat verdict colours
+	check(row and row.label == "Mitigation" and row.b and row.base and row.tier,
+		("mitigation row reads breakdown.mitigation, base + gauge tier (%s)"):format(
+			tostring(row and row.label)))
+	check(row and row.tier == row.value,
+		("the gauge marker sits at the score (%s vs %s)"):format(
+			tostring(row and row.tier), tostring(row and row.value)))
 	check(row and row.value == 52,
 		("the row's number is the uptime percentile (%s)"):format(tostring(row and row.value)))
 	check(row and row.tipText and row.tipText:find("Mitigation up 57%%") ~= nil
@@ -3913,6 +3935,33 @@ end)()
 	local ct = table.concat(R.Run("fight", { fight = chipWipe, runFights = { chipWipe } }) or {}, " ")
 	check(ct:find("chip damage", 1, true) ~= nil,
 		("chip-dominant deaths read as a healing-gap signal (%s)"):format(ct))
+end)()
+
+-- 42. Career epoch reset (Josh 2026-07-28: "reset them on login and let
+-- them reaccumulate"). Career totals accumulate at capture, so a scoring
+-- change leaves them averaging retired numbers against current ones. The
+-- reset must fire ONCE per epoch: a version that re-fires every login would
+-- silently keep the player's stats empty forever, which looks identical to
+-- the feature simply not working.
+;(function()
+	local CTP = { Addon = { db = { char = {} }, Print = function() end },
+		Events = { Register = function() end } }
+	assert(loadfile("Core/Career.lua"))("TrueParse", CTP)
+	local db, C = CTP.Addon.db, CTP.Career
+
+	check(C.ResetIfStale() == false, "fresh install announces no reset (nothing to retire)")
+
+	db.char.career = { fights = 99, sumScore = 8000, recent = { 1, 2, 3 } }
+	check(C.ResetIfStale() == true, "a store from an older epoch is retired")
+	check((db.char.career.fights or -1) == 0, "retired career starts from zero")
+
+	db.char.career.fights, db.char.career.sumScore = 7, 500
+	check(C.ResetIfStale() == false, "second login does NOT reset again")
+	check(C.ResetIfStale() == false, "nor does the third")
+	check(db.char.career.fights == 7, "re-accumulated stats survive later logins")
+
+	db.char.career.epoch = "older-epoch"
+	check(C.ResetIfStale() == true, "bumping the epoch retires the store again")
 end)()
 
 print("")

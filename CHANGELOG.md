@@ -1,5 +1,36 @@
 # TrueParse Changelog
 
+## 2.6.2
+
+**Derived scores stop handing out elite parses.** For content Warcraft Logs
+doesn't rank, TrueParse builds a reference curve by pooling every curve it has
+for your spec. That pooling was flattening the result: curves from easy and
+hard encounters were averaged together directly, so the reference came out
+compressed and anything above average shot to the top of it. Each curve is now
+normalised to its own shape before pooling, which keeps the spread intact.
+On top of that, approximate scores are capped at 95 and rough ones at 90 - not
+clamped, but compressed above 70, so the ordering survives and players don't
+pile up on the ceiling. A derived tier is an estimate against players who never
+ran this content; it shouldn't be able to certify a top-1% parse.
+
+**One mistake can no longer spend your entire penalty budget.** Avoidable
+damage was capped at 15 points - exactly the cap on all adjustments combined -
+so a single bad night on mechanics could max out the penalty by itself. It's
+capped at 9 now. The overall +/-15 range is unchanged; reaching it just takes
+more than one thing going wrong.
+
+**Tank mitigation gets the same colour bar as everything else.** Now that
+mitigation is scored against crawled per-spec Warcraft Logs baselines, it's a
+real population percentile, so it's coloured like one instead of using flat
+verdict colours.
+
+**Career stats reset once after a scoring change.** Career totals are banked
+when a fight is captured, while fight scores are recalculated every time you
+look at them - so after a recalibration your career GPA was averaging retired
+numbers against current ones. Stats now clear once when scoring changes
+materially and re-accumulate under the new rules. It happens once per
+character, and says so when it does.
+
 ## 2.6.1
 
 **Tank mitigation is now scored against real Warcraft Logs data.** 2.6.0

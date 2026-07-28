@@ -144,7 +144,13 @@ local function mitigationRow(m, b, specID)
 	local row = barRow("mitigation", ICONS.damageTaken, "Mitigation", b.normalized or 0, nil)
 	row.b = b
 	row.base = true -- the primary tank metric: part of the raw score
-	row.raw = true -- scored vs the spec's own WCL uptime field, not a parse
+	-- Wears the bracket gauge like damage and healing do (Josh 2026-07-28:
+	-- "is there a reason mitigation doesn't have the WCL colour bar?"). It
+	-- used to be flagged `raw`, which routes to flat verdict colours - that
+	-- was right when the anchors were a hand-picked { 30, 55, 75 }, but they
+	-- are crawled WCL quantiles now, so the score IS a population percentile
+	-- and has every right to the same gauge.
+	row.tier = math.max(0, math.min(99, b.normalized or 0))
 	row.tipTitle = "Mitigation"
 	local up = b.value or 0
 	local anc = b.anchors

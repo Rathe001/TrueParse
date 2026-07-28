@@ -270,7 +270,12 @@ for _, sc in ipairs(SCENARIOS) do
 	local TP = CLIENTS[sc.client]
 	local encName, specID, dpsEntry = pickCurve(TP, sc.bracket, (not sc.unranked) and sc.dungeon or nil)
 	if encName then
-		local slope = (TP.Benchmarks and TP.Benchmarks.ilvlSlopePct or 1.489) / 100
+		-- the model must use the slope that content ACTUALLY has, or the
+		-- test manufactures drift: Timewalking rescales everyone, so item
+		-- level predicts output there at 0.23%/ilvl, not 1.489%
+		local slope = ((sc.difficultyID == 24)
+			and (TP.Scoring.Weights.derivedIlvlSlopeScaled or 0.23)
+			or (TP.Benchmarks and TP.Benchmarks.ilvlSlopePct or 1.489)) / 100
 		local ref = refIlvlOf(TP)
 		local p50 = curveValueAt(dpsEntry.curve, 50)
 		local duration, out, tier = 300, {}, nil

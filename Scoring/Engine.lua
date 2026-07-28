@@ -466,6 +466,21 @@ local function globalPool(P, bracketKey, kind, accept, cacheKey)
 	return pooled
 end
 
+-- Hoisted above poolAllCurves, which normalises each curve by its own
+-- median (2026-07-28): a later definition would compile that call as a
+-- nil global, exactly the trap this file already warns about elsewhere.
+local function curveP50(curve)
+	if not curve then
+		return nil
+	end
+	for _, point in ipairs(curve) do
+		if point[1] == 50 then
+			return point[2]
+		end
+	end
+	return nil
+end
+
 -- === Derived tiers (Josh 2026-07-28) ===================================
 -- T1 DIRECT   the fight's difficulty matches the population the curves were
 --             sampled from: a Normal raid against the Normal curve, ANY M+
@@ -522,7 +537,7 @@ local avgDungeonCache = setmetatable({}, { __mode = "k" })
 
 local function poolAllCurves(P, wantDungeon)
 	local out = { dps = {}, hps = {} }
-	local sums, weights, totals = {}, {}, {}
+	local sums, weights, totals, levels = {}, {}, {}, {}
 	for name, enc in pairs(P.encounters or {}) do
 		if (not wantDungeon) or isDungeonKeyed(P, name, enc) then
 			for bk, bracket in pairs(enc) do
@@ -534,14 +549,31 @@ local function poolAllCurves(P, wantDungeon)
 								sums[kind] = sums[kind] or {}
 								weights[kind] = weights[kind] or {}
 								totals[kind] = totals[kind] or {}
+								levels[kind] = levels[kind] or {}
 								sums[kind][specID] = sums[kind][specID] or {}
 								weights[kind][specID] = (weights[kind][specID] or 0) + n
 								-- entry.total is the real population behind
 								-- the sample; entryPercentileFor needs it to
 								-- undo the 2000-char sampling cap
 								totals[kind][specID] = (totals[kind][specID] or 0) + (entry.total or n)
-								for _, pt in ipairs(entry.curve) do
-									sums[kind][specID][pt[1]] = (sums[kind][specID][pt[1]] or 0) + pt[2] * n
+								-- Pool the SHAPE, not the raw values. Specs sit at very
+								-- different absolute levels, so averaging quantile by
+								-- quantile pulls the low end up and the high end down and
+								-- the pooled curve comes out far tighter than any curve
+								-- that went into it - measured 1.79x p90/p10 against 2.77x
+								-- for the individual curves (2026-07-28). A reference
+								-- narrower than the population it scores makes everyone
+								-- above the median peg at 99, which is exactly what Josh
+								-- was seeing. Normalising each curve by its own median
+								-- first preserves the dispersion; the level is carried
+								-- separately and multiplied back on.
+								local own50 = curveP50(entry.curve)
+								if own50 and own50 > 0 then
+									levels[kind][specID] = (levels[kind][specID] or 0) + own50 * n
+									for _, pt in ipairs(entry.curve) do
+										sums[kind][specID][pt[1]] =
+											(sums[kind][specID][pt[1]] or 0) + (pt[2] / own50) * n
+									end
 								end
 							end
 						end
@@ -554,11 +586,14 @@ local function poolAllCurves(P, wantDungeon)
 	for _, kind in ipairs({ "dps", "hps" }) do
 		for specID, byPct in pairs(sums[kind] or {}) do
 			local n = weights[kind][specID]
-			if n and n > 0 then
+			local level = (levels[kind] and levels[kind][specID] or 0)
+			if n and n > 0 and level > 0 then
+				-- shape (normalised, averaged) x the sample-weighted median level
+				local avgLevel = level / n
 				local curve = {}
 				for _, pct in ipairs(QUANTS) do
 					if byPct[pct] then
-						curve[#curve + 1] = { pct, byPct[pct] / n }
+						curve[#curve + 1] = { pct, (byPct[pct] / n) * avgLevel }
 					end
 				end
 				-- per-quantile averages can cross; percentileFor's contract
@@ -646,6 +681,33 @@ end
 -- Applied regardless of the /tp ilvl toggle: for a derived tier the gear
 -- scale isn't an optional normalization, it's what makes the comparison mean
 -- anything (uncapped OR unapplied, a leveling group reads straight 0s).
+-- A derived tier can approximate a good score, never certify an elite one —
+-- but SQUEEZE the top rather than clamping it, or a third of the field lands
+-- on the same number (measured: a hard clamp put 38% of tier-3 scores on
+-- exactly 90). Below the knee is untouched; knee..99 compresses into
+-- knee..ceiling, so the ordering survives.
+-- Applies to EVERY scored metric on a derived tier, mitigation included: its
+-- anchors are crawled from raid tanks, and holding 99% uptime in Timewalking
+-- is not the same achievement as holding it in Mythic.
+local function derivedCeil(ctx, v)
+	if not v or not ctx.derived then
+		return v
+	end
+	local W = TP.Scoring.Weights
+	local ceiling = W.derivedCeiling and W.derivedCeiling[ctx.derived.tier]
+	if not ceiling then
+		return v
+	end
+	local knee = W.derivedCeilingKnee or 70
+	if knee >= ceiling or ceiling >= 99 then
+		return math.min(v, ceiling)
+	end
+	if v <= knee then
+		return v
+	end
+	return knee + (v - knee) * (ceiling - knee) / (99 - knee)
+end
+
 local function derivedScale(ctx, p)
 	local d = ctx.derived
 	if not d then
@@ -670,18 +732,6 @@ local function derivedScale(ctx, p)
 		scale = scale * (1 + slopePct / 100) ^ gap
 	end
 	return scale
-end
-
-local function curveP50(curve)
-	if not curve then
-		return nil
-	end
-	for _, point in ipairs(curve) do
-		if point[1] == 50 then
-			return point[2]
-		end
-	end
-	return nil
 end
 
 -- curve: { {99, value}, {95, value}, ... } descending. Linear interpolation
@@ -1022,7 +1072,7 @@ local function normalizeMetric(p, role, key, ctx)
 		end
 		local AN = TP.TANK_ANCHORS or {}
 		local a = (p.specID and AN[p.specID]) or AN.default or { 30, 55, 75 }
-		return anchorScore(up, a[1], a[2], a[3]), true
+		return derivedCeil(ctx, anchorScore(up, a[1], a[2], a[3])), true
 	end
 
 	-- Damage soaked: no external population exists (WCL doesn't rank damage
@@ -1085,6 +1135,10 @@ local function normalizeMetric(p, role, key, ctx)
 				-- 30 + 0.7x softener predated adjustments, which now do the
 				-- earning-back honestly. Knobs neutral in Weights.
 				absolute = math.min(100, (W.trueAbsFloor or 0) + (W.trueAbsSlope or 1) * pct)
+				-- A derived tier can approximate a good parse, never certify an
+				-- elite one — but SQUEEZE the top rather than clamping it, or a
+				-- third of the field lands on the same number (see Weights).
+				absolute, pct = derivedCeil(ctx, absolute), derivedCeil(ctx, pct)
 				fromCurve = true
 				pctile = pct -- raw percentile, for the tooltip gauge
 				-- surfaced in tooltips: "the median of your spec does Y/s

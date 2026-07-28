@@ -8,6 +8,16 @@ TP.Career = Career
 
 local RECENT_CAP = 40
 
+-- Career totals are ACCUMULATED at capture time, so they freeze whatever the
+-- scoring said on the day. Fight scores do not: they are recomputed from the
+-- stored raw metrics every time a card is drawn, so after a calibration change
+-- the same fights re-grade while the career GPA does not - and /tp career ends
+-- up disagreeing with the scorecard it came from.
+-- Bump this whenever scoring moves enough to invalidate accumulated totals;
+-- the stats reset once and re-accumulate honestly under the new rules
+-- (Josh 2026-07-28: "reset them on login and let them reaccumulate").
+local SCORING_EPOCH = "2026-07-28-derived-tiers"
+
 local function countPlayers(players)
 	local n = 0
 	for _ in pairs(players) do
@@ -16,15 +26,40 @@ local function countPlayers(players)
 	return n
 end
 
+local function freshStore()
+	return {
+		fights = 0, sumScore = 0,
+		best = nil, recent = {}, metricSum = {}, metricN = {},
+		epoch = SCORING_EPOCH,
+	}
+end
+
 local function getStore()
 	local db = TP.Addon.db.char
-	if not db.career then
-		db.career = {
-			fights = 0, sumScore = 0,
-			best = nil, recent = {}, metricSum = {}, metricN = {},
-		}
+	-- a store from an older scoring epoch holds numbers the current engine
+	-- would never produce: start it over rather than average across the two
+	if not db.career or db.career.epoch ~= SCORING_EPOCH then
+		db.career = freshStore()
 	end
 	return db.career
+end
+
+-- Exposed so Init can retire stale totals on login rather than lazily on the
+-- next capture, which would otherwise leave /tp career showing old numbers
+-- until the player's next boss kill.
+function Career.ResetIfStale()
+	local db = TP.Addon and TP.Addon.db and TP.Addon.db.char
+	if not db then
+		return false
+	end
+	if db.career and db.career.epoch == SCORING_EPOCH then
+		return false
+	end
+	-- a fresh character has nothing to retire: stamp the epoch quietly so the
+	-- first login does not announce a reset of stats that never existed
+	local hadStats = db.career and (db.career.fights or 0) > 0
+	db.career = freshStore()
+	return hadStats and true or false
 end
 
 local function onFightCaptured(_, fight)
