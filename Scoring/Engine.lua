@@ -654,7 +654,12 @@ local function derivedScale(ctx, p)
 	local W = TP.Scoring.Weights
 	local scale = d.offDifficulty or 1
 	local B = TP.Benchmarks
-	if B and B.ilvlSlopePct and d.refIlvl and p.ilvl and p.ilvl > 0 then
+	-- Timewalking scales every character to a common power level, so gear
+	-- has almost no purchase there (measured 0.23%/ilvl against the shipped
+	-- 1.489). Correcting at the normal slope inflates those scores badly.
+	local slopePct = d.levelScaled and (W.derivedIlvlSlopeScaled or 0.23)
+		or (B and B.ilvlSlopePct)
+	if B and slopePct and d.refIlvl and p.ilvl and p.ilvl > 0 then
 		local cap = W.derivedIlvlCap or 90
 		local gap = d.refIlvl - p.ilvl
 		if gap > cap then
@@ -662,7 +667,7 @@ local function derivedScale(ctx, p)
 		elseif gap < -cap then
 			gap = -cap
 		end
-		scale = scale * (1 + B.ilvlSlopePct / 100) ^ gap
+		scale = scale * (1 + slopePct / 100) ^ gap
 	end
 	return scale
 end
@@ -1431,6 +1436,7 @@ function Engine.ScoreFight(fight, opts)
 					ctx.derived = {
 						tier = 2,
 						refIlvl = percentileRefIlvl(P),
+						levelScaled = (fight.difficultyID == 24) or nil,
 						offDifficulty = W.derivedOffDifficulty or 1,
 						label = fight.zone,
 					}
@@ -1454,12 +1460,15 @@ function Engine.ScoreFight(fight, opts)
 					ctx.derived = {
 						tier = 3,
 						refIlvl = percentileRefIlvl(P),
+						levelScaled = (fight.difficultyID == 24) or nil,
 						-- the off-difficulty lift corrects for the DUNGEON
 						-- curves being top-runs-skewed. A raid-pooled
 						-- fallback (a client with no dungeon data, e.g. MoP
 						-- Celestials) is already a real population spread —
 						-- lifting it too would just inflate the scores.
-						offDifficulty = W.derivedOffDifficultyT3 or 1,
+						offDifficulty = ((fight.difficultyID == 24)
+							and W.derivedOffDifficultyScaled
+							or W.derivedOffDifficultyT3) or 1,
 						pool = poolKind,
 					}
 				end
@@ -1583,6 +1592,27 @@ function Engine.ScoreFight(fight, opts)
 			if d50 and h50 and budget > 0 then
 				local mix = h50 / math.max(1, d50 + h50)
 				mix = math.min(0.95, mix)
+				-- HEALING DEMAND (Josh 2026-07-28): with nothing to heal, a
+				-- healer should be judged on the thing they could still
+				-- control - their damage - rather than on healing that was
+				-- never needed. Demand is the group's incoming damage per
+				-- healer measured against THIS spec's own median HPS, so 1.0
+				-- means "a normal fight for this spec" and the mix above
+				-- stands unchanged. At zero it slides all the way to the
+				-- DAMAGER mix and the healer is graded like a DPS.
+				-- Complements the low-demand FLOOR further down: the floor
+				-- stops a needless healing score from hurting, this decides
+				-- how much that score should have counted in the first place.
+				if role == "HEALER" and h50 > 0 and ctx.duration and ctx.duration > 0 then
+					local healerN = math.max(1, #(ctx.cohorts.HEALER or {}))
+					local demand = (ctx.totals.damageTaken or 0) / ctx.duration / healerN
+					local ratio = demand / h50
+					if ratio < 0 then ratio = 0 elseif ratio > 1 then ratio = 1 end
+					local dw = W.roleWeights.DAMAGER or {}
+					local dTotal = (dw.damage or 0) + (dw.healing or 0)
+					local dpsMix = (dTotal > 0) and ((dw.healing or 0) / dTotal) or mix
+					mix = dpsMix + (mix - dpsMix) * ratio
+				end
 				local specWeights = {}
 				for k, v in pairs(weights) do
 					specWeights[k] = v
@@ -1649,7 +1679,7 @@ function Engine.ScoreFight(fight, opts)
 				curveFrom = curveFrom, -- comparison population when zoomed out
 				-- derived tier: this percentile came from WCL data sampled on
 				-- OTHER content, gear- and difficulty-scaled to fit (tier 2 =
-				-- this dungeon's M+ curves, tier 3 = the seasonal average).
+				-- this dungeon's M+ curves, tier 3 = the pooled curves).
 				-- pctile is set only where a curve produced the score — the
 				-- fightFactors/cohort fallbacks aren't derived, they're just
 				-- the old approximations.

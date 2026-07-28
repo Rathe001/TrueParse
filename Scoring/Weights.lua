@@ -196,6 +196,17 @@ Weights.derivedRefIlvl = 291
 -- curves are compressed (p99/p50 = 1.26 vs 2.09 in raids), so a small change
 -- in the rate ratio swings the percentile hard. Retune the same way — sweep
 -- against real captures, match T1's quantiles — if the curves are recrawled.
+-- LEVEL-SCALED content (Timewalking) already flattens everyone, so item
+-- level barely predicts output there and the normal gear correction
+-- massively overshoots. Measured on Josh's captures (2026-07-28), slope of
+-- ln(rate) on item level by content:
+--   raid                        2.01 %/ilvl   (corr 0.58)
+--   dungeon, not scaled         1.06 %/ilvl   (corr 0.77)
+--   Timewalking, level-scaled   0.23 %/ilvl   (corr 0.22)
+-- Applying the shipped 1.489 there over-corrects ~6.5x - a 3.8x boost where
+-- reality is 1.23x - which is exactly why Timewalking scores read high.
+Weights.derivedIlvlSlopeScaled = 0.23
+
 Weights.derivedIlvlCap = 90
 
 -- Off-difficulty lift. Even at equal gear, players running content BELOW the
@@ -208,7 +219,14 @@ Weights.derivedIlvlCap = 90
 -- raid pool it needs no lift at all. Tier III is mostly Timewalking, where
 -- the content itself rescales players, so it needs a large one.
 Weights.derivedOffDifficulty = 1.0    -- tier II
-Weights.derivedOffDifficultyT3 = 2.5  -- tier III
+Weights.derivedOffDifficultyT3 = 3.0  -- tier III, normal-power content
+-- Tier III in LEVEL-SCALED content needs its own, much larger correction.
+-- Timewalking squashes every character's power to the old expansion's
+-- level, so the gap to a max-level raid population is content scaling, not
+-- gear - and with the gear slope now honest (0.23%/ilvl) nothing else was
+-- accounting for it. Tuned the same way as the others: swept until the
+-- Timewalking distribution tracked tier 1's (2026-07-28).
+Weights.derivedOffDifficultyScaled = 4.0
 
 Weights.penalties = {
 	-- Avoidable damage: penalize taking MORE than your equal share of the

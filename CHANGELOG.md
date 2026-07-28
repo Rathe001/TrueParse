@@ -1,5 +1,40 @@
 # TrueParse Changelog
 
+## 2.6.1
+
+**Tank mitigation is now scored against real Warcraft Logs data.** 2.6.0
+turned tank mitigation tracking back on, but it was still measured against a
+placeholder baseline carried over from Classic - and on retail that
+placeholder was far too generous. A tank holding average uptime for their
+spec was scoring 94 out of 100 on the metric worth over half their grade.
+Four specs now carry crawled per-spec baselines (Protection Warrior,
+Guardian Druid, Blood Death Knight, Vengeance Demon Hunter) and any spec
+without enough samples falls back to the middle of those rather than to a
+guess. Expect retail tank scores to drop by roughly twenty points, which is
+where they should have been.
+
+**Timewalking scores were too high.** Item level barely matters in
+Timewalking - the game scales everyone to a common power level - but the
+addon was correcting for gear as if it were a normal fight, inflating those
+scores. Measured against real logs, item level predicts output six times
+less strongly in Timewalking than at max level. Corrected, and the
+content-difficulty adjustment now carries that gap explicitly. Timewalking
+scores drop back in line with everything else; nothing outside Timewalking
+changes.
+
+**Healers are graded on the fight they actually got.** When there is little
+or nothing to heal, healing now counts for less and damage for more - all
+the way to being graded like a damage dealer when no damage went out at all.
+A normal amount of incoming damage keeps the usual balance. Judged per spec,
+against how much that spec normally heals.
+
+**Fixes**
+
+- The tier tooltip said scores were "ranked at the difficulty you played,
+  any Mythic+ key counts", which read as dungeon-only inside a raid. It now
+  names both. The Tier III tooltip also still described comparing against
+  other dungeons, which stopped being true in 2.6.0.
+
 ## 2.6.0
 
 **Mythic+ parses were wrong for everyone.** Every M+ score read between 94

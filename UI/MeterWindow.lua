@@ -56,13 +56,13 @@ local PADDING = 6
 local TIERS = {
 	{ tier = 1, numeral = "I", title = "Precise", r = 0.35, g = 0.85, b = 0.4,
 		what = "A 1:1 comparison against Warcraft Logs.",
-		how = "Ranked at the difficulty you played. Any Mythic+ key counts." },
+		how = "Ranked at the difficulty you played - any raid difficulty, any Mythic+ key." },
 	{ tier = 2, numeral = "II", title = "Approximate", r = 0.95, g = 0.8, b = 0.3,
 		what = "This dungeon's real curves, scaled to your gear.",
 		how = "Not a real parse: WCL only ranks this dungeon at Mythic+, so the difficulty gap is corrected." },
 	{ tier = 3, numeral = "III", title = "Rough", r = 0.9, g = 0.4, b = 0.35,
 		what = "Nothing on Warcraft Logs covers this fight.",
-		how = "Averaged across every dungeon we have and scaled to your gear. Don't quote this number." },
+		how = "Averaged across everything we do have, scaled to your gear. Don't quote this number." },
 }
 local lastTier = 1
 local SCORECARD_ROW_HEIGHT = 18 -- Details-proportioned rows: icon = row height
