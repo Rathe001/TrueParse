@@ -66,6 +66,31 @@ local function readAttribute(sessionID, enumValue)
 	return session
 end
 
+-- A capture with no encounterID whose instance context reads "none" can't be
+-- PLACED: either the meter handed the session over from outside the instance,
+-- or the ENCOUNTER_END that carries zone/difficulty/encounterID never
+-- arrived. Outdoors GetInstanceInfo names the continent, so these records
+-- wear "Eastern Kingdoms" and difficulty 0.
+local function isPlaceless(f)
+	return not f.encounterID and (not f.instanceType or f.instanceType == "none")
+end
+
+-- Is there already a properly-placed capture of this same fight? Same boss,
+-- same length within a couple of seconds (a re-read drifts a little), and
+-- close enough in time to be the same play session rather than a re-farm.
+local function hasPlacedTwin(fights, fight)
+	for i = 1, #fights do
+		local f = fights[i]
+		if f ~= fight and f.name == fight.name and not isPlaceless(f)
+			and math.abs((f.duration or 0) - (fight.duration or 0)) <= 3
+			and math.abs((f.capturedAt or 0) - (fight.capturedAt or 0)) <= 10800 then
+			return true
+		end
+	end
+	return false
+end
+FightHistory.IsPlaceless = isPlaceless -- exposed for diagnostics
+
 -- Attempts a full capture. Returns false when the session is still locked.
 function FightHistory:TrySnapshot(sessionID, descriptor)
 	local players, totals = {}, {}
@@ -315,6 +340,20 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- NPC bodyguards — the not-supported card promises these are never
 	-- captured, so keep that promise even for boss sessions.
 	if itype == "scenario" or TP.UNSUPPORTED_DIFFICULTY[fight.difficultyID or 0] then
+		self.snapshotted[sessionID] = true
+		return true
+	end
+
+	-- PHANTOM re-capture (Josh 2026-07-27): DAMAGE_METER_RESET wipes both
+	-- snapshotted and sessionContext, so every session the meter still lists
+	-- gets re-read from OUTSIDE the instance - the continent for a zone,
+	-- difficulty 0, and no ENCOUNTER_END left to correct either. A whole
+	-- Murder Row run landed a second time under "Eastern Kingdoms" that way.
+	-- Only drop it when the properly-placed capture already exists: the same
+	-- placeless shape with NO twin is the real record for bulk-unlocked
+	-- (LFR-style) fights that stream in after you leave, and those must
+	-- still capture.
+	if isPlaceless(fight) and hasPlacedTwin(self.fights, fight) then
 		self.snapshotted[sessionID] = true
 		return true
 	end
@@ -1371,6 +1410,25 @@ function FightHistory:OnEnable()
 	-- with degraded ones (reports and context gone: an Aug's uptime and
 	-- their whole attribution overwritten hours later, 2026-07-14).
 	local g = TP.Addon.db.global
+	-- ENCOUNTER_END verdicts persist for the same reason (Josh 2026-07-27):
+	-- they carry the IN-INSTANCE zone, difficulty and encounterID, and a
+	-- bulk unlock landing in a LATER game session used to find them gone.
+	-- The capture then fell back to the outdoor context and filed the
+	-- CONTINENT ("Eastern Kingdoms", difficulty 0, no encounterID) - which
+	-- no dungeon or raid curve can match, so the fight scored against
+	-- nothing. Name-keyed, so session renumbering doesn't touch them.
+	g.encounterResults = g.encounterResults or {}
+	encounterResults = g.encounterResults
+	for name, list in pairs(encounterResults) do
+		for i = #list, 1, -1 do
+			if (time() - (list[i].at or 0)) > 21600 then
+				table.remove(list, i)
+			end
+		end
+		if #list == 0 then
+			encounterResults[name] = nil
+		end
+	end
 	g.sessionContexts = g.sessionContexts or {}
 	sessionContext = g.sessionContexts
 	for id, ctx in pairs(sessionContext) do
@@ -1402,6 +1460,14 @@ function FightHistory:OnEnable()
 		-- percentages mean "measured by the honest sampler".
 		if f and f.wipe and f.bossPct and (f.capturedAt or 0) < 1784858547 then
 			f.bossPct = nil
+		end
+	end
+	-- Sweep phantom re-captures already in history (see isPlaceless): the
+	-- placeless copy of a fight we ALSO hold properly placed. Runs after the
+	-- name normalization above so twin matching compares clean names.
+	for i = #self.fights, 1, -1 do
+		if isPlaceless(self.fights[i]) and hasPlacedTwin(self.fights, self.fights[i]) then
+			table.remove(self.fights, i)
 		end
 	end
 	self:BackfillRunIDs()
