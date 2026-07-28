@@ -1,5 +1,28 @@
 # TrueParse Changelog
 
+## 2.7.0
+
+**Running TrueParse as a tank is no longer a penalty.** Mitigation uptime is
+worth 55% of a tank's grade, and when a tank wasn't reporting it, that weight
+was spread across damage and healing - which meant their grade quietly became
+their damage meter, certifying elite mitigation on no evidence at all. It also
+inverted the incentive: because the weight cancels out, reporting only helped
+if your mitigation percentile beat your own throughput percentile. Measured
+against real logs, a reporting tank was never ahead - four cases worse, two
+tied, none better, worst case 44 points.
+
+Unreported mitigation is now pinned at average instead of redistributed - the
+honest "we didn't measure this" - which is the same treatment an Augmentation
+Evoker without an uptime report already got. Break-even now sits exactly at
+your spec's median uptime: hold it better than the average player of your spec
+and reporting gains you points, hold it worse and it costs you. The number
+shows as "?" rather than a score, so an assumption never reads as a
+measurement, and the breakdown card says so outright.
+
+Tanks not running TrueParse will stop reaching top scores. That's the point -
+those scores were claiming something never observed - but it is a visible
+change to how your group's tanks rank.
+
 ## 2.6.2
 
 **Derived scores stop handing out elite parses.** For content Warcraft Logs

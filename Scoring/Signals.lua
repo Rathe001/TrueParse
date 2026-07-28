@@ -139,7 +139,7 @@ end
 -- as context (soak/avoid/block aren't scored, just shown).
 local function mitigationRow(m, b, specID)
 	if not (b and b.applicable) then
-		return nil -- no mitigation data reported: weight redistributed
+		return nil -- metric not in play at all (non-tank, or no anchors)
 	end
 	local row = barRow("mitigation", ICONS.damageTaken, "Mitigation", b.normalized or 0, nil)
 	row.b = b
@@ -155,9 +155,21 @@ local function mitigationRow(m, b, specID)
 	local up = b.value or 0
 	local anc = b.anchors
 	local lines = {}
-	lines[#lines + 1] = anc
-		and ("Mitigation up %.0f%%; the spec median holds %.0f%%"):format(up, anc[2])
-		or ("Mitigation up %.0f%% of the fight"):format(up)
+	if b.noInput then
+		-- nobody reported uptime for this tank: the 50 is an assumption, so
+		-- it must not wear a percentile gauge or print a number it never
+		-- measured (same "?" treatment as an unreported Aug)
+		row.num = "?"
+		row.tier = nil
+		row.raw = true
+		lines[#lines + 1] = "Mitigation not measured - assumed average."
+		lines[#lines + 1] = "This tank isn't running TrueParse, so their active"
+			.. " mitigation uptime is unknown and scored as middle-of-the-pack."
+	else
+		lines[#lines + 1] = anc
+			and ("Mitigation up %.0f%%; the spec median holds %.0f%%"):format(up, anc[2])
+			or ("Mitigation up %.0f%% of the fight"):format(up)
+	end
 	-- context: the rest of the survival story (shown, not scored)
 	local _, parts = Signals.TankingComposite(m, nil)
 	for _, pt in ipairs(parts or {}) do

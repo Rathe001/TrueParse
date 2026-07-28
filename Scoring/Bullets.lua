@@ -160,9 +160,12 @@ function Bullets.ForResult(result, awards, extra)
 			text, symbol, color = "Little healing needed - group stayed topped", MIDDOT, MID
 		end
 		if b.noInput then
-			-- pinned neutral: an Aug's amplification is invisible without
-			-- their own TrueParse reporting Ebon Might uptime
-			text, symbol, color = "Amplification unmeasured - needs their TrueParse", MIDDOT, MID
+			-- pinned neutral: invisible without their own TrueParse
+			-- reporting it (an Aug's Ebon Might uptime, a tank's active
+			-- mitigation uptime) — say WHICH, the two read very differently
+			text, symbol, color = (key == "mitigation")
+				and "Mitigation unmeasured - assumed average, needs their TrueParse"
+				or "Amplification unmeasured - needs their TrueParse", MIDDOT, MID
 		end
 		-- sort weight: count metrics use their real adjustment points
 		-- ONLY (a nil adjust means the score moved 0 — the pctile

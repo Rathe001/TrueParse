@@ -1060,15 +1060,27 @@ local function normalizeMetric(p, role, key, ctx)
 		-- UPTIME scored as a percentile against the spec's real WCL field
 		-- (Data/TankAnchors, crawled) - "you held mitigation up 57%, the
 		-- average Guardian holds 66%". WCL-relative, not arbitrary: the one
-		-- survival stat WCL actually exposes (its Buffs table). Absent (no
-		-- self-report, or a spec/client without mit tracking) -> weight
-		-- redistributes to damage/healing, like any missing capability.
+		-- survival stat WCL actually exposes (its Buffs table).
 		if role ~= "TANK" then
 			return 0, false
 		end
 		local up = p.metrics and p.metrics.mitigationPct
 		if not up then
-			return 0, false
+			-- IMPUTED, not redistributed (Josh 2026-07-28). Redistribution
+			-- is only sound for a SMALL weight; this one is 0.55, so
+			-- spreading it doesn't fill a gap - it replaces the tank's
+			-- grade with their damage meter, and silently certifies elite
+			-- mitigation on zero evidence. Worse, it inverted the
+			-- incentive: reporting beat not-reporting only when your
+			-- mitigation percentile exceeded your OWN throughput
+			-- percentile (the 0.55 cancels), so measured against real
+			-- history a reporting tank was never ahead - 4 worse, 2 tied,
+			-- 0 better, worst case -44 points.
+			-- Pin neutral instead: "we did not measure this, assume
+			-- average". Same treatment an Aug with no uptime report gets
+			-- further down, for the same reason. Now reporting gains above
+			-- median uptime and loses below it, symmetrically.
+			return 50, true
 		end
 		local AN = TP.TANK_ANCHORS or {}
 		local a = (p.specID and AN[p.specID]) or AN.default or { 30, 55, 75 }
@@ -1750,6 +1762,11 @@ function Engine.ScoreFight(fight, opts)
 				breakdown[key].value = (p.metrics and p.metrics.mitigationPct) or 0
 				local AN = TP.TANK_ANCHORS or {}
 				breakdown[key].anchors = (p.specID and AN[p.specID]) or AN.default
+				if not (p.metrics and p.metrics.mitigationPct) then
+					-- the 50 above is an assumption; never let it render as
+					-- a measured mid-pack result
+					breakdown[key].noInput = true
+				end
 			end
 			-- Aug damage: the row's number is EFFECTIVE (own + buffs
 			-- enabled); the tooltip shows the split
