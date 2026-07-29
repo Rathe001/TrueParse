@@ -705,7 +705,11 @@ local function derivedCeil(ctx, v)
 	if v <= knee then
 		return v
 	end
-	return knee + (v - knee) * (ceiling - knee) / (99 - knee)
+	-- The ramp maps 99 -> ceiling, so an input ABOVE 99 lands above it.
+	-- Per-metric that never happened; the composite it now guards is
+	-- base + adjustments, which overshoots 99 before the outer clamp
+	-- (measured: 9 tier-3 scores up to 92.3 against a 90 ceiling).
+	return math.min(ceiling, knee + (v - knee) * (ceiling - knee) / (99 - knee))
 end
 
 local function derivedScale(ctx, p)
@@ -1084,7 +1088,7 @@ local function normalizeMetric(p, role, key, ctx)
 		end
 		local AN = TP.TANK_ANCHORS or {}
 		local a = (p.specID and AN[p.specID]) or AN.default or { 30, 55, 75 }
-		return derivedCeil(ctx, anchorScore(up, a[1], a[2], a[3])), true
+		return anchorScore(up, a[1], a[2], a[3]), true
 	end
 
 	-- Damage soaked: no external population exists (WCL doesn't rank damage
@@ -1150,7 +1154,14 @@ local function normalizeMetric(p, role, key, ctx)
 				-- A derived tier can approximate a good parse, never certify an
 				-- elite one — but SQUEEZE the top rather than clamping it, or a
 				-- third of the field lands on the same number (see Weights).
-				absolute, pct = derivedCeil(ctx, absolute), derivedCeil(ctx, pct)
+				-- (the derived ceiling used to compress HERE, per metric.
+				-- Moved to the composite 2026-07-28: capping each metric
+				-- pegged them individually - a tank showed Damage 90 and
+				-- Healing 90, both sitting exactly on the tier-III ceiling,
+				-- which threw away the difference between a raw 92 and a
+				-- raw 99 - while adjustments still added on top afterwards,
+				-- so the FINAL score reached 98 on the roughest evidence
+				-- tier. The ceiling has to bound the thing it is about.)
 				fromCurve = true
 				pctile = pct -- raw percentile, for the tooltip gauge
 				-- surfaced in tooltips: "the median of your spec does Y/s
@@ -2229,7 +2240,11 @@ function Engine.ScoreFight(fight, opts)
 			-- 99 cap, WCL semantics: 100 doesn't exist. The base already
 			-- tops at 99.3; without the cap the positive adjustments were
 			-- minting routine 100s (and overflowing the run column).
-			score = math.max(0, math.min(99, base + totalAdj)),
+			-- Derived tiers compress HERE, not per metric: adjustments are
+			-- earned on directly observed play (kicks, deaths, defensives)
+			-- and still move you, they just cannot launch the total past
+			-- what the evidence supports. Tier 1 passes through untouched.
+			score = math.max(0, math.min(99, derivedCeil(ctx, base + totalAdj))),
 			unclamped = base + totalAdj, -- rank ties above the cap honestly
 			base = base,
 			adjust = totalAdj, -- net signed adjustment (what the card shows)

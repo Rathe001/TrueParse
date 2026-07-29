@@ -1145,7 +1145,15 @@ function FightHistory:AddFromSegment(seg)
 			if acc.mitigation.since and seg.endTime then
 				up = up + math.max(0, seg.endTime - acc.mitigation.since)
 			end
-			if up > 0 then
+			-- Store a measured ZERO for TANKS (2026-07-28): `up > 0` left a
+			-- tank who never pressed mitigation indistinguishable from one
+			-- nobody measured, and since unreported mitigation now imputes
+			-- to average, that gap scored zero uptime as average. The
+			-- accumulator is InitPlayer'd for EVERY player, so a bare zero
+			-- would write this field on all 20 raiders - tanks only, or it
+			-- is pure bloat in saved vars and sync payloads.
+			local rosterInfo = TP.Roster.players[guid]
+			if up > 0 or (rosterInfo and rosterInfo.role == "TANK") then
 				m.mitigationPct = math.min(100, math.floor(up / seg.duration * 100 + 0.5))
 			end
 		end
