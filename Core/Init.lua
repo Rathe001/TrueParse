@@ -224,7 +224,7 @@ function Addon:HandleSlash(input)
 		-- which says "no buffs" when it actually meant "the call failed").
 		-- Two APIs, because a nil function inside pcall looks exactly like
 		-- an empty aura list from the outside.
-		local shown, firstErr = 0, nil
+		local seen, firstErr = 0, nil
 		if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
 			for i = 1, 40 do
 				local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
@@ -236,12 +236,12 @@ function Addon:HandleSlash(input)
 					break
 				end
 				show(aura.spellId, aura.name)
-				shown = shown + 1
+				seen = seen + 1
 			end
 		else
 			firstErr = "C_UnitAuras.GetAuraDataByIndex missing"
 		end
-		if shown == 0 and UnitBuff then
+		if seen == 0 and UnitBuff then
 			for i = 1, 40 do
 				local ok, name, _, _, _, _, _, _, _, spellId = pcall(UnitBuff, "player", i)
 				if not ok then
@@ -252,7 +252,7 @@ function Addon:HandleSlash(input)
 					break
 				end
 				show(spellId, name)
-				shown = shown + 1
+				seen = seen + 1
 			end
 		end
 		-- four per line keeps the whole thing on screen next to the verdict
@@ -266,12 +266,17 @@ function Addon:HandleSlash(input)
 		-- VERDICT LAST: this is the line that decides whether the data file
 		-- needs corrected ids or the approach is dead on Midnight, so it
 		-- must be the one still on screen.
+		-- seen counts auras, NOT readable ones: incrementing it per aura
+		-- while show() tallied secrets separately double-counted the total
+		-- and reported every secret id as readable (Josh 2026-07-29: "28
+		-- auras seen, 14 with a readable id" for 14 auras, all secret),
+		-- which sent the verdict down the wrong branch entirely.
 		self:Print(("  => %d auras seen, %d with a readable id, %d secret%s"):format(
-			shown + secretCount, shown, secretCount,
+			seen, #readable, secretCount,
 			firstErr and (" [" .. firstErr .. "]") or ""))
 		if callErr then
 			self:Print("  => VERDICT: the aura lookup is REFUSED, not empty: " .. callErr)
-		elseif secretCount > 0 and shown == 0 then
+		elseif #readable == 0 then
 			self:Print("  => VERDICT: lookup works, but every aura id is secret -"
 				.. " we cannot discover the id from the client.")
 		else
