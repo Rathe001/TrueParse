@@ -2073,17 +2073,17 @@ function Engine.ScoreFight(fight, opts)
 					hi = hi * ap.factor
 					lo = lo * ap.factor
 				end
-				-- GROUP FLOOR on the penalty side. Our activityPct is a
-				-- GCD-window proxy: each action credits at most one GCD, so
-				-- a 6s channel counts 1.6s and SWING_MISSED counts nothing,
-				-- while WCL's activeTime counts the real elapsed cast.
-				-- Measured against the crawl, ours reads 20.1 points lower
-				-- on average and the gap is flat across easy and hard
-				-- bosses (-11.7 to -27.4) - a scale mismatch, not skill.
-				-- Until the proxy is fixed, a player at or above their own
-				-- group's median is not the outlier and must not be
-				-- charged for a shortfall everyone shared. Bonuses still
-				-- use the absolute anchor, so this only ever forgives.
+				-- GROUP FLOOR on the penalty side. Metrics/Activity used to
+				-- measure GCD occupancy while the anchor above measures
+				-- WCL's activeTime (idle stretches), which charged healers
+				-- and channelers ~25 points for a definition mismatch. The
+				-- collector now matches the anchor, but that is capture-time
+				-- work: every fight recorded before it still carries the old
+				-- scale, and scores are recomputed from stored metrics on
+				-- every render. The floor keeps those honest - a player at or
+				-- above their own group's median is not the outlier and must
+				-- not be charged for a shortfall everyone shared. Bonuses
+				-- still use the absolute anchor, so this only ever forgives.
 				local pts = ramp(m.activityPct, lo, hi, A.activityMax or 4)
 				if pts < 0 then
 					local med = groupActivityMedian(ctx)

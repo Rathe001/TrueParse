@@ -3002,12 +3002,13 @@ end)()
 	local start = tracker.subevents.SPELL_CAST_START
 	local success = tracker.subevents.SPELL_CAST_SUCCESS
 	local swing = tracker.subevents.SWING_DAMAGE
+	local swingMiss = tracker.subevents.SWING_MISSED
 
-	local WRATH, MOONFIRE = 5176, 8921
+	local WRATH, MOONFIRE, MIND_FLAY = 5176, 8921, 15407
 	local function freshSeg()
 		local acc = {}
 		tracker.InitPlayer(acc)
-		return { players = { me = acc } }, acc
+		return { players = { me = acc }, startTime = 0 }, acc
 	end
 
 	-- chain-hardcast: 10 back-to-back 1.9s Wraths = 19s active over 19s
@@ -3021,55 +3022,85 @@ end)()
 	check(math.abs(acc.activity.active - 19) < 0.01,
 		("chain-cast credits full cast time (%.1f/19)"):format(acc.activity.active))
 
-	-- instant spam still capped at one GCD-ish window per action
+	-- the first action of a fight can't credit more than has actually
+	-- elapsed, or a 5s window lands on a pull one second old
+	seg, acc = freshSeg()
+	clock = 1
+	success(seg, "me", nil, nil, nil, MOONFIRE)
+	check(math.abs(acc.activity.active - 1) < 0.01,
+		("opening action credits only elapsed time (%.1f)"):format(acc.activity.active))
+
+	-- instants credit the real gap between them: a caster waiting 1.5s for
+	-- the next GCD was never idle
 	seg, acc = freshSeg()
 	clock = 0
 	success(seg, "me", nil, nil, nil, MOONFIRE)
 	clock = 1.5
 	success(seg, "me", nil, nil, nil, MOONFIRE)
-	check(math.abs(acc.activity.active - 3.1) < 0.01,
-		("instants credit 1.6 + gap (%.1f)"):format(acc.activity.active))
+	clock = 3
+	success(seg, "me", nil, nil, nil, MOONFIRE)
+	check(math.abs(acc.activity.active - 3) < 0.01,
+		("instants credit the gap, not a GCD (%.1f)"):format(acc.activity.active))
 
-	-- cancelled cast + idle can't inflate: the later instant's spell id
-	-- doesn't match the dangling cast start
+	-- a channel is one SPELL_CAST_SUCCESS and then silence: the 4s Mind
+	-- Flay must not read as 4s of standing still (the old proxy gave 1.6)
+	seg, acc = freshSeg()
+	clock = 0
+	success(seg, "me", nil, nil, nil, MIND_FLAY)
+	clock = 4
+	success(seg, "me", nil, nil, nil, MOONFIRE)
+	check(math.abs(acc.activity.active - 4) < 0.01,
+		("a 4s channel counts as 4s active (%.1f)"):format(acc.activity.active))
+
+	-- a dodged swing produces no damage event; it's still an attack
+	seg, acc = freshSeg()
+	clock = 0
+	swing(seg, "me")
+	clock = 2.6
+	swingMiss(seg, "me")
+	clock = 5.2
+	swing(seg, "me")
+	check(math.abs(acc.activity.active - 5.2) < 0.01,
+		("whiffed swings still count (%.1f)"):format(acc.activity.active))
+
+	-- real downtime is still downtime: only the first 5s of a gap counts
 	seg, acc = freshSeg()
 	clock = 0
 	success(seg, "me", nil, nil, nil, WRATH)
 	clock = 0.5
 	start(seg, "me", nil, nil, nil, WRATH) -- cancelled, never succeeds
-	clock = 9
+	clock = 20
 	success(seg, "me", nil, nil, nil, MOONFIRE)
-	check(math.abs(acc.activity.active - 3.2) < 0.01,
-		("idle after a cancelled cast stays idle (%.1f)"):format(acc.activity.active))
+	check(math.abs(acc.activity.active - 5) < 0.01,
+		("a 20s gap credits 5s, not 20 (%.1f)"):format(acc.activity.active))
 
-	-- idle BETWEEN casts only credits the cast itself, never the gap
-	seg, acc = freshSeg()
-	clock = 0
-	success(seg, "me", nil, nil, nil, WRATH)
-	clock = 10
-	start(seg, "me", nil, nil, nil, WRATH)
-	clock = 11.9
-	success(seg, "me", nil, nil, nil, WRATH)
-	check(math.abs(acc.activity.active - 3.5) < 0.01,
-		("cast after idle credits the cast, not the idle (%.1f)"):format(acc.activity.active))
-
-	-- absurd cast spans fall back to the GCD cap (stale-start guard)
+	-- absurd cast spans fall back to the idle window (stale-start guard)
 	seg, acc = freshSeg()
 	clock = 0
 	start(seg, "me", nil, nil, nil, WRATH)
 	clock = 30
 	success(seg, "me", nil, nil, nil, WRATH)
-	check(math.abs(acc.activity.active - 1.6) < 0.01,
-		("30s 'cast' credits one GCD window (%.1f)"):format(acc.activity.active))
+	check(math.abs(acc.activity.active - 5) < 0.01,
+		("a 30s 'cast' is a stale start, not activity (%.1f)"):format(acc.activity.active))
 
-	-- melee path untouched
+	-- a long legitimate hardcast still credits its full length even when it
+	-- runs past the idle window
+	seg, acc = freshSeg()
+	clock = 0
+	start(seg, "me", nil, nil, nil, WRATH)
+	clock = 8
+	success(seg, "me", nil, nil, nil, WRATH)
+	check(math.abs(acc.activity.active - 8) < 0.01,
+		("an 8s hardcast credits all 8s (%.1f)"):format(acc.activity.active))
+
+	-- melee chaining reads as continuous
 	seg, acc = freshSeg()
 	clock = 0
 	swing(seg, "me")
 	clock = 1
 	swing(seg, "me")
-	check(math.abs(acc.activity.active - 2.6) < 0.01,
-		("swings credit as before (%.1f)"):format(acc.activity.active))
+	check(math.abs(acc.activity.active - 1) < 0.01,
+		("swings credit the gap (%.1f)"):format(acc.activity.active))
 end)()
 
 -- 33. Cross-scenario audit fixes (2026-07-24): dungeon-keyed kill-time
