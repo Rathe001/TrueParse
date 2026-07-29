@@ -93,6 +93,14 @@ Weights.adjustments = {
 	preparedBonus = 1, -- flask + food at the pull
 	healthstoneBonus = 1, -- ate a healthstone (warlock in group only)
 	healthstonePenalty = 1, -- sat on it (warlock in group only)
+	-- ...but ONLY when the fight gave a reason to press it (Josh 2026-07-29:
+	-- "healthstones should only be a penalty if there was significant damage
+	-- taken to justify using it"). Danger is a personal spike window or a
+	-- death; failing those, having taken at least this multiple of your own
+	-- max HP. Measured on real fights, intake/maxHP runs p25 0.65, p50 1.93,
+	-- so 1.0 keeps the genuinely dangerous fights and drops the trivial ones.
+	-- The BONUS stays unconditional: eating one is never wrong.
+	healthstoneMinIntake = 1.0,
 	defensivesBonus = 2, -- used 2+ defensives (real p90 behavior)
 	readyAtDeathPenalty = 3, -- died with 2+ defensives sitting unused
 	-- cooldown timing (Classic CLEU for everyone; retail self-reports):

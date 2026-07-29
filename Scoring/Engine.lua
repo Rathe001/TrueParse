@@ -2132,8 +2132,24 @@ function Engine.ScoreFight(fight, opts)
 					end
 				end
 				if hasWarlock then
-					put("healthstone", m.healthstones > 0 and (A.healthstoneBonus or 1)
-						or -(A.healthstonePenalty or 1))
+					if m.healthstones > 0 then
+						put("healthstone", A.healthstoneBonus or 1)
+					else
+						-- Only a penalty if the fight justified pressing it.
+						-- A personal spike window or a death is direct
+						-- evidence of danger; otherwise fall back to total
+						-- intake against the player's own health pool. No
+						-- evidence either way -> no penalty, the same way
+						-- every other absence stays neutral here.
+						local danger = (m.spikeWindows or 0) > 0 or (m.deaths or 0) > 0
+						if not danger and p.maxHP and p.maxHP > 0 then
+							danger = (m.damageTaken or 0)
+								>= p.maxHP * (A.healthstoneMinIntake or 1.0)
+						end
+						if danger then
+							put("healthstone", -(A.healthstonePenalty or 1))
+						end
+					end
 				end
 			end
 			-- forgiven post-call deaths and one-shots judge nothing: the

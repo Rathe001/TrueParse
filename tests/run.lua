@@ -2366,14 +2366,25 @@ end
 	-- 25h2. healthstones (2026-07-25): +1 eaten, -1 sat on it — judged
 	-- only when a warlock was in the group to provide them; nil metric
 	-- (retail: casts are secret) stays neutral either way
+	-- ...and the PENALTY needs a reason to have pressed it (Josh
+	-- 2026-07-29): a personal spike window, a death, or intake worth at
+	-- least the player's own health pool. The bonus stays unconditional.
 	local fhs = ctxFight({})
 	fhs.players.a = dps("Ate", { metrics = { healthstones = 1 } })
-	fhs.players.b = dps("Hoarder", { metrics = { healthstones = 0 } })
+	fhs.players.b = dps("Hoarder", { metrics = { healthstones = 0, spikeWindows = 1 } })
 	fhs.players.c = dps("NoData", { metrics = {} })
+	fhs.players.d = dps("Safe", { metrics = { healthstones = 0 } })
+	fhs.players.e = dps("Chunked", { metrics = { healthstones = 0, damageTaken = 500000 } })
+	fhs.players.e.maxHP = 400000
 	fhs.players.a.class = "WARLOCK"
 	check((adFor(fhs, "Ate").healthstone or 0) == 1, "healthstone eaten: +1")
-	check((adFor(fhs, "Hoarder").healthstone or 0) == -1, "healthstone unused: -1")
+	check((adFor(fhs, "Hoarder").healthstone or 0) == -1,
+		"healthstone unused THROUGH danger: -1")
 	check(adFor(fhs, "NoData").healthstone == nil, "no cast data: healthstone neutral")
+	check(adFor(fhs, "Safe").healthstone == nil,
+		"no danger, no damage: healthstone not penalised")
+	check((adFor(fhs, "Chunked").healthstone or 0) == -1,
+		"intake past own max HP counts as danger: -1")
 	local fnl = ctxFight({})
 	fnl.players.a = dps("NoLock", { metrics = { healthstones = 0 } })
 	check(adFor(fnl, "NoLock").healthstone == nil, "no warlock in group: healthstone ignored")
