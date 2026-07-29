@@ -9,8 +9,10 @@
 -- into the live segment's accumulators; FightHistory:AddFromSegment carries
 -- them onto the fight record and Scoring/Engine turns them into penalties.
 -- Fairness gates: nothing is attributed while no tank is alive (all-DPS
--- groups, wipes in progress), and a tank "loss" needs a non-tank to actually
--- hold aggro (taunt swaps between two tanks never register).
+-- groups, wipes in progress), a tank "loss" needs a non-tank to actually
+-- hold aggro (taunt swaps between two tanks never register) and to have
+-- earned it on threat rather than been handed it by a fixate, and the tank
+-- must not still be holding something themselves.
 --
 -- RETAIL (Midnight): EXPERIMENT 3 — group threat is expected to be
 -- secret-locked mid-combat like every other hostile read; the probe below
@@ -26,6 +28,57 @@ TP.Threat = Threat
 
 local INTERVAL = 1
 local PULL_WINDOW = 4 -- seconds of combat that still count as "the pull"
+
+-- ================================ Fixate guard ============================
+-- A mob parked on a non-tank is only a threat failure if that player
+-- actually out-threatened the tank. Fixates, forced targets and "everyone
+-- gets tossed a copy" mechanics move the mob without touching the threat
+-- table, so the victim reads as tanking (UnitThreatSituation 3) while their
+-- threat share stays far below the pull threshold — and the tank, who did
+-- nothing wrong and often *cannot* taunt it back, eats the loss seconds.
+-- Josh 2026-07-28: retail tanks charged "Lost aggro" all through a dungeon.
+--
+-- UnitDetailedThreatSituation's scaled percentage is the discriminator: 100
+-- means "at the threshold where aggro flips", which is where a genuine rip
+-- necessarily sits. Well under that while tanking = the game handed the mob
+-- over. Judged against the boss frames, then the current target. When no mob
+-- can be read the aggro counts as earned, so this only ever removes charges
+-- we can positively identify as mechanical.
+local EARNED_FLOOR = 90 -- scaled threat %; 100 = at the pull threshold
+
+local function detailedThreat(unit, mob)
+	local ok, isTanking, _, scaled = pcall(UnitDetailedThreatSituation, unit, mob)
+	if not ok or TP.Compat.IsSecret(isTanking) or TP.Compat.IsSecret(scaled) then
+		return nil
+	end
+	return isTanking, scaled
+end
+
+local function threatEarned(unit)
+	local judged = false
+	for i = 1, 5 do
+		local mob = "boss" .. i
+		if UnitExists(mob) then
+			local isTanking, scaled = detailedThreat(unit, mob)
+			if isTanking then
+				judged = true
+				if (scaled or 0) >= EARNED_FLOOR then
+					return true -- out-threatened the tank on this mob: real
+				end
+			end
+		end
+	end
+	if not judged and UnitExists("target") then
+		local isTanking, scaled = detailedThreat(unit, "target")
+		if isTanking then
+			judged = true
+			if (scaled or 0) >= EARNED_FLOOR then
+				return true
+			end
+		end
+	end
+	return not judged -- unreadable mobs keep the old behaviour
+end
 
 -- ================================ Classic: scored group tracking ==========
 
@@ -86,8 +139,11 @@ local function sample()
 			if acc then
 				local status = UnitThreatSituation(info.unit)
 				local has = (status or 0) >= 2 -- 2/3 = mob is (in)securely theirs
+				-- a fixate is not this player's doing, and not the tank's
+				-- failing: it counts for nobody
+				local earned = has and threatEarned(info.unit)
 				local a = ensureAggro(acc)
-				if has then
+				if earned then
 					nonTankHasAggro = true
 					a.time = a.time + INTERVAL
 					if elapsed <= PULL_WINDOW and not seg.group.tankOpened then
@@ -104,7 +160,7 @@ local function sample()
 						a.rips = a.rips + 1
 					end
 				end
-				a.has = has
+				a.has = earned or false
 			end
 		end
 	end
@@ -118,8 +174,12 @@ local function sample()
 		local acc = seg.players[guid]
 		-- loss-seconds only once the tank has actually had the pack (or
 		-- the pull window passed): a DPS mis-pull isn't the tank losing
-		-- aggro, and a freshly-rezzed tank gets the same grace as rips
-		if acc and nonTankHasAggro and not inGrace
+		-- aggro, and a freshly-rezzed tank gets the same grace as rips.
+		-- A tank who is still holding something hasn't lost anything — a
+		-- DPS grabbing a *different* add is that DPS's rip, already charged
+		-- to them. Encounters where nobody tanks (Spoils, Norushen realms)
+		-- stop reading as one long failure.
+		if acc and nonTankHasAggro and not inGrace and (status or 0) < 2
 			and (seg.group.tankOpened or elapsed > PULL_WINDOW) then
 			ensureAggro(acc).lost = ensureAggro(acc).lost + INTERVAL
 		end
@@ -192,8 +252,9 @@ local function retailSample()
 		if info.role ~= "TANK" and UnitExists(info.unit) then
 			local status = retailStatus(info.unit)
 			local has = (status or 0) >= 2
+			local earned = has and threatEarned(info.unit)
 			local a = retailAggro(guid)
-			if has then
+			if earned then
 				nonTankHasAggro = true
 				a.time = a.time + INTERVAL
 				if elapsed <= PULL_WINDOW and not retailWindow.tankOpened then
@@ -205,16 +266,21 @@ local function retailSample()
 					a.rips = a.rips + 1
 				end
 			end
-			a.has = has
+			a.has = earned or false
 		end
 	end
 
 	for _, guid in ipairs(tanks) do
 		local info = TP.Roster.players[guid]
-		if (retailStatus(info.unit) or 0) >= 2 then
+		local status = retailStatus(info.unit)
+		if (status or 0) >= 2 then
 			retailWindow.tankOpened = true
 		end
-		if nonTankHasAggro then
+		-- same gates Classic has always had: a DPS opening the pack before
+		-- the tank ever held it is not the tank losing aggro, and a tank
+		-- still holding something has lost nothing
+		if nonTankHasAggro and (status or 0) < 2
+			and (retailWindow.tankOpened or elapsed > PULL_WINDOW) then
 			retailAggro(guid).lost = retailAggro(guid).lost + INTERVAL
 		end
 	end
