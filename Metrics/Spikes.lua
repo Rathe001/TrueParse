@@ -17,6 +17,12 @@ TP.Spikes = Spikes
 Spikes.TANK_3S_SHARE = 0.45 -- own 3s intake >= 45% of own max HP
 Spikes.GROUP_3S_SHARE = 0.18 -- group 3s intake >= 18% of group max HP
 local MERGE_GAP = 3 -- windows this close merge into one event
+-- A danger window is a MOMENT to answer with a cooldown. Sustained intake
+-- kept merging across MERGE_GAP into one long block - a real capture showed
+-- "Spike 2:40-3:45, Melee, 35.12M over 65s" (Josh 2026-07-29). Nothing
+-- covers 65 seconds, so it reads as an uncoverable failure. Cap the merged
+-- span: past this, it is the fight's baseline damage, not a spike.
+local MAX_WINDOW = 15
 local TANK_SLOP = 1.5 -- seconds of grace around a window for aura overlap
 local HEALER_SLOP = 3 -- reaction time for a cast to count as "met it"
 -- proactive raid CDs are the BETTER play: Barrier dropped on a DBM timer
@@ -33,7 +39,7 @@ local function ensure(seg, dstGUID)
 	end
 	local s = acc.spikes
 	if not s then
-		s = { taken = {}, spans = {}, casts = {}, n = 0 }
+		s = { taken = {}, takenSpell = {}, spans = {}, casts = {}, n = 0 }
 		acc.spikes = s
 	end
 	if not s.maxHP then
@@ -59,6 +65,15 @@ local function addTaken(seg, dstGUID, amount, spell)
 	end
 	local i = math.floor(GetTime() - seg.startTime)
 	s.taken[i] = (s.taken[i] or 0) + amount
+	-- Spell-only intake drives GROUP spike detection (Josh 2026-07-29:
+	-- "only show spells/skills ... is just melee"). Auto-attacks are the
+	-- fight's steady baseline, not a moment to answer with a raid CD, and
+	-- summing them across the raid manufactured minute-long "spikes".
+	-- s.taken keeps everything - totals and tank windows still want melee.
+	if spell ~= "Melee" then
+		s.takenSpell = s.takenSpell or {}
+		s.takenSpell[i] = (s.takenSpell[i] or 0) + amount
+	end
 	-- the second's hardest single hit, for the strip-band tooltips
 	-- ("what hit us there") — one small record per active second
 	if spell then
@@ -148,8 +163,14 @@ tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags,
 	if not (a1 and TP.HEALER_CDS and TP.HEALER_CDS[a1]) then
 		return
 	end
+	-- s.casts is the GROUP-coverage pool, so single-target externals are
+	-- excluded (Josh 2026-07-29: "group wide damage should require group
+	-- wide cooldowns"). Pain Suppression on one tank does nothing for a
+	-- raid-wide hit, and counting it credited coverage that never existed.
+	-- They still record below, against the TARGET, where answering that
+	-- player's spike is exactly the healer's job.
 	local s = ensure(seg, srcGUID)
-	if s then
+	if s and not (TP.EXTERNALS and TP.EXTERNALS[a1]) then
 		s.casts[#s.casts + 1] = GetTime() - seg.startTime
 		s.castNames = s.castNames or {}
 		s.castNames[#s.casts] = a2 -- parallel to casts[]
@@ -193,7 +214,7 @@ tracker.InitPlayer = function(acc)
 		if info and info.unit then
 			local ok, hp = pcall(UnitHealthMax, info.unit)
 			if ok and type(hp) == "number" and hp > 0 then
-				acc.spikes = acc.spikes or { taken = {}, spans = {}, casts = {}, n = 0 }
+				acc.spikes = acc.spikes or { taken = {}, takenSpell = {}, spans = {}, casts = {}, n = 0 }
 				acc.spikes.maxHP = hp
 			end
 		end
@@ -216,7 +237,7 @@ function Spikes.FindWindows(buckets, duration, threshold)
 	for t = 0, math.max(0, math.floor(duration)) do
 		local intake = (buckets[t] or 0) + (buckets[t + 1] or 0) + (buckets[t + 2] or 0)
 		if intake >= threshold then
-			if cur and t - cur[2] <= MERGE_GAP then
+			if cur and t - cur[2] <= MERGE_GAP and (t + 2 - cur[1]) <= MAX_WINDOW then
 				cur[2] = t + 2
 			else
 				cur = { t, t + 2 }
@@ -369,7 +390,7 @@ function Spikes.Compute(seg, duration)
 		local s = acc.spikes
 		if s and s.maxHP then
 			groupHP = groupHP + s.maxHP
-			for t, v in pairs(s.taken) do
+			for t, v in pairs(s.takenSpell or s.taken) do
 				groupTaken[t] = (groupTaken[t] or 0) + v
 			end
 			for t, h in pairs(s.top or {}) do

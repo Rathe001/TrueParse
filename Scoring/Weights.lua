@@ -23,6 +23,27 @@ TP.Scoring.Weights = Weights
 -- top of the base, so a player without the addon still grades
 -- accurately on what we can verify. Ratios preserve the old
 -- damage:healing:taken proportions per role.
+-- Blending several metrics SHRINKS a role's score spread, which decides who
+-- can reach the top of a meter at all. A DPS is 0.86 damage - essentially one
+-- number, full spread. A tank is 0.55/0.31/0.14, so their grade is an average
+-- of three, and averaging pulls toward the middle. Measured on 190 real MoP
+-- boss fights: DPS std-dev 31.6, tank 22.3 - and tanks topped the meter on 2%
+-- of fights against a 20% fair share by cohort size (Josh 2026-07-29: "I want
+-- everyone to have an equal chance to top the meters, regardless of role").
+--
+-- The shrinkage factor for independent metrics is sqrt(sum of squared
+-- weights): DPS 0.87, healer 0.817, tank 0.647. Predicted tank/DPS spread
+-- ratio 0.74 against 0.71 observed, so the model holds and the metrics are
+-- close enough to independent to invert it. Deviations from 50 are rescaled
+-- by reference/concentration, which restores the spread WITHOUT moving the
+-- role's centre - a role that genuinely sits below average still does.
+--
+-- Note this is not the same claim as "p75 in, 75 out". Being simultaneously
+-- p75 on three semi-independent dimensions is far rarer than p75 on one, so
+-- a tank who holds p75 across all three IS better than a p75 DPS. Expanding
+-- the blend is what makes the two comparable.
+Weights.spreadReference = 0.87 -- DAMAGER's concentration: the yardstick
+
 Weights.roleWeights = {
 	-- TANK (Josh 2026-07-26): survival is a tank's job, so it leads. The
 	-- Mitigation metric = active-mitigation UPTIME scored against the spec's

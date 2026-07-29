@@ -1824,15 +1824,28 @@ function Engine.ScoreFight(fight, opts)
 		end
 
 		local base = 0
+		local conc = 0
 		for _, b in pairs(breakdown) do
 			if b.applicable and activeWeight > 0 then
 				b.effectiveWeight = b.weight / activeWeight
 				b.contribution = b.normalized * b.effectiveWeight
 				base = base + b.contribution
+				conc = conc + b.effectiveWeight * b.effectiveWeight
 			else
 				b.effectiveWeight = 0
 				b.contribution = 0
 			end
+		end
+		-- Restore the spread that blending removed (see Weights.spreadReference).
+		-- Uses EFFECTIVE weights, so a role whose metric redistributed - a tank
+		-- with no mitigation report, say - is measured on the blend it actually
+		-- got, not the one on paper. Only ever expands: a role more concentrated
+		-- than a DPS is already at full spread and must not be squashed.
+		conc = math.sqrt(conc)
+		local ref = W.spreadReference or 0.87
+		if conc > 0 and conc < ref then
+			base = 50 + (base - 50) * (ref / conc)
+			if base < 0 then base = 0 elseif base > 99 then base = 99 end
 		end
 
 		-- Count metrics live OUTSIDE the base (2026-07-13 redesign): the
