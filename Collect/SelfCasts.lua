@@ -42,6 +42,9 @@ local swingsLanded, swingsAvoided, swingDamage = 0, 0, 0
 local mitSeconds = 0
 local mitTicker
 local mitTracked = false -- did this window sample mitigation at all?
+-- cast-derived uptime (Midnight makes own-aura fields secret, so the
+-- aura sampler reads nothing); mitCoveredUntil is the union cursor
+local mitCastSeconds, mitCoveredUntil = 0, 0
 -- phase 2 (2026-07-25): lust window, mana timeline, personal spike
 -- windows — all from own-only signals, all retail (CLEU covers Classic)
 local lustAtOff, lustCastsN, lastOffAt
@@ -204,19 +207,33 @@ local function countConsumables()
 	if not (C_UnitAuras and C_UnitAuras.GetAuraDataByIndex) then
 		return 0
 	end
-	local count = 0
+	local count, seen, readable = 0, 0, 0
 	for i = 1, 60 do
 		local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
 		if not ok or not aura then
 			break
 		end
+		seen = seen + 1
 		local duration = aura.duration
-		if duration and duration >= CONSUMABLE_MIN_DURATION
-			and duration <= CONSUMABLE_MAX_DURATION
-			and aura.spellId and not TP.Compat.IsSecret(aura.spellId)
-			and not isGroupBuffAura(aura.spellId) then
-			count = count + 1
+		local id = aura.spellId
+		if id and not TP.Compat.IsSecret(id) then
+			readable = readable + 1
+			if duration and duration >= CONSUMABLE_MIN_DURATION
+				and duration <= CONSUMABLE_MAX_DURATION
+				and not isGroupBuffAura(id) then
+				count = count + 1
+			end
 		end
+	end
+	-- UNMEASURABLE is not ZERO (Josh 2026-07-29). Midnight returns every
+	-- field of the player's own auras as a secret value - a /tp mit dump
+	-- with a flask up read 13 auras, 0 with a readable id - so this
+	-- counted nothing and every retail player ate the "No flask/food"
+	-- penalty regardless of what they drank. Auras present but none
+	-- readable means we cannot see consumables at all; say so with nil and
+	-- the engine skips the penalty (it already guards on ~= nil).
+	if seen > 0 and readable == 0 then
+		return nil
 	end
 	return math.min(count, 5)
 end
@@ -323,8 +340,16 @@ local function finalizeFight()
 				x.sl, x.sa = swingsLanded, swingsAvoided
 				x.sd = math.floor(swingDamage + 0.5)
 			end
-			if mitTracked and duration > 0 then
-				x.mi = math.min(100, math.floor(mitSeconds / duration * 100 + 0.5))
+			-- Prefer whichever source actually saw something. Aura
+			-- sampling is a true measurement and cast-derived is an
+			-- estimate, so max() takes the real number when auras work and
+			-- falls back to casts on Midnight, where they read nothing -
+			-- and self-heals if Blizzard ever unblocks them.
+			if (mitTracked or mitCastSeconds > 0) and duration > 0 then
+				local secs = math.max(mitSeconds, mitCastSeconds)
+				if secs > 0 then
+					x.mi = math.min(100, math.floor(secs / duration * 100 + 0.5))
+				end
 			end
 			-- lust window: when OUR aura opened it, when we last spent a
 			-- big button, and how many landed inside the window
@@ -418,6 +443,7 @@ local function startWindow()
 	castStartAt, castSpellID, channelStartAt = nil, nil, nil
 	hsUsed, swingsLanded, swingsAvoided, swingDamage = 0, 0, 0, 0
 	mitSeconds = 0
+	mitCastSeconds, mitCoveredUntil = 0, 0
 	mitTracked = false
 	stopMitTicker()
 	stopPhase2Tickers()
@@ -490,7 +516,9 @@ local function startWindow()
 	end
 	buildWatchList()
 	local ok, count = pcall(countConsumables)
-	consumablesAtPull = ok and count or 0
+	-- nil, not 0, when the count is unmeasurable: `ok and count or 0`
+	-- collapsed both onto the penalised value
+	consumablesAtPull = ok and count or nil
 	uptimeSeconds = 0
 	prescienceCasts = 0
 	trackingUptime = isAugEvoker()
@@ -557,6 +585,25 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 			-- retail healthstone parity (CLEU counts these on Classic)
 			if TP.Compat.IS_RETAIL and spellID == HEALTHSTONE_SPELL then
 				hsUsed = hsUsed + 1
+			end
+			-- Active-mitigation uptime from CASTS, because Midnight makes
+			-- own-aura fields secret and the sampler below reads nothing.
+			-- Union, not a sum: a refresh before the buff expires only adds
+			-- the seconds past what was already covered, so button-mashing
+			-- can't inflate uptime the way count x duration would.
+			local mitDur = TP.MITIGATION_CASTS and TP.MITIGATION_CASTS[spellID]
+			if TP.Compat.IS_RETAIL and mitDur then
+				-- REFRESH semantics: recasting restarts the buff, it does
+				-- not queue behind the running one, so coverage becomes
+				-- [now, now+duration] and only the part past what was
+				-- already covered is new
+				local now = GetTime()
+				local newUntil = now + mitDur
+				local prev = mitCoveredUntil or 0
+				if newUntil > prev then
+					mitCastSeconds = mitCastSeconds + (newUntil - math.max(now, prev))
+					mitCoveredUntil = newUntil
+				end
 			end
 			if TP.Compat.IS_RETAIL and BREZ_SPELLS[spellID] then
 				brezCasts = brezCasts + 1
