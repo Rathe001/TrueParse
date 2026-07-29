@@ -289,7 +289,24 @@ function Signals.ForResult(result, fight, player)
 		end
 		if (m.groupSpikeWindows or 0) + extW >= 2 then
 			windows = (m.groupSpikeWindows or 0) + extW
-			covered = (m.groupSpikeCovered or 0) + extC
+			-- THEIR cooldowns, not the team's (Josh 2026-07-29: "the healer
+			-- cards should only show cooldowns THEY used; the group card is
+			-- the one that would show ALL cooldowns"). groupSpikeMap already
+			-- flags per window whether THIS player answered it, so the
+			-- personal card counts those. Scoring is untouched and stays
+			-- team-union on purpose - rotating raid CDs so each window gets
+			-- exactly one is correct play, and nobody should be charged for
+			-- a window a teammate rightly took.
+			local mineCov, haveMap = 0, false
+			for _, win in ipairs(m.groupSpikeMap or {}) do
+				haveMap = true
+				if win[4] then
+					mineCov = mineCov + 1
+				end
+			end
+			-- No per-window map (older captures, and the retail self-report
+			-- path) -> keep the team figure rather than silently showing 0.
+			covered = (haveMap and mineCov or (m.groupSpikeCovered or 0)) + extC
 			uses = m.groupCdCasts
 			icon = ICONS.cdTimingHealer
 			if extW > 0 then
