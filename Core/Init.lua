@@ -190,9 +190,6 @@ function Addon:HandleSlash(input)
 				found[#found + 1] = tostring(spellId)
 			end
 		end
-		if callErr then
-			self:Print("  Aura lookup is REFUSED, not empty: " .. callErr)
-		end
 		self:Print(("  Watching %d mitigation buff ids; %d up right now%s"):format(
 			checked, #found, #found > 0 and (": " .. table.concat(found, ", ")) or ""))
 		if #found > 0 then
@@ -206,9 +203,17 @@ function Addon:HandleSlash(input)
 		self:Print("  None up. Press your active-mitigation button and run this again;"
 			.. " your current buffs are listed below - the id you want is in here.")
 		local IsSecret = TP.Compat.IsSecret
+		-- SUMMARISE, don't flood (Josh 2026-07-29: 40 identical
+		-- "<secret> = <secret>" rows pushed the one line that mattered off
+		-- the top of the chat frame). Readable ids are the whole point, so
+		-- print those and count the rest.
+		local secretCount = 0
 		local function show(id, name)
-			self:Print(("    %s = %s"):format(
-				IsSecret(id) and "<secret>" or tostring(id),
+			if IsSecret(id) then
+				secretCount = secretCount + 1
+				return
+			end
+			self:Print(("    %s = %s"):format(tostring(id),
 				IsSecret(name) and "<secret>" or tostring(name)))
 		end
 		-- Report WHY nothing listed rather than falling silent (Josh
@@ -247,9 +252,20 @@ function Addon:HandleSlash(input)
 				shown = shown + 1
 			end
 		end
-		if shown == 0 then
-			self:Print(("    (no buffs readable%s)"):format(
-				firstErr and (" - " .. firstErr) or ""))
+		-- VERDICT LAST: this is the line that decides whether the data file
+		-- needs corrected ids or the approach is dead on Midnight, so it
+		-- must be the one still on screen.
+		self:Print(("  => %d auras seen, %d with a readable id, %d secret%s"):format(
+			shown + secretCount, shown, secretCount,
+			firstErr and (" [" .. firstErr .. "]") or ""))
+		if callErr then
+			self:Print("  => VERDICT: the aura lookup is REFUSED, not empty: " .. callErr)
+		elseif secretCount > 0 and shown == 0 then
+			self:Print("  => VERDICT: lookup works, but every aura id is secret -"
+				.. " we cannot discover the id from the client.")
+		else
+			self:Print("  => VERDICT: lookup works and ids are readable -"
+				.. " the watched id is simply wrong.")
 		end
 	elseif cmd == "mock" then
 		if rest == "clear" then
