@@ -232,7 +232,14 @@ local function countConsumables()
 	-- penalty regardless of what they drank. Auras present but none
 	-- readable means we cannot see consumables at all; say so with nil and
 	-- the engine skips the penalty (it already guards on ~= nil).
-	if seen > 0 and readable == 0 then
+	-- ANY unreadable aura poisons the count, not just all of them (Josh
+	-- 2026-07-29, second pass): the same character on the same run got -2
+	-- on three bosses and -1 on the fourth without touching a consumable,
+	-- because readability is partial - some ids come back, some are
+	-- secret, and the flask can be in either bucket. "I saw 13 auras and
+	-- could read 9" tells us nothing about whether the flask was among the
+	-- 4 we couldn't. Only a fully readable list can support a penalty.
+	if seen > readable then
 		return nil
 	end
 	return math.min(count, 5)

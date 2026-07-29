@@ -162,9 +162,12 @@ local function mitigationRow(m, b, specID)
 		row.num = "?"
 		row.tier = nil
 		row.raw = true
+		-- Short, and true in BOTH cases (Josh 2026-07-29): the old text
+		-- asserted "this tank isn't running TrueParse", which was wrong on
+		-- his own card - he was running it, the self-report just didn't
+		-- attach to that fight. It also overran the card's width.
 		lines[#lines + 1] = "Mitigation not measured - assumed average."
-		lines[#lines + 1] = "This tank isn't running TrueParse, so their active"
-			.. " mitigation uptime is unknown and scored as middle-of-the-pack."
+		lines[#lines + 1] = "No uptime was reported for this tank."
 	else
 		lines[#lines + 1] = anc
 			and ("Mitigation up %.0f%%; the spec median holds %.0f%%"):format(up, anc[2])
