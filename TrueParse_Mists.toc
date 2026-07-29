@@ -26,6 +26,7 @@ Data\SpellProfiles_Mists.lua
 Data\Potions.lua
 Data\Avoidable_Mists.lua
 Data\DamageProfiles_Mists.lua
+Data\ActivityProfiles_Mists.lua
 Data\ProcExclusions_Mists.lua
 Data\Lust_Mists.lua
 Data\Mitigation_Mists.lua

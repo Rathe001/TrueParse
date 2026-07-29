@@ -689,6 +689,31 @@ end
 -- Applies to EVERY scored metric on a derived tier, mitigation included: its
 -- anchors are crawled from raid tanks, and holding 99% uptime in Timewalking
 -- is not the same achievement as holding it in Mythic.
+-- Median activityPct across everyone scored this fight, memoised on ctx.
+-- Used as a floor on the activity PENALTY: structural downtime (and our
+-- proxy's undercount) hits the whole group, individual slacking does not.
+local function groupActivityMedian(ctx)
+	if ctx.activityMedian ~= nil then
+		return ctx.activityMedian or nil
+	end
+	local vals = {}
+	for _, cohort in pairs(ctx.cohorts or {}) do
+		for _, pl in ipairs(cohort) do
+			local a = pl.metrics and pl.metrics.activityPct
+			if a then
+				vals[#vals + 1] = a
+			end
+		end
+	end
+	if #vals < 3 then
+		ctx.activityMedian = false -- too few to say anything
+		return nil
+	end
+	table.sort(vals)
+	ctx.activityMedian = vals[math.ceil(#vals / 2)]
+	return ctx.activityMedian
+end
+
 local function derivedCeil(ctx, v)
 	if not v or not ctx.derived then
 		return v
@@ -2019,7 +2044,40 @@ function Engine.ScoreFight(fight, opts)
 					hi = prof.activity
 					lo = hi - ((A.activityHigh or 89) - (A.activityLow or 70))
 				end
+				-- Per-ENCOUNTER shift (Josh 2026-07-28: "many fights have a
+				-- lot of downtime and the coach is talking about it"). The
+				-- spec anchor above pools every boss, so a fight that FORCES
+				-- downtime read as bad play - measured on real MoP history,
+				-- 100% of players were penalised on Immerseus, Galakras and
+				-- Wing Leader Ner'onok. WCL's own ranked players only reach
+				-- 76% activity on Immerseus against 99% on Malkorok, so the
+				-- bar moves with the fight. factor = this boss's median over
+				-- the median across all bosses; absent -> 1, unchanged.
+				local ap = TP.ActivityProfiles and fight.name and TP.ActivityProfiles[fight.name]
+				if ap and ap.factor and ap.factor > 0 and ap.factor < 1 then
+					-- only ever LOWERS the bar: a boss that allows more
+					-- uptime than average shouldn't invent a stricter one
+					hi = hi * ap.factor
+					lo = lo * ap.factor
+				end
+				-- GROUP FLOOR on the penalty side. Our activityPct is a
+				-- GCD-window proxy: each action credits at most one GCD, so
+				-- a 6s channel counts 1.6s and SWING_MISSED counts nothing,
+				-- while WCL's activeTime counts the real elapsed cast.
+				-- Measured against the crawl, ours reads 20.1 points lower
+				-- on average and the gap is flat across easy and hard
+				-- bosses (-11.7 to -27.4) - a scale mismatch, not skill.
+				-- Until the proxy is fixed, a player at or above their own
+				-- group's median is not the outlier and must not be
+				-- charged for a shortfall everyone shared. Bonuses still
+				-- use the absolute anchor, so this only ever forgives.
 				local pts = ramp(m.activityPct, lo, hi, A.activityMax or 4)
+				if pts < 0 then
+					local med = groupActivityMedian(ctx)
+					if med and m.activityPct >= med then
+						pts = 0
+					end
+				end
 				-- dead time reads as inactivity, and the death already
 				-- cost: don't charge the same corpse-minutes twice
 				if pts < 0 and (m.deaths or 0) > 0 then
