@@ -199,15 +199,50 @@ function Addon:HandleSlash(input)
 		self:Print("  None up. Press your active-mitigation button and run this again;"
 			.. " your current buffs are listed below - the id you want is in here.")
 		local IsSecret = TP.Compat.IsSecret
-		for i = 1, 40 do
-			local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
-			if not ok or not aura then
-				break
+		local function show(id, name)
+			self:Print(("    %s = %s"):format(
+				IsSecret(id) and "<secret>" or tostring(id),
+				IsSecret(name) and "<secret>" or tostring(name)))
+		end
+		-- Report WHY nothing listed rather than falling silent (Josh
+		-- 2026-07-29: the first cut printed the header and then nothing,
+		-- which says "no buffs" when it actually meant "the call failed").
+		-- Two APIs, because a nil function inside pcall looks exactly like
+		-- an empty aura list from the outside.
+		local shown, firstErr = 0, nil
+		if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
+			for i = 1, 40 do
+				local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
+				if not ok then
+					firstErr = firstErr or tostring(aura)
+					break
+				end
+				if not aura then
+					break
+				end
+				show(aura.spellId, aura.name)
+				shown = shown + 1
 			end
-			local id, name = aura.spellId, aura.name
-			if not IsSecret(id) and not IsSecret(name) then
-				self:Print(("    %s = %s"):format(tostring(id), tostring(name)))
+		else
+			firstErr = "C_UnitAuras.GetAuraDataByIndex missing"
+		end
+		if shown == 0 and UnitBuff then
+			for i = 1, 40 do
+				local ok, name, _, _, _, _, _, _, _, spellId = pcall(UnitBuff, "player", i)
+				if not ok then
+					firstErr = firstErr or tostring(name)
+					break
+				end
+				if not name then
+					break
+				end
+				show(spellId, name)
+				shown = shown + 1
 			end
+		end
+		if shown == 0 then
+			self:Print(("    (no buffs readable%s)"):format(
+				firstErr and (" - " .. firstErr) or ""))
 		end
 	elseif cmd == "mock" then
 		if rest == "clear" then
