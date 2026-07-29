@@ -188,8 +188,27 @@ function Addon:HandleSlash(input)
 		end
 		self:Print(("  Watching %d mitigation buff ids; %d up right now%s"):format(
 			checked, #found, #found > 0 and (": " .. table.concat(found, ", ")) or ""))
-		self:Print("  Use your active-mitigation button, then run this again -"
-			.. " if the count stays 0 the id for your spec is wrong.")
+		if #found > 0 then
+			return
+		end
+		-- None of the watched ids are up. Testing a guessed list can only
+		-- ever say "no" (Josh 2026-07-29: his Prot Paladin read 0 of 6 with
+		-- the buff visibly up on a training dummy), so DUMP what the player
+		-- actually has instead - press the button, run this, read the id off
+		-- the list and the data file can be corrected from evidence.
+		self:Print("  None up. Press your active-mitigation button and run this again;"
+			.. " your current buffs are listed below - the id you want is in here.")
+		local IsSecret = TP.Compat.IsSecret
+		for i = 1, 40 do
+			local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
+			if not ok or not aura then
+				break
+			end
+			local id, name = aura.spellId, aura.name
+			if not IsSecret(id) and not IsSecret(name) then
+				self:Print(("    %s = %s"):format(tostring(id), tostring(name)))
+			end
+		end
 	elseif cmd == "mock" then
 		if rest == "clear" then
 			TP.MockFight:Clear()

@@ -1094,7 +1094,17 @@ local function normalizeMetric(p, role, key, ctx)
 			return 0, false
 		end
 		local up = p.metrics and p.metrics.mitigationPct
-		if not up then
+		-- A flat 0% is treated as "not measured", not "never pressed the
+		-- button" (Josh 2026-07-29: his retail Prot Paladin showed
+		-- "Mitigation up 0%; the spec median holds 89%", score 0, on 55% of
+		-- the grade). A tank who goes a whole fight without one active
+		-- mitigation cast is vanishingly rare; a buff id we don't watch is
+		-- not - the retail list is still the provisional seed from Classic
+		-- and any spec it misses gets its grade zeroed silently. Wrong-way
+		-- risk is wildly asymmetric here, so a hard zero has to earn its
+		-- keep and it can't. Genuine negligence still shows up in damage
+		-- taken, deaths and the defensive-cooldown timing metric.
+		if not up or up <= 0 then
 			-- IMPUTED, not redistributed (Josh 2026-07-28). Redistribution
 			-- is only sound for a SMALL weight; this one is 0.55, so
 			-- spreading it doesn't fill a gap - it replaces the tank's
@@ -1821,7 +1831,9 @@ function Engine.ScoreFight(fight, opts)
 				breakdown[key].value = (p.metrics and p.metrics.mitigationPct) or 0
 				local AN = TP.TANK_ANCHORS or {}
 				breakdown[key].anchors = (p.specID and AN[p.specID]) or AN.default
-				if not (p.metrics and p.metrics.mitigationPct) then
+				-- matches the imputation above: a flat 0 is unmeasured, so
+				-- the row must show "?" and not a measured mid-pack 50
+				if ((p.metrics and p.metrics.mitigationPct) or 0) <= 0 then
 					-- the 50 above is an assumption; never let it render as
 					-- a measured mid-pack result
 					breakdown[key].noInput = true
