@@ -208,13 +208,16 @@ function Addon:HandleSlash(input)
 		-- the top of the chat frame). Readable ids are the whole point, so
 		-- print those and count the rest.
 		local secretCount = 0
+		local readable = {}
 		local function show(id, name)
 			if IsSecret(id) then
 				secretCount = secretCount + 1
 				return
 			end
-			self:Print(("    %s = %s"):format(tostring(id),
-				IsSecret(name) and "<secret>" or tostring(name)))
+			-- collected, not printed one-per-line: a dozen rows scroll the
+			-- verdict off the chat frame (Josh 2026-07-29, twice)
+			readable[#readable + 1] = IsSecret(name) and tostring(id)
+				or ("%s(%s)"):format(tostring(id), tostring(name))
 		end
 		-- Report WHY nothing listed rather than falling silent (Josh
 		-- 2026-07-29: the first cut printed the header and then nothing,
@@ -251,6 +254,14 @@ function Addon:HandleSlash(input)
 				show(spellId, name)
 				shown = shown + 1
 			end
+		end
+		-- four per line keeps the whole thing on screen next to the verdict
+		for i = 1, #readable, 4 do
+			local chunk = {}
+			for j = i, math.min(i + 3, #readable) do
+				chunk[#chunk + 1] = readable[j]
+			end
+			self:Print("    " .. table.concat(chunk, "  "))
 		end
 		-- VERDICT LAST: this is the line that decides whether the data file
 		-- needs corrected ids or the approach is dead on Midnight, so it
