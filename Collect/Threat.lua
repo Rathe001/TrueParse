@@ -87,7 +87,16 @@ local function threatEarned(unit)
 			end
 		end
 	end
-	return not judged -- unreadable mobs keep the old behaviour
+	-- A PENALTY NEEDS EVIDENCE, not the absence of it. This used to return
+	-- true when nothing could be judged, on the theory that it preserved
+	-- the old behaviour - but that is exactly the case that produces
+	-- phantom rips, and Josh reported them twice on runs where nothing was
+	-- pulled off him. Old dungeons have no boss frames at all (the boss
+	-- unit system postdates TBC), so in a Timewalking run NOTHING is
+	-- judgeable and every DPS holding anything was charged. If we cannot
+	-- positively confirm this player out-threatened the tank, we did not
+	-- see a rip.
+	return false
 end
 
 -- ================================ Classic: scored group tracking ==========

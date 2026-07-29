@@ -1158,7 +1158,17 @@ local function normalizeMetric(p, role, key, ctx)
 	-- Needs the group's damage to take a share of, so the retail
 	-- self-report path (no group) keeps the curve; Raw is throughput-only
 	-- and never re-anchored.
-	if role == "TANK" and key == "damage" and not ctx.parseMode then
+	-- RAID-SIZED GROUPS ONLY. The anchors are a share of the raid's damage,
+	-- crawled from 20-player logs where a tank contributes ~4%. In a 5-man
+	-- the same tank is naturally ~25% of the group's damage, which sails
+	-- past p75 and pegs the metric at 99 (Josh 2026-07-29: damage read 99
+	-- on all five bosses of a Timewalking run). A share anchor only means
+	-- anything against the roster size it was measured on.
+	local scoredCount = ctx.cohorts and
+		(#(ctx.cohorts.TANK or {}) + #(ctx.cohorts.HEALER or {})
+			+ #(ctx.cohorts.DAMAGER or {}) + #(ctx.cohorts.SUPPORT or {}))
+	if role == "TANK" and key == "damage" and not ctx.parseMode
+		and scoredCount and scoredCount > 5 then
 		local AN = TP.TANK_DAMAGE_ANCHORS
 		local a = AN and ((p.specID and AN[p.specID]) or AN.default)
 		local groupTotal = ctx.totals and ctx.totals.damage

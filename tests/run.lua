@@ -4016,20 +4016,25 @@ end)()
 	-- a median tank of this spec does 6% of the raid's damage
 	TP.TANK_DAMAGE_ANCHORS = { [73] = { 4, 6, 8 }, default = { 3, 5, 7 } }
 
+	-- The anchors are a SHARE of a raid's damage, so the metric only
+	-- applies to raid-sized groups: six players here, five of them DPS
+	-- splitting the remainder, with the raid total pinned at 1000 so the
+	-- tank's share stays exact.
 	local function fightWith(tankDamage, specID)
-		return {
-			name = "Anchor Test", duration = 300,
-			players = {
-				t1 = { guid = "t1", name = "Tank", class = "WARRIOR", role = "TANK",
-					specID = specID,
-					metrics = { damage = tankDamage, healing = 0, damageTaken = 500,
-						interrupts = 0, dispels = 0 } },
-				-- raid total pinned at 1000 so the tank's share is exact
-				d1 = { guid = "d1", name = "Dps", class = "MAGE", role = "DAMAGER",
-					metrics = { damage = 1000 - tankDamage, healing = 0, damageTaken = 50,
-						interrupts = 0, dispels = 0 } },
-			},
+		local players = {
+			t1 = { guid = "t1", name = "Tank", class = "WARRIOR", role = "TANK",
+				specID = specID,
+				metrics = { damage = tankDamage, healing = 0, damageTaken = 500,
+					interrupts = 0, dispels = 0 } },
 		}
+		for i = 1, 5 do
+			local id = "d" .. i
+			players[id] = { guid = id, name = (i == 1) and "Dps" or ("Dps" .. i),
+				class = "MAGE", role = "DAMAGER",
+				metrics = { damage = (1000 - tankDamage) / 5, healing = 0,
+					damageTaken = 50, interrupts = 0, dispels = 0 } }
+		end
+		return { name = "Anchor Test", duration = 300, players = players }
 	end
 	local function tankDamageScore(f)
 		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(f)) do
@@ -4070,8 +4075,8 @@ end)()
 	for _, r in ipairs(TP.Scoring.Engine.ScoreFight(f)) do
 		if r.name == "Dps" then dps = r.breakdown.damage end
 	end
-	check(dps and dps.normalized > 90,
-		("a DPS doing 94%% of the raid's damage is unaffected (%.1f)"):format(dps and dps.normalized or -1))
+	check(dps and dps.normalized > 40,
+		("a DPS is scored on the curve, not the tank anchor (%.1f)"):format(dps and dps.normalized or -1))
 
 	TP.TANK_DAMAGE_ANCHORS = saved
 end)()
