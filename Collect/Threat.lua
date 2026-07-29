@@ -55,10 +55,11 @@ local function detailedThreat(unit, mob)
 end
 
 local function threatEarned(unit)
-	local judged = false
+	local judged, anyBoss = false, false
 	for i = 1, 5 do
 		local mob = "boss" .. i
 		if UnitExists(mob) then
+			anyBoss = true
 			local isTanking, scaled = detailedThreat(unit, mob)
 			if isTanking then
 				judged = true
@@ -67,6 +68,15 @@ local function threatEarned(unit)
 				end
 			end
 		end
+	end
+	-- ONE-ARG UnitThreatSituation reports aggro on ANY mob, so in a dungeon
+	-- every DPS holding an add or a stray caster read as ripping off the
+	-- tank - Josh 2026-07-29 saw rip penalties on every boss of a
+	-- Timewalking run where nothing was ever pulled off him. If boss frames
+	-- exist and this player isn't tanking one of them, whatever they have
+	-- is an add the tank never held. Not a rip.
+	if anyBoss and not judged then
+		return false
 	end
 	if not judged and UnitExists("target") then
 		local isTanking, scaled = detailedThreat(unit, "target")
