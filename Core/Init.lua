@@ -177,14 +177,21 @@ function Addon:HandleSlash(input)
 			return
 		end
 		local list = TP.MITIGATION_BUFFS or {}
-		local found, checked = {}, 0
+		local found, checked, callErr = {}, 0, nil
 		for spellId in pairs(list) do
 			checked = checked + 1
 			local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, spellId)
-			local name = C_Spell and C_Spell.GetSpellName and select(1, pcall(C_Spell.GetSpellName, spellId))
-			if ok and aura then
+			if not ok then
+				-- a REFUSED call and a wrong id both produced "not up"
+				-- before, which is the difference between "fix the data
+				-- file" and "this approach is dead on Midnight"
+				callErr = callErr or tostring(aura)
+			elseif aura then
 				found[#found + 1] = tostring(spellId)
 			end
+		end
+		if callErr then
+			self:Print("  Aura lookup is REFUSED, not empty: " .. callErr)
 		end
 		self:Print(("  Watching %d mitigation buff ids; %d up right now%s"):format(
 			checked, #found, #found > 0 and (": " .. table.concat(found, ", ")) or ""))
