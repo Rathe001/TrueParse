@@ -1136,6 +1136,29 @@ local function normalizeMetric(p, role, key, ctx)
 		return score, true, nil, score
 	end
 
+	-- TANK DAMAGE against the field of tanks, not the field of damage-ranked
+	-- tanks (Josh 2026-07-28, measured on 219 real MoP fights): on the SAME
+	-- fights the damage metric's median was 59.5 for DPS and 59.8 for
+	-- healers - and 26.0 for tanks. Healers score fine against a damage
+	-- curve, so a 34-point tank-only collapse is the reference population,
+	-- not the players: the ranked curves are built from tanks who turn up in
+	-- damage rankings, a self-selected damage-pushing slice. Data/TankDamage
+	-- crawls every tank in a log instead, as a SHARE of the raid's damage so
+	-- one anchor per spec holds across encounters, brackets and gear.
+	-- Needs the group's damage to take a share of, so the retail
+	-- self-report path (no group) keeps the curve; Raw is throughput-only
+	-- and never re-anchored.
+	if role == "TANK" and key == "damage" and not ctx.parseMode then
+		local AN = TP.TANK_DAMAGE_ANCHORS
+		local a = AN and ((p.specID and AN[p.specID]) or AN.default)
+		local groupTotal = ctx.totals and ctx.totals.damage
+		if a and groupTotal and groupTotal > 0 then
+			local share = (p.metrics.damage or 0) / groupTotal * 100
+			local score = anchorScore(share, a[1], a[2], a[3])
+			return score, true, score
+		end
+	end
+
 	-- Throughput family. Two views, blended when both exist:
 	--  * ABSOLUTE: preferred source is the bracket percentile curve mapped
 	--    through the contribution transform (p50 -> 65, elite -> ~100);

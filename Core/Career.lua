@@ -16,7 +16,7 @@ local RECENT_CAP = 40
 -- Bump this whenever scoring moves enough to invalidate accumulated totals;
 -- the stats reset once and re-accumulate honestly under the new rules
 -- (Josh 2026-07-28: "reset them on login and let them reaccumulate").
-local SCORING_EPOCH = "2026-07-28-derived-tiers"
+local SCORING_EPOCH = "2026-07-29-role-parity"
 
 local function countPlayers(players)
 	local n = 0

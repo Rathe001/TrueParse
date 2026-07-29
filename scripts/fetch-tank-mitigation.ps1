@@ -23,6 +23,7 @@ param(
     [int]$MinSamples = 20,   # specs with fewer tank-fights stay on the default
     [string]$MitIds = "mists", # "mists" | "retail" | comma-separated ids
     [string]$OutFile = "TankAnchors.lua",
+    [string]$OutDamageFile = "TankDamage.lua",
     [string]$ClientFile = "$PSScriptRoot\wcl-v2-client.local.txt"
 )
 $ErrorActionPreference = "Stop"
@@ -142,7 +143,12 @@ function Merge-Uptime($bands) {
 
 $aliases = @()
 for ($i = 0; $i -lt $mitList.Count; $i++) { $aliases += "m${i}: table(fightIDs: [FIGHT], dataType: Buffs, abilityID: $($mitList[$i]))" }
+# DamageDone rides along in the same query (WCL returns aliased tables in
+# one response): tank damage as a SHARE of the raid's total for that fight.
+# Share, not DPS, because it pools across encounters, brackets and gear.
+$aliases += "dd: table(fightIDs: [FIGHT], dataType: DamageDone)"
 $samples = @{}  # specID -> ArrayList of uptime%
+$dmgSamples = @{}  # specID -> ArrayList of raid-damage share %
 $done = 0
 foreach ($ref in $refs) {
     if ($done -ge $MaxReports) { break }
@@ -176,6 +182,24 @@ foreach ($ref in $refs) {
         if ($up -le 0 -or $up -gt 100) { continue }
         if (-not $samples.ContainsKey($pl.specID)) { $samples[$pl.specID] = New-Object System.Collections.ArrayList }
         [void]$samples[$pl.specID].Add($up)
+    }
+
+    # --- tank share of raid damage, same fight, same query ---
+    $dd = $rep.dd
+    if ($dd -is [string]) { $dd = $dd | ConvertFrom-Json }
+    if ($dd -and $dd.data -and $dd.data.entries) {
+        $raidTotal = 0.0
+        foreach ($e in $dd.data.entries) { $raidTotal += [double]$e.total }
+        if ($raidTotal -gt 0) {
+            foreach ($e in $dd.data.entries) {
+                $spec = $specByIcon[$e.icon]
+                if (-not $spec) { continue }
+                $share = [double]$e.total / $raidTotal * 100.0
+                if ($share -le 0 -or $share -gt 100) { continue }
+                if (-not $dmgSamples.ContainsKey($spec)) { $dmgSamples[$spec] = New-Object System.Collections.ArrayList }
+                [void]$dmgSamples[$spec].Add($share)
+            }
+        }
     }
     if ($done % 25 -eq 0) { Write-Host ("  processed $done/$MaxReports reports") }
 }
@@ -247,3 +271,56 @@ $outPath = if ([System.IO.Path]::IsPathRooted($OutFile)) { $OutFile } else { Joi
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText($outPath, $header, $utf8Bom)
 Write-Host ("Wrote {0} ({1} specs, {2} reports processed)" -f $outPath, $lines.Count, $done)
+
+# ---- tank damage share ----------------------------------------------------
+$dLines = New-Object System.Collections.ArrayList
+$d25s = New-Object System.Collections.ArrayList
+$d50s = New-Object System.Collections.ArrayList
+$d75s = New-Object System.Collections.ArrayList
+foreach ($spec in ($dmgSamples.Keys | Sort-Object)) {
+    $arr = @($dmgSamples[$spec] | Sort-Object)
+    if ($arr.Count -lt $MinSamples) { Write-Host ("  dmg spec ${spec}: only $($arr.Count) samples (< $MinSamples), skipped"); continue }
+    $p25 = [math]::Round((Quantile $arr 0.25), 2)
+    $p50 = [math]::Round((Quantile $arr 0.50), 2)
+    $p75 = [math]::Round((Quantile $arr 0.75), 2)
+    Write-Host ("  dmg spec $spec ($($specNames[$spec])): n=$($arr.Count) p25=$p25 p50=$p50 p75=$p75")
+    [void]$dLines.Add(("`t[{0}] = {{ {1}, {2}, {3} }}, -- {4} (n={5})" -f $spec, $p25, $p50, $p75, $specNames[$spec], $arr.Count))
+    [void]$d25s.Add($p25); [void]$d50s.Add($p50); [void]$d75s.Add($p75)
+}
+$dDefLine = "nil, -- nothing crawled yet"
+if ($d50s.Count -ge 2) {
+    $x25 = [math]::Round((Quantile (@($d25s | Sort-Object)) 0.50), 2)
+    $x50 = [math]::Round((Quantile (@($d50s | Sort-Object)) 0.50), 2)
+    $x75 = [math]::Round((Quantile (@($d75s | Sort-Object)) 0.50), 2)
+    if ($x25 -le $x50 -and $x50 -le $x75) {
+        $dDefLine = "{ $x25, $x50, $x75 }, -- DERIVED: median of the $($d50s.Count) crawled specs"
+    }
+}
+$dHeader = @"
+-- Per-spec tank DAMAGE baselines: { p25, p50, p75 } of a tank's share of
+-- the raid's total damage for a fight, crawled from Warcraft Logs
+-- (scripts/fetch-tank-mitigation.ps1, same query as the mitigation pass).
+--
+-- Why this exists (Josh 2026-07-28, measured on 219 real MoP fights): on
+-- the SAME fights, the damage metric's median was 59.5 for DPS and 59.8
+-- for healers - and 26.0 for tanks. Healers score fine against a damage
+-- curve; only tanks collapse. That is the reference population, not the
+-- players. The ranked curves are built from tanks who show up in damage
+-- rankings, which is a self-selected, damage-pushing slice of the tanks
+-- actually playing. Scored against the field of every tank in a log, a
+-- median tank lands on a median score, which is what the number means.
+--
+-- SHARE of raid damage rather than DPS: it pools across encounters,
+-- brackets and gear, so one anchor per spec holds everywhere instead of
+-- needing a curve per boss. A spec too rare to crawl falls back to
+-- `default`, itself the median of the crawled specs.
+local _, TP = ...
+
+TP.TANK_DAMAGE_ANCHORS = {
+	default = $dDefLine
+$($dLines -join "`n")
+}
+"@
+$dOut = if ([System.IO.Path]::IsPathRooted($OutDamageFile)) { $OutDamageFile } else { Join-Path (Split-Path $PSScriptRoot -Parent) "Data\$OutDamageFile" }
+[System.IO.File]::WriteAllText($dOut, $dHeader, $utf8Bom)
+Write-Host ("Wrote {0} ({1} specs)" -f $dOut, $dLines.Count)

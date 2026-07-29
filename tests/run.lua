@@ -4006,6 +4006,76 @@ end)()
 	check(C.ResetIfStale() == true, "bumping the epoch retires the store again")
 end)()
 
+-- 43. Tank damage scores against the field of TANKS (Josh 2026-07-29). On
+-- 219 real MoP fights the damage metric's median was 59.5 for DPS, 59.8 for
+-- healers and 26.0 for tanks; the ranked curves are built from tanks who
+-- turn up in damage rankings. Data/TankDamage anchors on a share of the
+-- raid's damage instead.
+;(function()
+	local saved = TP.TANK_DAMAGE_ANCHORS
+	-- a median tank of this spec does 6% of the raid's damage
+	TP.TANK_DAMAGE_ANCHORS = { [73] = { 4, 6, 8 }, default = { 3, 5, 7 } }
+
+	local function fightWith(tankDamage, specID)
+		return {
+			name = "Anchor Test", duration = 300,
+			players = {
+				t1 = { guid = "t1", name = "Tank", class = "WARRIOR", role = "TANK",
+					specID = specID,
+					metrics = { damage = tankDamage, healing = 0, damageTaken = 500,
+						interrupts = 0, dispels = 0 } },
+				-- raid total pinned at 1000 so the tank's share is exact
+				d1 = { guid = "d1", name = "Dps", class = "MAGE", role = "DAMAGER",
+					metrics = { damage = 1000 - tankDamage, healing = 0, damageTaken = 50,
+						interrupts = 0, dispels = 0 } },
+			},
+		}
+	end
+	local function tankDamageScore(f)
+		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(f)) do
+			if r.name == "Tank" then return r.breakdown and r.breakdown.damage end
+		end
+	end
+
+	-- 60 of 1000 = 6% = exactly this spec's median
+	local mid = tankDamageScore(fightWith(60, 73))
+	check(mid and math.abs(mid.normalized - 50) < 0.5,
+		("a median tank share scores 50 (%.1f)"):format(mid and mid.normalized or -1))
+
+	-- the same tank doing more, and less
+	local hi = tankDamageScore(fightWith(80, 73))
+	local lo = tankDamageScore(fightWith(40, 73))
+	check(hi.normalized > mid.normalized and mid.normalized > lo.normalized,
+		"more damage still scores higher")
+	check(math.abs(hi.normalized - 75) < 0.5,
+		("p75 share scores 75 (%.1f)"):format(hi.normalized))
+	check(math.abs(lo.normalized - 25) < 0.5,
+		("p25 share scores 25 (%.1f)"):format(lo.normalized))
+
+	-- an uncrawled spec falls back to the median of the crawled ones
+	local unk = tankDamageScore(fightWith(50, 999))
+	check(unk and math.abs(unk.normalized - 50) < 0.5,
+		("an uncrawled tank spec uses the default anchor (%.1f)"):format(unk and unk.normalized or -1))
+
+	-- no crawled data at all: the ranked curve path is untouched
+	TP.TANK_DAMAGE_ANCHORS = {}
+	local none = tankDamageScore(fightWith(60, 73))
+	check(none and none.normalized ~= nil and math.abs(none.normalized - 50) > 0.5,
+		"with no anchors the tank falls back to the old curve path")
+
+	-- DPS are never re-anchored
+	TP.TANK_DAMAGE_ANCHORS = { [73] = { 4, 6, 8 }, default = { 3, 5, 7 } }
+	local f = fightWith(60, 73)
+	local dps
+	for _, r in ipairs(TP.Scoring.Engine.ScoreFight(f)) do
+		if r.name == "Dps" then dps = r.breakdown.damage end
+	end
+	check(dps and dps.normalized > 90,
+		("a DPS doing 94%% of the raid's damage is unaffected (%.1f)"):format(dps and dps.normalized or -1))
+
+	TP.TANK_DAMAGE_ANCHORS = saved
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")

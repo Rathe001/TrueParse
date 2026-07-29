@@ -34,6 +34,7 @@ Data\HealerCDs_Mists.lua
 Data\GroupBuffs.lua
 Data\Defensives.lua
 Data\TankAnchors_Mists.lua
+Data\TankDamage_Mists.lua
 Collect\Roster.lua
 Metrics\Registry.lua
 Metrics\Damage.lua
