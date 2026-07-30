@@ -1995,7 +1995,8 @@ function Engine.ScoreFight(fight, opts)
 			-- against the undivided 0.58 looked like light intake and shifted
 			-- 29% of their mitigation weight away).
 			local tankN = math.max(1, #(ctx.cohorts.TANK or {}))
-			local expected = ((W.expectedShare.TANK and W.expectedShare.TANK.damageTaken) or 0.58) / tankN
+			local es = W.expectedShare and W.expectedShare.TANK
+			local expected = ((es and es.damageTaken) or 0.58) / tankN
 			local ratio = 1
 			local full = W.tankIntakeFull or 0.5
 			if groupTaken > 0 and expected > 0 and full > 0 then

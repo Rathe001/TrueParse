@@ -36,3 +36,11 @@ jobs:
 
       - name: Score the mock nights
         run: lua5.4 tests/mock.lua
+
+      # A syntax check proves a file PARSES; this proves it RUNS. Every file
+      # in both TOCs is executed at file scope against stubbed WoW globals,
+      # which is where a bad file-scope expression or a load-order dependency
+      # actually bites - the red Lua error a user sees before the addon has
+      # done anything at all.
+      - name: Load every file the way a client does
+        run: lua5.4 tests/load.lua
