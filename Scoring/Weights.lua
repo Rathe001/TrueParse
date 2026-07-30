@@ -336,6 +336,14 @@ Weights.derivedOffDifficultyScaled = 4.0
 -- +2 ("keep mplusDirectKey at 10"). It does override his earlier 2026-07-28
 -- call of "the BRACKET, not per-key" — that was decided before the +2/+3
 -- measurement above existed. Settled; don't reopen it without new data.
+-- How far below a fight's key a crawled keystone band may sit before it stops
+-- being a fair comparison. The bands are crawled a few keys apart so 1-2 is
+-- the intended approximation; a larger gap means the band that SHOULD have
+-- covered this key is missing from the data, and scoring a +15 against a +5
+-- population inflates wildly. The highest crawled band is exempt - it stands
+-- for "this key and up" by design.
+Weights.mplusBandMaxGap = 3
+
 Weights.mplusDirectKey = 10
 
 -- Lift for a below-threshold key, replacing derivedOffDifficulty (fitted for

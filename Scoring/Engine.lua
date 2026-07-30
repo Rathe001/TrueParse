@@ -389,6 +389,23 @@ local function keystoneBracketFor(enc, keystoneLevel)
 			best, bestLevel = key, n
 		end
 	end
+	-- REFUSE A BAND TOO FAR BELOW THE FIGHT. Bands are crawled a few keys
+	-- apart, so landing 1-2 below is the intended approximation; a larger gap
+	-- means the band that should have covered this key is missing, and
+	-- scoring a +15 against the +5 population reads wildly inflated - the same
+	-- error as scoring a +2 against top-2000 curves, pointed the other way.
+	-- Partial data must not be able to cause it, and partial is exactly how
+	-- this data arrives: the crawl runs one bracket at a time and can stop
+	-- between any two.
+	-- NO exemption for the highest band, which was tried and is unsafe: with
+	-- a stranded low band the "highest" is still low, so a +30 was scored
+	-- against +2 precisely when the set was most incomplete. Refusing falls
+	-- back to the pre-band behaviour - the direct comparison high keys always
+	-- had, and which was never the broken case. Key bands exist to rescue LOW
+	-- keys; they do not need to reach every key to do that.
+	if bestLevel and (keystoneLevel - bestLevel) > (TP.Scoring.Weights.mplusBandMaxGap or 3) then
+		return nil
+	end
 	return best
 end
 

@@ -1530,7 +1530,11 @@ end
 			{ 75, 230 }, { 50, 200 }, { 25, 170 }, { 10, 150 } } }
 		local high = { n = 400, curve = { { 99, 700 }, { 95, 660 }, { 90, 620 },
 			{ 75, 560 }, { 50, 500 }, { 25, 430 }, { 10, 380 } } }
+		local mid = { n = 400, curve = { { 99, 450 }, { 95, 420 }, { 90, 400 },
+			{ 75, 360 }, { 50, 320 }, { 25, 285 }, { 10, 260 } } }
+		-- bands as the crawl actually emits them: a few keys apart
 		TP.Percentiles.encounters["Pool Dungeon"]["k2"] = { dps = { [63] = low }, hps = {} }
+		TP.Percentiles.encounters["Pool Dungeon"]["k5"] = { dps = { [63] = mid }, hps = {} }
 		TP.Percentiles.encounters["Pool Dungeon"]["k10"] = { dps = { [63] = high }, hps = {} }
 		Engine.InvalidateNameIndex(TP.Percentiles)
 
@@ -1549,10 +1553,39 @@ end
 			("the same rate ranks lower against the +10 field (%.1f < %.1f)"):format(
 				k10.breakdown.damage.pctile, k2.breakdown.damage.pctile))
 
-		-- a key BETWEEN crawled levels takes the highest band at or below it
+		-- a key BETWEEN crawled bands takes the highest band at or below it
 		local k7 = deeps(mk({ difficulty = "Mythic Keystone", difficultyID = 8, keystoneLevel = 7 }))
-		check(math.abs(k7.breakdown.damage.pctile - k2.breakdown.damage.pctile) < 0.001,
-			"a +7 falls to the +2 band, not up to +10")
+		local k5r = deeps(mk({ difficulty = "Mythic Keystone", difficultyID = 8, keystoneLevel = 5 }))
+		check(math.abs(k7.breakdown.damage.pctile - k5r.breakdown.damage.pctile) < 0.001,
+			"a +7 falls to the +5 band, not up to +10")
+
+		-- ...but only so far. A key far above every band it could fall to means
+		-- the covering band is MISSING from the data - a half-finished crawl -
+		-- and scoring it against a much lower population inflates wildly, the
+		-- mirror of scoring a +2 against top-2000 curves. The HIGHEST band is
+		-- exempt: it stands for "this key and up".
+		local k30 = deeps(mk({ difficulty = "Mythic Keystone", difficultyID = 8, keystoneLevel = 30 }))
+		check(k30.breakdown.damage.pctile ~= nil, "a +30 still scores")
+		check(math.abs(k30.breakdown.damage.pctile - k10.breakdown.damage.pctile) > 0.001,
+			("a +30 is too far above +10 to use it (%.1f vs the band's %.1f)"):format(
+				k30.breakdown.damage.pctile, k10.breakdown.damage.pctile))
+		local k12 = deeps(mk({ difficulty = "Mythic Keystone", difficultyID = 8, keystoneLevel = 12 }))
+		check(math.abs(k12.breakdown.damage.pctile - k10.breakdown.damage.pctile) < 0.001,
+			"a +12 is within reach of the +10 band and uses it")
+		-- Now drop the top two bands, leaving only +2 - a half-finished crawl.
+		-- A +30 must NOT be scored against the +2 population; it falls back to
+		-- the pre-keyband behaviour instead, which for a high key is the
+		-- direct comparison it always was.
+		TP.Percentiles.encounters["Pool Dungeon"]["k5"] = nil
+		TP.Percentiles.encounters["Pool Dungeon"]["k10"] = nil
+		Engine.InvalidateNameIndex(TP.Percentiles)
+		local orphan = deeps(mk({ difficulty = "Mythic Keystone", difficultyID = 8, keystoneLevel = 30 }))
+		check(math.abs(orphan.breakdown.damage.pctile - k2.breakdown.damage.pctile) > 0.001,
+			("a +30 refuses a stranded +2 band (%.1f vs the band's %.1f)"):format(
+				orphan.breakdown.damage.pctile, k2.breakdown.damage.pctile))
+		TP.Percentiles.encounters["Pool Dungeon"]["k5"] = nil
+		TP.Percentiles.encounters["Pool Dungeon"]["k10"] = nil
+		Engine.InvalidateNameIndex(TP.Percentiles)
 
 		TP.Percentiles.encounters["Pool Dungeon"]["k2"] = nil
 		TP.Percentiles.encounters["Pool Dungeon"]["k10"] = nil
