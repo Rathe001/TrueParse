@@ -31,19 +31,16 @@ $ErrorActionPreference = "Stop"
 # mitigation-buff id sets mirror Data/Mitigation*.lua (buff ids, not casts)
 $mitSets = @{
     mists  = @(115307, 132404, 112048, 132403, 132402, 77535, 115295, 123402, 115308, 65148)
-    # NO BREWMASTER id here, on purpose (2026-07-29). Both candidates were
-    # tried and both are wrong for an ANCHOR, because an anchor has to measure
-    # the same button Data/Mitigation.lua's collector estimates:
-    #  * Celestial Brew (322507) never appears in a ranked Midnight
-    #    Brewmaster's buff table - they don't talent it - so it crawls 1
-    #    sample out of 66 real Brewmasters;
-    #  * Shuffle (215479) is the real thing at 99.7% uptime, but it is not a
-    #    cast, so the client cannot estimate it and the collector has no
-    #    Brewmaster entry at all.
-    # Spec 268 therefore stays uncrawled BY DESIGN and mitigation reports as
-    # unmeasured (imputed 50) rather than measured against another spec's
-    # scale. Add 215479 here only together with the generator casts.
-    retail = @(132404, 132403, 192081, 77535, 203819)
+    # Brewmaster = 215479 SHUFFLE (2026-07-30), matching the generator casts
+    # Data/Mitigation.lua now estimates it from (Keg Smash 5s, Blackout Kick
+    # 3s - tooltip durations, ids verified against a real log). An anchor has
+    # to measure the same button the collector estimates, and Celestial Brew
+    # (322507) failed that both ways: ranked Brewmasters don't talent it, so
+    # it crawled 1 sample from 66 real Brewmasters, and the few who did take
+    # it read ~20% against a ~90% default. Shuffle sits near-permanently on a
+    # good Brewmaster, which is exactly what a Shuffle-based collector will
+    # report - the two scales agree, which is the whole requirement.
+    retail = @(132404, 132403, 192081, 77535, 203819, 215479)
 }
 if ($mitSets.ContainsKey($MitIds)) { $mitList = $mitSets[$MitIds] }
 else { $mitList = @($MitIds -split "," | ForEach-Object { [int]$_.Trim() }) }

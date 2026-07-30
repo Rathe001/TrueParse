@@ -322,15 +322,40 @@ local BRACKET_NEIGHBORS = {
 	["4"] = { "3", "5", "1" },
 	["5"] = { "4", "3", "1" },
 }
-local BRACKET_LABELS = {
+local BRACKET_LABELS = setmetatable({
 	["3x10"] = "10N", ["3x25"] = "25N", ["4x10"] = "10H", ["4x25"] = "25H",
 	["1x25"] = "LFR",
 	["1"] = "LFR", ["3"] = "Normal", ["4"] = "Heroic", ["5"] = "Mythic",
-}
+	-- keystone brackets are open-ended, so they label themselves: "+8 keys"
+}, { __index = function(_, k)
+	local n = type(k) == "string" and k:match("^k(%d+)$")
+	return n and ("+" .. n .. " keys") or nil
+end })
 local ALL_BRACKETS = { "1x25", "3x10", "3x25", "4x10", "4x25", "1", "3", "4", "5" }
 -- What a derived tier's pooled reference actually IS, for the score tooltip.
 -- Keyed by poolAllCurves' `want`.
 local POOL_LABELS = { raid = "pooled raid logs", dungeon = "pooled dungeon logs" }
+
+-- Highest crawled keystone bracket ("k2", "k5", ...) at or below this fight's
+-- key, or nil when the encounter carries no key-band curves. Returning the
+-- level BELOW rather than the nearest is deliberate: a +9 measured against
+-- the +8 population reads slightly generous, while measuring it against +11
+-- would read harsh, and a rehearsal-free rule is easier to reason about than
+-- a nearest-match that flips direction with the crawl's spacing.
+local function keystoneBracketFor(enc, keystoneLevel)
+	if not (enc and keystoneLevel and keystoneLevel > 0) then
+		return nil
+	end
+	local best, bestLevel
+	for key in pairs(enc) do
+		local n = type(key) == "string" and key:match("^k(%d+)$")
+		n = n and tonumber(n)
+		if n and n <= keystoneLevel and (not bestLevel or n > bestLevel) then
+			best, bestLevel = key, n
+		end
+	end
+	return best
+end
 
 local function bracketSearchOrder(bracketKey)
 	local order = {}
@@ -1580,6 +1605,20 @@ function Engine.ScoreFight(fight, opts)
 		if P and P.encounters and (fight.isBoss or fight.isRun) then
 			local enc = encounterCurvesFor(P, fight)
 			local bracketKey = fight.difficultyID and WCL_BRACKET[fight.difficultyID]
+			-- KEYSTONE-LEVEL BRACKET. WCL brackets M+ by key level (zone
+			-- metadata: type 'Keystone Level', min 2, max 25), and the spread
+			-- is enormous - a Frost Mage's mean was 65,702 dps at +2 against
+			-- 155,558 at +15. Crawled per level as "kN", so a key is compared
+			-- against ITS OWN population: a direct, tier-1 comparison needing
+			-- no gear scaling and no off-difficulty lift, which is what those
+			-- corrections were only ever approximating.
+			-- Pick the highest crawled level at or below this key, so levels
+			-- can be added to the data without touching this code. Absent
+			-- key-band data, everything below behaves exactly as before.
+			local keyBracket = keystoneBracketFor(enc, fight.keystoneLevel)
+			if keyBracket then
+				bracketKey = keyBracket
+			end
 			-- the ladder must never cross instance types (2026-07-16):
 			-- a Timewalking dungeon with no curves zoomed out to the RAID
 			-- all-bosses pool and scored ilvl-119-scaled players p3 while
@@ -1620,7 +1659,12 @@ function Engine.ScoreFight(fight, opts)
 			-- conservative read — the same backstop logic the ladder uses
 			-- above for a capture that lost its instance context.
 			local isKeyed = fight.keystoneLevel ~= nil or fight.difficultyID == 8
-			local lowKey = isKeyed
+			-- A key with its OWN crawled population is never "low": it is
+			-- being compared against players who ran the same key level, which
+			-- is a direct comparison. mplusDirectKey and mplusLowKeyLift exist
+			-- only to approximate that when the data can't provide it, and
+			-- they stand down the moment it can.
+			local lowKey = isKeyed and not keyBracket
 				and ((fight.keystoneLevel or 0) < (W.mplusDirectKey or 0)) or false
 			local isMplus = (fight.keystoneLevel ~= nil or fight.difficultyID == 8
 				or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or false)

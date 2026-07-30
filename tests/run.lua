@@ -1519,6 +1519,46 @@ end
 		- Engine.EntryPercentileFor(TP.Percentiles.encounters["Pool Dungeon"].all.dps[63], 200)) < 0.001,
 		("T1 reads the curve unscaled - 200/s straight in (%.1f)"):format(t1.breakdown.damage.pctile))
 
+	-- KEYSTONE BRACKETS: a key compared against ITS OWN population is a
+	-- DIRECT comparison, no gear scaling and no low-key lift (Josh
+	-- 2026-07-30: "if a player is running a +4 mythic, we should compare them
+	-- against the appropriate m+ bracket"). WCL brackets M+ by key level and
+	-- the spread is 2.4x from +2 to +15, which is what mplusDirectKey /
+	-- mplusLowKeyLift were only ever approximating.
+	do
+		local low = { n = 400, curve = { { 99, 300 }, { 95, 280 }, { 90, 260 },
+			{ 75, 230 }, { 50, 200 }, { 25, 170 }, { 10, 150 } } }
+		local high = { n = 400, curve = { { 99, 700 }, { 95, 660 }, { 90, 620 },
+			{ 75, 560 }, { 50, 500 }, { 25, 430 }, { 10, 380 } } }
+		TP.Percentiles.encounters["Pool Dungeon"]["k2"] = { dps = { [63] = low }, hps = {} }
+		TP.Percentiles.encounters["Pool Dungeon"]["k10"] = { dps = { [63] = high }, hps = {} }
+		Engine.InvalidateNameIndex(TP.Percentiles)
+
+		-- 200/s is the MEDIAN of the +2 population and nowhere near the +10 one
+		local k2 = deeps(mk({ difficulty = "Mythic Keystone", difficultyID = 8, keystoneLevel = 2 }))
+		check(k2.derived == nil, "a +2 with its own curve is DIRECT, not derived")
+		check(math.abs(k2.breakdown.damage.pctile - 50) < 0.001,
+			("+2 median output scores 50 against the +2 field (%.1f)"):format(
+				k2.breakdown.damage.pctile))
+		check(k2.breakdown.damage.curveFrom == nil or k2.breakdown.damage.curveFrom == "+2 keys",
+			("the +2 bracket labels itself (%s)"):format(tostring(k2.breakdown.damage.curveFrom)))
+
+		-- the same output at +10 is bottom of that field, as it should be
+		local k10 = deeps(mk({ difficulty = "Mythic Keystone", difficultyID = 8, keystoneLevel = 10 }))
+		check(k10.breakdown.damage.pctile < k2.breakdown.damage.pctile,
+			("the same rate ranks lower against the +10 field (%.1f < %.1f)"):format(
+				k10.breakdown.damage.pctile, k2.breakdown.damage.pctile))
+
+		-- a key BETWEEN crawled levels takes the highest band at or below it
+		local k7 = deeps(mk({ difficulty = "Mythic Keystone", difficultyID = 8, keystoneLevel = 7 }))
+		check(math.abs(k7.breakdown.damage.pctile - k2.breakdown.damage.pctile) < 0.001,
+			"a +7 falls to the +2 band, not up to +10")
+
+		TP.Percentiles.encounters["Pool Dungeon"]["k2"] = nil
+		TP.Percentiles.encounters["Pool Dungeon"]["k10"] = nil
+		Engine.InvalidateNameIndex(TP.Percentiles)
+	end
+
 	-- A GROUP OF ONE HOLDS 100% OF EVERY SHARE. The expected-share fallback
 	-- exists for "the only healer in a five-man"; solo it compares a player
 	-- to themselves and always returns soloCohortCap. Josh's dummy scored 92

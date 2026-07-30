@@ -176,10 +176,21 @@ if ($Brackets -ne "") {
         $t = $token.Trim()
         if ($t -match "^(\d+)x(\d+)$") {
             [void]$bracketList.Add(@{ key = $t; args = (", difficulty: {0}, size: {1}" -f $Matches[1], $Matches[2]) })
+        } elseif ($t -match "^[kK](\d+)$") {
+            # KEYSTONE LEVEL (Josh 2026-07-30). M+ zones bracket by key level,
+            # not difficulty: worldData.zones reports bracket type 'Keystone
+            # Level', min 2, max 25, bucket 1. Measured on Algeth'ar Academy,
+            # Frost Mage: mean 65,702 dps at +2 against 155,558 at +15 - a
+            # 2.4x spread the un-bracketed "top 2000 by keystone score" curve
+            # cannot represent, which is why a +2 scored ~0 against it.
+            # One crawled level per key, emitted as "kN"; the engine picks the
+            # highest crawled level at or below the fight's own key, so more
+            # levels can be added later without touching the engine.
+            [void]$bracketList.Add(@{ key = ("k{0}" -f $Matches[1]); args = (", bracket: {0}" -f $Matches[1]) })
         } elseif ($t -match "^(\d+)$") {
             [void]$bracketList.Add(@{ key = $t; args = (", difficulty: {0}" -f $t) })
         } else {
-            Write-Error "Bad bracket token '$t' (want '3' or '3x10')"
+            Write-Error "Bad bracket token '$t' (want '3', '3x10', or 'k8')"
             exit 1
         }
     }
