@@ -38,6 +38,35 @@ local FIRST_ROW_Y = -40
 
 local COUNT_METRICS = { interrupts = true, dispels = true }
 
+-- Adjustment points on the details card, to ONE decimal (Josh 2026-07-30:
+-- "so it doesn't look like -1 and -1 penalties equals -1 total"). Rounded to
+-- whole numbers the chips stopped adding up: two -0.6s each rendered "-1"
+-- over a -1 total. The visibility threshold matches the format instead of
+-- sitting at 0.5 - an adjustment hidden for being small is another way for
+-- the arithmetic not to close.
+local ADJ_EPSILON = 0.05
+local function adjText(pts)
+	return ("%+.1f"):format(pts)
+end
+
+-- Why a spike band has no ability/amount detail (fields 5-6 of a spike
+-- record). There are two different reasons and they used to share one
+-- message, which read as a lie on retail (Josh 2026-07-29: "This
+-- shouldn't be before hit tracking... it was the last dungeon I ran"):
+--   * Midnight has no combat log for addons, so the detail can NEVER
+--     arrive. Personal windows come from UNIT_COMBAT swing amounts and
+--     group windows from other reporters' vote times - neither carries a
+--     spell name. Telling that player "new pulls carry the ability" is a
+--     promise the client cannot keep.
+--   * On a client that DOES have CLEU, a bare record really is a capture
+--     from before the fields existed, and a new pull will fill them in.
+local function spikeDetailNote()
+	if not (TP.Compat and TP.Compat.HAS_CLEU) then
+		return "No combat log on this client - the ability and damage can't be read."
+	end
+	return "Recorded before hit tracking - new pulls carry the ability and damage."
+end
+
 local frame
 local rows = {}
 
@@ -784,7 +813,7 @@ local function getChip(i)
 		c.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 		c.pts = face(c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 10)
 		c.pts:SetPoint("RIGHT", 0, 0)
-		c.pts:SetWidth(22)
+		c.pts:SetWidth(28) -- "-0.6" is wider than "-1"
 		c.pts:SetJustifyH("RIGHT")
 		c.val = face(c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
 		c.val:SetPoint("RIGHT", -28, 0)
@@ -825,14 +854,13 @@ local function renderChip(c, sig)
 	c.val:SetText(vtext)
 	c.val:SetTextColor(0.80, 0.80, 0.82)
 	local pts = sig.points or 0
-	local scored = math.abs(pts) >= 0.5
+	local scored = math.abs(pts) >= ADJ_EPSILON
 	-- no-point chips have no +/- to hold a column for: the value slides
 	-- right into it so the numbers line up (Josh 2026-07-25)
 	c.val:ClearAllPoints()
-	c.val:SetPoint("RIGHT", scored and -28 or 0, 0)
+	c.val:SetPoint("RIGHT", scored and -34 or 0, 0)
 	if scored then
-		c.pts:SetText(("%+d"):format(pts >= 0
-			and math.floor(pts + 0.5) or -math.floor(-pts + 0.5)))
+		c.pts:SetText(adjText(pts))
 		if pts > 0 then
 			c.pts:SetTextColor(MARK_GOOD[1], MARK_GOOD[2], MARK_GOOD[3])
 		else
@@ -1253,10 +1281,9 @@ function Panel:ShowFor(fight, result)
 						c.v * c.w + 0.5), 0.8, 0.8, 0.8 }
 			end
 			local adj = result.adjust or 0
-			if math.abs(adj) >= 0.5 then
+			if math.abs(adj) >= ADJ_EPSILON then
 				sh.tipLines[#sh.tipLines + 1] = {
-					("Earned adjustments %+d"):format(adj >= 0 and math.floor(adj + 0.5)
-						or -math.floor(-adj + 0.5)), 0.8, 0.8, 0.8 }
+					("Earned adjustments %s"):format(adjText(adj)), 0.8, 0.8, 0.8 }
 			end
 			sh.tipLines[#sh.tipLines + 1] = {
 				("= %d TrueParse"):format(result.score or 0), 1, 1, 1 }
@@ -1674,9 +1701,9 @@ function Panel:ShowFor(fight, result)
 				lines[#lines + 1] = { win[8] .. " rode this spike", 0.40, 0.85, 1.00 }
 			end
 			if not win[5] then
-				-- legacy capture: a dead hover reads as broken, so say why
-				-- the ability/damage detail is missing instead
-				lines[#lines + 1] = { "Recorded before hit tracking - new pulls carry the ability and damage.", 0.6, 0.6, 0.6, true }
+				-- a dead hover reads as broken, so say why the
+				-- ability/damage detail is missing instead
+				lines[#lines + 1] = { spikeDetailNote(), 0.6, 0.6, 0.6, true }
 			end
 			band.tipLines = lines
 			band:Show()
@@ -1870,9 +1897,8 @@ function Panel:ShowForGroup(fight, results)
 			end
 			local bad = (sig.points or 0) < 0
 			local suffix = ""
-			if sig.points and math.abs(sig.points) >= 0.5 then
-				suffix = (" (%+d)"):format(sig.points >= 0
-					and math.floor(sig.points + 0.5) or -math.floor(-sig.points + 0.5))
+			if sig.points and math.abs(sig.points) >= ADJ_EPSILON then
+				suffix = (" (%s)"):format(adjText(sig.points))
 			end
 			row.symbol:SetTextColor(bad and 0.90 or 0.55, bad and 0.35 or 0.55, bad and 0.35 or 0.60)
 			row.text:SetText((sig.label or "") .. suffix)
@@ -2227,7 +2253,7 @@ function Panel:ShowForGroup(fight, results)
 				lines[#lines + 1] = { "Uncovered", 0.90, 0.35, 0.35 }
 			end
 			if not win[5] then
-				lines[#lines + 1] = { "Recorded before hit tracking - new pulls carry the ability and damage.", 0.6, 0.6, 0.6, true }
+				lines[#lines + 1] = { spikeDetailNote(), 0.6, 0.6, 0.6, true }
 			end
 			band.tipLines = lines
 			band:Show()
