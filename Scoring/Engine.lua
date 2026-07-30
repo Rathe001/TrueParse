@@ -1156,6 +1156,18 @@ local function normalizeMetric(p, role, key, ctx)
 		-- risk is wildly asymmetric here, so a hard zero has to earn its
 		-- keep and it can't. Genuine negligence still shows up in damage
 		-- taken, deaths and the defensive-cooldown timing metric.
+		-- PRACTICE CANNOT BE JUDGED ON MITIGATION (Josh 2026-07-30: "paladin
+		-- mitigation seems too difficult to get 99" - on a Cleave Training
+		-- Dummy, at full health, 12k healing taken all session). Active
+		-- mitigation is a response to incoming damage; the crawled field is
+		-- tanks holding it through a raid boss. A rehearsal against a target
+		-- that barely hits back has no reason to hold it, so 80% there is not
+		-- the same measurement as 80% on Vorasius - and it was carrying 55%
+		-- of the grade. Unmeasurable in this context, so pin neutral, the
+		-- same treatment a missing report gets below.
+		if ctx.practice then
+			return 50, true
+		end
 		if not up or up <= 0 then
 			-- IMPUTED, not redistributed (Josh 2026-07-28). Redistribution
 			-- is only sound for a SMALL weight; this one is 0.55, so
@@ -1583,6 +1595,7 @@ function Engine.ScoreFight(fight, opts)
 
 	local ctx = {
 		playerCount = #players,
+		practice = fight.practice or nil, -- a dummy rehearsal, not a fight
 		cohorts = {},
 		kickCapable = 0,
 		normalizeIlvl = opts.normalizeIlvl ~= false,
@@ -2001,7 +2014,10 @@ function Engine.ScoreFight(fight, opts)
 				breakdown[key].anchors = (p.specID and AN[p.specID]) or AN.default
 				-- matches the imputation above: a flat 0 is unmeasured, so
 				-- the row must show "?" and not a measured mid-pack 50
-				if ((p.metrics and p.metrics.mitigationPct) or 0) <= 0 then
+				-- ...and practice is unmeasured for a different reason: the
+				-- uptime is real, the CONTEXT isn't comparable to the raid
+				-- field the anchor came from
+				if ctx.practice or ((p.metrics and p.metrics.mitigationPct) or 0) <= 0 then
 					-- the 50 above is an assumption; never let it render as
 					-- a measured mid-pack result
 					breakdown[key].noInput = true
