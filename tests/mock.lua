@@ -25,7 +25,8 @@ end
 
 local DATA = { "Benchmarks", "Percentiles", "Percentiles_Dungeons", "Percentiles_LFR",
 	"Percentiles_Sporefall", "Percentiles_Mists", "KillTimes", "KillTimes_LFR",
-	"KillTimes_Sporefall", "KillTimes_Mists", "Totals", "Totals_Sporefall",
+	"KillTimes_Sporefall", "KillTimes_Mists", "KillTimes_Mists_Dungeons",
+	"Benchmarks_Mists", "Totals", "Totals_Sporefall",
 	"Totals_Dungeons", "Totals_Mists", "Potions", "GroupBuffs", "Defensives",
 	"Mitigation", "Mitigation_Mists", "Lust", "HealerCDs", "SpellProfiles",
 	"SpellProfiles_Mists", "Overheal", "Overheal_Mists", "DamageProfiles",
@@ -229,6 +230,29 @@ do
 			"an ordinary spell is not excluded")
 		check(TPm.IsExcludedProc(148008, "Essence of Yu'lon") == false,
 			"the legendary cloak proc is still counted")
+	end
+end
+
+
+-- A kill-times-only encounter entry is NOT "this dungeon's curves". The
+-- KillTimes_*_Dungeons files merge run durations into TP.Percentiles.encounters,
+-- which made MoP Challenge Modes read as tier II "this dungeon's real curves"
+-- while actually scoring against pooled raid logs (Josh 2026-07-30).
+do
+	local E = mop.Percentiles and mop.Percentiles.encounters
+	if E then
+		local zone = "Gate of the Setting Sun"
+		check(E[zone] ~= nil, "the dungeon zone has an encounter entry (kill times)")
+		local f = { name = "Raigonn", isBoss = true, duration = 113, zone = zone,
+			instanceType = "party", difficultyID = 237,
+			players = { d = { guid = "d", name = "D", class = "MAGE", role = "DAMAGER",
+				specID = 62, ilvl = 511, metrics = { damage = 5e6, healing = 0,
+					damageTaken = 1e5, interrupts = 0, dispels = 0, deaths = 0 } } } }
+		local r = mop.Scoring.Engine.ScoreFight(f, { mode = "true" })[1]
+		check(r and r.derived == 3,
+			("a kill-times-only dungeon is tier III, not II (%s)"):format(tostring(r and r.derived)))
+		check(r == nil or r.derivedFrom == nil,
+			("...and does not claim the dungeon's own curves (%s)"):format(tostring(r and r.derivedFrom)))
 	end
 end
 

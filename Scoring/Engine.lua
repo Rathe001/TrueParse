@@ -210,6 +210,26 @@ end
 -- throughput metric, so sampled curves come back shuffled (583 of the 592
 -- shipped M+ curves were non-monotonic) — and percentileFor assumes
 -- descending values. Sorting the sampled values restores a usable curve.
+-- Does this entry actually carry OUTPUT curves? Kill-time data is merged into
+-- the same encounter table (Data/KillTimes_*_Dungeons writes
+-- E[zone][bracket].killTime), so a dungeon TrueParse has no dps/hps curves for
+-- still produces a truthy encounter. That made the engine believe it had this
+-- dungeon's real curves: MoP Challenge Modes were stamped tier II
+-- "Approximate - this dungeon's real curves, scaled to your gear" while
+-- silently scoring against pooled RAID logs, and took tier II's no-lift
+-- correction instead of tier III's. Josh 2026-07-30: "fight scores seem
+-- weird... are 2 players just genuinely playing bad the whole dungeon?"
+local function hasOutputCurves(enc)
+	for bk, bracket in pairs(enc) do
+		if bk ~= "_mono" and bk ~= "_pooled" and type(bracket) == "table" then
+			if next(bracket.dps or {}) or next(bracket.hps or {}) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 local function sanitizeEncounter(enc)
 	if enc._mono then
 		return enc
@@ -292,6 +312,12 @@ local function encounterCurvesFor(P, fight)
 		or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or fight.keystoneLevel
 		or fight.instanceType == "party") then
 		local enc = P.encounters[fight.zone]
+		-- ...but only if it has OUTPUT curves. A kill-times-only entry is not
+		-- "this dungeon's curves", it is a run-duration table sharing the
+		-- table namespace, and treating it as curves mislabels the tier.
+		if enc and not hasOutputCurves(enc) then
+			enc = nil
+		end
 		-- second return: this entry is DUNGEON-keyed, so its killTime curve
 		-- measures FULL RUNS — callers comparing a single fight's duration
 		-- against it must not (a 90s CM boss "beat" every 274s+ run: p99)
