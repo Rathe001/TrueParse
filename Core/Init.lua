@@ -383,8 +383,13 @@ function Addon:HandleSlash(input)
 		end
 		top(TP.DoneSpells, "Top damage sources this session (for proc exclusions):")
 		top(TP.HealSpells, "Top healing sources this session:")
-		if not next(TP.DoneSpells or {}) and not next(TP.HealSpells or {}) then
-			self:Print("No spell damage or healing recorded this session.")
+		-- absorbs too (2026-07-30): a boss-granted shield is credited to
+		-- whoever WEARS it, so it reads as healing that player never did.
+		-- Naming it here is how it gets retired.
+		top(TP.AbsorbSpells, "Top absorb shields this session:")
+		if not next(TP.DoneSpells or {}) and not next(TP.HealSpells or {})
+			and not next(TP.AbsorbSpells or {}) then
+			self:Print("No spell damage, healing or absorbs recorded this session.")
 		end
 	elseif cmd == "guild" then
 		-- weekly standings across TrueParse users heard this session
