@@ -42,15 +42,24 @@ end
 -- between, extrapolated and clamped past the ends. This is how the tank
 -- mitigation-uptime metric stays WCL-relative instead of arbitrary (Josh
 -- 2026-07-26). Guards degenerate/uncalibrated anchors against div-by-zero.
+-- The div-by-zero guards clamped at 1, which silently WRECKS a saturated
+-- field (Josh 2026-07-30, caught by validate.lua). Brewmaster's crawled band
+-- spans 0.6 points p25->p75 and Prot Paladin's 1.2, because ranked players of
+-- both hold their button essentially the whole fight. With a floor of 1 the
+-- divisor stopped tracking the band, so a spec's OWN MEDIAN scored 33 (268)
+-- and 42 (66) instead of 50 - a systematic under-read of exactly the two
+-- specs whose fields are tightest, on 55% of a tank's grade. The guard only
+-- ever needed to prevent division by zero, so make it epsilon.
+local EPS = 1e-6
 local function anchorScore(v, p25, p50, p75)
 	if v <= p25 then
-		return math.max(0, 25 * v / math.max(p25, 1))
+		return math.max(0, 25 * v / math.max(p25, EPS))
 	elseif v <= p50 then
-		return 25 + (v - p25) / math.max(p50 - p25, 1) * 25
+		return 25 + (v - p25) / math.max(p50 - p25, EPS) * 25
 	elseif v <= p75 then
-		return 50 + (v - p50) / math.max(p75 - p50, 1) * 25
+		return 50 + (v - p50) / math.max(p75 - p50, EPS) * 25
 	end
-	return math.min(100, 75 + (v - p75) / math.max(p75 - p50, 1) * 25)
+	return math.min(100, 75 + (v - p75) / math.max(p75 - p50, EPS) * 25)
 end
 
 -- Difficulties whose runs actually populate the WCL dungeon rankings
