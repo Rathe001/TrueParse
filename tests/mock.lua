@@ -220,12 +220,15 @@ do
 	if f then
 		f("TrueParse", TPm)
 		for _, n in ipairs({ "Serpent's Jadefire", "Xuen's Ferocity", "Blazing Song",
-			"Burning Song", "Earthquake" }) do
+			"Burning Song" }) do
 			check(TPm.IsExcludedProc(nil, n) == true,
 				("celestial proc excluded by name: %s"):format(n))
 		end
-		check(TPm.IsExcludedProc(61882, "Earthquake") == false,
-			"Elemental Shaman's Earthquake (61882) survives the name rule")
+		-- Niuzao's proc is off until its id is confirmed: a name rule cannot
+		-- tell it from Elemental Shaman's Earthquake, and SoO is where that
+		-- spell earns real damage.
+		check(TPm.IsExcludedProc(nil, "Earthquake") == false,
+			"Earthquake is NOT excluded by name (Shaman collision)")
 		check(TPm.IsExcludedProc(nil, "Fireball") == false,
 			"an ordinary spell is not excluded")
 		check(TPm.IsExcludedProc(148008, "Essence of Yu'lon") == false,

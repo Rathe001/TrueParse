@@ -44,10 +44,18 @@ TP.PROC_EXCLUDE_NAMES = {
 	["Xuen's Ferocity"] = true,
 	["Burning Song"] = true,
 	["Blazing Song"] = true,
-	-- Niuzao's (Josh 2026-07-30, naming the set: "Xuen's ferocity, Serpent's
-	-- jadefire, Earthquake(Niuzao), Blazing song"). Guarded by
-	-- PROC_NAME_KEEP_IDS above so the Shaman spell survives.
-	["Earthquake"] = true,
+	-- NIUZAO'S IS DELIBERATELY OFF (2026-07-30). Josh named it - "Xuen's
+	-- ferocity, Serpent's jadefire, Earthquake(Niuzao), Blazing song" - and it
+	-- belongs here, but "Earthquake" is ALSO Elemental Shaman's AoE and the
+	-- only thing standing between the two is PROC_NAME_KEEP_IDS[61882], an id
+	-- taken from memory and never verified. Josh raids SoO the same night,
+	-- which is where an Elemental Shaman spams Earthquake on adds: a wrong id
+	-- silently deletes their damage on tier-1 curves, to fix a proc that only
+	-- exists in celestial DUNGEONS. Wrong risk, wrong night.
+	-- TO ENABLE: /tp procs after a celestial dungeon prints "Earthquake (id)"
+	-- for the real proc. Put THAT id in PROC_EXCLUDE_IDS above - an id match
+	-- needs no name rule and no keep-list - and delete this note.
+	-- ["Earthquake"] = true,
 }
 
 function TP.IsExcludedProc(spellID, spellName)
