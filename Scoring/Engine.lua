@@ -328,6 +328,9 @@ local BRACKET_LABELS = {
 	["1"] = "LFR", ["3"] = "Normal", ["4"] = "Heroic", ["5"] = "Mythic",
 }
 local ALL_BRACKETS = { "1x25", "3x10", "3x25", "4x10", "4x25", "1", "3", "4", "5" }
+-- What a derived tier's pooled reference actually IS, for the score tooltip.
+-- Keyed by poolAllCurves' `want`.
+local POOL_LABELS = { raid = "pooled raid logs", dungeon = "pooled dungeon logs" }
 
 local function bracketSearchOrder(bracketKey)
 	local order = {}
@@ -523,23 +526,41 @@ end
 -- out, across everything we have data for". Same construction as
 -- rolePooledEntry/globalPool.
 --
--- Prefers DUNGEON-keyed curves, so a Timewalking dungeon is measured against
--- dungeon volumes rather than raid ones (the 2026-07-16 cross-instance-type
--- bug). When a client ships no dungeon curves at all — MoP Classic is
--- exactly this: Percentiles_Mists is SoO raid data only, so Celestial
--- dungeons had nothing — it falls back to pooling the RAID curves rather
--- than giving up (Josh 2026-07-28: "find the median for ALL WCL data for
--- that spec, then scale for ilvl"). That cross-type pooling is only safe
--- BECAUSE the derived path gear-scales and labels the result; the 2026-07-16
--- bug was the unscaled, unlabelled version of it.
--- Returns the encounter and the pool's kind ("dungeon" | "raid").
+-- Prefers RAID-keyed curves, because only they carry a real population's
+-- LOWER TAIL. WCL serves dungeon rankings as the top 2000 BY KEYSTONE SCORE,
+-- so a dungeon curve describes an elite slice and is narrow by construction.
+-- Measured across the shipped retail data (2026-07-29), p10/p50 -> p99/p50:
+--   raid-keyed curves     0.577 -> 2.068   (2.84x)  a real population
+--   dungeon-keyed curves  0.863 -> 1.255   (1.47x)  the top of one
+-- A reference whose bottom stops at 0.86x its own median cannot score anyone
+-- below it: percentileFor exhausts the curve and its fade-to-zero crushes the
+-- whole lower half of the field into single digits. That is exactly what ate
+-- Josh's Botanica Timewalking run — the same five players scored 88/86/80 on
+-- a fast opening pull and 1-21 on the next four bosses, purely because the
+-- later fights sat below 0.81x the median and fell off the end of the curve.
+-- Timewalking's gray parses (p50 29, 32% under 10) are the same defect.
+--
+-- Pooling raid curves for a dungeon fight is only safe BECAUSE the derived
+-- path gear-scales and labels the result; the 2026-07-16 cross-instance-type
+-- bug was the unscaled, unlabelled version of it. The dungeon-only pool
+-- remains as a fallback for a client that ships no raid curves at all.
+-- MoP Classic never reaches it: Percentiles_Mists is SoO raid data only, so
+-- its Celestial dungeons pool that raid data (Josh 2026-07-28: "find the
+-- median for ALL WCL data for that spec, then scale for ilvl").
+--
+-- `want` is "raid" | "dungeon" | "all". It was a wantDungeon BOOLEAN, which
+-- could not express the three cases the comment above claimed — false meant
+-- "every encounter", not "raid", so the pool that shipped mixed both kinds
+-- and was labelled "raid" regardless (see averageSeasonalDungeon).
+-- Returns the encounter and the pool's kind.
 local avgDungeonCache = setmetatable({}, { __mode = "k" })
 
-local function poolAllCurves(P, wantDungeon)
+local function poolAllCurves(P, want)
 	local out = { dps = {}, hps = {} }
 	local sums, weights, totals, levels = {}, {}, {}, {}
 	for name, enc in pairs(P.encounters or {}) do
-		if (not wantDungeon) or isDungeonKeyed(P, name, enc) then
+		local dungeon = isDungeonKeyed(P, name, enc)
+		if want == "all" or (want == "dungeon") == dungeon then
 			for bk, bracket in pairs(enc) do
 				if bk ~= "_mono" and type(bracket) == "table" then
 					for _, kind in ipairs({ "dps", "hps" }) do
@@ -613,8 +634,11 @@ local function poolAllCurves(P, wantDungeon)
 	if not any then
 		return nil
 	end
-	-- shaped like a sanitized encounter so findCurve can walk it unchanged
-	return { _mono = true, all = out }
+	-- shaped like a sanitized encounter so findCurve can walk it unchanged.
+	-- _pooled names the population for the UI label: this synthetic encounter
+	-- keys its curves under "all", which findCurve would otherwise report as
+	-- "timed top runs" — true of a real dungeon entry, a lie about a raid pool.
+	return { _mono = true, _pooled = want, all = out }
 end
 
 local function averageSeasonalDungeon(P)
@@ -625,9 +649,9 @@ local function averageSeasonalDungeon(P)
 		end
 		return hit.enc, hit.kind
 	end
-	local enc, kind = poolAllCurves(P, false), "raid"
+	local enc, kind = poolAllCurves(P, "raid"), "raid"
 	if not enc then
-		enc, kind = poolAllCurves(P, true), "dungeon"
+		enc, kind = poolAllCurves(P, "dungeon"), "dungeon"
 	end
 	if not enc then
 		avgDungeonCache[P] = false
@@ -920,7 +944,10 @@ local function findCurve(ctx, kind, specID, role, specOnly, encounterOnly)
 			-- not a population (2026-07-13 audit: p99/p50 = 1.26 vs 2.09 in
 			-- raids) — name the comparison honestly
 			local label
-			if bk == "all" then
+			if enc and enc._pooled then
+				-- the derived tiers' synthetic pool, also keyed "all"
+				label = POOL_LABELS[enc._pooled] or "pooled logs"
+			elseif bk == "all" then
 				label = "timed top runs"
 			elseif i > 1 then
 				label = "spec · " .. (BRACKET_LABELS[bk] or bk)
@@ -1561,10 +1588,45 @@ function Engine.ScoreFight(fight, opts)
 			-- M+ ranks as ONE population regardless of key level (Josh
 			-- 2026-07-28: the bracket, not the key) — any key is a direct
 			-- comparison against the dungeon's curves.
-			local isMplus = fight.keystoneLevel ~= nil or fight.difficultyID == 8
-				or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or false
+			--
+			-- ...but only DOWN TO A POINT (Josh 2026-07-29). Those curves are
+			-- WCL's top 2000 BY KEYSTONE SCORE, so the ranked population is
+			-- high-key, high-gear players. Measured on his +2/+3 night: 42 DPS
+			-- scores, ratio to the reference p25 0.103 / median 0.186 / max
+			-- 0.402 — a 5.4x gap at the median — and 97.6% landed under 10.
+			-- Item level ran 195-270 against a reference near 291. Tier 1
+			-- applies NO gear normalization (correct for a raw parse: better
+			-- gear should parse higher), so nothing absorbed that gap.
+			-- A low key is exactly the tier-II case — "the curves cover this
+			-- encounter, sampled at a difficulty the player didn't run" — so
+			-- treat it as derived: keep THIS dungeon's own curves (real
+			-- encounter evidence, no pooling), but gear-scale, lift, ceiling
+			-- and LABEL the comparison. At or above the threshold nothing
+			-- changes, so a genuine high-key parse can still certify 99.
+			-- An M+ fight whose key level went MISSING counts as low too: two
+			-- of Josh's Saprish pulls came back with keystoneLevel nil and
+			-- stayed on the direct path, scoring ~0 while their siblings from
+			-- the same run were rescued. Unknown key cannot claim to be the
+			-- ranked population, and the derived path is the labelled,
+			-- conservative read — the same backstop logic the ladder uses
+			-- above for a capture that lost its instance context.
+			local isKeyed = fight.keystoneLevel ~= nil or fight.difficultyID == 8
+			local lowKey = isKeyed
+				and ((fight.keystoneLevel or 0) < (W.mplusDirectKey or 0)) or false
+			local isMplus = (fight.keystoneLevel ~= nil or fight.difficultyID == 8
+				or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or false)
+				and not lowKey
 			if (enc or bracketKey) and not (isDungeon and not enc) then
 				local useEnc, dOnly = enc, isDungeon or nil
+				-- A low key POOLS like any other derived fight. Keeping this
+				-- dungeon's own curves looks like better evidence — same
+				-- encounter, only the key band differs — but measured, it is
+				-- not: those curves span just 1.45x p10->p99 (top-2000-by-
+				-- keystone-score has no lower tail) while a real low-key group
+				-- spans 7x internally, so no shift of them can place both ends
+				-- (swept: DAMAGER median jumped 16.6 -> 89.4 between lift 2.5
+				-- and 3.0 while under-10 barely moved). The pooled raid
+				-- reference spans 2.84x and can.
 				if isDungeon and enc and not isMplus then
 					local pooled = averageSeasonalDungeon(P)
 					if pooled then useEnc, dOnly = pooled, nil end
@@ -1582,7 +1644,13 @@ function Engine.ScoreFight(fight, opts)
 						tier = 2,
 						refIlvl = percentileRefIlvl(P),
 						levelScaled = (fight.difficultyID == 24) or nil,
-						offDifficulty = W.derivedOffDifficulty or 1,
+						-- a low key needs its OWN lift: derivedOffDifficulty was
+						-- fitted for a Normal/Heroic clear of a dungeon WCL
+						-- only ranks at M+, a far smaller gap than +2 against
+						-- the top-key population
+						offDifficulty = (lowKey and W.mplusLowKeyLift)
+							or W.derivedOffDifficulty or 1,
+						lowKey = lowKey or nil,
 						label = fight.zone,
 					}
 				end

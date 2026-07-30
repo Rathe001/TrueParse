@@ -261,7 +261,33 @@ Weights.derivedCeilingKnee = 70
 
 Weights.derivedIlvlSlopeScaled = 0.23
 
-Weights.derivedIlvlCap = 90
+-- REFIT 90 -> 150 (2026-07-29), on the trigger this file names above: the
+-- reference population changed. The T3/T2 pool is raid-keyed now, because
+-- WCL's dungeon rankings are the top 2000 by keystone score and their curves
+-- have no lower tail (p10/p50 0.86 against 0.58 in raids) — see
+-- Engine.averageSeasonalDungeon. The old narrow pool SATURATED, which hid how
+-- badly a 90-ilvl cap under-corrects: with refIlvl ~270-291, an ilvl-120
+-- character has a real gap of ~150-171, so a third of it went uncorrected
+-- (~3.3x) and the score simply pegged instead of showing it.
+--
+-- Swept against all three criteria; 150 is where they agree:
+--   cap   validate gear drift   T1-tracking maxdev (T2/T3)   residual %/ilvl (T2)
+--    90   62  FAIL             18.6 / 14.2                  +0.575
+--   120   43  FAIL             14.3 / 12.3                  +0.223
+--   140   20  FAIL (marginal)  11.8 / 11.2                  ~0
+--   150   pass                 13.1 / 10.6                  -0.117
+--   171   pass                 15.1 / 11.0                  -0.301
+--   180   pass                 15.3 / 11.3                  -0.328
+-- 140 tracks T1 marginally better but still misses the gear-invariance gate,
+-- which is the promise the derived tier makes out loud ("50 means an average
+-- player at YOUR item level"). Past 150 the tracking decays and the residual
+-- goes NEGATIVE — over-correcting the under-geared, i.e. handing out generous
+-- scores for gear you do not have, the worse of the two failure modes.
+-- Residual slope = ln(rate/specMedian) regressed on item level across Josh's
+-- captures after correction; 0 means gear is fully accounted for. Expect it
+-- slightly POSITIVE at the ideal, since better-geared players also play
+-- better, which argues for the low end of the passing range.
+Weights.derivedIlvlCap = 150
 
 -- Off-difficulty lift. Even at equal gear, players running content BELOW the
 -- difficulty WCL ranks put out less than the ranked population (smaller
@@ -281,6 +307,34 @@ Weights.derivedOffDifficultyT3 = 3.0  -- tier III, normal-power content
 -- accounting for it. Tuned the same way as the others: swept until the
 -- Timewalking distribution tracked tier 1's (2026-07-28).
 Weights.derivedOffDifficultyScaled = 4.0
+
+-- === Mythic+ key level ===============================================
+-- Key level below which the comparison stops being DIRECT. The dungeon curves
+-- are WCL's top 2000 BY KEYSTONE SCORE, so they describe high-key play, and
+-- tier 1 applies no gear normalization to absorb the gap. Measured on Josh's
+-- +2/+3 night (42 DPS scores): 97.6% under 10, median ratio to the reference
+-- 0.186 — a 5.4x gap — at item level 195-270 against a reference near 291.
+-- At or above this key the comparison stays tier 1 and a genuine high-key
+-- parse can still certify 99.
+--
+-- 10 is PROVISIONAL and is the weakest number in this file: nothing here
+-- knows what key band the crawl actually sampled, because the dungeon crawl
+-- records no key level at all. Pin it down by crawling per-key-band curves
+-- (or by recording the sampled keys) rather than by tuning this.
+Weights.mplusDirectKey = 10
+
+-- Lift for a below-threshold key, replacing derivedOffDifficulty (fitted for
+-- a Normal/Heroic clear of an M+-only dungeon, a far smaller gap).
+-- Held at 1.0 = NO key lift; gear scaling alone does the work. Measured, that
+-- is right, and it matters that the reference is the POOLED one:
+--   pooled reference (shipping), DAMAGER median / under-10:
+--     lift 1.0 -> 70.0 / 14.3%      2.0 -> 92.1 / 14.3%
+--     lift 1.5 -> 87.3 / 14.3%      2.5 -> 93.3 / 14.3%
+-- Every lift above 1.0 just pushes the pack into the ceiling without
+-- rescuing the tail, so 1.0 it is. (Against the dungeon's OWN narrow curves
+-- the same sweep was hopeless in both directions — median 16.6 -> 89.4
+-- between 2.5 and 3.0 — which is why the low-key path pools; see Engine.)
+Weights.mplusLowKeyLift = 1.0
 
 Weights.penalties = {
 	-- Avoidable damage: penalize taking MORE than your equal share of the

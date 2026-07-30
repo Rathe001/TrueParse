@@ -1396,11 +1396,19 @@ dungeonFight.keystoneLevel = nil
 dungeonFight.instanceType = "party"
 for _, r in ipairs(TP.Scoring.Engine.ScoreFight(dungeonFight, { mode = "parse", normalizeIlvl = false })) do
 	if r.name == "Deeps" then
-		-- 2026-07-13: normal/heroic/TW dungeons DO parse against the
-		-- dungeon curves now, labeled as timed top runs
+		-- 2026-07-13: normal/heroic/TW dungeons DO parse against real curves
+		-- rather than the group, and the comparison is LABELED.
+		-- 2026-07-29: the label is now "pooled raid logs". These fights take
+		-- the tier-II path, which swaps in averageSeasonalDungeon's pooled
+		-- reference — so "timed top runs" was only ever right by accident
+		-- (the pool keys its curves under "all", same as a dungeon entry).
+		-- The pool is raid-keyed now, deliberately: WCL's dungeon rankings
+		-- are the top 2000 by keystone score and their curves have no lower
+		-- tail (p10/p50 = 0.86 against 0.58 in raids), which crushed every
+		-- below-median Timewalking player into single digits.
 		check(r.breakdown.damage.absolute ~= nil
-			and r.breakdown.damage.curveFrom == "timed top runs",
-			("unranked dungeon difficulties parse vs timed top runs (%s)"):format(
+			and r.breakdown.damage.curveFrom == "pooled raid logs",
+			("unranked dungeon difficulties parse vs a labeled pool (%s)"):format(
 				tostring(r.breakdown.damage.curveFrom)))
 	end
 end
