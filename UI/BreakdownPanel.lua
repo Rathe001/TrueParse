@@ -38,6 +38,13 @@ local FIRST_ROW_Y = -40
 
 local COUNT_METRICS = { interrupts = true, dispels = true }
 
+-- Why a spike band has no ability/amount detail (fields 5-6 of a spike
+-- record): on a client WITH a combat log, a bare record is a capture from
+-- before those fields existed and a new pull will fill them in. That is the
+-- only case left - the strips don't render at all without a combat log, see
+-- the gate in the player card - so this says nothing a retail user can read.
+local SPIKE_LEGACY_NOTE = "Recorded before hit tracking - new pulls carry the ability and damage."
+
 -- Adjustment points on the details card, to ONE decimal (Josh 2026-07-30:
 -- "so it doesn't look like -1 and -1 penalties equals -1 total"). Rounded to
 -- whole numbers the chips stopped adding up: two -0.6s each rendered "-1"
@@ -60,18 +67,6 @@ end
 --     promise the client cannot keep.
 --   * On a client that DOES have CLEU, a bare record really is a capture
 --     from before the fields existed, and a new pull will fill them in.
-local function spikeDetailNote(isGroupMap)
-	if TP.Compat and TP.Compat.HAS_CLEU then
-		return "Recorded before hit tracking - new pulls carry the ability and damage."
-	end
-	-- name the PROVENANCE, since the two retail maps are built from very
-	-- different evidence and a reader should weigh them differently
-	if isGroupMap then
-		return "Rebuilt from when other TrueParse users spiked - no combat log to name the ability."
-	end
-	return "From your melee intake only - no combat log to name the ability."
-end
-
 local frame
 local rows = {}
 
@@ -1594,23 +1589,20 @@ function Panel:ShowFor(fight, result)
 	-- no group map falls back to their personal intake map, and the label/
 	-- field reads must follow the MAP, not the role (audit 2026-07-24 — the
 	-- and-or chain handed healers a personal map wearing group labels)
+	-- NO SPIKE TRACK ON A CLIENT WITHOUT A COMBAT LOG (Josh 2026-07-30:
+	-- "yeah just hide it on retail entirely"). The bands can't name what hit
+	-- you or what answered it, personal windows never leave the local player
+	-- (the map rides the local report only, never the wire), and those
+	-- windows come from UNIT_COMBAT WOUND events - melee swings and nothing
+	-- else - so for anyone but a tank the timeline silently omits every spell
+	-- spike while looking complete. The spike COUNTS still score (cdTiming,
+	-- tank-gated) and the verdict rows still read "Cooldowns met 3 of 5"; it
+	-- is the timeline itself that promises detail retail cannot supply.
 	local map, isGroupMap
-	if not result.parse then
+	if not result.parse and TP.Compat and TP.Compat.HAS_CLEU then
 		if result.role == "HEALER" and mm.groupSpikeMap then
 			map, isGroupMap = mm.groupSpikeMap, true
-		elseif TP.Compat and TP.Compat.HAS_CLEU then
-			map = mm.spikeMap
-		elseif result.role == "TANK" then
-			-- PERSONAL windows on a CLEU-less client, TANKS ONLY (Josh
-			-- 2026-07-30: "should we just hide the spike track on retail").
-			-- They are built from UNIT_COMBAT WOUND events, which are MELEE
-			-- swings and nothing else. For a tank that is the damage that
-			-- matters, and the same windows back a scored metric (cdTiming,
-			-- tank-gated in Engine/Signals/Bullets). For anyone else melee is
-			-- a side channel: the track would show the one add that hit hard
-			-- while silently missing every spell spike, which reads as a
-			-- complete picture and isn't one. A partial timeline presented
-			-- whole is worse than no timeline.
+		else
 			map = mm.spikeMap
 		end
 	end
@@ -1720,7 +1712,7 @@ function Panel:ShowFor(fight, result)
 			if not win[5] then
 				-- a dead hover reads as broken, so say why the
 				-- ability/damage detail is missing instead
-				lines[#lines + 1] = { spikeDetailNote(isGroupMap), 0.6, 0.6, 0.6, true }
+				lines[#lines + 1] = { SPIKE_LEGACY_NOTE, 0.6, 0.6, 0.6, true }
 			end
 			band.tipLines = lines
 			band:Show()
@@ -2184,8 +2176,9 @@ function Panel:ShowForGroup(fight, results)
 
 	-- 2) team coverage strip: the group's spikes, covered by ANY cooldown
 	-- (the teammate view removed from player cards lives here now)
+	-- hidden on a CLEU-less client for the same reason as the player strip
 	local teamMap
-	if not raw then
+	if not raw and TP.Compat and TP.Compat.HAS_CLEU then
 		for _, r in ipairs(results) do
 			local p = fight.players and fight.players[r.guid]
 			local mmap = p and p.metrics and p.metrics.groupSpikeMap
@@ -2270,7 +2263,7 @@ function Panel:ShowForGroup(fight, results)
 				lines[#lines + 1] = { "Uncovered", 0.90, 0.35, 0.35 }
 			end
 			if not win[5] then
-				lines[#lines + 1] = { spikeDetailNote(true), 0.6, 0.6, 0.6, true }
+				lines[#lines + 1] = { SPIKE_LEGACY_NOTE, 0.6, 0.6, 0.6, true }
 			end
 			band.tipLines = lines
 			band:Show()
