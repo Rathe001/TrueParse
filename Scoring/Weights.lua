@@ -162,6 +162,17 @@ Weights.expectedShare = {
 -- The expected-share fallback is the weakest evidence path (no cohort, no
 -- benchmark to beat), so it can never award a perfect score by itself —
 -- 100s must be earned against actual competition.
+-- How much of a tank's EXPECTED intake share still counts as a real tanking
+-- fight. Mitigation keeps its full weight at or above this fraction of
+-- expectedShare.TANK.damageTaken; below it the weight slides to zero and
+-- moves to damage/healing (Josh 2026-07-30: "if there is very little damage
+-- intake, the ratio should move more towards doing damage instead of
+-- tanking"). Half, because a tank taking half their usual share is still
+-- tanking - the shift is for pulls that barely touched them, not for a
+-- fight where the damage was merely light. A test fixture's tank at 50% of
+-- group intake (0.86 of expected) must come out completely unshifted.
+Weights.tankIntakeFull = 0.5
+
 Weights.soloCohortCap = 92
 
 -- When a WCL absolute benchmark exists for the fight+spec, throughput

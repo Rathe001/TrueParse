@@ -1177,7 +1177,18 @@ local function normalizeMetric(p, role, key, ctx)
 		if ctx.practice then
 			return 50, true
 		end
-		if not up or up <= 0 then
+		-- A MEASURED ZERO IS A NUMBER (Josh 2026-07-30: "we should always
+		-- show the value though, not '?'"). Only an ABSENT reading is
+		-- unmeasured now. This used to collapse 0 onto nil because on retail
+		-- a zero really did mean the aura was secret - but the collector
+		-- reports nil in that case, and on a client with a combat log a zero
+		-- is an observation: Josh's Guardian Druid read 0/16/0/0 across one
+		-- dungeon, and WCL's own MoP field for that spec is 9.9/18.4/33.3, so
+		-- the low end is real play rather than a broken tracker.
+		-- Safe to score BECAUSE of the intake shift above: on a fight that
+		-- barely touched the tank, mitigation now carries almost no weight,
+		-- so an honest zero costs what it should instead of 55% of a grade.
+		if not up then
 			-- IMPUTED, not redistributed (Josh 2026-07-28). Redistribution
 			-- is only sound for a SMALL weight; this one is 0.55, so
 			-- spreading it doesn't fill a gap - it replaces the tank's
@@ -1931,6 +1942,64 @@ function Engine.ScoreFight(fight, opts)
 			end
 		end
 
+		-- TANK INTAKE DEMAND, the mirror of the healer shift above (Josh
+		-- 2026-07-30: "if there is very little damage intake, the ratio
+		-- should move more towards doing damage instead of tanking").
+		-- Mitigation is 55% of a tank's grade and it prices ONE thing: how
+		-- well they blunted incoming damage. On a pull where almost nothing
+		-- hit them there was nothing to blunt, and grading them mostly on it
+		-- measures the fight rather than the player - the same error the
+		-- healer shift exists to correct.
+		-- Demand is this tank's share of the group's damage taken against
+		-- expectedShare, the calibrated share a tank normally absorbs. At or
+		-- above that share the weight stands unchanged; at zero intake
+		-- mitigation carries nothing and the freed weight moves to damage and
+		-- healing in the proportion they already hold.
+		-- This also makes a MEASURED zero safe to show: a tank who never
+		-- pressed a button on a fight that never hit them is barely graded on
+		-- it, so the honest number stops being a punishment.
+		if role == "TANK" and not ctx.parseMode and (weights.mitigation or 0) > 0 then
+			local groupTaken = ctx.totals.damageTaken or 0
+			local mine = (p.metrics and p.metrics.damageTaken) or 0
+			-- PER TANK, exactly as the healer shift divides demand by healerN.
+			-- expectedShare is one tank's share of a group's intake; with two
+			-- tanks each holds about half of it, and dividing is what stops a
+			-- normal 19-player raid reading as "nothing hit them" (validate.lua
+			-- caught this: two tanks at 6e6 in a 29e6 raid is 21% each, which
+			-- against the undivided 0.58 looked like light intake and shifted
+			-- 29% of their mitigation weight away).
+			local tankN = math.max(1, #(ctx.cohorts.TANK or {}))
+			local expected = ((W.expectedShare.TANK and W.expectedShare.TANK.damageTaken) or 0.58) / tankN
+			local ratio = 1
+			local full = W.tankIntakeFull or 0.5
+			if groupTaken > 0 and expected > 0 and full > 0 then
+				-- normalised so "expected share x full" is already a normal
+				-- tanking fight; only genuinely light intake ramps down
+				ratio = ((mine / groupTaken) / expected) / full
+				if ratio < 0 then ratio = 0 elseif ratio > 1 then ratio = 1 end
+			end
+			if ratio < 1 then
+				local mitW = weights.mitigation or 0
+				local freed = mitW * (1 - ratio)
+				local dW, hW = weights.damage or 0, weights.healing or 0
+				local rest = dW + hW
+				local shifted = {}
+				for k, v in pairs(weights) do
+					shifted[k] = v
+				end
+				shifted.mitigation = mitW - freed
+				if rest > 0 then
+					shifted.damage = dW + freed * (dW / rest)
+					shifted.healing = hW + freed * (hW / rest)
+				else
+					shifted.damage = dW + freed
+				end
+				weights = shifted
+				ctx.tankDemand = ctx.tankDemand or {}
+				ctx.tankDemand[p.guid] = ratio
+			end
+		end
+
 		local breakdown = {}
 		local activeWeight = 0
 		for key, weight in pairs(weights) do
@@ -2048,7 +2117,7 @@ function Engine.ScoreFight(fight, opts)
 				-- ...and practice is unmeasured for a different reason: the
 				-- uptime is real, the CONTEXT isn't comparable to the raid
 				-- field the anchor came from
-				if ctx.practice or ((p.metrics and p.metrics.mitigationPct) or 0) <= 0 then
+				if ctx.practice or (p.metrics and p.metrics.mitigationPct) == nil then
 					-- the 50 above is an assumption; never let it render as
 					-- a measured mid-pack result
 					breakdown[key].noInput = true
