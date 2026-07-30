@@ -121,14 +121,32 @@ function TP.CountsInAggregates(fight)
 	return not (fight and fight.practice)
 end
 
--- Per client: the anchor names a boss in THAT client's percentile file, and
--- borrows its bracket. Nothing on retail yet (which Midnight boss the
--- community treats as the patchwerk isn't settled, and naming the wrong one
--- would score every dummy session against a fight with a different damage
--- profile) - so retail practice records and displays, it just carries no
--- curve rather than a wrong one. Constants loads before Compat, hence the
--- raw project check. Update per tier alongside the zone ids.
--- the MAINLINE ~= nil guard matters: headless tests define neither global,
--- and a bare equality would make nil == nil read as retail
+-- Per client: the anchor names a boss in THAT client's percentile file and
+-- borrows its bracket, so a dummy session is scored against a real WCL
+-- population (tier II - see the practice stamp in Engine.lua).
+--
+-- RETAIL = Vorasius, MEASURED not chosen (2026-07-30,
+-- scratchpad/find-patchwerk.ps1 over zone 46's ranked fights). For each
+-- encounter it asked the DamageDone table, viewed by target, what share of
+-- the raid's damage landed on the single biggest target - a patchwerk is one
+-- target and no adds, so that share runs near 100%. Vorasius took 96.1%,
+-- ahead of Fallen-King Salhadaar 89.5% and Chimaerus 86.4%, with Vaelgor &
+-- Ezzorak and Lightblinded Vanguard at ~36% (split-target fights, the
+-- opposite of a dummy).
+--
+-- difficultyID 16 = Mythic = WCL bracket "5". Heroic and Mythic are
+-- statistically tied on population (68,993 vs 69,550 ranked parses on
+-- Vorasius) so "most-parsed" doesn't decide it. Mythic, because a dummy has
+-- no fight difficulty at all - no movement, no phases, no target swaps,
+-- perfect uptime - so it belongs against the population that executes
+-- closest to its own ceiling. The alternative inflates every dummy parse.
+-- CALIBRATABLE: with dummy sessions and raid parses from one character, the
+-- honest correction is measurable and belongs in derivedOffDifficulty.
+--
+-- Constants loads before Compat, hence the raw project check; the
+-- MAINLINE ~= nil guard matters because headless tests define neither
+-- global and a bare equality would make nil == nil read as retail.
+-- Update per tier alongside the zone ids.
 TP.PRACTICE_ANCHOR = (WOW_PROJECT_MAINLINE ~= nil and WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
-	and nil or { name = "Iron Juggernaut", difficultyID = 3 }
+	and { name = "Vorasius", difficultyID = 16 }
+	or { name = "Iron Juggernaut", difficultyID = 3 }
