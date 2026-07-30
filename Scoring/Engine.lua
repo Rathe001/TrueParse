@@ -1306,7 +1306,16 @@ local function normalizeMetric(p, role, key, ctx)
 		if best > 0 then
 			relative, applicable = math.min(100, 100 * adjusted / best), true
 		end
-	else
+	elseif (ctx.playerCount or 0) > 1 then
+		-- Expected share only means something when there IS a group to hold a
+		-- share OF: "the only healer in a five-man did 75% of the healing".
+		-- With a group of ONE the ratio is 1.0 by construction for every
+		-- metric, so this always returns the cap - Josh's solo dummy scored
+		-- 92 for damage AND 92 for healing (2026-07-30), which is the cap
+		-- twice over, not two measurements. Comparing a player to themselves
+		-- is not evidence, and a confident 92 built on none of it is the same
+		-- error as a confident 0 (see the mitigation guard): leave the metric
+		-- unscored and let the weights renormalise onto what WAS measured.
 		local expected = W.expectedShare[role] and W.expectedShare[role][key]
 		local groupTotal = ctx.totals[key]
 		if expected and groupTotal and groupTotal > 0 then

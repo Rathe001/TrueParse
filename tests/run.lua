@@ -1519,6 +1519,32 @@ end
 		- Engine.EntryPercentileFor(TP.Percentiles.encounters["Pool Dungeon"].all.dps[63], 200)) < 0.001,
 		("T1 reads the curve unscaled - 200/s straight in (%.1f)"):format(t1.breakdown.damage.pctile))
 
+	-- A GROUP OF ONE HOLDS 100% OF EVERY SHARE. The expected-share fallback
+	-- exists for "the only healer in a five-man"; solo it compares a player
+	-- to themselves and always returns soloCohortCap. Josh's dummy scored 92
+	-- damage AND 92 healing (2026-07-30) - the cap twice, not two readings.
+	do
+		local solo = {
+			name = "Heavyweight Golem", isBoss = true, practice = true, duration = 95,
+			zone = "Silvermoon City", instanceType = "none",
+			players = {
+				d = { guid = "d", name = "Solo", class = "MAGE", role = "DAMAGER",
+					specID = 63, ilvl = 200,
+					metrics = { damage = 20000, healing = 500, interrupts = 0, dispels = 0, deaths = 0 } },
+			},
+		}
+		local r = Engine.ScoreFight(solo, { normalizeIlvl = false })[1]
+		check(r ~= nil, "a solo fight still scores to a result")
+		local cap = TP.Scoring.Weights.soloCohortCap or 92
+		for _, key in ipairs({ "damage", "healing" }) do
+			local b = r and r.breakdown[key]
+			check(not (b and b.applicable and b.normalized and
+				math.abs(b.normalized - cap) < 0.001),
+				("solo %s is not pinned at the cohort cap (%s)"):format(
+					key, b and tostring(b.normalized) or "nil"))
+		end
+	end
+
 	-- PRACTICE IS ALWAYS DERIVED (Josh 2026-07-30: "shouldn't that be a tier
 	-- II?"). A dummy scores against the tier's patchwerk anchor - a real WCL
 	-- curve, for a DIFFERENT fight - which is the tier-II idea exactly. The
