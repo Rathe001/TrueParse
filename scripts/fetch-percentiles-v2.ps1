@@ -462,7 +462,12 @@ foreach ($name in ($encounters.Keys | Sort-Object)) {
 # self-describing (Engine falls back to the shape check for older files).
 Emit ""
 Emit "TP.Percentiles.kinds = TP.Percentiles.kinds or {}"
-$contentKind = if ($Brackets.Trim()) { "raid" } else { "dungeon" }
+# A KEYSTONE bracket is dungeon content, not raid. The old test was "any
+# bracket filter at all means raid", which was true while the only bracketed
+# crawls were raids - and would have mislabelled every per-key dungeon curve
+# as a raid population, which is precisely what Engine.kinds exists to stop
+# (a Timewalking dungeon must never be measured against raid volumes).
+$contentKind = if ($Brackets.Trim() -and $Brackets -notmatch "(?i)k\d") { "raid" } else { "dungeon" }
 foreach ($name in ($encounters.Keys | Sort-Object)) {
     if ($encounters[$name].Count -eq 0) { continue }
     $luaName = $name -replace '"', '\"'
