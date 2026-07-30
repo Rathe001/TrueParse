@@ -210,7 +210,17 @@ local function countConsumables()
 	local count, seen, readable = 0, 0, 0
 	for i = 1, 60 do
 		local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
-		if not ok or not aura then
+		-- A THROWN lookup is not an empty aura list. Both used to break the
+		-- same way, and breaking at i=1 left seen=0 readable=0 - which passes
+		-- the "fully readable" test below and returns a measured ZERO, so the
+		-- player eats "No flask/food -2" precisely when we could see nothing
+		-- at all. That is the reported symptom surviving its own fix
+		-- (CurseForge, RoboCleave: "negative score on every encounter for no
+		-- flask / food even though im always using max rank flasks").
+		if not ok then
+			return nil
+		end
+		if not aura then
 			break
 		end
 		seen = seen + 1
