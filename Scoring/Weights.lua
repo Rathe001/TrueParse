@@ -317,10 +317,14 @@ Weights.derivedOffDifficultyScaled = 4.0
 -- At or above this key the comparison stays tier 1 and a genuine high-key
 -- parse can still certify 99.
 --
--- 10 is PROVISIONAL and is the weakest number in this file: nothing here
--- knows what key band the crawl actually sampled, because the dungeon crawl
--- records no key level at all. Pin it down by crawling per-key-band curves
--- (or by recording the sampled keys) rather than by tuning this.
+-- 10 is the weakest number in this file: nothing here knows what key band the
+-- crawl actually sampled, because the dungeon crawl records no key level at
+-- all. Pin it down by crawling per-key-band curves (or by recording the
+-- sampled keys) rather than by tuning this.
+-- KEPT AT 10 BY JOSH, 2026-07-30, after he questioned the tier-II label on a
+-- +2 ("keep mplusDirectKey at 10"). It does override his earlier 2026-07-28
+-- call of "the BRACKET, not per-key" — that was decided before the +2/+3
+-- measurement above existed. Settled; don't reopen it without new data.
 Weights.mplusDirectKey = 10
 
 -- Lift for a below-threshold key, replacing derivedOffDifficulty (fitted for
