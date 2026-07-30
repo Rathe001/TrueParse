@@ -250,7 +250,10 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 
 	local name = descriptor and descriptor.name
 	if not name or IsSecret(name) or name == "" then
-		name = ("Fight #%d"):format(sessionID)
+		-- unnamed session: fall back to what we were hitting, recorded live
+		-- (the only way a dummy session gets a usable label)
+		local liveCtx = sessionContext[sessionID]
+		name = (liveCtx and liveCtx.targetName) or ("Fight #%d"):format(sessionID)
 	end
 
 	if not duration then
@@ -265,12 +268,28 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		return true
 	end
 
+	-- Practice on a raider's training dummy: a real single-target rotation
+	-- worth grading, and the ONE non-encounter session that earns a record
+	-- (Classic has done this since 2026-07-26 in AddFromSegment; retail
+	-- never did, so dummies vanished into the trash filter below). Same
+	-- gates as Classic: the option, the dummy's name, and 60s+ so a stray
+	-- weapon swing on the way past isn't a parse.
+	local practice = false
+	if name:find("^%(!%)") == nil then
+		practice = TP.Addon.db.profile.practiceDummies
+			and name:find("Training Dummy", 1, true) ~= nil
+			and duration >= 60
+	end
+
 	local fight = {
 		sessionID = sessionID,
 		-- Blizzard prefixes encounter sessions with "(!) ": keep the flag,
 		-- store the name clean so no label downstream has to strip it
 		name = name:gsub("^%(!%)%s*", ""),
-		isBoss = name:find("^%(!%)") ~= nil,
+		-- practice rides the boss pipeline (curves, coach, card) but flags
+		-- itself so kill-speed/comp/career logic steps aside
+		isBoss = name:find("^%(!%)") ~= nil or practice,
+		practice = practice or nil,
 		duration = duration or 0,
 		capturedAt = time(),
 		-- when the fight actually HAPPENED: the live context's stamp from
@@ -377,6 +396,13 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		if outcomeCtx.encounterID and not fight.encounterID then
 			fight.encounterID = outcomeCtx.encounterID
 		end
+	end
+	-- practice borrows the anchor's bracket so curve resolution lands on the
+	-- intended population (a dummy in a capital reads difficulty 0, which
+	-- ladders nowhere). No anchor for this client = the record still keeps,
+	-- it just scores off the fightFactors path instead of a curve.
+	if fight.practice and TP.PRACTICE_ANCHOR and TP.PRACTICE_ANCHOR.difficultyID then
+		fight.difficultyID = TP.PRACTICE_ANCHOR.difficultyID
 	end
 	-- Encounter sessions only, everywhere: instance trash AND open-world
 	-- quest mobs are noise in history (a 36s Scavenging Hyena got a 92).
@@ -776,6 +802,20 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 		local ctx = sessionContext[sessionId]
 		if ctx.roster and (not ctx.rosterAt or (GetTime() - ctx.rosterAt) > 5) then
 			ctx.rosterAt = GetTime()
+			-- WHAT we are hitting. Blizzard names encounter sessions only, so
+			-- a raider's-training-dummy session arrives nameless and the
+			-- record read "Fight #12" with isBoss false — which the trash
+			-- filter below then dropped, so retail dummies never captured at
+			-- all. Sticky, and a Training Dummy name outranks whatever we
+			-- happened to be targeting first, so tabbing mid-session can't
+			-- rename the pull.
+			local tn = UnitExists and UnitExists("target") and UnitName("target") or nil
+			if type(tn) == "string" and tn ~= "" and not IsSecret(tn)
+				and (not ctx.targetName
+					or (tn:find("Training Dummy", 1, true)
+						and not ctx.targetName:find("Training Dummy", 1, true))) then
+				ctx.targetName = tn
+			end
 			for guid, info in pairs(TP.Roster.players) do
 				local e = ctx.roster[guid]
 				if not e then

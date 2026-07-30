@@ -85,4 +85,14 @@ TP.METRIC_DEFS = {
 -- stand-and-hit fight; Malkorok's absorb phase and Thok's frenzy skew
 -- rates. difficultyID picks the anchor bracket (3 = 10 Normal, the
 -- most-parsed). Update per tier alongside the zone ids.
-TP.PRACTICE_ANCHOR = { name = "Iron Juggernaut", difficultyID = 3 }
+-- Per client: the anchor names a boss in THAT client's percentile file, and
+-- borrows its bracket. Nothing on retail yet (which Midnight boss the
+-- community treats as the patchwerk isn't settled, and naming the wrong one
+-- would score every dummy session against a fight with a different damage
+-- profile) - so retail practice records and displays, it just carries no
+-- curve rather than a wrong one. Constants loads before Compat, hence the
+-- raw project check. Update per tier alongside the zone ids.
+-- the MAINLINE ~= nil guard matters: headless tests define neither global,
+-- and a bare equality would make nil == nil read as retail
+TP.PRACTICE_ANCHOR = (WOW_PROJECT_MAINLINE ~= nil and WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
+	and nil or { name = "Iron Juggernaut", difficultyID = 3 }
