@@ -414,7 +414,10 @@ local function createWindow()
 		-- the default size and dims, so the eye lands on the answer first
 		local body = {
 			{ t.what, 0.95, 0.95, 0.95, size = 13 },
-			{ t.how, 0.66, 0.66, 0.70 },
+			-- a fight can explain its OWN tier better than the generic
+			-- footnote can (tier II's names dungeons and Mythic+, which says
+			-- nothing true about a training dummy)
+			{ self.tierHow or t.how, 0.66, 0.66, 0.70 },
 		}
 		-- The chip is the only tier surface, so it carries the legend too —
 		-- as real chips, matching the one in the header. The active plate is
@@ -781,11 +784,12 @@ end
 -- Engine numbering throughout (1 = direct); see TIERS. tier = nil means
 -- nothing is scored on screen (empty/waiting state) and the chip hides
 -- rather than describing a fight that isn't there.
-function MeterWindow:UpdateTierChip(tier)
+function MeterWindow:UpdateTierChip(tier, how)
 	lastTier = tier
 	if not (window and window.tierChip) then
 		return
 	end
+	window.tierChip.tierHow = how
 	local def
 	for _, t in ipairs(TIERS) do
 		if t.tier == tier then
@@ -1175,6 +1179,7 @@ local lastRawAvailable = true
 -- nothing-recorded state blanked the strip, and coming back to the SAME
 -- fight took the early return and never re-lit it (Josh 2026-07-28).
 local lastFightTier = 1
+local lastFightHow -- per-fight override for the chip's footnote
 
 -- Every row of a scored fight carries the same tier, but a fight can score
 -- to an empty result set; read it defensively.
@@ -1186,6 +1191,19 @@ local lastFightTier = 1
 -- doesn't; the metric tooltip on the same card already said "no WCL
 -- population data - vs group share". No evidence is tier III, whose headline
 -- is exactly right: nothing on Warcraft Logs covers this fight.
+-- A fight that can explain its own tier better than the generic footnote.
+-- Practice is the case that matters: tier II's stock line names dungeons and
+-- Mythic+, which says nothing true about a training dummy.
+local function tierHowFor(fight)
+	if fight and fight.practice then
+		local anchor = TP.PRACTICE_ANCHOR and TP.PRACTICE_ANCHOR.name
+		return anchor
+			and ("Not a real parse: nobody ranks a training dummy, so your rotation is measured against %s's curves."):format(anchor)
+			or "Not a real parse: nobody ranks a training dummy, and this client has no anchor fight to stand in for one."
+	end
+	return nil
+end
+
 local function tierOfResults(results, wclBacked)
 	local r = results and results[1]
 	local tier = r and r.derived
@@ -1232,7 +1250,7 @@ function MeterWindow:RenderScorecard(fight)
 		-- scores are static once captured; only the subtitle changes.
 		-- The strip still gets re-asserted: something else (the empty state)
 		-- may have blanked it while this same fight stayed pinned.
-		MeterWindow:UpdateTierChip(lastFightTier)
+		MeterWindow:UpdateTierChip(lastFightTier, lastFightHow)
 		window.subtitle:SetText(subtitleText(lastRawAvailable))
 		return
 	end
@@ -1243,7 +1261,8 @@ function MeterWindow:RenderScorecard(fight)
 	lastRawAvailable = rawAvailable
 	-- the strip below the window says what the score is built on
 	lastFightTier = tierOfResults(results, rawAvailable)
-	MeterWindow:UpdateTierChip(lastFightTier)
+	lastFightHow = tierHowFor(fight)
+	MeterWindow:UpdateTierChip(lastFightTier, lastFightHow)
 	window.subtitle:SetText(subtitleText(rawAvailable))
 	-- effective mode for THIS card: raw only when WCL evidence backs it
 	local isRaw = isRawSetting and rawAvailable
@@ -1712,7 +1731,8 @@ local function refreshImpl(self, force)
 			lastFightTier = tierOfResults(scoreForDisplay(latest))
 			-- scoreForDisplay returns (results, rawAvailable); the call above
 			-- passes both through Lua's multiple returns
-			MeterWindow:UpdateTierChip(lastFightTier)
+			lastFightHow = tierHowFor(latest)
+			MeterWindow:UpdateTierChip(lastFightTier, lastFightHow)
 		else
 			MeterWindow:UpdateTierChip(nil)
 		end

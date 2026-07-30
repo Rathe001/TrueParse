@@ -1653,6 +1653,26 @@ function Engine.ScoreFight(fight, opts)
 						lowKey = lowKey or nil,
 						label = fight.zone,
 					}
+				elseif fight.practice and enc then
+					-- A DUMMY IS ALWAYS DERIVED (Josh 2026-07-30: "shouldn't
+					-- that be a tier II?"). It scores against the tier's
+					-- patchwerk anchor — a REAL WCL curve, for a DIFFERENT
+					-- fight — which is the tier-II idea exactly. The stamp
+					-- above never fired for it because a dummy is not a
+					-- dungeon, so practice inherited no tier and the chip
+					-- read DIRECT: "ranked at the difficulty you played",
+					-- which is the one thing it certainly wasn't.
+					-- No lift: a dummy stands still and never phases, so if
+					-- anything it should read HARSHER than the anchor, and
+					-- inventing a discount here would be a guess. The tier-II
+					-- ceiling (95) already stops a rehearsal certifying 99.
+					ctx.derived = {
+						tier = 2,
+						refIlvl = percentileRefIlvl(P),
+						offDifficulty = W.derivedOffDifficulty or 1,
+						practice = true,
+						label = TP.PRACTICE_ANCHOR and TP.PRACTICE_ANCHOR.name or nil,
+					}
 				end
 			elseif fight.duration and fight.duration > 0 then
 				-- T3: nothing covers this fight. Rather than hand the room's

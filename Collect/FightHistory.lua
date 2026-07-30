@@ -295,19 +295,16 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- already correct.
 	if practice then
 		local liveCtx = sessionContext[sessionID]
-		local watched = liveCtx and liveCtx.at and (time() - liveCtx.at) or nil
-		if not (watched and watched > 0) then
-			-- No observed span (the meter reset, which wipes sessionContext).
-			-- Every rate on the card would be built on a number we know is
-			-- wrong, so record nothing rather than a fabricated one - see
-			-- the "unmeasurable is not zero" rule this is the mirror of.
-			-- Contexts persist across /reload, so this is the rare case.
+		local active = liveCtx and liveCtx.activeSeconds
+		if not (active and active > 0) then
+			-- No time-on-target measured (the meter reset, which wipes
+			-- sessionContext). Every rate on the card would be built on a
+			-- number we know is wrong, so record nothing rather than a
+			-- fabricated one - the mirror of "unmeasurable is not zero".
 			self.snapshotted[sessionID] = true
 			return true
 		end
-		if watched < duration then
-			duration = watched
-		end
+		duration = math.floor(active + 0.5)
 	end
 	-- the 60s floor is checked against the CORRECTED duration, or a session
 	-- with a runaway clock would qualify no matter how briefly it was hit
@@ -341,8 +338,13 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- time to when this session appeared (bulk unlocks deliver several
 	-- pulls of one boss at once — each consumes its own verdict); fall
 	-- back to "every player died" when no verdict matches.
+	-- A DUMMY CANNOT BE WIPED ON (Josh 2026-07-30 saw one tagged "(wipe)").
+	-- Practice rides the boss pipeline, so it reached the fallback below —
+	-- "every participant died" — and a solo session where the player went
+	-- down once is 1 of 1 dead. There is no encounter to fail: you stop
+	-- hitting the dummy, that is all.
 	local outcomeCtx
-	if fight.isBoss then
+	if fight.isBoss and not fight.practice then
 		local outcomes = encounterResults[fight.name]
 		local outcome
 		if outcomes and #outcomes > 0 then
@@ -841,6 +843,25 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 				roster = {},
 				at = time(), -- prune anchor (contexts persist across /reload)
 			}
+		end
+		-- TIME ON TARGET, accumulated live. A session that Blizzard never
+		-- closes has no usable durationSeconds (a dummy's read ~3,449,228 —
+		-- 40 days — and the card showed "57487:08"), and the wall time since
+		-- we first SAW the session is barely better: it counts every pause
+		-- between attempts, which is how a two-minute rehearsal read 28:17.
+		-- This event streams several times a second while damage is landing
+		-- and stops when it isn't, so summing the gaps BETWEEN updates -
+		-- discarding any longer than a few seconds - measures the time
+		-- actually spent hitting the thing. GetTime() doesn't survive a
+		-- /reload and contexts do, hence the sign check as well.
+		do
+			local ctx0 = sessionContext[sessionId]
+			local now = GetTime()
+			local delta = ctx0.tickAt and (now - ctx0.tickAt) or nil
+			if delta and delta > 0 and delta < 5 then
+				ctx0.activeSeconds = (ctx0.activeSeconds or 0) + delta
+			end
+			ctx0.tickAt = now
 		end
 		-- Roster facts recorded LIVE: bulk-unlocked captures often land after
 		-- the group disbands, when TP.Roster is empty — a queued Timewalking
@@ -1642,6 +1663,19 @@ function FightHistory:OnEnable()
 	-- name normalization above so twin matching compares clean names.
 	for i = #self.fights, 1, -1 do
 		if isPlaceless(self.fights[i]) and hasPlacedTwin(self.fights, self.fights[i]) then
+			table.remove(self.fights, i)
+		end
+	end
+	-- Retire practice records built on the runaway session clock (Josh
+	-- 2026-07-30: "Dungeoneer's Training Dummy · 57487:08"). Blizzard never
+	-- closes a dummy session, so durationSeconds kept counting and every
+	-- rate on those cards is wrong by the same factor. The true length is
+	-- not recoverable after the fact — time on target is measured live now —
+	-- so drop them rather than leave a card that reads 0 damage per second.
+	-- An hour is far past any real rehearsal and far below the bogus values.
+	for i = #self.fights, 1, -1 do
+		local f = self.fights[i]
+		if f.practice and (f.duration or 0) > 3600 then
 			table.remove(self.fights, i)
 		end
 	end

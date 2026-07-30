@@ -1519,6 +1519,34 @@ end
 		- Engine.EntryPercentileFor(TP.Percentiles.encounters["Pool Dungeon"].all.dps[63], 200)) < 0.001,
 		("T1 reads the curve unscaled - 200/s straight in (%.1f)"):format(t1.breakdown.damage.pctile))
 
+	-- PRACTICE IS ALWAYS DERIVED (Josh 2026-07-30: "shouldn't that be a tier
+	-- II?"). A dummy scores against the tier's patchwerk anchor - a real WCL
+	-- curve, for a DIFFERENT fight - which is the tier-II idea exactly. The
+	-- dungeon stamp never fired for it because a dummy is not a dungeon, so
+	-- practice inherited no tier and the chip read DIRECT: "ranked at the
+	-- difficulty you played", the one thing it certainly wasn't.
+	do
+		local savedAnchor = TP.PRACTICE_ANCHOR
+		TP.PRACTICE_ANCHOR = { name = "Pool Boss", difficultyID = 3 }
+		TP.Percentiles.encounters["Pool Boss"] = { ["all"] = {
+			dps = { [63] = { n = 800, curve = { { 99, 1000 }, { 95, 900 }, { 90, 800 },
+				{ 75, 650 }, { 50, 500 }, { 25, 380 }, { 10, 300 } } } },
+			hps = {},
+		} }
+		Engine.InvalidateNameIndex(TP.Percentiles)
+		local p = deeps(mk({ name = "Dungeoneer's Training Dummy", practice = true,
+			difficulty = nil, difficultyID = 3, zone = "Silvermoon City",
+			instanceType = "none" }))
+		check(p and p.derived == 2,
+			("a practice dummy is derived tier 2, not DIRECT (%s)"):format(
+				tostring(p and p.derived)))
+		check(p and p.breakdown.damage.derived == 2,
+			"the breakdown entry carries the practice tier for the UI")
+		TP.PRACTICE_ANCHOR = savedAnchor
+		TP.Percentiles.encounters["Pool Boss"] = nil
+		Engine.InvalidateNameIndex(TP.Percentiles)
+	end
+
 	-- T2: same dungeon on Normal. The curve exists but the difficulty was
 	-- never ranked, so the rate is scaled into the population's terms.
 	local t2 = deeps(mk({ difficulty = "Normal", difficultyID = 1 }))
