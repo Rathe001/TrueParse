@@ -1,5 +1,64 @@
 # TrueParse Changelog
 
+## 2.8.0
+
+**Mythic+ and Timewalking scores were impossible, and now aren't.** Measured
+across 70 real player-scores from a Mythic+ night: the damage median was 3.5
+out of 100, with 97.6% of players under 10. Two defects stacked. The reference
+curve TrueParse pooled for unranked content was built the wrong way round, so
+it had almost no lower tail - below about 0.81x the median, scores fell off a
+cliff and a 13% drop in output cost 30 percentile points. And a low key was
+compared against Warcraft Logs' dungeon rankings, which are the top 2000 runs
+BY KEYSTONE SCORE - a high-key population that contains nobody running a +2.
+Low keys now take the derived path with gear correction, and the pooled
+reference is built from raid logs, which have a realistic spread. The same 70
+scores now read a median of 71.9 with none under 10. Timewalking's median went
+from 38.7 to 59.7 and its gray parses from 29% to 21%.
+
+**Retail tanks are measured again.** Midnight returns every field of your own
+auras as a secret value - a diagnostic with Shield of the Righteous visibly up
+read 13 auras and could identify none of them - so every aura-sampling
+collector had been reading nothing and reporting it as zero. Mitigation uptime
+is now reconstructed from your own casts, which stay readable, and all six
+tank specs have a crawled Warcraft Logs field to be scored against rather than
+falling back to another spec's numbers.
+
+**Flask and food stopped costing you points for consumables you drank.** Same
+cause: an aura whose id we cannot read is not an aura that isn't there. A
+retail player with a flask and hearty food up counted zero and ate the full
+penalty regardless. Any unreadable aura now voids the count rather than
+scoring it as absent, and a lookup that throws outright is treated as "we
+could not see", not "there was nothing". On Midnight the honest outcome is
+neutral - no penalty and no bonus - because the client will not tell us what
+you drank.
+
+**Three cards said something untrue.** A spike band with no detail blamed the
+capture's age - "recorded before hit tracking" - on fights that had finished
+minutes earlier; the real reason is that Midnight has no combat log, and the
+detail can never arrive. A healer who covered a five-man's damage was told
+"little to heal", because the demand test compared the fight's intake against
+a RAID spec's median output, which it will almost always lose. And a
+Retribution Paladin was penalised for not dispelling: the eligibility check
+consults the fight's debuff types, that list is built from the combat log, and
+on Midnight it is never learned - so a Poison-and-Disease cleanser was charged
+a share of dispels that may all have been Magic.
+
+**Training dummies capture as practice fights.** They score against the tier's
+patchwerk boss - Iron Juggernaut on Mists, and on Midnight Vorasius, which
+measurement picked: it takes 96.1% of the raid's damage on a single target,
+ahead of every other fight in the zone. Practice never counts toward your
+career, run averages, personal bests or trends; it is graded on its own card
+and goes no further.
+
+**Smaller things.** Adjustment points show one decimal, so two -0.6 penalties
+no longer read as "-1 and -1" over a "-1" total, and adjustments under half a
+point are shown rather than hidden. Death dots on the fight-shape graph can be
+hovered for who died and what killed them. The Bloodlust window is marked on a
+tank's timeline, not just a damage dealer's. Tank damage anchors are no longer
+applied in five-mans, where they were raid-shaped. Adds taunting off a tank no
+longer count as losing threat.
+
+
 ## 2.7.0
 
 **Running TrueParse as a tank is no longer a penalty.** Mitigation uptime is
