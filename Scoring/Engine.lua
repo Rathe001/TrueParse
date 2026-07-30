@@ -1079,7 +1079,7 @@ local function normalizeMetric(p, role, key, ctx)
 
 	if key == "dispels" then
 		if not TP.Scoring.Capabilities.CanDispel(p.class, p.specID,
-			ctx.totals.dispelTypes) then
+			ctx.totals.dispelTypes, role) then
 			return 0, false -- can't cleanse what this fight presented
 		end
 		if ctx.totals.dispels <= 0 then
@@ -1850,7 +1850,7 @@ function Engine.ScoreFight(fight, opts)
 			--    performance. Exact-encounter curves price demand
 			--    (their population healed the same fight) — ZOOMED pools
 			--    don't (a dungeon healer measured against raid volumes).
-			local lowDemand
+			local lowDemand, demandMet
 			if key == "healing" and role == "HEALER" and applicable
 				and not ctx.parseMode and normalized < 75 then
 				if not absolute and ctx.lowHealingDemand then
@@ -1863,6 +1863,19 @@ function Engine.ScoreFight(fight, opts)
 					local demandShare = (ctx.totals.damageTaken or 0) / ctx.duration / healerN
 					local healed = metricValue(p, key)
 					local covered = healed >= demandShare * ctx.duration * 0.7
+					-- WHY the floor fired, which is not one story (Josh
+					-- 2026-07-29: "'little to heal' is wrong too", on a
+					-- dungeon where he healed 4.67M in 107s). The floor
+					-- triggers whenever per-healer intake is under the spec's
+					-- median OUTPUT — and a raid spec's median HPS routinely
+					-- exceeds a 5-man's whole intake, so it fires on fights
+					-- that were plenty busy. Compare intake against what this
+					-- healer actually put out instead: only when the fight
+					-- asked for far less than they delivered was there truly
+					-- "little to heal". Otherwise demand was real and they
+					-- MET it, and the label has to say that instead.
+					local rate = healed / ctx.duration
+					demandMet = (demandShare >= rate * 0.5) or nil
 					if specMedian then
 						if demandShare < specMedian and covered then
 							normalized = 75
@@ -1878,6 +1891,8 @@ function Engine.ScoreFight(fight, opts)
 						lowDemand = true
 					end
 				end
+				-- only meaningful as a reason for the floor
+				if not lowDemand then demandMet = nil end
 			end
 			breakdown[key] = {
 				weight = weight,
@@ -1886,6 +1901,8 @@ function Engine.ScoreFight(fight, opts)
 				absolute = absolute, -- vs WCL top-logs median, when available
 				relative = relative, -- vs the group, when available
 				lowDemand = lowDemand, -- floored: nothing to heal this fight
+				demandMet = demandMet, -- ...because they COVERED real intake,
+				-- not because the fight was quiet (changes only the wording)
 				specMedian = specMedian, -- p50 rate for this spec+fight+bracket
 				pctile = pctile, -- raw population percentile (tooltip gauge)
 				rolePooled = rolePooled, -- scored vs the ROLE's pooled curve

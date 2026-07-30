@@ -68,12 +68,15 @@ local MAGIC_CLEANSE_SPECS = {
 	[256] = true, [257] = true, [1468] = true,
 }
 
-function Capabilities.DispelTypes(class, specID)
+-- role is a FALLBACK for specID: remote retail players often arrive without
+-- one (no spec in the meter data), and every healing spec in the game
+-- cleanses Magic, so their role alone establishes the broad cleanse.
+function Capabilities.DispelTypes(class, specID, role)
 	local base = DISPEL_TYPES[class]
 	if not base then
 		return nil
 	end
-	if specID and MAGIC_CLEANSE_SPECS[specID] then
+	if role == "HEALER" or (specID and MAGIC_CLEANSE_SPECS[specID]) then
 		local t = { Magic = true, Disease = class == "PRIEST" and true or nil }
 		for k in pairs(base) do
 			t[k] = true
@@ -85,11 +88,11 @@ end
 
 -- Eligible for dispel scoring? Type-aware when the fight's dispelled
 -- debuff types are known; capability-only while learning (cold start).
-function Capabilities.CanDispel(class, specID, fightTypes)
+function Capabilities.CanDispel(class, specID, fightTypes, role)
 	if not class then
 		return true
 	end
-	local mine = Capabilities.DispelTypes(class, specID)
+	local mine = Capabilities.DispelTypes(class, specID, role)
 	if not mine then
 		return false
 	end
@@ -101,7 +104,19 @@ function Capabilities.CanDispel(class, specID, fightTypes)
 		end
 		return false
 	end
-	return true
+	-- Types UNKNOWN. Judging every capable spec anyway charged a Ret Paladin
+	-- - Poison and Disease only - a share of dispels that may all have been
+	-- Magic, which they cannot touch (Josh 2026-07-30: "a ret pally is
+	-- getting dinged for not dispelling"). And this is not a brief cold
+	-- start on retail: dispelTypes is built from CLEU, which Midnight does
+	-- not have, so the types are never learned there at all.
+	-- So blind, only HEALERS are judged. Magic is the type nearly every
+	-- fight presents and on retail only healing specs remove it (Josh
+	-- 2026-07-30), which makes a healer safe to grade without knowing what
+	-- the fight brought. For anyone else an unknown fight is unmeasurable,
+	-- not a zero - and Classic still grades them the moment the real types
+	-- are known, where a Shadow Priest's Mass Dispel does count.
+	return role == "HEALER"
 end
 
 -- Support specs whose output is transferred into OTHER players' numbers

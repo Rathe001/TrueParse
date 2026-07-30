@@ -156,8 +156,13 @@ function Bullets.ForResult(result, awards, extra)
 			text = text .. pts(b.adjust)
 		end
 		if b.lowDemand then
-			-- floored: the fight barely needed healing, don't scold or gush
-			text, symbol, color = "Little healing needed - group stayed topped", MIDDOT, MID
+			-- floored, and the two reasons read very differently: demandMet
+			-- means real intake that this healer covered but a raid-sized
+			-- curve still scored low; otherwise the fight was simply quiet.
+			-- Either way don't scold or gush.
+			text, symbol, color = b.demandMet
+				and "Covered the group's damage - too small a fight to rank"
+				or "Little healing needed - group stayed topped", MIDDOT, MID
 		end
 		if b.noInput then
 			-- pinned neutral: invisible without their own TrueParse
@@ -452,6 +457,9 @@ function Bullets.ForGroup(results, fight)
 	local dmgSum, dmgN, dmgWcl, dmgTotal = 0, 0, false, 0
 	-- healing: healers only, demand floors respected
 	local healSum, healN, healWcl, healLowDemand, healTotal = 0, 0, false, true, 0
+	-- ...and whether ANY of those floors was "they covered real intake"
+	-- rather than "the fight was quiet" — the group row has to say so too
+	local healDemandMet = false
 	local kicks, dispels = 0, 0
 
 	for _, r in ipairs(results) do
@@ -470,6 +478,8 @@ function Bullets.ForGroup(results, fight)
 			healWcl = healWcl or (bh.pctile ~= nil) or (bh.absolute and true or false)
 			if not bh.lowDemand then
 				healLowDemand = false
+			elseif bh.demandMet then
+				healDemandMet = true
 			end
 		end
 		local bi = r.breakdown.interrupts
@@ -500,10 +510,15 @@ function Bullets.ForGroup(results, fight)
 		if healLowDemand then
 			out[#out + 1] = {
 				kind = "metric", key = "healing", symbol = MIDDOT, color = MID,
-				text = "Little healing needed - group stayed topped",
+				text = healDemandMet
+					and "Covered the group's damage - too small a fight to rank"
+					or "Little healing needed - group stayed topped",
 				players = healN,
+				demandMet = healDemandMet or nil,
 				tooltip = { title = TP.METRIC_LABELS.healing,
-					lines = { { "Nothing to heal, nothing to grade.", 1, 1, 1 } } },
+					lines = { { healDemandMet
+						and "Healing kept pace with the group's damage taken. The ranked field for this spec heals raid-sized volumes, so a 5-man cannot place against it - the score is pinned neutral rather than graded."
+						or "Nothing to heal, nothing to grade.", 1, 1, 1 } } },
 			}
 		else
 			local avg = healSum / healN

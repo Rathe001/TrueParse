@@ -252,6 +252,34 @@ check(byName.Heal.breakdown.healing.applicable == true, "healer healing metric a
 check(byName.DpsB.breakdown.dispels.applicable == false, "rogue not scored on dispels (no cleanse)")
 check(byName.Heal.breakdown.dispels.applicable == true, "priest scored on dispels")
 
+-- 3b. A partial cleanser on a fight whose debuff types are UNKNOWN. A Ret
+-- Paladin removes Poison and Disease; charging them a share of dispels that
+-- may all have been Magic is a penalty for a button they don't own (Josh
+-- 2026-07-30). Retail never learns the types, so this is its normal state.
+do
+	local ret = TP.Scoring.Capabilities
+	check(ret.CanDispel("PALADIN", 70, nil) == false,
+		"Ret Paladin not judged on dispels when the fight's types are unknown")
+	check(ret.CanDispel("PALADIN", 70, { Poison = true }) == true,
+		"...but IS judged the moment a poison fight is known")
+	check(ret.CanDispel("PALADIN", 70, { Magic = true }) == false,
+		"...and still not on a magic-only fight")
+	check(ret.CanDispel("PALADIN", 65, nil, "HEALER") == true,
+		"a Holy Paladin cleanses Magic, so blind judging is fair")
+	check(ret.CanDispel("PRIEST", 258, nil, "DAMAGER") == false,
+		"a Shadow Priest is not judged blind - only healers remove Magic")
+	check(ret.CanDispel("PRIEST", 258, { Magic = true }, "DAMAGER") == true,
+		"...but Mass Dispel still counts on a KNOWN magic fight (Classic)")
+	check(ret.CanDispel("DRUID", 102, nil, "DAMAGER") == false,
+		"a Balance Druid (Curse/Poison only) is unmeasurable blind")
+	-- remote retail players often arrive with no specID at all, and a healer
+	-- must not lose the metric just because we couldn't read their spec
+	check(ret.CanDispel("PALADIN", nil, nil, "HEALER") == true,
+		"a specless HEALER paladin keeps the metric on its role alone")
+	check(ret.CanDispel("PALADIN", nil, nil, "DAMAGER") == false,
+		"a specless DPS paladin does not")
+end
+
 -- 4. Effective weights renormalize to 1.0 over applicable metrics
 for _, r in ipairs(results) do
 	local sum = 0
@@ -1749,6 +1777,32 @@ for _, r in ipairs(TP.Scoring.Engine.ScoreFight(calmZoom, { normalizeIlvl = fals
 		check(r.breakdown.healing.lowDemand and r.breakdown.healing.normalized == 75,
 			("trivial-demand healer floors at 75 (%.0f, lowDemand=%s)"):format(
 				r.breakdown.healing.normalized, tostring(r.breakdown.healing.lowDemand)))
+	end
+end
+-- WHY the floor fired, which drives the wording. Here intake is 50/s and the
+-- healer put out 45/s: real work that they kept up with, and only the RAID-
+-- sized spec median made it read low. "Little to heal" was a lie on exactly
+-- this shape (Josh 2026-07-29, a dungeon where he healed 4.67M in 107s).
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(calmZoom, { normalizeIlvl = false })) do
+	if r.name == "Heals" then
+		check(r.breakdown.healing.demandMet,
+			"a floor on real intake the healer covered reads as demand MET")
+	end
+end
+calmZoom.players.h.metrics.damageTaken = 100 -- ...whereas 2/s really is quiet
+calmZoom.players.d.metrics.damageTaken = 100
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(calmZoom, { normalizeIlvl = false })) do
+	if r.name == "Heals" then
+		check(r.breakdown.healing.lowDemand and not r.breakdown.healing.demandMet,
+			"intake far under what they output still reads as little to heal")
+	end
+end
+calmZoom.players.h.metrics.damageTaken = 2500
+calmZoom.players.d.metrics.damageTaken = 2500
+for _, r in ipairs(TP.Scoring.Engine.ScoreFight(calmZoom, { normalizeIlvl = false })) do
+	if r.name == "Deeps" then
+		check(r.breakdown.healing == nil or not r.breakdown.healing.demandMet,
+			"demandMet never rides a breakdown that wasn't floored")
 	end
 end
 calmZoom.players.h.metrics.healing = 1000 -- covered under 70% of their share

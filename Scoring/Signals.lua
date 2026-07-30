@@ -235,8 +235,11 @@ function Signals.ForResult(result, fight, player)
 		elseif b and b.applicable and b.lowDemand and key == "healing" and role == "HEALER" then
 			-- a healer's primary metric can't just vanish: the base sits
 			-- pinned at 75 because there was nothing to heal — say so
+			-- ...and say WHICH way. demandMet = intake was real and this
+			-- healer covered it (a 5-man measured against raid volumes);
+			-- otherwise the fight genuinely had nothing to heal.
 			local row = { key = key, kind = "glyph", icon = ICONS[key],
-				label = "Little to heal", good = true }
+				label = b.demandMet and "Kept up with intake" or "Little to heal", good = true }
 			row.b = b -- the metric tooltip explains the neutral scoring
 			row.base = true
 			out[#out + 1] = row
@@ -486,7 +489,8 @@ function Signals.GroupRows(results, fight)
 			rows[#rows + 1] = row
 		elseif bl.key == "healing" then
 			rows[#rows + 1] = { key = "healing", kind = "glyph", icon = ICONS.healing,
-				label = "Little to heal", good = true, tooltip = bl.tooltip }
+				label = bl.demandMet and "Kept up with intake" or "Little to heal",
+				good = true, tooltip = bl.tooltip }
 		elseif bl.key == "interrupts" then
 			local landed, opps = text:match("(%d+) of (%d+)")
 			if landed then
