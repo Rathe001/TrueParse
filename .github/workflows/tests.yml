@@ -23,3 +23,16 @@ jobs:
 
       - name: Run test suite
         run: lua5.4 tests/run.lua
+
+      # validate.lua earns its place in CI: it caught anchorScore returning 42
+      # for a spec fed its OWN crawled median, the day the six-spec tank
+      # anchors landed (2026-07-30). It fuzzes randomised fights for invariant
+      # violations and cross-checks role fairness, which run.lua's fixed
+      # fixtures cannot. mock.lua scores the two hand-shaped /tp mock nights on
+      # both clients - the breadth that catches one role or one client
+      # silently breaking.
+      - name: Validate scoring invariants
+        run: lua5.4 tests/validate.lua
+
+      - name: Score the mock nights
+        run: lua5.4 tests/mock.lua
