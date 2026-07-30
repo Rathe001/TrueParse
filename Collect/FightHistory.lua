@@ -1262,8 +1262,15 @@ function FightHistory:AddFromSegment(seg)
 			-- accumulator is InitPlayer'd for EVERY player, so a bare zero
 			-- would write this field on all 20 raiders - tanks only, or it
 			-- is pure bloat in saved vars and sync payloads.
+			-- acc.role FIRST, the live roster only as backup. The roster is
+			-- consulted at capture time and often doesn't know a cross-realm
+			-- player's role - on one Raigonn pull Beebtwo (same realm) stored
+			-- its zero and Freightline-Nazgrim, the same spec, stored nothing.
+			-- acc.role is what the record itself carries and what the card
+			-- prints as "Tank", so it is the right authority here.
 			local rosterInfo = TP.Roster.players[guid]
-			if up > 0 or (rosterInfo and rosterInfo.role == "TANK") then
+			if up > 0 or acc.role == "TANK"
+				or (rosterInfo and rosterInfo.role == "TANK") then
 				m.mitigationPct = math.min(100, math.floor(up / seg.duration * 100 + 0.5))
 			end
 		end
