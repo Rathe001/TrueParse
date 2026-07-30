@@ -174,12 +174,17 @@ jobs:
       # WCL-relative field the Tanking metric scores against. Retail mit-
       # buff ids are provisional until verified: wrong ids just yield no
       # samples -> that spec keeps the provisional default, no harm.
+      # -OutDamageFile is REQUIRED on both, not optional: the same query
+      # emits the tank damage-share anchors, and its default is the retail
+      # TankDamage.lua. Without it the MoP pass overwrote retail's file with
+      # MoP shares every refresh, and TankDamage_Mists.lua - which the Mists
+      # TOC loads - was never written at all (found 2026-07-29).
       - name: Tank mitigation baselines (retail + MoP)
         if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'tank-mit'
         shell: pwsh
         run: |
-          ./scripts/fetch-tank-mitigation.ps1 -GameBase "https://www.warcraftlogs.com" -ZoneId 46 -Brackets "5,4" -MitIds retail -OutFile "$PWD/Data/TankAnchors.lua"
-          ./scripts/fetch-tank-mitigation.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x10,3x25" -MitIds mists -OutFile "$PWD/Data/TankAnchors_Mists.lua"
+          ./scripts/fetch-tank-mitigation.ps1 -GameBase "https://www.warcraftlogs.com" -ZoneId 46 -Brackets "5,4" -MitIds retail -OutFile "$PWD/Data/TankAnchors.lua" -OutDamageFile "$PWD/Data/TankDamage.lua"
+          ./scripts/fetch-tank-mitigation.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x10,3x25" -MitIds mists -OutFile "$PWD/Data/TankAnchors_Mists.lua" -OutDamageFile "$PWD/Data/TankDamage_Mists.lua"
 
       # ---- gate: any refreshed data must pass the full headless suite ----
       - name: Install Lua

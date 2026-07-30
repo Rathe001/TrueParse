@@ -31,7 +31,19 @@ $ErrorActionPreference = "Stop"
 # mitigation-buff id sets mirror Data/Mitigation*.lua (buff ids, not casts)
 $mitSets = @{
     mists  = @(115307, 132404, 112048, 132403, 132402, 77535, 115295, 123402, 115308, 65148)
-    retail = @(132404, 132403, 192081, 77535, 203819, 215479)
+    # NO BREWMASTER id here, on purpose (2026-07-29). Both candidates were
+    # tried and both are wrong for an ANCHOR, because an anchor has to measure
+    # the same button Data/Mitigation.lua's collector estimates:
+    #  * Celestial Brew (322507) never appears in a ranked Midnight
+    #    Brewmaster's buff table - they don't talent it - so it crawls 1
+    #    sample out of 66 real Brewmasters;
+    #  * Shuffle (215479) is the real thing at 99.7% uptime, but it is not a
+    #    cast, so the client cannot estimate it and the collector has no
+    #    Brewmaster entry at all.
+    # Spec 268 therefore stays uncrawled BY DESIGN and mitigation reports as
+    # unmeasured (imputed 50) rather than measured against another spec's
+    # scale. Add 215479 here only together with the generator casts.
+    retail = @(132404, 132403, 192081, 77535, 203819)
 }
 if ($mitSets.ContainsKey($MitIds)) { $mitList = $mitSets[$MitIds] }
 else { $mitList = @($MitIds -split "," | ForEach-Object { [int]$_.Trim() }) }
@@ -128,12 +140,21 @@ foreach ($enc in $zone.encounters) {
 Write-Host ("Discovered {0} report refs" -f $refs.Count)
 
 # ---- phase 2: one aliased Buffs query per report; union bands per tank ----
+# Bands are [pscustomobject]{ s; e }, NOT @(s, e) pairs. With a pair, a
+# one-element list flattens on the way through Sort-Object - PowerShell
+# unrolls arrays in the pipeline, so $sorted[0][0] reads the START TIME
+# instead of the first band and $curE lands on $null. The function then
+# returns a NEGATIVE total, which the caller discards as "$up -le 0".
+# That silently dropped every tank WCL reported as one continuous band -
+# i.e. exactly the tanks with the best uptime. Prot Paladin kept 14 of ~49
+# samples and Brewmaster 1 of ~71, both then falling back to a cross-spec
+# default (Josh 2026-07-29: "tanks mitigation isnt showing up").
 function Merge-Uptime($bands) {
-    if ($bands.Count -eq 0) { return 0 }
-    $sorted = $bands | Sort-Object { $_[0] }
-    $total = 0.0; $curS = $sorted[0][0]; $curE = $sorted[0][1]
+    $sorted = @($bands | Sort-Object -Property s)
+    if ($sorted.Count -eq 0) { return 0 }
+    $total = 0.0; $curS = $sorted[0].s; $curE = $sorted[0].e
     for ($i = 1; $i -lt $sorted.Count; $i++) {
-        $s = $sorted[$i][0]; $e = $sorted[$i][1]
+        $s = $sorted[$i].s; $e = $sorted[$i].e
         if ($s -le $curE) { if ($e -gt $curE) { $curE = $e } }
         else { $total += ($curE - $curS); $curS = $s; $curE = $e }
     }
@@ -172,14 +193,17 @@ foreach ($ref in $refs) {
             $spec = $specByIcon[$a.icon]
             if (-not $spec) { continue }
             if (-not $byPlayer.ContainsKey($a.guid)) { $byPlayer[$a.guid] = @{ specID = $spec; bands = (New-Object System.Collections.ArrayList) } }
-            foreach ($b in $a.bands) { [void]$byPlayer[$a.guid].bands.Add(@([double]$b.startTime, [double]$b.endTime)) }
+            foreach ($b in $a.bands) { [void]$byPlayer[$a.guid].bands.Add([pscustomobject]@{ s = [double]$b.startTime; e = [double]$b.endTime }) }
         }
     }
     if ($totalTime -le 0) { continue }
     foreach ($guid in $byPlayer.Keys) {
         $pl = $byPlayer[$guid]
         $up = (Merge-Uptime $pl.bands) / $totalTime * 100.0
-        if ($up -le 0 -or $up -gt 100) { continue }
+        if ($up -le 0) { continue }
+        # a band may run a tick past the fight boundary; clamp rather than
+        # discard, or the highest-uptime tanks drop out of their own anchor
+        if ($up -gt 100) { $up = 100.0 }
         if (-not $samples.ContainsKey($pl.specID)) { $samples[$pl.specID] = New-Object System.Collections.ArrayList }
         [void]$samples[$pl.specID].Add($up)
     }
