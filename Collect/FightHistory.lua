@@ -277,7 +277,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	local practice = false
 	if name:find("^%(!%)") == nil then
 		practice = TP.Addon.db.profile.practiceDummies
-			and name:find("Training Dummy", 1, true) ~= nil
+			and TP.IsPracticeTarget(name)
 			and duration >= 60
 	end
 
@@ -806,14 +806,14 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 			-- a raider's-training-dummy session arrives nameless and the
 			-- record read "Fight #12" with isBoss false — which the trash
 			-- filter below then dropped, so retail dummies never captured at
-			-- all. Sticky, and a Training Dummy name outranks whatever we
+			-- all. Sticky, and a practice target outranks whatever we
 			-- happened to be targeting first, so tabbing mid-session can't
 			-- rename the pull.
 			local tn = UnitExists and UnitExists("target") and UnitName("target") or nil
 			if type(tn) == "string" and tn ~= "" and not IsSecret(tn)
 				and (not ctx.targetName
-					or (tn:find("Training Dummy", 1, true)
-						and not ctx.targetName:find("Training Dummy", 1, true))) then
+					or (TP.IsPracticeTarget(tn)
+						and not TP.IsPracticeTarget(ctx.targetName))) then
 				ctx.targetName = tn
 			end
 			for guid, info in pairs(TP.Roster.players) do
@@ -869,11 +869,12 @@ function FightHistory:AddFromSegment(seg)
 	-- EXCEPTION (Josh 2026-07-26): a raider's-training-dummy session of
 	-- 60s+ captures as a labeled PRACTICE fight, scored against the
 	-- tier's patchwerk anchor — real practice with real curves. Detection
-	-- is the segment name (from the pull target), so target the dummy.
+	-- is the segment name (from the pull target), so target the dummy;
+	-- TP.PRACTICE_TARGETS lists what counts, golems included.
 	local practice = false
 	if not seg.encounterID then
 		practice = TP.Addon.db.profile.practiceDummies
-			and (seg.name or ""):find("Training Dummy", 1, true) ~= nil
+			and TP.IsPracticeTarget(seg.name)
 			and (seg.duration or 0) >= 60
 		-- boss-frame fallback (Celestial dungeons, 2026-07-24): engaged
 		-- boss frames make a boss fight even without ENCOUNTER events

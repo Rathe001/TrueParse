@@ -280,6 +280,24 @@ do
 		"a specless DPS paladin does not")
 end
 
+-- 3c. Practice targets: every dummy tooltip Josh sent on 2026-07-30, by the
+-- NPC NAME an addon can actually read (the dummy type is a tooltip subtitle).
+-- Matching "Training Dummy" missed three, two of them the boss-level raider's
+-- dummies the practice feature exists for.
+for _, name in ipairs({
+	"Training Dummy", "Cleave Training Dummy", "Dungeoneer's Training Dummy",
+	"Normal Tank Dummy",                 -- no "Training"
+	"Reinforced Golem",                  -- = Raider's Training Dummy
+	"Heavyweight Golem",                 -- = Raider's Tanking Dummy
+}) do
+	check(TP.IsPracticeTarget(name) == true, ("practice target: %s"):format(name))
+end
+for _, name in ipairs({ "Iron Juggernaut", "Garrosh Hellscream", "Scavenging Hyena", "" }) do
+	check(TP.IsPracticeTarget(name) == false,
+		("NOT a practice target: %s"):format(name == "" and "(empty)" or name))
+end
+check(TP.IsPracticeTarget(nil) == false, "a nameless session is not practice")
+
 -- 4. Effective weights renormalize to 1.0 over applicable metrics
 for _, r in ipairs(results) do
 	local sum = 0

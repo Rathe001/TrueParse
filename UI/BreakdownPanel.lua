@@ -60,11 +60,16 @@ end
 --     promise the client cannot keep.
 --   * On a client that DOES have CLEU, a bare record really is a capture
 --     from before the fields existed, and a new pull will fill them in.
-local function spikeDetailNote()
-	if not (TP.Compat and TP.Compat.HAS_CLEU) then
-		return "No combat log on this client - the ability and damage can't be read."
+local function spikeDetailNote(isGroupMap)
+	if TP.Compat and TP.Compat.HAS_CLEU then
+		return "Recorded before hit tracking - new pulls carry the ability and damage."
 	end
-	return "Recorded before hit tracking - new pulls carry the ability and damage."
+	-- name the PROVENANCE, since the two retail maps are built from very
+	-- different evidence and a reader should weigh them differently
+	if isGroupMap then
+		return "Rebuilt from when other TrueParse users spiked - no combat log to name the ability."
+	end
+	return "From your melee intake only - no combat log to name the ability."
 end
 
 local frame
@@ -1593,7 +1598,19 @@ function Panel:ShowFor(fight, result)
 	if not result.parse then
 		if result.role == "HEALER" and mm.groupSpikeMap then
 			map, isGroupMap = mm.groupSpikeMap, true
-		else
+		elseif TP.Compat and TP.Compat.HAS_CLEU then
+			map = mm.spikeMap
+		elseif result.role == "TANK" then
+			-- PERSONAL windows on a CLEU-less client, TANKS ONLY (Josh
+			-- 2026-07-30: "should we just hide the spike track on retail").
+			-- They are built from UNIT_COMBAT WOUND events, which are MELEE
+			-- swings and nothing else. For a tank that is the damage that
+			-- matters, and the same windows back a scored metric (cdTiming,
+			-- tank-gated in Engine/Signals/Bullets). For anyone else melee is
+			-- a side channel: the track would show the one add that hit hard
+			-- while silently missing every spell spike, which reads as a
+			-- complete picture and isn't one. A partial timeline presented
+			-- whole is worse than no timeline.
 			map = mm.spikeMap
 		end
 	end
@@ -1703,7 +1720,7 @@ function Panel:ShowFor(fight, result)
 			if not win[5] then
 				-- a dead hover reads as broken, so say why the
 				-- ability/damage detail is missing instead
-				lines[#lines + 1] = { spikeDetailNote(), 0.6, 0.6, 0.6, true }
+				lines[#lines + 1] = { spikeDetailNote(isGroupMap), 0.6, 0.6, 0.6, true }
 			end
 			band.tipLines = lines
 			band:Show()
@@ -2253,7 +2270,7 @@ function Panel:ShowForGroup(fight, results)
 				lines[#lines + 1] = { "Uncovered", 0.90, 0.35, 0.35 }
 			end
 			if not win[5] then
-				lines[#lines + 1] = { spikeDetailNote(), 0.6, 0.6, 0.6, true }
+				lines[#lines + 1] = { spikeDetailNote(true), 0.6, 0.6, 0.6, true }
 			end
 			band.tipLines = lines
 			band:Show()

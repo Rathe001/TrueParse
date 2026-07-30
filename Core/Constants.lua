@@ -85,6 +85,31 @@ TP.METRIC_DEFS = {
 -- stand-and-hit fight; Malkorok's absorb phase and Thok's frenzy skew
 -- rates. difficultyID picks the anchor bracket (3 = 10 Normal, the
 -- most-parsed). Update per tier alongside the zone ids.
+-- PRACTICE TARGETS. Blizzard's dummies share no naming scheme, so matching
+-- "Training Dummy" missed several (Josh 2026-07-30 sent all ten tooltips):
+--   Training Dummy / Cleave Training Dummy / Dungeoneer's Training Dummy  ok
+--   Normal Tank Dummy                       - no "Training"
+--   Heavyweight Golem  = Raider's Tanking Dummy   - no "Dummy" at all
+--   Reinforced Golem   = Raider's Training Dummy  - no "Dummy" at all
+-- The last two are the boss-level raider's dummies this feature exists for.
+-- Their dummy type lives in the tooltip SUBTITLE, which an addon cannot read
+-- off a unit - only the NPC name, which is a golem. So: substring "Dummy"
+-- covers every actual dummy, and the golems are listed by name. If a new one
+-- ever fails to capture, adding one string here is the whole fix.
+TP.PRACTICE_TARGETS = { "Dummy", "Reinforced Golem", "Heavyweight Golem" }
+
+function TP.IsPracticeTarget(name)
+	if type(name) ~= "string" or name == "" then
+		return false
+	end
+	for _, needle in ipairs(TP.PRACTICE_TARGETS) do
+		if name:find(needle, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
 -- Per client: the anchor names a boss in THAT client's percentile file, and
 -- borrows its bracket. Nothing on retail yet (which Midnight boss the
 -- community treats as the patchwerk isn't settled, and naming the wrong one
