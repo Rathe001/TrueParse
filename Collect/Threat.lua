@@ -178,6 +178,18 @@ local function sample()
 				if earned then
 					nonTankHasAggro = true
 					a.time = a.time + INTERVAL
+					-- EPISODE START, detected before the pull/rip branch so it
+					-- is seen wherever the streak began. The original charged a
+					-- rip on the transition into aggro and only when that
+					-- transition happened outside the grace and outside the
+					-- pull window; holding a mob ACROSS either boundary was
+					-- never a rip, and adding tolerance must not turn it into
+					-- one. ripFree freezes that judgement for the whole streak.
+					if not a.has then
+						a.ripTicks = 0
+						a.ripFree = (inGrace
+							or (elapsed <= PULL_WINDOW and not seg.group.tankOpened)) or nil
+					end
 					if elapsed <= PULL_WINDOW and not seg.group.tankOpened then
 						-- Opening aggro before the tank has it: a pull once
 						-- they hold it for a second sample (an instant taunt
@@ -189,10 +201,9 @@ local function sample()
 							end
 						end
 					elseif not inGrace then
-						-- consecutive samples, not the first instant: see
-						-- RIP_TICKS. Reset below the moment they drop it.
+						-- consecutive samples, not the first instant
 						a.ripTicks = (a.ripTicks or 0) + 1
-						if a.ripTicks == RIP_TICKS then
+						if a.ripTicks == RIP_TICKS and not a.ripFree then
 							a.rips = a.rips + 1
 						end
 					end
@@ -305,15 +316,19 @@ local function retailSample()
 			if earned then
 				nonTankHasAggro = true
 				a.time = a.time + INTERVAL
+				-- episode start, before the branch (see the Classic note)
+				if not a.has then
+					a.ripTicks = 0
+					a.ripFree = (elapsed <= PULL_WINDOW and not retailWindow.tankOpened) or nil
+				end
 				if elapsed <= PULL_WINDOW and not retailWindow.tankOpened then
 					a.pullTicks = a.pullTicks + 1
 					if a.pullTicks >= 2 then
 						a.pulled = true
 					end
 				else
-					-- consecutive samples, not the first instant (RIP_TICKS)
 					a.ripTicks = (a.ripTicks or 0) + 1
-					if a.ripTicks == RIP_TICKS then
+					if a.ripTicks == RIP_TICKS and not a.ripFree then
 						a.rips = a.rips + 1
 					end
 				end

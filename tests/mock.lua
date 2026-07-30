@@ -260,6 +260,87 @@ do
 end
 
 
+-- THREAT RULES, simulated. Collect/Threat.lua creates frames at load and
+-- cannot run headlessly, so this replays its rip decision over synthetic
+-- sample streams. It MIRRORS the source - change one, change both - and the
+-- constants are read back out of the file so at least those cannot drift.
+-- It exists because adding rip tolerance quietly broke two boundary cases
+-- (2026-07-30): a streak that began inside the grace, or inside the pull
+-- window, was never a rip before and briefly became one afterwards.
+do
+	local fh = io.open("Collect/Threat.lua")
+	local src = fh and fh:read("a") or ""
+	if fh then fh:close() end
+	local RIP_TICKS = tonumber(src:match("local RIP_TICKS%s*=%s*(%d+)")) or -1
+	local GRACE = tonumber(src:match("local TANK_PICKUP_GRACE%s*=%s*(%d+)")) or -1
+	local PULL_WINDOW = tonumber(src:match("local PULL_WINDOW%s*=%s*(%d+)")) or -1
+	check(RIP_TICKS == 2, ("threat: RIP_TICKS is 2 (%d)"):format(RIP_TICKS))
+	check(GRACE == 3, ("threat: TANK_PICKUP_GRACE is 3 (%d)"):format(GRACE))
+	check(PULL_WINDOW == 4, ("threat: PULL_WINDOW is 4 (%d)"):format(PULL_WINDOW))
+
+	local function run(samples)
+		local a = { rips = 0, has = false, ripTicks = 0 }
+		for _, s in ipairs(samples) do
+			if s.earned then
+				if not a.has then
+					a.ripTicks = 0
+					a.ripFree = (s.inGrace
+						or (s.elapsed <= PULL_WINDOW and not s.tankOpened)) or nil
+				end
+				if s.elapsed <= PULL_WINDOW and not s.tankOpened then -- pull branch
+				elseif not s.inGrace then
+					a.ripTicks = a.ripTicks + 1
+					if a.ripTicks == RIP_TICKS and not a.ripFree then
+						a.rips = a.rips + 1
+					end
+				end
+			end
+			if not s.earned then a.ripTicks = 0 end
+			a.has = s.earned or false
+		end
+		return a.rips
+	end
+	local function S(n, t)
+		local o = {}
+		for i = 1, n do
+			local c = {}
+			for k, v in pairs(t) do c[k] = v end
+			c.elapsed = (t.elapsed or 10) + i - 1
+			o[i] = c
+		end
+		return o
+	end
+	local function cat(...)
+		local o = {}
+		for _, l in ipairs({ ... }) do for _, e in ipairs(l) do o[#o + 1] = e end end
+		return o
+	end
+	local function ck(got, want, msg)
+		check(got == want, ("threat: %s (got %d, want %d)"):format(msg, got, want))
+	end
+	local OPEN = { earned = true, elapsed = 10, tankOpened = true }
+	ck(run(S(1, OPEN)), 0, "one sample of aggro is a hand-off, not a rip")
+	ck(run(S(2, OPEN)), 1, "two consecutive samples IS a rip")
+	ck(run(S(9, OPEN)), 1, "a long hold charges exactly one rip")
+	ck(run(cat(S(3, OPEN), S(1, { earned = false, elapsed = 13, tankOpened = true }),
+		S(3, { earned = true, elapsed = 14, tankOpened = true }))), 2,
+		"two separate episodes = two rips")
+	ck(run(S(6, { earned = true, inGrace = true, elapsed = 10, tankOpened = true })), 0,
+		"aggro entirely inside grace is never a rip")
+	ck(run(cat(S(2, { earned = true, inGrace = true, elapsed = 10, tankOpened = true }),
+		S(6, { earned = true, elapsed = 12, tankOpened = true }))), 0,
+		"a streak begun in grace stays free after grace ends")
+	ck(run(cat(S(2, { earned = false, inGrace = true, elapsed = 10, tankOpened = true }),
+		S(6, { earned = true, elapsed = 12, tankOpened = true }))), 1,
+		"a NEW streak after grace is charged")
+	ck(run(S(6, { earned = true, elapsed = 1, tankOpened = false })), 0,
+		"aggro during the pull window is a pull, not a rip")
+	ck(run(cat(S(4, { earned = true, elapsed = 1, tankOpened = false }),
+		S(6, { earned = true, elapsed = 5, tankOpened = false }))), 0,
+		"holding ACROSS the pull-window boundary is not a rip")
+end
+
+
 print("")
 if failures > 0 then
 	print(("%d/%d CHECKS FAILED"):format(failures, checks))
