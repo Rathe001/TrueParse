@@ -298,6 +298,17 @@ for _, name in ipairs({ "Iron Juggernaut", "Garrosh Hellscream", "Scavenging Hye
 end
 check(TP.IsPracticeTarget(nil) == false, "a nameless session is not practice")
 
+-- 3d. Practice never counts toward anything that ACCUMULATES (Josh
+-- 2026-07-30: "make sure practice sessions aren't counted towards any
+-- averages or careers"). One named rule, asked by the career GPA, run-ID
+-- stamping, the personal trend, personal bests, and /tp share.
+check(TP.CountsInAggregates({ name = "Garrosh Hellscream" }) == true,
+	"a real fight counts toward averages")
+check(TP.CountsInAggregates({ name = "Training Dummy", practice = true }) == false,
+	"a practice fight does not")
+check(TP.CountsInAggregates(nil) == true,
+	"a nil fight is not treated as practice (callers guard their own nils)")
+
 -- 4. Effective weights renormalize to 1.0 over applicable metrics
 for _, r in ipairs(results) do
 	local sum = 0

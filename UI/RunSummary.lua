@@ -294,7 +294,10 @@ function RunSummary:Share()
 		if newest and f.runID ~= newest.runID then
 			break
 		end
-		if f.isBoss and not f.wipe then
+		-- practice rides the boss pipeline but is not a kill anyone wants
+		-- broadcast; it also carries no runID, so nil ~= nil would not have
+		-- stopped this walk on its own
+		if f.isBoss and not f.wipe and TP.CountsInAggregates(f) then
 			kill = f
 			break
 		end

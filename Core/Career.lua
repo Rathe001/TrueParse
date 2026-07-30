@@ -66,7 +66,7 @@ local function onFightCaptured(_, fight)
 	if countPlayers(fight.players) < 3 then
 		return
 	end
-	if fight.wipe or fight.practice then
+	if fight.wipe or not TP.CountsInAggregates(fight) then
 		return -- wipes and dummy practice are graded on the card but
 		-- don't move the career GPA
 	end

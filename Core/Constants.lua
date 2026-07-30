@@ -110,6 +110,17 @@ function TP.IsPracticeTarget(name)
 	return false
 end
 
+-- Does this fight belong in numbers that ACCUMULATE — career GPA, run
+-- averages, the personal trend, personal bests? Practice does not (Josh
+-- 2026-07-30: "we need to make sure practice sessions (target dummy) aren't
+-- counted towards any averages or careers"). A dummy parse is a rehearsal
+-- against a target that doesn't fight back; it is graded on its own card and
+-- goes no further. One named rule rather than a `not f.practice` at each
+-- site, so a new aggregate has something to ask.
+function TP.CountsInAggregates(fight)
+	return not (fight and fight.practice)
+end
+
 -- Per client: the anchor names a boss in THAT client's percentile file, and
 -- borrows its bracket. Nothing on retail yet (which Midnight boss the
 -- community treats as the patchwerk isn't settled, and naming the wrong one

@@ -1177,10 +1177,22 @@ local lastRawAvailable = true
 local lastFightTier = 1
 
 -- Every row of a scored fight carries the same tier, but a fight can score
--- to an empty result set; read it defensively and default to DIRECT.
-local function tierOfResults(results)
+-- to an empty result set; read it defensively.
+--
+-- `derived` is stamped only where a CURVE produced the score, so a fight no
+-- WCL data covers at all comes back nil - and defaulting that to DIRECT made
+-- the chip promise "a 1:1 comparison against Warcraft Logs" for a training
+-- dummy (Josh 2026-07-30: "how do we have WCL data for target dummy?"). It
+-- doesn't; the metric tooltip on the same card already said "no WCL
+-- population data - vs group share". No evidence is tier III, whose headline
+-- is exactly right: nothing on Warcraft Logs covers this fight.
+local function tierOfResults(results, wclBacked)
 	local r = results and results[1]
-	return (r and r.derived) or 1
+	local tier = r and r.derived
+	if tier then
+		return tier
+	end
+	return wclBacked and 1 or 3
 end
 
 function MeterWindow:RenderScorecard(fight)
@@ -1230,7 +1242,7 @@ function MeterWindow:RenderScorecard(fight)
 	local results, rawAvailable = scoreForDisplay(fight)
 	lastRawAvailable = rawAvailable
 	-- the strip below the window says what the score is built on
-	lastFightTier = tierOfResults(results)
+	lastFightTier = tierOfResults(results, rawAvailable)
 	MeterWindow:UpdateTierChip(lastFightTier)
 	window.subtitle:SetText(subtitleText(rawAvailable))
 	-- effective mode for THIS card: raw only when WCL evidence backs it
@@ -1698,6 +1710,8 @@ local function refreshImpl(self, force)
 		-- collapsed path this is a table lookup after the first call.
 		if latest and not waitingZone then
 			lastFightTier = tierOfResults(scoreForDisplay(latest))
+			-- scoreForDisplay returns (results, rawAvailable); the call above
+			-- passes both through Lua's multiple returns
 			MeterWindow:UpdateTierChip(lastFightTier)
 		else
 			MeterWindow:UpdateTierChip(nil)

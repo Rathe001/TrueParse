@@ -278,8 +278,40 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	if name:find("^%(!%)") == nil then
 		practice = TP.Addon.db.profile.practiceDummies
 			and TP.IsPracticeTarget(name)
-			and duration >= 60
 	end
+
+	-- A DUMMY SESSION'S durationSeconds IS NOT A FIGHT LENGTH. Josh's first
+	-- capture came back ~3,449,228 (40 days), which made the card read
+	-- "57487m8s" and every rate collapse to "1 per second" / "0 per second"
+	-- on 2.24M healing and 1.41M damage (2026-07-30). Blizzard closes an
+	-- encounter session at ENCOUNTER_END; nothing closes a dummy one, so its
+	-- clock keeps running across every pause, and possibly since the meter
+	-- itself began.
+	-- The honest bound is how long WE have watched this session: the live
+	-- context stamps `at` on the first meter update, which for a dummy is the
+	-- moment the swinging started. Applied to practice ONLY - a bulk-unlocked
+	-- dungeon session is snapshotted long after it ended, so the observed
+	-- span would be far too LONG for those, and their durationSeconds is
+	-- already correct.
+	if practice then
+		local liveCtx = sessionContext[sessionID]
+		local watched = liveCtx and liveCtx.at and (time() - liveCtx.at) or nil
+		if not (watched and watched > 0) then
+			-- No observed span (the meter reset, which wipes sessionContext).
+			-- Every rate on the card would be built on a number we know is
+			-- wrong, so record nothing rather than a fabricated one - see
+			-- the "unmeasurable is not zero" rule this is the mirror of.
+			-- Contexts persist across /reload, so this is the rare case.
+			self.snapshotted[sessionID] = true
+			return true
+		end
+		if watched < duration then
+			duration = watched
+		end
+	end
+	-- the 60s floor is checked against the CORRECTED duration, or a session
+	-- with a runaway clock would qualify no matter how briefly it was hit
+	practice = practice and duration >= 60
 
 	local fight = {
 		sessionID = sessionID,
@@ -527,6 +559,16 @@ local function sameRun(prev, fight)
 end
 
 function FightHistory:StampRunID(fight)
+	-- PRACTICE GETS NO RUN (Josh 2026-07-30: "make sure practice sessions
+	-- aren't counted towards any averages or careers"). A dummy session is
+	-- one player hitting a target, not a group's visit to an instance -
+	-- giving it a runID made it a one-fight "run" whose average is just
+	-- itself, and let a second dummy pull chain into the first. Everything
+	-- keyed on runID (the run row, run averages, the run report) skips a
+	-- fight without one, so this is the single choke point.
+	if not TP.CountsInAggregates(fight) then
+		return
+	end
 	-- /tp mock records must never chain a real pull into their fake run
 	local prev
 	for _, f in ipairs(self.fights) do
@@ -552,15 +594,19 @@ function FightHistory:BackfillRunIDs()
 	local prev
 	for i = #self.fights, 1, -1 do
 		local f = self.fights[i]
-		if not f.runID then
-			if prev and sameRun(prev, f) then
-				f.runID = prev.runID
-			else
-				counter = counter + 1
-				f.runID = counter
+		-- practice never gets a run, never joins one, and never anchors one
+		-- (StampRunID skips it the same way for new captures)
+		if TP.CountsInAggregates(f) then
+			if not f.runID then
+				if prev and sameRun(prev, f) then
+					f.runID = prev.runID
+				else
+					counter = counter + 1
+					f.runID = counter
+				end
 			end
+			prev = f
 		end
-		prev = f
 	end
 	char.runCounter = math.max(counter, char.runCounter or 0)
 end
@@ -666,7 +712,9 @@ end
 -- memoized; the history-count in the key self-invalidates on capture.
 local pbCache, pbCacheN = {}, 0
 function FightHistory:PersonalBest(fight, guid)
-	if not (fight.isBoss and fight.name and guid) then
+	-- practice never sets or claims a personal best: a dummy is not an
+	-- encounter, and the record it would compete against is another dummy
+	if not (fight.isBoss and fight.name and guid) or not TP.CountsInAggregates(fight) then
 		return nil
 	end
 	local key = fight.name .. "|" .. tostring(fight.difficultyID) .. "|" .. guid .. "|" .. #self.fights
@@ -678,7 +726,7 @@ function FightHistory:PersonalBest(fight, guid)
 	local opts = TP.GetScoringOptions and TP.GetScoringOptions() or {}
 	for _, f in ipairs(self.fights) do
 		if f ~= fight and f.name == fight.name and f.difficultyID == fight.difficultyID
-			and not f.wipe and f.players and f.players[guid] then
+			and not f.wipe and TP.CountsInAggregates(f) and f.players and f.players[guid] then
 			local ok, results = pcall(TP.Scoring.Engine.ScoreFight, f, opts)
 			if ok then
 				for _, r in ipairs(results) do

@@ -27,7 +27,9 @@ function Trends:Report()
 		if #rows >= MAX_FIGHTS then
 			break
 		end
-		if fight.players[myGUID] and not fight.wipe then
+		-- practice is excluded everywhere a number accumulates: a dummy
+		-- parse is not a data point about how you're playing content
+		if fight.players[myGUID] and not fight.wipe and TP.CountsInAggregates(fight) then
 			local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetScoringOptions())
 			for _, r in ipairs(results) do
 				if r.guid == myGUID then
