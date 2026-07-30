@@ -210,6 +210,29 @@ check(rt.RANKED_DUNGEON_TIER == "Challenge Mode" or rt.RANKED_DUNGEON_TIER == "M
 	("retail names a ranked dungeon tier (%s)"):format(tostring(rt.RANKED_DUNGEON_TIER)))
 
 
+-- Celestial proc exclusions, and the name collision in them. "Earthquake" is
+-- both Niuzao's dungeon proc and Elemental Shaman's AoE, so the name rule
+-- must NOT strip the Shaman spell (Josh 2026-07-30).
+do
+	local TPm = { Compat = { HAS_CLEU = true, IS_RETAIL = false } }
+	local f = loadfile("Data/ProcExclusions_Mists.lua")
+	if f then
+		f("TrueParse", TPm)
+		for _, n in ipairs({ "Serpent's Jadefire", "Xuen's Ferocity", "Blazing Song",
+			"Burning Song", "Earthquake" }) do
+			check(TPm.IsExcludedProc(nil, n) == true,
+				("celestial proc excluded by name: %s"):format(n))
+		end
+		check(TPm.IsExcludedProc(61882, "Earthquake") == false,
+			"Elemental Shaman's Earthquake (61882) survives the name rule")
+		check(TPm.IsExcludedProc(nil, "Fireball") == false,
+			"an ordinary spell is not excluded")
+		check(TPm.IsExcludedProc(148008, "Essence of Yu'lon") == false,
+			"the legendary cloak proc is still counted")
+	end
+end
+
+
 print("")
 if failures > 0 then
 	print(("%d/%d CHECKS FAILED"):format(failures, checks))

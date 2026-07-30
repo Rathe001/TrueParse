@@ -19,6 +19,19 @@ TP.PROC_EXCLUDE_IDS = {
 	-- promote from /tp procs pastes
 }
 
+-- Names that COLLIDE with a real class ability. A name exclusion is a blunt
+-- instrument - it cannot see who cast the spell - and "Earthquake" is both the
+-- Niuzao celestial proc and Elemental Shaman's AoE. Excluding the name alone
+-- would silently delete a Shaman's real damage, which is the Essence of Yu'lon
+-- mistake in the note above, repeated.
+-- So: the name is excluded EXCEPT for these ids, which are the legitimate
+-- spell. Confirm each with /tp procs on a real run - an id here that is wrong
+-- lets the proc back in, which is merely the status quo, but a MISSING one
+-- takes a class's damage away.
+TP.PROC_NAME_KEEP_IDS = {
+	[61882] = true, -- Earthquake — Elemental Shaman (NOT the Niuzao proc)
+}
+
 TP.PROC_EXCLUDE_NAMES = {
 	-- celestial empowerment procs seen 2026-07-14 (Taran Zhu seasonal).
 	-- NEVER exclude legendary-cloak procs: "Essence of Yu'lon" (148008)
@@ -31,11 +44,19 @@ TP.PROC_EXCLUDE_NAMES = {
 	["Xuen's Ferocity"] = true,
 	["Burning Song"] = true,
 	["Blazing Song"] = true,
+	-- Niuzao's (Josh 2026-07-30, naming the set: "Xuen's ferocity, Serpent's
+	-- jadefire, Earthquake(Niuzao), Blazing song"). Guarded by
+	-- PROC_NAME_KEEP_IDS above so the Shaman spell survives.
+	["Earthquake"] = true,
 }
 
 function TP.IsExcludedProc(spellID, spellName)
 	if spellID and TP.PROC_EXCLUDE_IDS[spellID] then
 		return true
+	end
+	-- an explicit id ALWAYS beats a name collision
+	if spellID and TP.PROC_NAME_KEEP_IDS[spellID] then
+		return false
 	end
 	return spellName ~= nil and TP.PROC_EXCLUDE_NAMES[spellName] or false
 end
