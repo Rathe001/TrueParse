@@ -54,12 +54,17 @@ local PADDING = 6
 -- wanted on III lives in the copy ("Don't quote this number") instead of in
 -- a loaded title — the tier is imprecise, not dishonest.
 local TIERS = {
+	-- %s = the client's ranked dungeon tier. Mists has no Mythic+ at all -
+	-- Warcraft Logs ranks its Challenge Modes - so this copy was describing a
+	-- system that does not exist there (Josh 2026-07-30).
 	{ tier = 1, numeral = "I", title = "Precise", r = 0.35, g = 0.85, b = 0.4,
 		what = "A 1:1 comparison against Warcraft Logs.",
-		how = "Ranked at the difficulty you played - any raid difficulty, any Mythic+ key." },
+		how = ("Ranked at the difficulty you played - any raid difficulty, any %s run.")
+			:format(TP.RANKED_DUNGEON_TIER or "Mythic+") },
 	{ tier = 2, numeral = "II", title = "Approximate", r = 0.95, g = 0.8, b = 0.3,
 		what = "This dungeon's real curves, scaled to your gear.",
-		how = "Not a real parse: WCL only ranks this dungeon at Mythic+, so the difficulty gap is corrected." },
+		how = ("Not a real parse: WCL only ranks this dungeon at %s, so the difficulty gap is corrected.")
+			:format(TP.RANKED_DUNGEON_TIER or "Mythic+") },
 	{ tier = 3, numeral = "III", title = "Rough", r = 0.9, g = 0.4, b = 0.35,
 		what = "Nothing on Warcraft Logs covers this fight.",
 		how = "Averaged across everything we do have, scaled to your gear. Don't quote this number." },

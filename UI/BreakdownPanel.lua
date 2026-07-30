@@ -264,7 +264,8 @@ local function showMetricTip(anchor, data)
 	-- TIERS): same numerals, same colours, so the two surfaces agree.
 	if b.derived then
 		local note = (b.derived == 2)
-			and " |cfff2cc4d· tier II approximate, M+ curve scaled to your gear|r"
+			and (" |cfff2cc4d· tier II approximate, %s curve scaled to your gear|r")
+				:format(TP.RANKED_DUNGEON_TIER or "Mythic+")
 			or " |cffe66659· tier III rough, no data covers this fight|r"
 		metricTip.footer:SetText((metricTip.footer:GetText() or "") .. note)
 	end

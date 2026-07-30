@@ -110,6 +110,14 @@ function TP.IsPracticeTarget(name)
 	return false
 end
 
+-- What Warcraft Logs RANKS dungeons at on this client. Retail is Mythic+;
+-- Mists ranks Challenge Modes and has no Mythic+ at all, so tier copy that
+-- said "M+ curve scaled to your gear" was describing a system that does not
+-- exist there (Josh 2026-07-30). Constants loads before Compat, hence the
+-- raw project check with the MAINLINE ~= nil guard headless tests need.
+TP.RANKED_DUNGEON_TIER = (WOW_PROJECT_MAINLINE ~= nil and WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
+	and "Mythic+" or "Challenge Mode"
+
 -- Does this fight belong in numbers that ACCUMULATE — career GPA, run
 -- averages, the personal trend, personal bests? Practice does not (Josh
 -- 2026-07-30: "we need to make sure practice sessions (target dummy) aren't

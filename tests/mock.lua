@@ -201,6 +201,15 @@ do
 	end
 end
 
+-- Client-specific copy: Mists has no Mythic+ at all - Warcraft Logs ranks its
+-- Challenge Modes - so tier text naming M+ was describing a system that does
+-- not exist there (Josh 2026-07-30).
+check(mop.RANKED_DUNGEON_TIER == "Challenge Mode",
+	("Classic names Challenge Mode, not Mythic+ (%s)"):format(tostring(mop.RANKED_DUNGEON_TIER)))
+check(rt.RANKED_DUNGEON_TIER == "Challenge Mode" or rt.RANKED_DUNGEON_TIER == "Mythic+",
+	("retail names a ranked dungeon tier (%s)"):format(tostring(rt.RANKED_DUNGEON_TIER)))
+
+
 print("")
 if failures > 0 then
 	print(("%d/%d CHECKS FAILED"):format(failures, checks))
