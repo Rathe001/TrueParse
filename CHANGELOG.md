@@ -1,5 +1,51 @@
 # TrueParse Changelog
 
+## 2.8.1
+
+**A tank's grade now follows the fight.** Mitigation uptime is 55% of a tank's
+score and it prices exactly one thing: how well they blunted incoming damage.
+On a pull where almost nothing reached them there was nothing to blunt, so
+that weight was measuring the fight rather than the player. When a tank's
+share of the group's damage taken falls well below what a tank normally
+absorbs, mitigation weight slides toward zero and moves to damage and healing
+instead - the mirror of the shift healers already got when there is nothing to
+heal. Measured across real history it applies to roughly a third of Mists tank
+fights and a fifth of retail ones, and usually only slightly.
+
+Mitigation also always shows a number now. A measured zero is a reading, not a
+gap; only a genuinely absent one still reads "?". That is safe precisely
+because of the shift above - on a fight that barely touched the tank, an
+honest zero costs almost nothing instead of most of their grade.
+
+**Mists Challenge Mode scores were badly wrong, in both directions at once.**
+Kill-duration data is merged into the same table as the percentile curves, so
+a dungeon TrueParse has no curves for still looked like it had them. Those
+fights were labelled tier II - "this dungeon's real curves, scaled to your
+gear" - while actually being scored against pooled raid logs, and took tier
+II's correction rather than tier III's. The result inverted rankings: on one
+real pull the top damage dealer scored 7 and the player doing half their
+damage scored 87, because the better-geared one sat at the reference item
+level and the other collected a 3x discount. A kill-times-only dungeon is now
+tier III, "nothing on Warcraft Logs covers this fight", which is the truth.
+
+**Losing threat has some tolerance now.** Both the ripped-aggro and lost-aggro
+penalties charged on the first sample, so the ordinary sequence of play - a
+damage dealer reaches an add first, the tank taunts it a second later - was
+charged to both of them. A rip now needs two consecutive samples, and the
+first few seconds of any loss are treated as the pickup rather than a failure
+to pick up. A tank moving between packs pays nothing; one who never picks it
+up still does.
+
+**Mists has no Mythic+.** Three surfaces said it anyway - the metric tooltip
+and both tier footnotes. They name Challenge Mode there now.
+
+**Also.** A cross-realm tank's mitigation reading is recorded properly (the
+role check consulted a roster that often does not know them). Niuzao's
+celestial proc is identified but deliberately not yet excluded: its name
+collides with Elemental Shaman's Earthquake, and excluding it by name would
+delete a real spell's damage - it goes in by spell id once that id is known.
+
+
 ## 2.8.0
 
 **Mythic+ and Timewalking scores were impossible, and now aren't.** Measured
