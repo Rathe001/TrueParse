@@ -28,6 +28,19 @@ TP.Threat = Threat
 
 local INTERVAL = 1
 local PULL_WINDOW = 4 -- seconds of combat that still count as "the pull"
+-- TOLERANCE (Josh 2026-07-30): "these are all adds that the tank didn't pick
+-- up instantly, which is a bit unrealistic. In reality, DPS switches to adds
+-- immediately, and the tank will pick them up as quickly as they can."
+-- RIP_TICKS: a non-tank must HOLD a mob for this many consecutive samples
+-- before it counts as ripped. One sample is a hand-off in progress - a DPS
+-- catching an add a second before the tank taunts it - and charging that
+-- punishes the normal sequence of play. Mirrors the pullTicks >= 2 rule the
+-- opening-pull check has always used.
+-- TANK_PICKUP_GRACE: seconds a tank gets to reach and taunt something before
+-- loss-seconds start accruing. Below this the tank is picking it up "as
+-- quickly as they can"; past it they genuinely are not holding it.
+local RIP_TICKS = 2
+local TANK_PICKUP_GRACE = 3
 
 -- ================================ Fixate guard ============================
 -- A mob parked on a non-tank is only a threat failure if that player
@@ -175,9 +188,17 @@ local function sample()
 								a.pulled = true
 							end
 						end
-					elseif not a.has and not inGrace then
-						a.rips = a.rips + 1
+					elseif not inGrace then
+						-- consecutive samples, not the first instant: see
+						-- RIP_TICKS. Reset below the moment they drop it.
+						a.ripTicks = (a.ripTicks or 0) + 1
+						if a.ripTicks == RIP_TICKS then
+							a.rips = a.rips + 1
+						end
 					end
+				end
+				if not earned then
+					a.ripTicks = 0
 				end
 				a.has = earned or false
 			end
@@ -200,7 +221,15 @@ local function sample()
 		-- stop reading as one long failure.
 		if acc and nonTankHasAggro and not inGrace and (status or 0) < 2
 			and (seg.group.tankOpened or elapsed > PULL_WINDOW) then
-			ensureAggro(acc).lost = ensureAggro(acc).lost + INTERVAL
+			-- the first TANK_PICKUP_GRACE seconds of any episode are the
+			-- pickup itself, not a failure to pick up
+			local a = ensureAggro(acc)
+			a.lossStreak = (a.lossStreak or 0) + INTERVAL
+			if a.lossStreak > TANK_PICKUP_GRACE then
+				a.lost = a.lost + INTERVAL
+			end
+		elseif acc then
+			ensureAggro(acc).lossStreak = 0
 		end
 	end
 end
@@ -281,9 +310,16 @@ local function retailSample()
 					if a.pullTicks >= 2 then
 						a.pulled = true
 					end
-				elseif not a.has then
-					a.rips = a.rips + 1
+				else
+					-- consecutive samples, not the first instant (RIP_TICKS)
+					a.ripTicks = (a.ripTicks or 0) + 1
+					if a.ripTicks == RIP_TICKS then
+						a.rips = a.rips + 1
+					end
 				end
+			end
+			if not earned then
+				a.ripTicks = 0
 			end
 			a.has = earned or false
 		end
@@ -298,9 +334,15 @@ local function retailSample()
 		-- same gates Classic has always had: a DPS opening the pack before
 		-- the tank ever held it is not the tank losing aggro, and a tank
 		-- still holding something has lost nothing
+		local ra = retailAggro(guid)
 		if nonTankHasAggro and (status or 0) < 2
 			and (retailWindow.tankOpened or elapsed > PULL_WINDOW) then
-			retailAggro(guid).lost = retailAggro(guid).lost + INTERVAL
+			ra.lossStreak = (ra.lossStreak or 0) + INTERVAL
+			if ra.lossStreak > TANK_PICKUP_GRACE then
+				ra.lost = ra.lost + INTERVAL
+			end
+		else
+			ra.lossStreak = 0
 		end
 	end
 end
