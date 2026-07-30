@@ -27,6 +27,9 @@ local groupAvgCache = setmetatable({}, { __mode = "k" })
 -- clients without ARIALN (CJK), keeping the mockup's sizes.
 local FONT = "Fonts\\ARIALN.TTF"
 local BAND_MIN = 8 -- spike-strip blocks: floor width so events read discrete
+-- clearance between the fight-shape legend and the graph, so the death
+-- dots above the columns have somewhere to sit
+local DEATH_DOT_ROOM = 7
 local function face(fs, size, flags)
 	if not fs:SetFont(FONT, size, flags or "") then
 		local path, _, fl = fs:GetFont()
@@ -2139,6 +2142,12 @@ function Panel:ShowForGroup(fight, results)
 				cap = cap .. " \194\183 |cffe64d4dwipe called|r"
 			end
 			vizLabel("shapeLabel", cap)
+			-- Death dots ride 2px ABOVE the columns, which put them straight
+			-- through the legend's baseline (Josh 2026-07-30: "add a bit of
+			-- spacing after the graph legend so the death dots don't
+			-- overlap"). The graph drops a row's worth so the dots have their
+			-- own band to sit in.
+			y = y - DEATH_DOT_ROOM
 			local n = #fight.shape
 			local cols = vizPool("shapeCols", n + 12)
 			local H = 32
