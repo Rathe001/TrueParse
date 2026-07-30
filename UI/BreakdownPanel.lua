@@ -708,7 +708,10 @@ end
 -- group-card visualization elements (fight shape, team coverage,
 -- staircase) — hidden wholesale when the shared frame shows a player
 local GROUP_VIZ = { "shapeLabel", "shapeCols", "covLabel", "covTrack", "covBands",
-	"pShapeLabel", "pShapeCols" }
+	"pShapeLabel", "pShapeCols",
+	-- death dots left the shapeCols pool when they became hoverable frames;
+	-- they must still be hidden when the shared frame shows a player
+	"deathDots" }
 local function hideGroupViz()
 	if not frame then
 		return
@@ -1520,7 +1523,13 @@ function Panel:ShowFor(fight, result)
 			end
 			local series = result.role == "HEALER" and "your HPS"
 				or result.role == "TANK" and "damage intake" or "your DPS"
-			if fight.lustAt and result.role ~= "TANK" then
+			-- Lust marks a TANK's strip too (Josh 2026-07-30: "Pickledrot's
+			-- lust window isn't showing on the graph"). It was DPS/healer
+			-- only, presumably because tanks are not scored on lust
+			-- alignment - but the band is context, not a verdict: it says
+			-- when the burst window was, which reads just as usefully
+			-- against damage intake as against output.
+			if fight.lustAt then
 				series = series .. " \194\183 |cff66ccfflust|r"
 			end
 			if fight.calledWipeAt then
@@ -1549,7 +1558,7 @@ function Panel:ShowFor(fight, result)
 				local tMid = (i - 0.5) * cellDur
 				if fight.calledWipeAt and tMid >= fight.calledWipeAt then
 					t:SetVertexColor(0.90, 0.30, 0.30, 0.9)
-				elseif result.role ~= "TANK" and fight.lustAt
+				elseif fight.lustAt
 					and tMid >= fight.lustAt and tMid <= fight.lustAt + 40 then
 					t:SetVertexColor(0.40, 0.80, 1.00, 0.95)
 				else
@@ -2154,21 +2163,61 @@ function Panel:ShowForGroup(fight, results)
 				t:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 12 + (i - 1) * step, y - H)
 				t:Show()
 			end
-			-- death dots above the columns
-			local di = n
+			-- Death dots above the columns, HOVERABLE (Josh 2026-07-30:
+			-- "would be nice if we could hover the death dots to see who
+			-- died, and what killed them"). They were plain textures, which
+			-- take no mouse input, so they get their own frame pool. The
+			-- tooltip reuses deathRecapLines - the same WCL-style last-hits
+			-- list the deaths signal row shows - so one death reads
+			-- identically wherever you meet it.
+			frame.deathDots = frame.deathDots or {}
+			local ddi = 0
 			for _, p in pairs(fight.players or {}) do
 				for _, dt in ipairs(p.deathTimes or (p.deathTime and { p.deathTime } or {})) do
-					di = di + 1
-					local t = cols[di]
-					if t then
-						t:SetVertexColor(0.95, 0.30, 0.30, 1)
-						t:ClearAllPoints()
-						t:SetSize(3, 3)
-						t:SetPoint("BOTTOMLEFT", frame, "TOPLEFT",
-							12 + math.min(w - 3, dt / fight.duration * w), y - H + H + 2)
-						t:Show()
+					ddi = ddi + 1
+					local dot = frame.deathDots[ddi]
+					if not dot then
+						dot = CreateFrame("Frame", nil, frame)
+						dot.tex = dot:CreateTexture(nil, "OVERLAY")
+						dot.tex:SetAllPoints(dot)
+						dot.tex:SetTexture("Interface\\Buttons\\WHITE8X8")
+						dot:EnableMouse(true)
+						dot:SetScript("OnEnter", function(b)
+							if b.tipLines then
+								TP.Tooltip:Show(b, tipSide() == "LEFT" and "FORCE_LEFT" or "FORCE_RIGHT",
+									b.tipTitle, b.tipLines)
+							end
+						end)
+						dot:SetScript("OnLeave", function()
+							TP.Tooltip:Hide()
+						end)
+						frame.deathDots[ddi] = dot
 					end
+					dot.tex:SetVertexColor(0.95, 0.30, 0.30, 1)
+					dot:ClearAllPoints()
+					-- the dot stays 3px; the FRAME is 9px so it can be hit
+					-- with a mouse, centred on the same point
+					dot:SetSize(9, 9)
+					dot.tex:ClearAllPoints()
+					dot.tex:SetPoint("CENTER", dot, "CENTER", 0, 0)
+					dot.tex:SetSize(3, 3)
+					dot:SetPoint("BOTTOMLEFT", frame, "TOPLEFT",
+						12 + math.min(w - 3, dt / fight.duration * w) - 3, y + 2 - 3)
+					dot.tipTitle = ("%s died  %d:%02d"):format(
+						TP.ShortName(p.name or "?"), math.floor(dt / 60), dt % 60)
+					if p.deathRecap and #p.deathRecap > 0 then
+						dot.tipLines = deathRecapLines(p)
+					else
+						dot.tipLines = { { (TP.Compat and TP.Compat.HAS_CLEU)
+							and "No recap recorded for this death."
+							or "This client has no combat log, so what landed the killing blow can't be read.",
+							0.6, 0.6, 0.6, true } }
+					end
+					dot:Show()
 				end
+			end
+			for i = ddi + 1, #frame.deathDots do
+				frame.deathDots[i]:Hide()
 			end
 			y = y - H
 		end
