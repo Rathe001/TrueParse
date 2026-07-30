@@ -1957,7 +1957,27 @@ function Engine.ScoreFight(fight, opts)
 					local healerN = math.max(1, #(ctx.cohorts.HEALER or {}))
 					local demandShare = (ctx.totals.damageTaken or 0) / ctx.duration / healerN
 					local healed = metricValue(p, key)
-					local covered = healed >= demandShare * ctx.duration * 0.7
+					-- "Did the demand get MET" is a group question, not a solo
+					-- one. This used to ask whether the healer ALONE healed
+					-- 70% of the group's entire damage taken, which a five-man
+					-- healer structurally cannot: measured across 145
+					-- single-healer deathless fights of Josh's, they supply
+					-- 30-76% of intake and clear 70% in only 19 of them. The
+					-- rest is self-sustain, absorbs and potions, and none of
+					-- that means the healer failed - nobody died, which this
+					-- branch already requires.
+					-- So: the GROUP's healing covered the intake, AND this
+					-- healer actually supplied it - at least half an even
+					-- share. Without that second half a healer who did almost
+					-- nothing while the DPS healed themselves would floor too
+					-- (a real case: 4,400 healing against 138,048 taken).
+					-- Strictly wider than the old rule, never narrower: all 28
+					-- changed decisions gain the floor, none lose it.
+					local taken = ctx.totals.damageTaken or 0
+					local groupHeal = ctx.totals.healing or 0
+					local covered = taken > 0
+						and groupHeal >= taken * 0.7
+						and healed >= groupHeal * 0.5 / healerN
 					-- WHY the floor fired, which is not one story (Josh
 					-- 2026-07-29: "'little to heal' is wrong too", on a
 					-- dungeon where he healed 4.67M in 107s). The floor
@@ -1976,7 +1996,9 @@ function Engine.ScoreFight(fight, opts)
 							normalized = 75
 							lowDemand = true
 						end
-					elseif covered and (ctx.totals.healing or 0) >= (ctx.totals.damageTaken or 0) * 0.7 then
+					elseif covered then
+						-- `covered` now carries the group-coverage test that
+						-- used to be spelled out here
 						-- no curve to define "real demand" (unranked
 						-- content): nobody died and the group's healing
 						-- covered its intake — demand was met by
