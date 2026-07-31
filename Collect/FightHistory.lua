@@ -393,7 +393,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		-- Kingdoms"); the actual zone tells outdoor raids and world
 		-- content apart
 		local zt = GetZoneText()
-		if zt and zt ~= "" and not IsSecret(zt) then
+		if zt and not IsSecret(zt) and zt ~= "" then
 			zone = zt
 		end
 	end
@@ -809,7 +809,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 			local diffID = arg3
 			if itype == "none" then
 				local zt = GetZoneText()
-				if zt and zt ~= "" and not IsSecret(zt) then
+				if zt and not IsSecret(zt) and zt ~= "" then
 					zone = zt
 				end
 			end
@@ -831,7 +831,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 				-- outdoors the "instance" is the continent map; the real
 				-- zone separates outdoor raids from world content
 				local zt = GetZoneText()
-				if zt and zt ~= "" and not IsSecret(zt) then
+				if zt and not IsSecret(zt) and zt ~= "" then
 					zone = zt
 				end
 			end
@@ -878,8 +878,14 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 			-- all. Sticky, and a practice target outranks whatever we
 			-- happened to be targeting first, so tabbing mid-session can't
 			-- rename the pull.
+			-- IsSecret FIRST, before any comparison. Lua evaluates `and`
+			-- left to right, so `tn ~= ""` touched a secret string before the
+			-- guard meant to protect it ever ran, and Midnight throws on that
+			-- compare: FightHistory.lua:882 in a Delve, 4 times (Josh
+			-- 2026-07-31). A target's name is secret far more often than a
+			-- dummy's is not.
 			local tn = UnitExists and UnitExists("target") and UnitName("target") or nil
-			if type(tn) == "string" and tn ~= "" and not IsSecret(tn)
+			if type(tn) == "string" and not IsSecret(tn) and tn ~= ""
 				and (not ctx.targetName
 					or (TP.IsPracticeTarget(tn)
 						and not TP.IsPracticeTarget(ctx.targetName))) then

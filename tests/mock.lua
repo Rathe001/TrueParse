@@ -399,6 +399,46 @@ do
 end
 
 
+-- SECRET-VALUE LINT. Midnight returns many values as "secret": comparing one
+-- throws, and Lua evaluates `and` left to right, so an IsSecret() guard placed
+-- AFTER a comparison never runs. That shipped and crashed a Delve four times
+-- (Josh 2026-07-31, FightHistory.lua:882 - `tn ~= "" and not IsSecret(tn)`),
+-- and the same shape was sitting in three more places waiting for a secret
+-- zone name. This is a source lint because it cannot be exercised headlessly:
+-- the crash needs a live client that actually secrets the value.
+do
+	local files = {
+		"Collect/FightHistory.lua", "Collect/SelfCasts.lua", "Collect/Segments.lua",
+		"Collect/Sync.lua", "Collect/Threat.lua", "Collect/BlizzardMeter.lua",
+		"Core/Compat.lua", "UI/MeterWindow.lua", "UI/BreakdownPanel.lua",
+	}
+	local bad = {}
+	for _, path in ipairs(files) do
+		local fh = io.open(path)
+		if fh then
+			local n = 0
+			for line in fh:lines() do
+				n = n + 1
+				-- the guard's position in the line, and any comparison of the
+				-- SAME variable earlier in it
+				local at, var = line:find("IsSecret%s*%(%s*([%w_%.]+)%s*%)")
+				local name = line:match("IsSecret%s*%(%s*([%w_%.]+)%s*%)")
+				if at and name and not line:match("^%s*%-%-") then
+					local before = line:sub(1, at - 1)
+					local esc = name:gsub("%.", "%%.")
+					if before:match(esc .. "%s*[=~<>]=") or before:match(esc .. "%s*[<>]%s") then
+						bad[#bad + 1] = ("%s:%d  %s"):format(path, n, line:gsub("^%s+", ""))
+					end
+				end
+			end
+			fh:close()
+		end
+	end
+	check(#bad == 0, ("no value is compared before its IsSecret guard%s"):format(
+		#bad > 0 and ("\n       " .. table.concat(bad, "\n       ")) or ""))
+end
+
+
 print("")
 if failures > 0 then
 	print(("%d/%d CHECKS FAILED"):format(failures, checks))
