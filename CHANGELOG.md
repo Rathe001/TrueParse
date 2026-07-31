@@ -1,5 +1,45 @@
 # TrueParse Changelog
 
+## 2.9.0
+
+**Mythic+ is scored against your own key level.** Warcraft Logs ranks dungeons
+by keystone level, and the gap between bands is enormous - a Frost Mage's
+median on one dungeon is 50,033 damage per second at +2 and 132,283 at +14,
+2.6 times higher. TrueParse had one curve per dungeon covering all of it: the
+top 2000 runs by keystone score, a population containing nobody running a +2.
+Low keys were corrected toward it with gear scaling and a flat lift, which was
+always an approximation of something that could simply be measured.
+
+It is measured now. Curves are crawled per keystone band - 8 dungeons, five
+bands, two million ranked parses - and a key is compared against players who
+ran the same key level. That makes it a DIRECT comparison: no gear
+normalisation, no difficulty correction, just your output against the field's.
+A well-geared player naturally scores higher and an undergeared one naturally
+scores lower, which is what the number should have meant all along.
+
+Expect your Mythic+ scores to move, in both directions. On a real +2/+3 night
+they went from a median of 3.5 (against the old elite curve, where 97.6% of
+players scored under 10) to a median of 30. An earlier fix had over-corrected
+these to a median of 72; that was generous, and this replaces the correction
+with the actual population.
+
+Keys far above every crawled band fall back to the previous behaviour rather
+than being measured against a much lower one.
+
+**Wipes on phase bosses say which phase.** Garrosh's health goes back up when
+he is empowered, so his percentage is per-phase: one wipe recorded 79.6% and
+another 5.2%, and every comparison in the addon reads lower-as-deeper, so the
+shorter pull looked like the better one. Phases are counted now, "deepest push
+yet" ranks by phase before percentage, and the label reads "wipe P3 80%" where
+a boss has refilled. Bosses that never refill are unchanged.
+
+**Group damage spikes stop blaming melee.** Auto-attacks were already excluded
+from detecting a group spike - they are the fight's baseline, not a moment to
+answer with a raid cooldown - but the label came from a shared map that still
+included them, so a spike built entirely from spell damage could be named
+after a tank's melee that contributed none of it.
+
+
 ## 2.8.1
 
 **A tank's grade now follows the fight.** Mitigation uptime is 55% of a tank's
