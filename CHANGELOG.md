@@ -1,5 +1,29 @@
 # TrueParse Changelog
 
+## 2.9.1
+
+**The rotation coach stops advising players on a build they aren't playing.**
+A Fistweaver Mistweaver heals by meleeing and casts almost none of the caster
+rotation the spec's profile is built from - so the card scored one 99 for
+healing and, in the same breath, told them to cast four spells more, each
+"you 0". The coach was comparing real play against a rotation that did not
+describe it.
+
+It now checks whether the profile fits before judging anyone by it. A player
+producing only a token fraction of their spec's expected cast volume is either
+running a different build or wasn't fully captured - those look identical from
+one fight, and both mean the same thing: we have not earned the right to say
+what they're missing. The coach and the rotation table stay quiet instead.
+Players running the profiled build who are simply behind still get advice, and
+genuine inactivity is unaffected - the activity metric measures time rather
+than spell choice.
+
+This is a guard, not a cure. A spec with two real builds wants two profiles,
+and Warcraft Logs' rankings aren't split that way, so a player who runs some
+of the profiled rotation can still be measured against a build they're only
+half using.
+
+
 ## 2.9.0
 
 **Mythic+ is scored against your own key level.** Warcraft Logs ranks dungeons
