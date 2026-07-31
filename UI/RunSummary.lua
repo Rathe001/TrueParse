@@ -355,19 +355,24 @@ function RunSummary:WipeDebrief(fight)
 	local head = ("Wipe — %s at %d:%02d."):format(fight.name or "?", math.floor(d / 60), d % 60)
 	-- the progression story: pull number and best-pull % this run
 	if fight.bossPct then
-		local pull, best = 0, nil
+		-- deepest by PHASE then percentage (TP.PullDepth): a boss whose health
+		-- refills reports per-phase health, so raw percentages do not rank
+		local pull, best, bestDepth = 0, nil, nil
+		local mine = TP.PullDepth(fight)
 		for _, f in ipairs(TP.FightHistory.fights) do
 			if f.name == fight.name and f.wipe and f.runID == fight.runID then
 				pull = pull + 1
-				if f.bossPct and (not best or f.bossPct < best) then
-					best = f.bossPct
+				local d = TP.PullDepth(f)
+				if d and (not bestDepth or d > bestDepth) then
+					bestDepth, best = d, f.bossPct
 				end
 			end
 		end
-		if best and best < fight.bossPct - 0.5 then
-			head = head .. (" Pull %d - boss at %.0f%% (best %.0f%%)."):format(pull, fight.bossPct, best)
+		local at = TP.WipeLabel(fight):gsub("^wipe ", "")
+		if bestDepth and mine and bestDepth > mine + 0.5 then
+			head = head .. (" Pull %d - boss at %s (best %.0f%%)."):format(pull, at, best)
 		else
-			head = head .. (" Pull %d - boss at %.0f%%%s."):format(pull, fight.bossPct,
+			head = head .. (" Pull %d - boss at %s%s."):format(pull, at,
 				pull > 1 and ", a new best" or "")
 		end
 	end

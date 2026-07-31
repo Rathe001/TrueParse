@@ -1233,7 +1233,7 @@ function Panel:ShowFor(fight, result)
 	local runR = self.runScores and self.runScores[result.guid]
 	local sub = { fight.name or "this fight" }
 	if fight.wipe then
-		sub[#sub + 1] = fight.bossPct and ("|cffe64d4dwipe %.0f%%|r"):format(fight.bossPct)
+		sub[#sub + 1] = fight.bossPct and ("|cffe64d4d%s|r"):format(TP.WipeLabel(fight))
 			or "|cffe64d4dwipe|r"
 	end
 	if runR then
@@ -1870,7 +1870,7 @@ function Panel:ShowForGroup(fight, results)
 	frame.bigScore:SetText(TP.Scoring.Grades.ColoredScore(groupScore))
 	local sub = { fight.name or "this fight" }
 	if fight.wipe then
-		sub[#sub + 1] = fight.bossPct and ("|cffe64d4dwipe %.0f%%|r"):format(fight.bossPct)
+		sub[#sub + 1] = fight.bossPct and ("|cffe64d4d%s|r"):format(TP.WipeLabel(fight))
 			or "|cffe64d4dwipe|r"
 	end
 	if self.groupRunScore then

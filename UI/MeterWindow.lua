@@ -565,7 +565,7 @@ local function createWindow()
 		local tag = ""
 		if fight.wipe then
 			tag = fight.bossPct
-				and (" |cffe64d4d(wipe %.0f%%)|r"):format(fight.bossPct)
+				and (" |cffe64d4d(%s)|r"):format(TP.WipeLabel(fight))
 				or " |cffe64d4d(wipe)|r"
 		elseif fight.practice then
 			tag = " |cff66ccff(practice)|r"
@@ -1240,7 +1240,7 @@ function MeterWindow:RenderScorecard(fight)
 		if fight.wipe then
 			-- best-pull number right in the label: "wipe 12% · Garrosh"
 			label = fight.bossPct
-				and ("|cffe64d4dwipe %.0f%%|r · "):format(fight.bossPct) .. label
+				and ("|cffe64d4d%s|r · "):format(TP.WipeLabel(fight)) .. label
 				or "|cffe64d4dwipe|r · " .. label
 		elseif fight.practice then
 			label = "|cff66ccffpractice|r · " .. label

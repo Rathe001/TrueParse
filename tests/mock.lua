@@ -341,6 +341,29 @@ do
 end
 
 
+-- PHASE-AWARE WIPE DEPTH. A boss whose health refills between phases reports
+-- a percentage of the CURRENT phase, so raw percentages cannot be ranked: on
+-- Garrosh a 207s wipe read 79.6% and a 481s wipe read 5.2%, and comparing the
+-- numbers alone made the shorter pull look deeper (Josh 2026-07-30).
+do
+	local P1 = { bossPct = 5.2 }
+	local P3 = { bossPct = 79.6, bossPhase = 3 }
+	local P3deep = { bossPct = 5.2, bossPhase = 3 }
+	check(mop.PullDepth(P1) ~= nil and mop.PullDepth(P3) ~= nil, "PullDepth reads both")
+	check(mop.PullDepth(P3) > mop.PullDepth(P1),
+		("phase 3 at 79.6%% is deeper than phase 1 at 5.2%% (%.0f > %.0f)")
+			:format(mop.PullDepth(P3), mop.PullDepth(P1)))
+	check(mop.PullDepth(P3deep) > mop.PullDepth(P3),
+		"within a phase, lower health is still deeper")
+	check(mop.PullDepth({}) == nil, "no bossPct, no depth")
+	check(mop.WipeLabel(P1) == "wipe 5%",
+		("a single-phase boss labels plainly (%s)"):format(tostring(mop.WipeLabel(P1))))
+	check(mop.WipeLabel(P3) == "wipe P3 80%",
+		("a refilling boss names the phase (%s)"):format(tostring(mop.WipeLabel(P3))))
+	check(mop.WipeLabel({}) == nil, "no bossPct, no label")
+end
+
+
 print("")
 if failures > 0 then
 	print(("%d/%d CHECKS FAILED"):format(failures, checks))

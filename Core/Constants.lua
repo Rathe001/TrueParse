@@ -118,6 +118,33 @@ end
 TP.RANKED_DUNGEON_TIER = (WOW_PROJECT_MAINLINE ~= nil and WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 	and "Mythic+" or "Challenge Mode"
 
+-- HOW DEEP a wipe got, as one sortable number where BIGGER is deeper.
+-- A boss whose health refills between phases reports a percentage of the
+-- CURRENT phase, so raw percentages cannot be ranked against each other: on
+-- Garrosh a 207s wipe read 79.6% and a 481s wipe read 5.2%, and comparing the
+-- numbers alone made the shorter pull look like the better one. Phase first,
+-- then how far into it. Boss-agnostic - the phase count comes from watching
+-- the health go back up, not from a table of encounters.
+function TP.PullDepth(fight)
+	if not (fight and fight.bossPct) then
+		return nil
+	end
+	return ((fight.bossPhase or 1) - 1) * 100 + (100 - fight.bossPct)
+end
+
+-- "wipe 12%" for a single-phase boss, "wipe P3 12%" once one has refilled -
+-- the number means something different and has to say so.
+function TP.WipeLabel(fight)
+	if not (fight and fight.bossPct) then
+		return nil
+	end
+	local phase = fight.bossPhase or 1
+	if phase > 1 then
+		return ("wipe P%d %.0f%%"):format(phase, fight.bossPct)
+	end
+	return ("wipe %.0f%%"):format(fight.bossPct)
+end
+
 -- Does this fight belong in numbers that ACCUMULATE — career GPA, run
 -- averages, the personal trend, personal bests? Practice does not (Josh
 -- 2026-07-30: "we need to make sure practice sessions (target dummy) aren't

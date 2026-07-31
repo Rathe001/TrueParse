@@ -294,6 +294,16 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 							return false
 						end)
 						if not ok or alive then
+							-- A REFILL IS A PHASE. Garrosh's health goes back
+							-- up when he is empowered, so his percentage is
+							-- per-phase and NOT comparable across pulls: a
+							-- 207s wipe read 79.6% and a 481s wipe read 5.2%,
+							-- and the shorter one looked like the deeper push
+							-- (Josh 2026-07-30: "Garrosh wipes showed his HP
+							-- in the phase rather than the entire encounter").
+							-- Counting the refills is enough to order them -
+							-- no per-boss phase table needed.
+							seg.bossPhase = (seg.bossPhase or 1) + 1
 							seg.bossPctLast = pct
 						end
 					else

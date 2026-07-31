@@ -258,7 +258,10 @@ local function isBestPullToday(ctx)
 	for _, rf in ipairs(ctx.runFights or {}) do
 		if rf ~= f and rf.name == f.name and rf.wipe then
 			others = others + 1
-			if rf.bossPct and rf.bossPct <= f.bossPct then
+			-- deeper OR equal kills the "best pull" claim; PullDepth ranks
+			-- phase first, so a later phase always beats a lower percentage
+			local a, b = TP.PullDepth(rf), TP.PullDepth(f)
+			if a and b and a >= b then
 				return false
 			end
 		end
@@ -268,12 +271,15 @@ end
 
 local function pullCount(ctx)
 	local f = ctx.fight
-	local pulls, bestPct = 0, nil
+	local pulls, bestPct, bestDepth = 0, nil, nil
 	for _, rf in ipairs(ctx.runFights or {}) do
 		if rf.name == f.name then
 			pulls = pulls + 1
-			if rf.wipe and rf.bossPct and (not bestPct or rf.bossPct < bestPct) then
-				bestPct = rf.bossPct
+			-- deepest by PHASE first, then percentage: a refilling boss
+			-- reports per-phase health, so raw percentages cannot be ranked
+			local d = rf.wipe and TP.PullDepth(rf) or nil
+			if d and (not bestDepth or d > bestDepth) then
+				bestDepth, bestPct = d, rf.bossPct
 			end
 		end
 	end

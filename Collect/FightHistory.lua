@@ -1393,6 +1393,9 @@ function FightHistory:AddFromSegment(seg)
 		-- where the boss stood when the pull ended (WCL wipe semantics;
 		-- refill-phase bosses like Garrosh made a running min meaningless)
 		bossPct = seg.encounterWipe and seg.bossPctLast or nil,
+		-- which phase that percentage belongs to; nil/1 = the boss never
+		-- refilled, so the raw percentage IS the progress
+		bossPhase = seg.encounterWipe and seg.bossPhase or nil,
 		duration = seg.duration or 0,
 		rawDuration = seg.rawDuration, -- untrimmed window (report matching)
 		capturedAt = time(),
