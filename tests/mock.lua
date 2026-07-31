@@ -378,16 +378,19 @@ do
 			if pr.spells and #pr.spells >= 2 then specID, prof = id, pr break end
 		end
 		if specID then
-			local mine = prof.spells[1].ids[1]
-			-- casts ONLY spells from some other spec's profile
-			local wrongBuild = { profCasts = { [999999] = 40 } }
-			check(I.ParseGap(specID, wrongBuild, 300) == nil,
-				"no rotation advice when none of the spec's own spells were cast")
-			check(I.RotationGaps(specID, wrongBuild, 300) == nil,
+			-- a TOKEN amount of the profiled rotation - a different build, or a
+			-- self-report that never attached. Indistinguishable, same answer.
+			local token = { profCasts = { [prof.spells[1].ids[1]] = 1 } }
+			check(I.ParseGap(specID, token, 300) == nil,
+				"no rotation advice when the profile's volume isn't there")
+			check(I.RotationGaps(specID, token, 300) == nil,
 				"...and no rotation table either")
-			-- casts its own rotation, just not enough: advice IS appropriate
-			local sameBuild = { profCasts = { [mine] = 1 } }
-			local gap = I.ParseGap(specID, sameBuild, 300)
+			-- most of the profile's volume, short on its top spell: coach fires
+			local casts = {}
+			for i, sp in ipairs(prof.spells) do
+				casts[sp.ids[1]] = math.floor((sp.cpm or 0) * 5 * (i == 1 and 0.4 or 0.85))
+			end
+			local gap = I.ParseGap(specID, { profCasts = casts }, 300)
 			check(gap ~= nil,
 				("a player running the profiled build still gets advice (%s)")
 					:format(gap and gap.spell or "nil"))

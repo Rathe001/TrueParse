@@ -3065,8 +3065,10 @@ end)()
 	local zero = PG(105, { profCasts = {} }, 180)
 	check(zero == nil, ("none of the spec's own spells cast -> no advice (%s)")
 		:format(tostring(zero and zero.spell)))
-	-- ...but casting SOME of them means the profile fits and advice applies
-	local partial = PG(105, { profCasts = { [774] = 3 } }, 180)
+	-- ...but a player producing the profile's VOLUME while short on one spell
+	-- is on the build and does get advice. 30+13+18 casts over 3min = 20.3/min
+	-- against 31.4 expected = 65% - well clear of Weights.profileFitMin.
+	local partial = PG(105, { profCasts = { [774] = 30, [33763] = 13, [100] = 18 } }, 180)
 	check(partial and partial.spell == "Rejuvenation",
 		("a player on the profiled build is still coached (%s)"):format(
 			tostring(partial and partial.spell)))
@@ -3121,7 +3123,10 @@ end)()
 		breakdown = { healing = { applicable = true, normalized = 55, effectiveWeight = 0.79, value = 100000 } } }
 	local found
 	for _, b in ipairs(TP.Scoring.Bullets.ForResult(res, nil,
-		{ profCasts = { [774] = 18 }, specID = 105, duration = 180 })) do
+		-- volume on-build (65% of profile) but short on Rejuvenation, so the
+		-- coach still fires; a bare 18 casts now reads as off-build/unmeasured
+		{ profCasts = { [774] = 30, [33763] = 13, [100] = 18 }, specID = 105,
+			duration = 180 })) do
 		if b.key == "coach" then
 			found = b.text
 		end
@@ -3916,11 +3921,25 @@ end)()
 	local mw = TP.SpellProfiles[270]
 	check(mw and mw.spells and #mw.spells >= 3, "Mistweaver has a retail profile")
 	if mw then
-		-- pressing NONE of the watched buttons enough: the coach fires
-		local gap = TP.Scoring.Insights.ParseGap(270,
-			{ profCasts = { [mw.spells[1].ids[1]] = 1 } }, 300)
+		-- A Mistweaver running the CASTER build: most of the profile's volume,
+		-- short on its top spell, so the coach fires.
+		local casts, top = {}, mw.spells[1]
+		for i, sp in ipairs(mw.spells) do
+			-- 5 minutes at ~85% of each spell's rate, except the first at 40%
+			casts[sp.ids[1]] = math.floor(sp.cpm * 5 * (i == 1 and 0.4 or 0.85))
+		end
+		local gap = TP.Scoring.Insights.ParseGap(270, { profCasts = casts }, 300)
 		check(gap ~= nil and gap.text:find("more often", 1, true) ~= nil,
-			("retail MW coach fires (%s)"):format(tostring(gap and gap.text)))
+			("retail MW coach fires for a caster build (%s)"):format(tostring(gap and gap.text)))
+		check(gap == nil or gap.spell == top.name,
+			("...and names the spell they are short on (%s)"):format(tostring(gap and gap.spell)))
+		-- ...and a FISTWEAVER, casting a token amount of the caster rotation,
+		-- is not judged on it at all (Josh 2026-07-31)
+		local fist = TP.Scoring.Insights.ParseGap(270,
+			{ profCasts = { [mw.spells[1].ids[1]] = 1 } }, 300)
+		check(fist == nil,
+			("a Fistweaver is not coached on the caster rotation (%s)"):format(
+				tostring(fist and fist.text)))
 	end
 	TP.SpellProfiles = savedProf
 end)()

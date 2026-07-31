@@ -342,6 +342,15 @@ Weights.derivedOffDifficultyScaled = 4.0
 -- covered this key is missing from the data, and scoring a +15 against a +5
 -- population inflates wildly. The highest crawled band is exempt - it stands
 -- for "this key and up" by design.
+-- How much of its spec profile's expected cast volume a player must actually
+-- produce before the rotation coach will judge them on it. Below this the
+-- profile is not describing them - either a different build (a Fistweaver
+-- Mistweaver runs 1-7% of the caster rotation) or a self-report that never
+-- attached (a rogue at 74-86% on most fights read 3.1% on one). Those are
+-- indistinguishable from one fight and want the same answer: say nothing.
+-- Players on the profiled build measured 50-86%, so the gap is wide.
+Weights.profileFitMin = 0.25
+
 Weights.mplusBandMaxGap = 3
 
 Weights.mplusDirectKey = 10

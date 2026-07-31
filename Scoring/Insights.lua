@@ -353,31 +353,45 @@ function Insights.MechanicGaps(player, fight)
 	return best
 end
 
--- Does this spec's profile actually describe the build this player is
--- running? Some specs have two rotations that share almost no buttons -
--- a Fistweaver Mistweaver melees to heal and casts essentially none of the
--- caster spells the profile is built from (Josh 2026-07-31: "my monk build
--- is different from the recommended coach skills... I rarely cast spells at
--- all"). The card told him to press four spells more while scoring his
--- healing 99.
+-- Does this spec's profile describe what we are looking at? Two different
+-- things make it not:
 --
--- The existing nil-check was MEANT to catch this - "the player pressed
--- literally none of the watched spells" - but the watch set spans EVERY
--- spec's profile, so his Windwalker-shared buttons populated profCasts and
--- the guard passed with all four of HIS spells reading zero.
+--  * A DIFFERENT BUILD. Some specs run two rotations sharing almost no
+--    buttons - a Fistweaver Mistweaver melees to heal and casts nearly none
+--    of the caster spells the retail profile is built from. Josh's card
+--    scored his healing 99 and told him to press four spells more, all "you
+--    0" (2026-07-31). Across his fights he casts 1-7% of the profile's
+--    expected volume; players on the profiled build sit at 50-86%.
+--  * A REPORT THAT DID NOT ATTACH. Retail cast data comes from self-reports,
+--    which land maybe half the time for remote players. A rogue measured at
+--    74-86% on most fights showed 3.1% on one - not a build change, a
+--    dropout.
 --
--- So: overlap with THIS spec's profile. Zero profiled spells cast means we
--- are looking at the wrong rotation, and "you 0, top 14" is a statement
--- about our data rather than their play.
-local function profileFits(prof, m)
+-- These are NOT separable from one fight's data: 3.1% and 1.2% look alike.
+-- But they need the same answer. Whether the rotation is different or merely
+-- unmeasured, "you 0, top 14" is a claim about our data rather than their
+-- play, so both are silence. A first attempt tested for ZERO profiled casts,
+-- which is too brittle - a Fistweaver still presses Renewing Mist
+-- occasionally (Josh: "not an exact 0 value").
+--
+-- Gross inactivity is still caught: the activity metric owns that, and it
+-- measures time rather than spell choice.
+local function profileFits(prof, m, duration)
+	if not (duration and duration > 0) then
+		return false
+	end
+	local expect, mine = 0, 0
 	for _, sp in ipairs(prof.spells or {}) do
+		expect = expect + (sp.cpm or 0)
 		for _, id in ipairs(sp.ids or {}) do
-			if (m.profCasts[id] or 0) > 0 then
-				return true
-			end
+			mine = mine + ((m.profCasts and m.profCasts[id]) or 0)
 		end
 	end
-	return false
+	if expect <= 0 then
+		return false
+	end
+	local floor = (TP.Scoring.Weights and TP.Scoring.Weights.profileFitMin) or 0.25
+	return (mine / (duration / 60)) / expect >= floor
 end
 
 -- The parse coach: compare a player's per-minute rate on their spec's
@@ -395,7 +409,7 @@ function Insights.ParseGap(specID, m, duration)
 	if not (prof and prof.spells and m and m.profCasts and duration and duration >= 60) then
 		return nil
 	end
-	if not profileFits(prof, m) then
+	if not profileFits(prof, m, duration) then
 		return nil
 	end
 	local durMin = duration / 60
@@ -436,7 +450,7 @@ function Insights.RotationGaps(specID, m, duration)
 	if not (prof and prof.spells and m and m.profCasts and duration and duration >= 60) then
 		return nil
 	end
-	if not profileFits(prof, m) then
+	if not profileFits(prof, m, duration) then
 		return nil
 	end
 	local durMin = duration / 60
