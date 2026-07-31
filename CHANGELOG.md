@@ -1,5 +1,22 @@
 # TrueParse Changelog
 
+## 2.9.2
+
+**Fixes a Lua error in Delves, and anywhere else a target's name is hidden.**
+Midnight returns many values as "secret" - readable only by Blizzard's own
+secure code - and touching one throws. The check meant to skip those values
+was written after the comparison it was supposed to protect, so the
+comparison ran first and errored. It only escaped the 2.9.0 release because a
+training dummy standing in a city is one of the few targets whose name is
+readable; in a Delve it fires repeatedly.
+
+The same shape was found in three more places, waiting on a hidden zone name,
+and all four now check before they compare. A source check was added so this
+class of mistake fails the test suite rather than a player's session - it
+cannot be caught by running the code outside the game, because the error needs
+a live client that actually hides the value.
+
+
 ## 2.9.1
 
 **The rotation coach stops advising players on a build they aren't playing.**
