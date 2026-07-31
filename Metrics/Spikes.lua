@@ -85,6 +85,24 @@ local function addTaken(seg, dstGUID, amount, spell)
 		if not top[i] or amount > top[i][1] then
 			top[i] = { amount, spell }
 		end
+		-- ...and the same WITHOUT melee, because the GROUP window's math
+		-- already excludes it. Sharing one map let a spell-driven group spike
+		-- be labelled "Melee" whenever a tank's auto-attack happened to be the
+		-- second's biggest single hit - the number came from spell damage and
+		-- the name from a swing that contributed none of it (Josh 2026-07-30:
+		-- "melee is still showing as a spike on group damage", 5.16M over 6s).
+		-- Personal and tank windows keep the full map: melee IS what hits a
+		-- tank, and naming it there is correct.
+		if spell ~= "Melee" then
+			local ts = s.topSpell
+			if not ts then
+				ts = {}
+				s.topSpell = ts
+			end
+			if not ts[i] or amount > ts[i][1] then
+				ts[i] = { amount, spell }
+			end
+		end
 	end
 end
 
@@ -390,10 +408,19 @@ function Spikes.Compute(seg, duration)
 		local s = acc.spikes
 		if s and s.maxHP then
 			groupHP = groupHP + s.maxHP
-			for t, v in pairs(s.takenSpell or s.taken) do
+			-- The window's MATH and its LABEL must come from the same source.
+			-- Spell-only where we have it (melee is the fight's baseline, not
+			-- a moment to answer with a raid cooldown); the whole map on a
+			-- record that predates the split, so legacy captures and hand-built
+			-- fixtures still name what hit.
+			local intake, topOf = s.taken, s.top or {}
+			if s.takenSpell then
+				intake, topOf = s.takenSpell, s.topSpell or {}
+			end
+			for t, v in pairs(intake) do
 				groupTaken[t] = (groupTaken[t] or 0) + v
 			end
-			for t, h in pairs(s.top or {}) do
+			for t, h in pairs(topOf) do
 				if not groupTop[t] or h[1] > groupTop[t][1] then
 					groupTop[t] = h
 				end

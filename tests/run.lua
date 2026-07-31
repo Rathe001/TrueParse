@@ -2689,6 +2689,7 @@ end)()
 	local e1 = out.h1.groupSpikeMap[1]
 	check(e1[5] == 60000 and e1[6] == "Empowered Whirling Corruption",
 		("window carries amount + hardest hit (%s, %s)"):format(tostring(e1[5]), tostring(e1[6])))
+
 	check(e1[7] == "Healing Tide Totem",
 		("the covering cast is named (%s)"):format(tostring(e1[7])))
 	check(out.h2.groupSpikeMap[1][7] == nil, "no personal cover, no answer named")
@@ -2714,6 +2715,38 @@ end)()
 		"no span, no personal coverage")
 	check(not (out.h3 and out.h3.groupSpikeWindows),
 		"windows after a player's death don't judge them")
+end)()
+
+-- 26b. A GROUP window is spell damage, so its LABEL must be too. Melee is
+-- excluded from the window math (it is the fight's baseline, not a moment to
+-- answer with a raid cooldown), but the hardest-hit map used to include it -
+-- so a spell-driven spike got named after a tank's auto-attack that
+-- contributed none of it (Josh 2026-07-30, Garrosh: "Melee - 5.16M over 6s").
+;(function()
+	local seg = {
+		players = {
+			-- a tank eating big melee AND the raid taking a spell hit in the
+			-- same second; only the spell built the window
+			t1 = { name = "Tank", spikes = { maxHP = 100000,
+				taken = { [30] = 90000 }, takenSpell = {},
+				top = { [30] = { 90000, "Melee" } }, topSpell = {}, casts = {} } },
+			h1 = { name = "Hone", spikes = { maxHP = 100000,
+				taken = { [30] = 60000 }, takenSpell = { [30] = 60000 },
+				top = { [30] = { 60000, "Iron Star" } },
+				topSpell = { [30] = { 60000, "Iron Star" } }, casts = {} } },
+			h2 = { spikes = { maxHP = 100000, taken = {}, takenSpell = {},
+				top = {}, topSpell = {}, casts = {} } },
+		},
+	}
+	local out = TP.Spikes.Compute(seg, 120)
+	local map = out.h1 and out.h1.groupSpikeMap
+	check(map and #map > 0, ("the spell hit still makes a group window (%d)"):format(map and #map or 0))
+	if map and map[1] then
+		check(map[1][6] == "Iron Star",
+			("the group window is named for the SPELL, not the melee (%s)"):format(tostring(map[1][6])))
+		check(map[1][5] == 60000,
+			("...and carries only the spell damage (%s)"):format(tostring(map[1][5])))
+	end
 end)()
 
 -- 27. v1.5.0 group lines: Bloodlust discipline rollup + healer-count
