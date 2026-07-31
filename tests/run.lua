@@ -3056,9 +3056,20 @@ end)()
 	check(PG(105, { profCasts = {} }, 45) == nil, "sub-minute fights aren't coached")
 	check(PG(63, { profCasts = {} }, 180) == nil, "no profile for the spec -> nil")
 	check(PG(105, nil, 180) == nil, "no metrics -> nil")
-	-- zero casts of everything still coaches (the biggest gap of all)
+	-- Zero casts of every profiled spell is NOT the biggest gap - it means the
+	-- profile does not describe the build being played (Josh 2026-07-31: a
+	-- Fistweaver Mistweaver melees to heal and casts none of the caster
+	-- rotation, and was told to press all four more while scoring healing 99).
+	-- "You 0, top 21" would be a statement about our data, not their play.
+	-- A genuinely idle player is the activity bullet's job, not the coach's.
 	local zero = PG(105, { profCasts = {} }, 180)
-	check(zero and zero.spell == "Rejuvenation", "an empty fight coaches the top spell")
+	check(zero == nil, ("none of the spec's own spells cast -> no advice (%s)")
+		:format(tostring(zero and zero.spell)))
+	-- ...but casting SOME of them means the profile fits and advice applies
+	local partial = PG(105, { profCasts = { [774] = 3 } }, 180)
+	check(partial and partial.spell == "Rejuvenation",
+		("a player on the profiled build is still coached (%s)"):format(
+			tostring(partial and partial.spell)))
 	-- RotationGaps: the FULL comparison, worst-shortfall first, deltas signed
 	local RG = TP.Scoring.Insights.RotationGaps
 	local rot = RG(105, { profCasts = { [774] = 18, [33763] = 6, [100] = 27, [200] = 30 } }, 180)
