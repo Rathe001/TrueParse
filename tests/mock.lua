@@ -364,6 +364,38 @@ do
 end
 
 
+-- A SPEC'S PROFILE MUST DESCRIBE THE BUILD BEING PLAYED. Some specs run two
+-- rotations sharing almost no buttons: a Fistweaver Mistweaver melees to heal
+-- and casts essentially none of the caster spells the profile is built from.
+-- The card told Josh to press four spells more while scoring his healing 99
+-- (2026-07-31). The nil-guard was meant to catch it but the cast watch set
+-- spans EVERY spec, so his Windwalker-shared buttons kept profCasts non-nil.
+do
+	local I = mop.Scoring and mop.Scoring.Insights
+	if I and mop.SpellProfiles then
+		local specID, prof
+		for id, pr in pairs(mop.SpellProfiles) do
+			if pr.spells and #pr.spells >= 2 then specID, prof = id, pr break end
+		end
+		if specID then
+			local mine = prof.spells[1].ids[1]
+			-- casts ONLY spells from some other spec's profile
+			local wrongBuild = { profCasts = { [999999] = 40 } }
+			check(I.ParseGap(specID, wrongBuild, 300) == nil,
+				"no rotation advice when none of the spec's own spells were cast")
+			check(I.RotationGaps(specID, wrongBuild, 300) == nil,
+				"...and no rotation table either")
+			-- casts its own rotation, just not enough: advice IS appropriate
+			local sameBuild = { profCasts = { [mine] = 1 } }
+			local gap = I.ParseGap(specID, sameBuild, 300)
+			check(gap ~= nil,
+				("a player running the profiled build still gets advice (%s)")
+					:format(gap and gap.spell or "nil"))
+		end
+	end
+end
+
+
 print("")
 if failures > 0 then
 	print(("%d/%d CHECKS FAILED"):format(failures, checks))

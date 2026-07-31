@@ -353,6 +353,33 @@ function Insights.MechanicGaps(player, fight)
 	return best
 end
 
+-- Does this spec's profile actually describe the build this player is
+-- running? Some specs have two rotations that share almost no buttons -
+-- a Fistweaver Mistweaver melees to heal and casts essentially none of the
+-- caster spells the profile is built from (Josh 2026-07-31: "my monk build
+-- is different from the recommended coach skills... I rarely cast spells at
+-- all"). The card told him to press four spells more while scoring his
+-- healing 99.
+--
+-- The existing nil-check was MEANT to catch this - "the player pressed
+-- literally none of the watched spells" - but the watch set spans EVERY
+-- spec's profile, so his Windwalker-shared buttons populated profCasts and
+-- the guard passed with all four of HIS spells reading zero.
+--
+-- So: overlap with THIS spec's profile. Zero profiled spells cast means we
+-- are looking at the wrong rotation, and "you 0, top 14" is a statement
+-- about our data rather than their play.
+local function profileFits(prof, m)
+	for _, sp in ipairs(prof.spells or {}) do
+		for _, id in ipairs(sp.ids or {}) do
+			if (m.profCasts[id] or 0) > 0 then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 -- The parse coach: compare a player's per-minute rate on their spec's
 -- signature spells against what TOP PARSES of that spec actually do
 -- (Data/SpellProfiles_*, crawled from WCL Casts tables). Returns the
@@ -366,6 +393,9 @@ function Insights.ParseGap(specID, m, duration)
 	-- spells): "you 0" would be a lie in the first case, and the
 	-- activity bullet already owns the second
 	if not (prof and prof.spells and m and m.profCasts and duration and duration >= 60) then
+		return nil
+	end
+	if not profileFits(prof, m) then
 		return nil
 	end
 	local durMin = duration / 60
@@ -404,6 +434,9 @@ end
 function Insights.RotationGaps(specID, m, duration)
 	local prof = specID and TP.SpellProfiles and TP.SpellProfiles[specID]
 	if not (prof and prof.spells and m and m.profCasts and duration and duration >= 60) then
+		return nil
+	end
+	if not profileFits(prof, m) then
 		return nil
 	end
 	local durMin = duration / 60
