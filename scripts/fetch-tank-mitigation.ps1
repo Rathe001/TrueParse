@@ -273,12 +273,24 @@ foreach ($ref in $refs) {
         # fair share among the healers". That is what makes one anchor hold
         # for five-mans and raids alike instead of needing separate tables.
         $healerN = 0
-        foreach ($e in $hd.data.entries) { if ($healerByIcon[$e.icon]) { $healerN++ } }
-        if ($intake -gt 0 -and $healerN -gt 0) {
+        $selfHeal = 0.0
+        foreach ($e in $hd.data.entries) {
+            if ($healerByIcon[$e.icon]) { $healerN++ } else { $selfHeal += [double]$e.total }
+        }
+        # Take the SELF-HEALING out of the denominator (Josh 2026-07-31). A
+        # healer only gets to cover what nobody else covered, so raw coverage
+        # mostly measured the group: on 21 real M+ fights it correlated -0.76
+        # with the non-healer healing share, i.e. 58% of its variance was
+        # composition rather than the healer. A Blood DK tank alone can move
+        # it. Dividing by the intake that was actually left to heal drops
+        # that to +0.13 - 2% - while keeping a 1.70x spread of real signal.
+        $healable = $intake - $selfHeal
+        if ($healable -lt $intake * 0.15) { $healable = $intake * 0.15 } # guard
+        if ($healable -gt 0 -and $healerN -gt 0) {
             foreach ($e in $hd.data.entries) {
                 $spec = $healerByIcon[$e.icon]
                 if (-not $spec) { continue }
-                $cov = [double]$e.total / $intake * $healerN
+                $cov = [double]$e.total / $healable * $healerN
                 # a healer covering more than the whole group's intake is an
                 # overheal-counting artefact, not a sample
                 if ($cov -le 0 -or $cov -gt 2) { continue }
@@ -452,10 +464,18 @@ if ($c50s.Count -ge 2) {
     }
 }
 $cHeader = @"
--- Per-spec healer INTAKE COVERAGE baselines: { p25, p50, p75 } of a healer's
--- healing divided by the GROUP'S TOTAL DAMAGE TAKEN, times the number of
--- healers. Read 0.68 as "this healer covered 0.68 of a fair share of the
--- damage their group ate" - 1.0 being an even split of the whole intake.
+-- Per-spec healer COVERAGE baselines: { p25, p50, p75 } of a healer's healing
+-- divided by the intake that was actually THEIRS TO HEAL - the group's damage
+-- taken, less whatever the group healed itself - times the number of healers.
+-- Read 0.99 as "this healer covered 99% of a fair share of the damage nobody
+-- else picked up".
+--
+-- Self-healing comes out of the denominator because a healer only gets to
+-- cover what nobody else covered. Against raw intake, coverage correlated
+-- -0.76 with the non-healer healing share on 21 real M+ fights: 58% of its
+-- variance was group composition, not the healer, and a single Blood DK tank
+-- could move it. Against healable intake that falls to +0.13, i.e. 2%, while
+-- 1.70x of spread survives (Josh spotted this before the crawl ran).
 --
 -- Times the healer count because raw coverage is divided among the healers,
 -- so it falls as the roster adds them: the same defect as scoring a tank on
@@ -481,7 +501,7 @@ $cHeader = @"
 -- units it does not recognise instead of scoring against the wrong scale.
 local _, TP = ...
 
-TP.HEALER_COVERAGE_UNIT = "intake-share-x-healers"
+TP.HEALER_COVERAGE_UNIT = "healable-share-x-healers"
 
 TP.HEALER_COVERAGE_ANCHORS = {
 	default = $cDefLine
