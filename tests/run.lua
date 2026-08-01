@@ -4523,6 +4523,15 @@ end)()
 	check(not raid or math.abs(raid.normalized - 50) > 1,
 		"a raid-sized group keeps the healing curve, not the coverage anchor")
 
+	-- RAW mode is a WCL-style throughput parse and must stay one: coverage is
+	-- a contribution measure with no parse to show.
+	local raw
+	for _, r in ipairs(TP.Scoring.Engine.ScoreFight(fight(5, 1, 680, 105), { mode = "parse" })) do
+		if r.name == "Heal1" then raw = r.breakdown and r.breakdown.healing end
+	end
+	check(raw and not raw.coverage,
+		"Raw mode keeps the throughput parse, not the coverage anchor")
+
 	-- and a data file whose units we do not recognise is refused outright
 	TP.HEALER_COVERAGE_UNIT = "something-else"
 	local stale = healScore(fight(5, 1, 680, 105), "Heal1")

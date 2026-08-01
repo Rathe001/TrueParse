@@ -216,6 +216,12 @@ local function showMetricTip(anchor, data)
 			metricTip.median:SetText(("%s median: %s/s"):format(
 				who, TP.FormatNumber(b.specMedian)))
 		end
+	elseif b.coverage then
+		-- five-man healers are scored on how much of the group's incoming
+		-- damage they personally covered, not on healing rate, because rate
+		-- in a five-man mostly measures how much the group stood in
+		metricTip.median:SetText(("covered %.0f%% of a fair share of the group's damage")
+			:format(b.coverage * 100))
 	elseif b.lowDemand then
 		metricTip.median:SetText("barely anything to heal - scored neutral")
 	elseif COUNT_METRICS[key] and b.groupTotal and not wclBacked then

@@ -1396,7 +1396,11 @@ local function normalizeMetric(p, role, key, ctx)
 			local healable = math.max(handled - selfHeal, handled * 0.15)
 			local cov = effHealing(p.metrics) / healable * healerN
 			local score = anchorScore(cov, a[1], a[2], a[3])
-			return score, true, score
+			-- 9th return marks HOW this was scored, so the card can explain
+			-- itself. Deliberately not reusing curveFrom: that also gates the
+			-- demandMet/lowDemand branch below, and re-arming that floor for
+			-- five-man healers is exactly what this metric replaces.
+			return score, true, score, nil, nil, nil, nil, nil, cov
 		end
 	end
 
@@ -2141,7 +2145,7 @@ function Engine.ScoreFight(fight, opts)
 		local breakdown = {}
 		local activeWeight = 0
 		for key, weight in pairs(weights) do
-			local normalized, applicable, absolute, relative, specMedian, pctile, rolePooled, curveFrom = normalizeMetric(p, role, key, ctx)
+			local normalized, applicable, absolute, relative, specMedian, pctile, rolePooled, curveFrom, coverage = normalizeMetric(p, role, key, ctx)
 			-- Trivial-demand floors, True mode only (a raw parse SHOULD
 			-- read low on a fight with nothing to heal):
 			-- 1) share-based healing when nobody dipped (Classic vitals);
@@ -2231,6 +2235,8 @@ function Engine.ScoreFight(fight, opts)
 				pctile = pctile, -- raw population percentile (tooltip gauge)
 				rolePooled = rolePooled, -- scored vs the ROLE's pooled curve
 				curveFrom = curveFrom, -- comparison population when zoomed out
+				coverage = coverage, -- five-man healer: share of the group's
+				-- intake they covered, against a fair share (1.0 = even split)
 				-- derived tier: this percentile came from WCL data sampled on
 				-- OTHER content, gear- and difficulty-scaled to fit (tier 2 =
 				-- this dungeon's M+ curves, tier 3 = the pooled curves).

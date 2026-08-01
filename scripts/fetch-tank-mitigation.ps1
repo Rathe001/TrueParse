@@ -291,9 +291,11 @@ foreach ($ref in $refs) {
                 $spec = $healerByIcon[$e.icon]
                 if (-not $spec) { continue }
                 $cov = [double]$e.total / $healable * $healerN
-                # a healer covering more than the whole group's intake is an
-                # overheal-counting artefact, not a sample
-                if ($cov -le 0 -or $cov -gt 2) { continue }
+                # 1.0 is a FAIR SHARE now, not the whole intake, so 2.0 is
+                # just a healer carrying double - a real sample and the top of
+                # the distribution this anchor exists to measure. Only clip
+                # what cannot be a healer at all.
+                if ($cov -le 0 -or $cov -gt 4) { continue }
                 if (-not $covSamples.ContainsKey($spec)) { $covSamples[$spec] = New-Object System.Collections.ArrayList }
                 [void]$covSamples[$spec].Add($cov)
             }

@@ -473,6 +473,18 @@ do
 end
 
 
+-- The retail healer-coverage anchors must NOT be listed in the Mists TOC.
+-- They are crawled from retail logs; MoP has no coverage crawl yet, so its
+-- five-man healers stay on the healing curve. Loading the wrong client's
+-- anchors would score MoP healers against a population they never played.
+do
+	local mists = io.open("TrueParse_Mists.toc")
+	local text = mists and mists:read("*a") or ""
+	if mists then mists:close() end
+	check(not text:find("HealerCoverage"),
+		"MoP does not load the retail healer-coverage anchors")
+end
+
 print("")
 if failures > 0 then
 	print(("%d/%d CHECKS FAILED"):format(failures, checks))
