@@ -60,6 +60,9 @@ function Addon:OnInitialize()
 	-- /tp baddies curation data survives reloads (account-wide, resettable).
 	-- Prune at login so months of raiding can't bloat SavedVariables: keep
 	-- the 200 biggest totals (the curation-relevant tail).
+	-- error sink: persists so a capture handed over carries its own crash log
+	self.db.global.errors = self.db.global.errors or {}
+	TP.TrapInit(self.db.global.errors)
 	self.db.global.takenSpells = self.db.global.takenSpells or {}
 	TP.TakenSpells = self.db.global.takenSpells
 	-- /tp procs twins (damage done / healing done by spell): same
@@ -467,6 +470,39 @@ function Addon:HandleSlash(input)
 		self.db.profile.letterGrades = not self.db.profile.letterGrades
 		self:Print("Letter grades " .. (self.db.profile.letterGrades and "on (F to S+)." or "off (numbers)."))
 		TP.MeterWindow:Invalidate()
+	elseif cmd == "diag" then
+		-- Everything a bug report needs, in one paste: what is running, and
+		-- what has thrown. The errors persist in SavedVariables, so this is
+		-- also what a handed-over capture carries with it.
+		self:Print(("TrueParse %s%s on %s (interface %s)"):format(
+			TP.AddonVersion and TP.AddonVersion() or "?",
+			TP.BUILD and (" @" .. TP.BUILD .. " " .. (TP.BUILD_BRANCH or "?")) or "",
+			TP.Compat.IS_RETAIL and "retail" or "mists",
+			tostring((GetBuildInfo and select(4, GetBuildInfo())) or "?")))
+		local nf = TP.FightHistory and #(TP.FightHistory.fights or {}) or 0
+		local nu = 0
+		for _ in pairs(TP.Sync.users or {}) do
+			nu = nu + 1
+		end
+		self:Print(("  %d captures held, %d addon peers seen this session"):format(nf, nu))
+		if rest == "reset" then
+			wipe(self.db.global.errors)
+			self:Print("  Error log cleared.")
+			return
+		end
+		local errs = self.db.global.errors or {}
+		if #errs == 0 then
+			self:Print("  No errors recorded. (/tp diag reset clears the log.)")
+			return
+		end
+		self:Print(("  |cffff6666%d distinct error(s) recorded:|r"):format(#errs))
+		for i, e in ipairs(errs) do
+			self:Print(("   %d. %s x%d - last %s%s"):format(
+				i, e.context or "?", e.count or 1,
+				date("%m/%d %H:%M", e.last or 0),
+				e.build and (" on @" .. e.build) or (e.version and (" on v" .. e.version) or "")))
+			self:Print("      " .. tostring(e.msg))
+		end
 	elseif cmd == "who" then
 		-- Who in the group is running TrueParse, on what build, and what they
 		-- announced about themselves. Added 2026-07-31: `hasAddon` alone could
@@ -555,6 +591,7 @@ function Addon:HandleSlash(input)
 		self:Print("  /tp career - your stats · /tp trends - where they're heading")
 		self:Print("  /tp fights - capture history · /tp score [n] - rescore one")
 		self:Print("  /tp who - who's running TrueParse, on what version")
+		self:Print("  /tp diag - build info + recorded errors (for bug reports)")
 		self:Print("  /tp buffs - pre-pull raid buff diagnostic")
 		self:Print("  /tp mit - tank mitigation tracking diagnostic")
 		self:Print("  /tp announce · /tp ilvl - toggles")

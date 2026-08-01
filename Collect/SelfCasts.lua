@@ -403,7 +403,7 @@ local function finalizeFight()
 			if maxHPAtPull and TP.Spikes and TP.Spikes.FindWindows
 				and next(takenBuckets or {}) then
 				local threshold = maxHPAtPull * (TP.Spikes.TANK_3S_SHARE or 0.45)
-				local ok, wins = pcall(TP.Spikes.FindWindows, takenBuckets, duration, threshold)
+				local ok, wins = TP.Trap("Spikes.FindWindows", TP.Spikes.FindWindows, takenBuckets, duration, threshold)
 				if ok and wins and #wins > 0 then
 					personalWins = wins
 					local map, covered = {}, 0

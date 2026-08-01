@@ -104,7 +104,7 @@ function Sync:ReattachRecent(duration)
 			d = math.min(d, math.abs(f.rawDuration - duration))
 		end
 		if d <= math.max(8, (f.duration or 0) * 0.2) then
-			pcall(self.AttachReports, self, f)
+			TP.Trap("Sync.AttachReports", self.AttachReports, self, f)
 			return -- one matching capture is enough
 		end
 	end

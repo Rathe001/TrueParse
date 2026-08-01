@@ -1537,7 +1537,7 @@ function MeterWindow:RenderScorecard(fight)
 			-- explain - those points live on the individual cards). This is the
 			-- group-LEVEL net: kicks, raid buffs, and the like.
 			local groupNet = 0
-			local okg, gsigs = pcall(TP.Scoring.Signals.GroupRows, results, fight)
+			local okg, gsigs = TP.Trap("Signals.GroupRows", TP.Scoring.Signals.GroupRows, results, fight)
 			if okg then
 				for _, s in ipairs(gsigs) do
 					groupNet = groupNet + (s.points or 0)

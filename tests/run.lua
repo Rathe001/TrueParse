@@ -59,6 +59,33 @@ check(TP.ShortName("Beautzibub-Undermine") == "Beautzibub", "ShortName drops the
 check(TP.ShortName("Vlora-AltarofStorms") == "Vlora", "ShortName drops a spaced-out realm")
 check(TP.ShortName("Nu") == "Nu", "ShortName leaves a bare name alone")
 
+-- 0b. The error sink. A recurring failure must collapse to ONE entry with a
+-- count, or a throw firing every pull would evict the whole log within a
+-- night and take the useful entries with it.
+do
+	_G.time = _G.time or os.time
+	loadModule("Core/Trap.lua", TP)
+	local store = {}
+	TP.TrapInit(store)
+	local ok, err = TP.Trap("boom", function() error("nope", 0) end)
+	check(ok == false and err == "nope", "Trap returns pcall's own results")
+	check(#store == 1 and store[1].context == "boom", "a failure is recorded")
+	for _ = 1, 5 do
+		TP.Trap("boom", function() error("nope", 0) end)
+	end
+	check(#store == 1 and store[1].count == 6,
+		("the same failure dedups to one entry with a count (%d entries, count %s)")
+			:format(#store, tostring(store[1].count)))
+	local okv, val = TP.Trap("fine", function() return 42 end)
+	check(okv == true and val == 42 and #store == 1, "a success is passed through untouched")
+	for i = 1, 40 do
+		TP.Trap("ctx" .. i, function() error("e", 0) end)
+	end
+	check(#store == 20, ("the log is capped at 20 (%d)"):format(#store))
+	check(store[1].context == "ctx40", "newest first")
+	TP.Errors = nil
+end
+
 -- names arrive secret/nil often enough that every string helper must survive one
 check(TP.ShortName(nil) == nil, "ShortName survives a non-string")
 

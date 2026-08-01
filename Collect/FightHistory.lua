@@ -478,9 +478,9 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	end
 
 	-- Enrichment must never block capture
-	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
-	pcall(TP.Sync.AttachReports, TP.Sync, fight)
-	pcall(TP.Threat.AttachRetail, TP.Threat, fight)
+	TP.Trap("Readiness.StampFight", TP.Readiness.StampFight, TP.Readiness, fight)
+	TP.Trap("Sync.AttachReports", TP.Sync.AttachReports, TP.Sync, fight)
+	TP.Trap("Threat.AttachRetail", TP.Threat.AttachRetail, TP.Threat, fight)
 
 	-- Replace an earlier capture of the same session (resume case).
 	-- Same NAME required, and RECENT (audit 2026-07-16): session IDs
@@ -729,7 +729,7 @@ function FightHistory:PersonalBest(fight, guid)
 	for _, f in ipairs(self.fights) do
 		if f ~= fight and f.name == fight.name and f.difficultyID == fight.difficultyID
 			and not f.wipe and TP.CountsInAggregates(f) and f.players and f.players[guid] then
-			local ok, results = pcall(TP.Scoring.Engine.ScoreFight, f, opts)
+			local ok, results = TP.Trap("ScoreFight", TP.Scoring.Engine.ScoreFight, f, opts)
 			if ok then
 				for _, r in ipairs(results) do
 					if r.guid == guid and (not best or r.score > best) then
@@ -766,7 +766,7 @@ function FightHistory:ScoreHistory(fight, guid, maxN)
 		local f = self.fights[i]
 		if f.name == fight.name and f.difficultyID == fight.difficultyID
 			and not f.wipe and f.players and f.players[guid] then
-			local ok, results = pcall(TP.Scoring.Engine.ScoreFight, f, opts)
+			local ok, results = TP.Trap("ScoreFight", TP.Scoring.Engine.ScoreFight, f, opts)
 			if ok then
 				for _, r in ipairs(results) do
 					if r.guid == guid then
@@ -1122,7 +1122,7 @@ function FightHistory:AddFromSegment(seg)
 	if manualCall and manualCall <= 0 then manualCall = nil end
 	local calledAt = manualCall
 	if not calledAt and seg.encounterWipe and TP.Spikes and TP.Spikes.DetectWipeCall then
-		local ok, at = pcall(TP.Spikes.DetectWipeCall,
+		local ok, at = TP.Trap("Spikes.DetectWipeCall", TP.Spikes.DetectWipeCall,
 			seg.group and seg.group.out, seg.duration)
 		calledAt = ok and at or nil
 	end
@@ -1133,7 +1133,7 @@ function FightHistory:AddFromSegment(seg)
 	-- wipe, windows past the call don't judge anyone's cooldowns.
 	local spikeData
 	if TP.Spikes and TP.Spikes.Compute then
-		local ok, data = pcall(TP.Spikes.Compute, seg, calledAt or seg.duration)
+		local ok, data = TP.Trap("Spikes.Compute", TP.Spikes.Compute, seg, calledAt or seg.duration)
 		spikeData = ok and data or nil
 	end
 	for guid, acc in pairs(seg.players) do
@@ -1438,8 +1438,8 @@ function FightHistory:AddFromSegment(seg)
 		totals.raidCdsUsed = seg.group.raidCdsUsed
 	end
 	-- Enrichment must never block capture
-	pcall(TP.Readiness.StampFight, TP.Readiness, fight)
-	pcall(TP.Sync.AttachReports, TP.Sync, fight)
+	TP.Trap("Readiness.StampFight", TP.Readiness.StampFight, TP.Readiness, fight)
+	TP.Trap("Sync.AttachReports", TP.Sync.AttachReports, TP.Sync, fight)
 	if fight.isBoss and fight.wipe == nil and not seg.encounterEnded
 		and not seg.bossKilled then
 		local anyone, allDied = false, true
@@ -1495,7 +1495,7 @@ function FightHistory:AccumulateWeek(fight)
 	else
 		w.bosses = w.bosses + 1
 	end
-	local ok, results = pcall(TP.Scoring.Engine.ScoreFight, fight,
+	local ok, results = TP.Trap("ScoreFight", TP.Scoring.Engine.ScoreFight, fight,
 		TP.GetScoringOptions and TP.GetScoringOptions() or {})
 	if ok and #results > 0 then
 		local sum = 0

@@ -211,14 +211,27 @@ foreach ($ref in $refs) {
     if ($dd -and $dd.data -and $dd.data.entries) {
         $raidTotal = 0.0
         foreach ($e in $dd.data.entries) { $raidTotal += [double]$e.total }
-        if ($raidTotal -gt 0) {
+        # Sample the tank's damage as a MULTIPLE OF THE GROUP'S PER-PLAYER
+        # MEAN, not as a share of the raid total. Share is arithmetically
+        # inversely proportional to raid size, so a single anchor cannot hold
+        # across sizes - and this crawl deliberately pools them (retail
+        # brackets are flexible 10-30; MoP pools 3x10 and 3x25). Measured on
+        # real captures 2026-07-31: 10-man tanks median 6.62% share vs 21-30
+        # man 2.85%, a 2.3x gap that made 65 of 69 ten-man tank-fights exceed
+        # their own p75 and auto-score 100, while 25-man tanks fell below p25.
+        # Normalised, those two populations agree within 7% (0.662 vs 0.713).
+        $groupN = $dd.data.entries.Count
+        if ($raidTotal -gt 0 -and $groupN -ge 5) {
+            $mean = $raidTotal / $groupN
             foreach ($e in $dd.data.entries) {
                 $spec = $specByIcon[$e.icon]
                 if (-not $spec) { continue }
-                $share = [double]$e.total / $raidTotal * 100.0
-                if ($share -le 0 -or $share -gt 100) { continue }
+                $mult = [double]$e.total / $mean
+                # a tank at 0 did not participate; above 5x the group mean is
+                # not a tank sample, it is a mislabelled row
+                if ($mult -le 0 -or $mult -gt 5) { continue }
                 if (-not $dmgSamples.ContainsKey($spec)) { $dmgSamples[$spec] = New-Object System.Collections.ArrayList }
-                [void]$dmgSamples[$spec].Add($share)
+                [void]$dmgSamples[$spec].Add($mult)
             }
         }
     }
@@ -318,9 +331,10 @@ if ($d50s.Count -ge 2) {
     }
 }
 $dHeader = @"
--- Per-spec tank DAMAGE baselines: { p25, p50, p75 } of a tank's share of
--- the raid's total damage for a fight, crawled from Warcraft Logs
+-- Per-spec tank DAMAGE baselines: { p25, p50, p75 } of a tank's damage as a
+-- MULTIPLE OF THE GROUP'S PER-PLAYER MEAN, crawled from Warcraft Logs
 -- (scripts/fetch-tank-mitigation.ps1, same query as the mitigation pass).
+-- Read 0.78 as "this tank did 0.78x what the average raider did".
 --
 -- Why this exists (Josh 2026-07-28, measured on 219 real MoP fights): on
 -- the SAME fights, the damage metric's median was 59.5 for DPS and 59.8
@@ -331,11 +345,23 @@ $dHeader = @"
 -- actually playing. Scored against the field of every tank in a log, a
 -- median tank lands on a median score, which is what the number means.
 --
--- SHARE of raid damage rather than DPS: it pools across encounters,
+-- MULTIPLE OF THE GROUP MEAN rather than DPS: it pools across encounters,
 -- brackets and gear, so one anchor per spec holds everywhere instead of
 -- needing a curve per boss. A spec too rare to crawl falls back to
 -- `default`, itself the median of the crawled specs.
+--
+-- It used to be a SHARE of raid damage (%), and that was WRONG: share is
+-- inversely proportional to raid size, so one anchor could not cover the
+-- sizes this crawl deliberately pools. Measured on real captures
+-- 2026-07-31, 10-man tanks sat at a 6.62% median share against 2.85% for
+-- 21-30 man - so 65 of 69 ten-man tank-fights cleared their own p75 and
+-- auto-scored 100, while 25-man tanks fell below p25 for median play.
+-- Normalising by group size collapses that 2.3x gap to 7% (0.662 vs 0.713).
+-- TANK_DAMAGE_ANCHOR_UNIT exists so the engine can refuse to score against
+-- a stale share-based file rather than silently mixing the two.
 local _, TP = ...
+
+TP.TANK_DAMAGE_ANCHOR_UNIT = "mean-multiple"
 
 TP.TANK_DAMAGE_ANCHORS = {
 	default = $dDefLine
