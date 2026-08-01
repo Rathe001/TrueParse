@@ -24,6 +24,7 @@ param(
     [string]$MitIds = "mists", # "mists" | "retail" | comma-separated ids
     [string]$OutFile = "TankAnchors.lua",
     [string]$OutDamageFile = "TankDamage.lua",
+    [string]$OutCoverageFile = "HealerCoverage.lua",
     [string]$ClientFile = "$PSScriptRoot\wcl-v2-client.local.txt"
 )
 $ErrorActionPreference = "Stop"
@@ -87,6 +88,14 @@ $specByIcon = @{
     "Paladin-Protection" = 66; "Warrior-Protection" = 73; "Druid-Guardian" = 104
     "DeathKnight-Blood" = 250; "Monk-Brewmaster" = 268; "DemonHunter-Vengeance" = 581
 }
+# Healer specs, for the coverage pass below. Retail ids; the Mists ids that
+# differ are folded in by the same icon strings, which WCL keeps stable.
+$healerByIcon = @{
+    "Paladin-Holy" = 65; "Priest-Discipline" = 256; "Priest-Holy" = 257
+    "Shaman-Restoration" = 264; "Druid-Restoration" = 105; "Monk-Mistweaver" = 270
+    "Evoker-Preservation" = 1468
+}
+
 $tankRanks = @(
     @{ class = "DeathKnight"; spec = "Blood" }
     @{ class = "Warrior"; spec = "Protection" }
@@ -165,8 +174,19 @@ for ($i = 0; $i -lt $mitList.Count; $i++) { $aliases += "m${i}: table(fightIDs: 
 # one response): tank damage as a SHARE of the raid's total for that fight.
 # Share, not DPS, because it pools across encounters, brackets and gear.
 $aliases += "dd: table(fightIDs: [FIGHT], dataType: DamageDone)"
+# Healer INTAKE COVERAGE rides along too. Scoring a healer on HPS pays them
+# for the group standing in things: measured on 21 real M+ fights,
+# correlation(group intake/s, healer percentile) = +0.44, and intake above
+# 65k/s lifted the median healer percentile from 68 to 87 (2026-07-31).
+# Healing divided by the group's damage TAKEN is immune to that - double the
+# intake and the healer heals double, so the ratio holds - and it still
+# discriminates: 0.36 to 0.84 across those fights, a 2.3x spread.
+# Aliases ride in one request, so these two tables cost no extra round trip.
+$aliases += "hd: table(fightIDs: [FIGHT], dataType: Healing)"
+$aliases += "dt: table(fightIDs: [FIGHT], dataType: DamageTaken)"
 $samples = @{}  # specID -> ArrayList of uptime%
-$dmgSamples = @{}  # specID -> ArrayList of raid-damage share %
+$dmgSamples = @{}  # specID -> ArrayList of tank damage as a multiple of group mean
+$covSamples = @{}  # specID -> ArrayList of healer healing / group damage taken
 $done = 0
 foreach ($ref in $refs) {
     if ($done -ge $MaxReports) { break }
@@ -235,6 +255,28 @@ foreach ($ref in $refs) {
             }
         }
     }
+    # --- healer intake coverage, same fight, same request ---
+    $hd = $rep.hd
+    $dt = $rep.dt
+    if ($hd -is [string]) { $hd = $hd | ConvertFrom-Json }
+    if ($dt -is [string]) { $dt = $dt | ConvertFrom-Json }
+    if ($hd -and $hd.data -and $hd.data.entries -and $dt -and $dt.data -and $dt.data.entries) {
+        $intake = 0.0
+        foreach ($e in $dt.data.entries) { $intake += [double]$e.total }
+        if ($intake -gt 0) {
+            foreach ($e in $hd.data.entries) {
+                $spec = $healerByIcon[$e.icon]
+                if (-not $spec) { continue }
+                $cov = [double]$e.total / $intake
+                # a healer covering more than the whole group's intake is an
+                # overheal-counting artefact, not a sample
+                if ($cov -le 0 -or $cov -gt 2) { continue }
+                if (-not $covSamples.ContainsKey($spec)) { $covSamples[$spec] = New-Object System.Collections.ArrayList }
+                [void]$covSamples[$spec].Add($cov)
+            }
+        }
+    }
+
     if ($done % 25 -eq 0) { Write-Host ("  processed $done/$MaxReports reports") }
 }
 
@@ -371,3 +413,62 @@ $($dLines -join "`n")
 $dOut = if ([System.IO.Path]::IsPathRooted($OutDamageFile)) { $OutDamageFile } else { Join-Path (Split-Path $PSScriptRoot -Parent) "Data\$OutDamageFile" }
 [System.IO.File]::WriteAllText($dOut, $dHeader, $utf8Bom)
 Write-Host ("Wrote {0} ({1} specs)" -f $dOut, $dLines.Count)
+
+# ---- healer intake coverage ------------------------------------------------
+$cLines = New-Object System.Collections.ArrayList
+$c25s = New-Object System.Collections.ArrayList
+$c50s = New-Object System.Collections.ArrayList
+$c75s = New-Object System.Collections.ArrayList
+$healNames = @{ 65 = "Holy Paladin"; 105 = "Resto Druid"; 256 = "Disc Priest";
+    257 = "Holy Priest"; 264 = "Resto Shaman"; 270 = "Mistweaver"; 1468 = "Preservation" }
+foreach ($spec in ($covSamples.Keys | Sort-Object)) {
+    $arr = @($covSamples[$spec] | Sort-Object)
+    if ($arr.Count -lt $MinSamples) { Write-Host ("  cov spec ${spec}: only $($arr.Count) samples (< $MinSamples), skipped"); continue }
+    $p25 = [math]::Round((Quantile $arr 0.25), 3)
+    $p50 = [math]::Round((Quantile $arr 0.50), 3)
+    $p75 = [math]::Round((Quantile $arr 0.75), 3)
+    Write-Host ("  cov spec $spec ($($healNames[$spec])): n=$($arr.Count) p25=$p25 p50=$p50 p75=$p75")
+    [void]$cLines.Add(("`t[{0}] = {{ {1}, {2}, {3} }}, -- {4} (n={5})" -f $spec, $p25, $p50, $p75, $healNames[$spec], $arr.Count))
+    [void]$c25s.Add($p25); [void]$c50s.Add($p50); [void]$c75s.Add($p75)
+}
+$cDefLine = "nil, -- nothing crawled yet"
+if ($c50s.Count -ge 2) {
+    $y25 = [math]::Round((Quantile (@($c25s | Sort-Object)) 0.50), 3)
+    $y50 = [math]::Round((Quantile (@($c50s | Sort-Object)) 0.50), 3)
+    $y75 = [math]::Round((Quantile (@($c75s | Sort-Object)) 0.50), 3)
+    if ($y25 -le $y50 -and $y50 -le $y75) {
+        $cDefLine = "{ $y25, $y50, $y75 }, -- DERIVED: median of the $($c50s.Count) crawled specs"
+    }
+}
+$cHeader = @"
+-- Per-spec healer INTAKE COVERAGE baselines: { p25, p50, p75 } of a healer's
+-- healing divided by the GROUP'S TOTAL DAMAGE TAKEN for that fight. Read 0.68
+-- as "this healer personally covered 68% of the damage their group ate".
+--
+-- Why not HPS (Josh 2026-07-31). Healing rate in a 5-man is mostly a function
+-- of how much damage the group TAKES, which is mostly avoidable - so scoring a
+-- healer on HPS pays them for their group standing in things. Measured on 21
+-- real Mythic+ fights: correlation(group intake/s, healer percentile) = +0.44,
+-- and intake above 65k/s lifted the median healer percentile from 68 to 87.
+-- In the same runs healers medianed 87.9 while damagers medianed 12.3.
+--
+-- Coverage is immune to that: double the intake and the healer heals roughly
+-- double, so the ratio holds. It still discriminates - 0.36 to 0.84 across
+-- those same fights, a 2.3x spread - because what varies is how much of the
+-- group's damage the HEALER covered rather than the group self-sustaining.
+--
+-- A spec too rare to crawl falls back to `default`, itself the median of the
+-- crawled specs. HEALER_COVERAGE_UNIT lets the engine refuse a file whose
+-- units it does not recognise instead of scoring against the wrong scale.
+local _, TP = ...
+
+TP.HEALER_COVERAGE_UNIT = "intake-share"
+
+TP.HEALER_COVERAGE_ANCHORS = {
+	default = $cDefLine
+$($cLines -join "`n")
+}
+"@
+$cOut = if ([System.IO.Path]::IsPathRooted($OutCoverageFile)) { $OutCoverageFile } else { Join-Path (Split-Path $PSScriptRoot -Parent) "Data\$OutCoverageFile" }
+[System.IO.File]::WriteAllText($cOut, $cHeader, $utf8Bom)
+Write-Host ("Wrote {0} ({1} specs)" -f $cOut, $cLines.Count)
