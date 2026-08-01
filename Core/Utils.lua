@@ -35,35 +35,6 @@ function TP.ShortName(name)
 	return name:match("^([^%-]+)") or name
 end
 
--- Do two name strings refer to the same character, when only ONE of them may
--- carry a realm? Addon-message senders are always realm-qualified
--- ("Elessar-Rotmire"); GetUnitName(unit, true) appends the realm only for a
--- player on a DIFFERENT one. Comparing the raw strings (what Sync did until
--- 2026-07-31) accepted cross-realm peers and rejected everyone on your own
--- realm, dropping their hellos, self-reports and wipe calls — they showed as
--- "no addon" with "?" for every self-reported metric.
---
--- Realms disqualify only when BOTH sides name one, so a bare name matches its
--- qualified twin without letting two different realms collide.
-function TP.SameCharacter(a, b)
-	if type(a) ~= "string" or type(b) ~= "string" then
-		return false
-	end
-	-- UNKNOWN is Roster's fallback for a secret name; it owns no character
-	if a == "" or b == "" or a == UNKNOWN or b == UNKNOWN then
-		return false
-	end
-	local an, ar = a:match("^([^%-]+)%-?(.*)$")
-	local bn, br = b:match("^([^%-]+)%-?(.*)$")
-	if not an or an ~= bn then
-		return false
-	end
-	if ar ~= "" and br ~= "" then
-		return ar == br
-	end
-	return true
-end
-
 function TP.ClassColor(class)
 	local c = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
 	if c then

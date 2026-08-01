@@ -59,25 +59,6 @@ check(TP.ShortName("Beautzibub-Undermine") == "Beautzibub", "ShortName drops the
 check(TP.ShortName("Vlora-AltarofStorms") == "Vlora", "ShortName drops a spaced-out realm")
 check(TP.ShortName("Nu") == "Nu", "ShortName leaves a bare name alone")
 
--- Wire sender matching. Addon-message senders are always realm-qualified;
--- GetUnitName only qualifies CROSS-realm players. Raw string equality (the
--- 2026-07-31 bug) silently dropped every same-realm peer's hello, self-report
--- and wipe call, so they showed "no addon" and "?" for mitigation.
-_G.UNKNOWN = "Unknown"
-check(TP.SameCharacter("Elessar", "Elessar-Rotmire"),
-	"a bare roster name matches its realm-qualified sender")
-check(TP.SameCharacter("Elessar-Rotmire", "Elessar"),
-	"...and the other way round")
-check(TP.SameCharacter("Elessar-Rotmire", "Elessar-Rotmire"),
-	"cross-realm peers still match")
-check(not TP.SameCharacter("Elessar-Rotmire", "Elessar-Bloodhoof"),
-	"two named realms must agree")
-check(not TP.SameCharacter("Elessar", "Scayle-Rotmire"),
-	"different characters never match")
-check(not TP.SameCharacter("Unknown", "Unknown-Rotmire"),
-	"the secret-name fallback owns no character")
-check(not TP.SameCharacter(nil, "Elessar") and not TP.SameCharacter("Elessar", nil),
-	"a missing name matches nothing")
 -- names arrive secret/nil often enough that every string helper must survive one
 check(TP.ShortName(nil) == nil, "ShortName survives a non-string")
 
