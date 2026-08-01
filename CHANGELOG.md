@@ -1,5 +1,30 @@
 # TrueParse Changelog
 
+## 2.9.3
+
+**Players on your own realm now register as running TrueParse.** Every message
+the addon sends is stamped with the sender's full name and realm, but the name
+TrueParse read back from the group only carries a realm when that player is on
+a *different* one. The two never matched for anyone on your realm, so their
+messages were discarded on arrival.
+
+They showed as not having the addon, and every number a player can only report
+about themselves came through as "?" - most visibly a tank's active-mitigation
+uptime on retail, which has no other source. A wipe call from an officer on
+your realm was ignored for the same reason. It looked like a version problem
+because connected realms count as cross-realm, so most of a pug worked.
+
+**Damage dealt to a mind-controlled ally no longer counts as damage done.** The
+combat log flags a controlled player as an enemy, so the check that ignores
+friendly fire let it through. On Paragons of the Klaxxi, where Kaz'tik controls
+raid members, this inflated whoever broke the control - measured at 1.26x to
+1.73x on the players doing it, while everyone else was unaffected. Warcraft
+Logs does not count it either.
+
+"/tp procs" now also lists group damage by target for the last pull, so a
+fight's numbers can be checked against a log's own by-target breakdown.
+
+
 ## 2.9.2
 
 **Fixes a Lua error in Delves, and anywhere else a target's name is hidden.**
