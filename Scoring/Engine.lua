@@ -1436,6 +1436,37 @@ local function normalizeMetric(p, role, key, ctx)
 				-- bracket's population before interpolating; on a derived
 				-- tier it also carries the gear + off-difficulty lift
 				scale = (scale or 1) * derivedScale(ctx, p)
+				-- TIER 1 GEAR NORMALISATION (contribution lens only).
+				--
+				-- derivedScale carries a gear term on tiers 2 and 3 but
+				-- returns 1 on tier 1, so a direct comparison was raw rate vs
+				-- raw rate - which is right for Raw mode and wrong for the
+				-- contribution lens. Measured on Josh's captures, Mythic+
+				-- scores correlate +0.46 with item level and 21% of their
+				-- variance is gear: across a 195-270 spread that is ~32 points
+				-- before anyone presses a button, so an undergeared player
+				-- cannot leave grey and an overgeared one cannot leave gold.
+				--
+				-- Raw mode never reaches here (gated above), which is the
+				-- point: Raw stays 1:1 with Warcraft Logs, contribution
+				-- answers "how did they play for their gear". The two lenses
+				-- had collapsed into one on tier 1, which is the actual defect.
+				--
+				-- The slope is FITTED to gear-neutrality, not regressed - see
+				-- Weights.tier1IlvlSlope. The raw regression over-corrects,
+				-- because better-geared players also play better.
+				local W = TP.Scoring.Weights
+				if ctx.normalizeIlvl and not ctx.derived
+					and W.tier1IlvlSlope and ctx.meanIlvl
+					and p.ilvl and p.ilvl > 0 then
+					local gap = p.ilvl - ctx.meanIlvl
+					-- clamp: beyond this the model is extrapolating far past
+					-- anything it was fitted on, and a 300-ilvl gap would
+					-- manufacture an absurd correction
+					local cap = W.tier1IlvlCap or 60
+					if gap > cap then gap = cap elseif gap < -cap then gap = -cap end
+					scale = scale * (1 + W.tier1IlvlSlope / 100) ^ (-gap)
+				end
 				-- dungeon samples are keystone-ordered, not metric-ordered
 				local metricOrdered = not (ctx.curves and ctx.curves.dungeonOnly)
 				local pct = entryPercentileFor(entry,

@@ -618,7 +618,7 @@ local function createWindow()
 	-- summary leads at +2pt, detail sits under it at the default size (the
 	-- house pattern, Josh 2026-07-28): the one-liner is the whole answer for
 	-- anyone who just wants one.
-	local function makeRadio(labelText, mode, summary, detail)
+	local function makeRadio(labelText, mode, summary, detail, gearNote)
 		local btn = CreateFrame("CheckButton", nil, window)
 		btn:SetSize(11, 11)
 		btn:SetNormalTexture("Interface\\Buttons\\UI-RadioButton")
@@ -644,6 +644,13 @@ local function createWindow()
 			if detail then
 				body[#body + 1] = { detail, 0.66, 0.66, 0.70 }
 			end
+			-- Gear handling is the whole difference between the two lenses now
+			-- (Josh 2026-08-01), and "why doesn't this match my WCL parse" is
+			-- the first question it raises - so answer it where the lens is
+			-- chosen rather than in an options panel nobody opens.
+			if gearNote then
+				body[#body + 1] = { gearNote, 0.55, 0.70, 0.55 }
+			end
 			if not self:IsEnabled() then
 				body[#body + 1] = { "No Warcraft Logs data covers this fight.", 0.95, 0.5, 0.5 }
 			end
@@ -657,10 +664,12 @@ local function createWindow()
 	-- Column labels over the two number columns, aligned to their edges
 	window.modeReal = makeRadio("TrueParse", "contribution",
 		"Scores your whole contribution.",
-		"Damage, healing, damage taken, interrupts and more, weighted for your spec and role.")
+		"Damage, healing, damage taken, interrupts and more, weighted for your spec and role.",
+		"Adjusted for your item level, so the score reflects how you played rather than what you are wearing.")
 	window.modeRaw = makeRadio("Raw", "parse",
 		"Your Warcraft Logs parse only.",
-		"Damage for DPS and tanks, healing for healers, against ranked logs for your spec.")
+		"Damage for DPS and tanks, healing for healers, against ranked logs for your spec.",
+		"No gear adjustment - this is the number Warcraft Logs would give you.")
 	-- right-aligned in the footer: ... Mode:  (*)True  ( )Raw]
 	-- 16px of clearance on the right for the resize grip
 	window.modeRaw:SetPoint("BOTTOMRIGHT",

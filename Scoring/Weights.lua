@@ -300,6 +300,35 @@ Weights.derivedIlvlSlopeScaled = 0.23
 -- better, which argues for the low end of the passing range.
 Weights.derivedIlvlCap = 150
 
+-- Tier 1 gear normalisation clamps the item-level gap to this before applying
+-- the measured slope. Past it the model extrapolates well beyond the range it
+-- was fitted on, and one badly-geared alt in a raid would manufacture a
+-- correction larger than the score itself.
+Weights.tier1IlvlCap = 60
+
+-- Gear normalisation slope for TIER 1, in % output per item level.
+--
+-- NOT the raw regression. Crawling 465 ranked M+ player-fights across 48
+-- (spec, keystone band) groups measured 2.358%/ilvl, but that is
+-- observational: better-geared players also PLAY better, so the coefficient
+-- carries the skill that travels with gear. Normalising by it over-corrects,
+-- and the criterion says so - applied to Josh's captures it drives
+-- corr(ilvl, score) to -0.39, flipping the bias rather than removing it.
+--
+-- This number is fitted to the criterion instead: the slope at which gear
+-- stops predicting score at all. Swept against 63 real M+ damager scores:
+--   slope  0.00 -> corr +0.46      2.00 -> corr -0.21
+--   slope  1.00 -> corr +0.18      2.36 -> corr -0.39  (the regression)
+--   slope  1.49 -> corr +0.01      3.00 -> corr -0.58
+-- Re-fit it the same way if the curves are recrawled; scripts/fetch-ilvl-slope.ps1
+-- re-measures the regression, and the sweep is what turns it into this.
+--
+-- It lands within 0.001 of Benchmarks.ilvlSlopePct (1.489), arrived at
+-- independently. Kept separate anyway: that one scales derived tiers across
+-- content, this one neutralises gear inside a direct comparison, and they
+-- have no reason to stay equal after a recrawl.
+Weights.tier1IlvlSlope = 1.49
+
 -- Off-difficulty lift. Even at equal gear, players running content BELOW the
 -- difficulty WCL ranks put out less than the ranked population (smaller
 -- pulls, no consumables, no coordination) — and the dungeon curves are
