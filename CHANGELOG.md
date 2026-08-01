@@ -1,5 +1,57 @@
 # TrueParse Changelog
 
+## 2.10.0
+
+**Scores move in this release, and career stats reset because of it.** Three
+things changed about how contribution is measured, so old career averages and
+new ones are no longer the same scale. They retire on first login and
+re-accumulate.
+
+**Tanks are no longer scored on their share of the group's damage.** A share
+falls as the group grows, so one baseline could never fit both a ten-man and a
+twenty-five-man raid: measured on real fights, ten-man tanks cleared their own
+top quartile on 65 of 69 pulls and simply scored 100, while twenty-five-man
+tanks fell below the bottom quartile for the same quality of play. Tank damage
+is now measured against what an average group member did, which does not
+depend on how many people are standing there. Both game versions were
+re-measured against Warcraft Logs for it.
+
+**Healers in five-player content are scored on how much of the group's damage
+they covered, not on healing per second.** Healing rate in a dungeon mostly
+reflects how much damage the group took, which is mostly avoidable - so it paid
+a healer for their group standing in fire. In the same Mythic+ runs, healers
+were averaging 88 while damage dealers averaged 12. Coverage measures the same
+healer against what was actually theirs to heal, after subtracting whatever the
+group healed itself, so a self-sustaining tank no longer costs the healer.
+
+The baseline for it comes from real recorded runs rather than ranked Warcraft
+Logs runs. Ranked five-player logs turned out to be a narrow slice of unusually
+strong groups - narrow enough that essentially every ordinary healer fell below
+their bottom quartile - so 50 now means an average healer in the content people
+actually run. Raid healing is untouched; it already matched ranked logs closely.
+
+**A healer's damage is no longer scored in five-player content.** There is no
+fair way to measure it there: as a rate there is nothing to compare against,
+and as a share of the group it mostly measures how weak the damage dealers
+were. It was handing out most of a free grade - more than half of those scores
+sat above 90. Its weight moved onto healing. Raid healers keep the metric.
+
+**TrueParse mode now adjusts for item level; Raw mode still does not.** That is
+the difference between the two, and until now it only applied to content
+Warcraft Logs does not rank. On a Mythic+ run, gear alone accounted for about a
+fifth of the score - roughly thirty points across a normal spread of gear - so
+an undergeared player could not climb out of grey and an overgeared one could
+not fall out of gold. Raw remains exactly what Warcraft Logs would tell you.
+Both mode buttons now say which they are.
+
+**New: "/tp who" and "/tp diag".** The first lists who in your group is running
+TrueParse and on what version - which tells "they have an old build" apart from
+"they uninstalled it". The second prints everything a bug report needs on one
+copyable line, including any errors the addon has hit. TrueParse now records
+its own errors instead of discarding them silently, so a problem leaves
+evidence rather than just a wrong number.
+
+
 ## 2.9.3
 
 **Players on your own realm now register as running TrueParse.** Every message
