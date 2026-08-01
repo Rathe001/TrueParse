@@ -301,10 +301,29 @@ Weights.derivedIlvlSlopeScaled = 0.23
 Weights.derivedIlvlCap = 150
 
 -- Tier 1 gear normalisation clamps the item-level gap to this before applying
--- the measured slope. Past it the model extrapolates well beyond the range it
--- was fitted on, and one badly-geared alt in a raid would manufacture a
--- correction larger than the score itself.
-Weights.tier1IlvlCap = 60
+-- the slope. Past it the model extrapolates well beyond the range it was
+-- fitted on, and one badly-geared alt would manufacture a correction larger
+-- than the score itself.
+--
+-- 25, not 60 (Josh 2026-08-01: "I feel like we are over correcting"). He was
+-- right, and corr(ilvl, score) = -0.01 was hiding it: correlation is linear,
+-- so it averaged an over-corrected tail against an under-corrected middle to
+-- nothing. Binned by gap-from-fight-mean over 433 real damager scores, at cap
+-- 60 the most undergeared bin averaged 67.3 against a population centre of
+-- 46.1 - players contributing least in absolute terms scoring ABOVE the
+-- middle. At 25 they land at 38.8, below centre, which is what a partial
+-- correction should look like.
+--
+-- The cap only moves the tails; every bin inside it is untouched, so this
+-- costs nothing where 90% of players actually sit. It bounds the correction
+-- to x1.45/x0.69 instead of x2.43/x0.49.
+--
+-- CAVEAT on that measurement, and the reason not to tune it harder: the bins
+-- conflate gear with WHO is in them - the centre bin is mostly Josh's own
+-- premade, the outer bins mostly pugs - so some of the residual shape is
+-- roster, not calibration. Thin at the tails too (n=3 and n=2). Treat 25 as
+-- "bounded and plausible", not as fitted.
+Weights.tier1IlvlCap = 25
 
 -- Gear normalisation slope for TIER 1, in % output per item level.
 --
