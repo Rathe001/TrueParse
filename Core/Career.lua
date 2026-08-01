@@ -16,7 +16,13 @@ local RECENT_CAP = 40
 -- Bump this whenever scoring moves enough to invalidate accumulated totals;
 -- the stats reset once and re-accumulate honestly under the new rules
 -- (Josh 2026-07-28: "reset them on login and let them reaccumulate").
-local SCORING_EPOCH = "2026-07-29-role-parity"
+-- Bumped 2026-08-01: tank damage moved to a group-mean multiple, five-man
+-- healers to intake coverage, and tier 1 gained gear normalisation. All three
+-- change what a score MEANS, so averaging career stats across the boundary
+-- compares two different scales. Josh would have hit this silently after
+-- reloading, since per-fight cards rescore live but career totals accumulate
+-- at capture and never revisit.
+local SCORING_EPOCH = "2026-08-01-gear-and-coverage"
 
 local function countPlayers(players)
 	local n = 0
