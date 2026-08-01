@@ -467,6 +467,59 @@ function Addon:HandleSlash(input)
 		self.db.profile.letterGrades = not self.db.profile.letterGrades
 		self:Print("Letter grades " .. (self.db.profile.letterGrades and "on (F to S+)." or "off (numbers)."))
 		TP.MeterWindow:Invalidate()
+	elseif cmd == "who" then
+		-- Who in the group is running TrueParse, on what build, and what they
+		-- announced about themselves. Added 2026-07-31: `hasAddon` alone could
+		-- not tell "old version" from "uninstalled", and an evening went into
+		-- theorising about the wire when this one line would have answered it.
+		local roster, rows = TP.Roster.players or {}, {}
+		local myGUID = UnitGUID("player")
+		for guid, info in pairs(roster) do
+			local u = TP.Sync.users[guid]
+			local me = guid == myGUID
+			rows[#rows + 1] = {
+				name = TP.ShortName(info.name) or "?",
+				role = info.role or "?",
+				spec = info.specID,
+				ilvl = info.ilvl,
+				ver = me and TP.AddonVersion() or (u and u.addonVersion),
+				client = me and (TP.Compat.IS_RETAIL and "retail" or "mists") or (u and u.client),
+				build = me and TP.BUILD or nil,
+				has = me or (u ~= nil),
+			}
+		end
+		if #rows == 0 then
+			self:Print("Not in a group.")
+			return
+		end
+		table.sort(rows, function(a, b)
+			if a.has ~= b.has then
+				return a.has
+			end
+			return a.name < b.name
+		end)
+		local n = 0
+		for _, r in ipairs(rows) do
+			if r.has then
+				n = n + 1
+			end
+		end
+		self:Print(("TrueParse in your group: %d of %d"):format(n, #rows))
+		for _, r in ipairs(rows) do
+			local specName
+			if r.spec and GetSpecializationInfoByID then
+				local ok, _, nm = pcall(GetSpecializationInfoByID, r.spec)
+				specName = ok and nm or nil
+			end
+			self:Print(("  %-14s %-7s %-18s %s"):format(
+				r.name:sub(1, 14), r.role:sub(1, 7),
+				("%s%s"):format(specName or (r.spec and ("spec " .. r.spec)) or "?",
+					(r.ilvl and r.ilvl > 0) and (" i" .. r.ilvl) or ""),
+				r.has and ("v" .. (r.ver or "?")
+					.. (r.client and (" " .. r.client) or "")
+					.. (r.build and (" |cff888888@" .. r.build .. "|r") or ""))
+					or "|cff808080no addon|r"))
+		end
 	elseif cmd == "ilvl" then
 		self.db.profile.scoring.normalizeIlvl = not self.db.profile.scoring.normalizeIlvl
 		self:Print("Item-level normalization "
@@ -501,6 +554,7 @@ function Addon:HandleSlash(input)
 		self:Print("  /tp run - run report · /tp share - post last kill vs WCL · /tp guild - weekly standings")
 		self:Print("  /tp career - your stats · /tp trends - where they're heading")
 		self:Print("  /tp fights - capture history · /tp score [n] - rescore one")
+		self:Print("  /tp who - who's running TrueParse, on what version")
 		self:Print("  /tp buffs - pre-pull raid buff diagnostic")
 		self:Print("  /tp mit - tank mitigation tracking diagnostic")
 		self:Print("  /tp announce · /tp ilvl - toggles")

@@ -19,6 +19,8 @@ local function addonVersion()
 	return "0"
 end
 
+TP.AddonVersion = addonVersion -- /tp who and the capture stamp both need it
+
 -- "1.2.10" -> 10210, for ordering; unparseable -> 0
 local function versionNumber(v)
 	local a, b, c = tostring(v or ""):match("^(%d+)%.(%d+)%.(%d+)")
@@ -245,6 +247,22 @@ function Sync:AttachReports(fight)
 				p.hasAddon = false
 			end
 		end
+		-- Stamp WHICH build they run, not just that they answered. `hasAddon`
+		-- alone cannot tell "on an old version" from "uninstalled it", and on
+		-- 2026-07-31 that cost a misdiagnosis and a bad release: a tank read
+		-- hasAddon=true on 49 fights then false on 10 more, and the
+		-- SavedVariables could not say why. Now the history answers it.
+		-- TP.BUILD is the dev client's commit hash (Core/Build.lua, absent in
+		-- packaged builds), so a debug session pins the exact source state.
+		local u = self.users[guid]
+		if p.isLocalPlayer then
+			p.addonVersion = addonVersion()
+			p.client = TP.Compat.IS_RETAIL and "retail" or "mists"
+			p.build = TP.BUILD
+		elseif u then
+			p.addonVersion = p.addonVersion or u.addonVersion
+			p.client = p.client or u.client
+		end
 		-- gate the match on consumables: defensives may already be filled
 		-- by CLEU on Classic, but consumables/readiness only come from
 		-- self-reports on both clients
@@ -420,6 +438,14 @@ function Sync:SendHello()
 		addonVersion(),
 		p.wipeButton and 1 or 0) -- see wipeFlag below
 	self:SendCommMessage(PREFIX, msg, channel)
+	-- ...and the init details H: has no room for. A SEPARATE message because
+	-- the H: parsers are $-anchored on every shipped version, so a seventh
+	-- field there would make older clients drop the whole hello. Unknown
+	-- prefixes are ignored, so a new letter is always safe (same reason X:
+	-- and Y: exist).
+	self:SendCommMessage(PREFIX, ("I:1:%s:%s:%d"):format(
+		myGUID, TP.Compat.IS_RETAIL and "retail" or "mists",
+		(GetBuildInfo and select(4, GetBuildInfo())) or 0), channel)
 	self.helloAt = time() -- presence stamps stay "unknown" until replies had time
 end
 
@@ -544,6 +570,21 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 			info.ilvl = ilvl
 		end
 		TP.Roster.cache[guid] = { specID = info.specID, ilvl = info.ilvl }
+		return
+	end
+
+	-- Init details: "I:1:<guid>:<client>:<interfaceVersion>". See SendHello
+	-- for why this is not just extra fields on H:.
+	local iGuid, iClient, iIface = message:match("^I:%d+:([^:]+):(%a+):(%d+)$")
+	if iGuid then
+		if TP.Roster.players[iGuid] and senderOwnsGuid(sender, iGuid) then
+			local u = self.users[iGuid]
+			if not u then
+				u = { seen = time() }
+				self.users[iGuid] = u
+			end
+			u.client, u.interface, u.seen = iClient, tonumber(iIface), time()
+		end
 		return
 	end
 

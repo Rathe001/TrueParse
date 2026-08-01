@@ -12,6 +12,7 @@
 embeds.xml
 
 Core\Init.lua
+Core\Build.lua
 Core\Constants.lua
 Core\Utils.lua
 Core\Compat.lua

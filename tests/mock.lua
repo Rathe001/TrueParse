@@ -438,6 +438,40 @@ do
 		#bad > 0 and ("\n       " .. table.concat(bad, "\n       ")) or ""))
 end
 
+-- Every wire message is built by one format string and read by one pattern,
+-- in different halves of Sync.lua, and nothing connects them: a field added
+-- to the sender and not the parser is silently dropped forever, on a path no
+-- headless test exercises. So take BOTH out of the real source, build a
+-- sample message from the sender's format, and require the parser to accept
+-- it. (This is how the I: init message is covered - see Sync.lua.)
+do
+	local src = io.open("Collect/Sync.lua")
+	local text = src and src:read("*a") or ""
+	if src then src:close() end
+	-- plausible values IN ORDER, so the sample looks like real traffic
+	local cases = {
+		{ letter = "I", desc = "init details (client, interface version)",
+			args = { "Player-1-0A8463DA", "retail", "110207" } },
+	}
+	for _, c in ipairs(cases) do
+		local fmt = text:match('%("(' .. c.letter .. ':[^"]+)"%):format')
+		local pat = text:match('message:match%("(%^' .. c.letter .. ':[^"]+)"%)')
+		if not fmt or not pat then
+			check(false, ("%s: wire format sent=%s parsed=%s"):format(
+				c.letter, tostring(fmt), tostring(pat)))
+		else
+			-- "I:1:%s:%s:%d" -> "I:1:Player-...:retail:110207"
+			local i = 0
+			local msg = fmt:gsub("%%[sd]", function()
+				i = i + 1
+				return c.args[i] or "?"
+			end)
+			check(msg:match(pat) ~= nil and i == #c.args,
+				("%s wire round-trips: %s"):format(c.letter, c.desc))
+		end
+	end
+end
+
 
 print("")
 if failures > 0 then
