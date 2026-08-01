@@ -1285,12 +1285,23 @@ local function normalizeMetric(p, role, key, ctx)
 	-- Needs the group's damage to take a share of, so the retail
 	-- self-report path (no group) keeps the curve; Raw is throughput-only
 	-- and never re-anchored.
-	-- RAID-SIZED GROUPS ONLY. The anchors are a share of the raid's damage,
-	-- crawled from 20-player logs where a tank contributes ~4%. In a 5-man
-	-- the same tank is naturally ~25% of the group's damage, which sails
-	-- past p75 and pegs the metric at 99 (Josh 2026-07-29: damage read 99
-	-- on all five bosses of a Timewalking run). A share anchor only means
-	-- anything against the roster size it was measured on.
+	-- RAID-SIZED GROUPS ONLY, and scored as a MULTIPLE OF THE GROUP'S
+	-- PER-PLAYER MEAN rather than a share of its total.
+	--
+	-- Share is arithmetically inversely proportional to group size, so a
+	-- single anchor cannot cover the sizes one crawl pools. Measured on real
+	-- captures 2026-07-31: 10-man tanks sit at a 6.62% median share against
+	-- 2.85% for 21-30 man, so 65 of 69 ten-man tank-fights cleared their own
+	-- p75 and auto-scored 100, while 25-man tanks fell BELOW p25 for median
+	-- play. Wrong in both directions, matching neither population. The 5-man
+	-- symptom was already known (damage read 99 on all five bosses of a
+	-- Timewalking run, Josh 2026-07-29) and had been papered over with the
+	-- size gate below; it was the same bug all along, just louder.
+	--
+	-- Dividing by the mean removes size from the quantity entirely: those two
+	-- populations differ 2.3x on raw share and agree within 7% normalised
+	-- (0.662 vs 0.713 of mean). The gate stays because a 5-man tank pulls
+	-- differently, not because the arithmetic needs it.
 	local scoredCount = ctx.cohorts and
 		(#(ctx.cohorts.TANK or {}) + #(ctx.cohorts.HEALER or {})
 			+ #(ctx.cohorts.DAMAGER or {}) + #(ctx.cohorts.SUPPORT or {}))
@@ -1299,9 +1310,73 @@ local function normalizeMetric(p, role, key, ctx)
 		local AN = TP.TANK_DAMAGE_ANCHORS
 		local a = AN and ((p.specID and AN[p.specID]) or AN.default)
 		local groupTotal = ctx.totals and ctx.totals.damage
-		if a and groupTotal and groupTotal > 0 then
-			local share = (p.metrics.damage or 0) / groupTotal * 100
-			local score = anchorScore(share, a[1], a[2], a[3])
+		local n = ctx.playerCount or 0
+		-- Refuse a stale share-based data file outright rather than score
+		-- against it: the two units differ by a factor of the raid size, so
+		-- mixing them silently is far worse than falling back to the curve.
+		if TP.TANK_DAMAGE_ANCHOR_UNIT ~= "mean-multiple" then
+			a = nil
+		end
+		if a and groupTotal and groupTotal > 0 and n > 0 then
+			local mult = (p.metrics.damage or 0) / (groupTotal / n)
+			local score = anchorScore(mult, a[1], a[2], a[3])
+			return score, true, score
+		end
+	end
+
+	-- FIVE-MAN HEALERS: score INTAKE COVERAGE, not healing rate.
+	--
+	-- HPS in a five-man is mostly a function of how much damage the group
+	-- TAKES, which is mostly avoidable, so it pays a healer for their group
+	-- standing in things. Measured on 21 real Mythic+ fights,
+	-- correlation(group intake/s, healer percentile) = +0.44, and intake above
+	-- 65k/s lifted the median healer percentile from 68 to 87. In those same
+	-- runs healers medianed 87.9 while damagers medianed 12.3 - one metric
+	-- driven by group failure, the other by group success.
+	--
+	-- Coverage (healing / intake, times the healer count) is close to neutral
+	-- on that: -0.17 on the same fights. NOT zero - a healer saturates and
+	-- cannot heal proportionally more forever, so a truly sloppy group does
+	-- drag them down a little. A much weaker bias of the opposite sign.
+	--
+	-- The denominator is the intake that was THEIRS TO HEAL - damage taken
+	-- less whatever the group healed itself - because a healer only covers
+	-- what nobody else covered. Against raw intake, coverage correlated -0.76
+	-- with the non-healer healing share: 58% of its variance was composition,
+	-- not the healer, and one Blood DK tank could move it. Against healable
+	-- intake that is +0.13, i.e. 2%, with 1.70x of spread left. Josh caught
+	-- this before the crawl ran, which is the cheap time to catch it.
+	--
+	-- RAIDS ARE DELIBERATELY LEFT ALONE. Raid healing already matches WCL
+	-- parses to a mean absolute error of 2.4 points, which is the best
+	-- accuracy anything in this addon has. There is nothing to fix there and
+	-- everything to lose. The ANCHOR is crawled from raid logs even so,
+	-- because coverage x healerN proved portable: 0.652 and 0.723 for two-
+	-- and three-healer raids against 0.680 for a solo Mythic+ healer, a 1.11x
+	-- spread where the un-normalised numbers span 2.82x.
+	if role == "HEALER" and key == "healing" and not ctx.parseMode
+		and TP.HEALER_COVERAGE_UNIT == "healable-share-x-healers" then
+		local scored, healerN, selfHeal = 0, 0, 0
+		for r, list in pairs(ctx.cohorts or {}) do
+			scored = scored + #list
+			if r == "HEALER" then
+				healerN = healerN + #list
+			else
+				for _, other in ipairs(list) do
+					selfHeal = selfHeal + ((other.metrics and other.metrics.healing) or 0)
+				end
+			end
+		end
+		local intake = ctx.totals and ctx.totals.damageTaken
+		local AN = TP.HEALER_COVERAGE_ANCHORS
+		local a = AN and ((p.specID and AN[p.specID]) or AN.default)
+		if a and scored > 0 and scored <= 5 and healerN > 0 and intake and intake > 0 then
+			-- only what nobody else picked up is the healer's to cover; the
+			-- floor stops a group that out-heals its own intake (absorb-heavy
+			-- pulls, overheal accounting) from dividing by ~nothing
+			local healable = math.max(intake - selfHeal, intake * 0.15)
+			local cov = (p.metrics.healing or 0) / healable * healerN
+			local score = anchorScore(cov, a[1], a[2], a[3])
 			return score, true, score
 		end
 	end

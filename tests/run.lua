@@ -83,6 +83,24 @@ do
 	end
 	check(#store == 20, ("the log is capped at 20 (%d)"):format(#store))
 	check(store[1].context == "ctx40", "newest first")
+
+	-- /tp diag copy: the whole state as one pasteable line. The delimiters
+	-- must not survive inside an error message, or the line stops being
+	-- parseable at exactly the moment someone needs to read it.
+	TP.Compat = TP.Compat or {}
+	TP.TrapInit({})
+	TP.Trap("Nasty", function()
+		error("a|b;c~d\nnext line", 0)
+	end)
+	local s = TP.DiagString()
+	check(s:match("^TP1|"), "the diag line is versioned (" .. s:sub(1, 24) .. ")")
+	check(select(2, s:gsub(";", "")) == 1,
+		"one error, one ';' record - message delimiters were stripped")
+	check(select(2, s:gsub("~", "")) == 3,
+		"the record keeps exactly its own 3 field separators")
+	check(not s:find("\n"), "no newline survives into the line")
+	check(s:find("Nasty") and s:find("a b c d next line"),
+		"context and message both make it through")
 	TP.Errors = nil
 end
 
@@ -4318,32 +4336,37 @@ end)()
 -- 43. Tank damage scores against the field of TANKS (Josh 2026-07-29). On
 -- 219 real MoP fights the damage metric's median was 59.5 for DPS, 59.8 for
 -- healers and 26.0 for tanks; the ranked curves are built from tanks who
--- turn up in damage rankings. Data/TankDamage anchors on a share of the
--- raid's damage instead.
+-- turn up in damage rankings. Data/TankDamage anchors against that field.
+--
+-- The anchor is a MULTIPLE OF THE GROUP'S PER-PLAYER MEAN, not a share of
+-- its total: share falls as the group grows, so a share anchor pegged
+-- 10-man tanks at 100 and pushed 25-man tanks below p25 (2026-07-31).
 ;(function()
-	local saved = TP.TANK_DAMAGE_ANCHORS
-	-- a median tank of this spec does 6% of the raid's damage
-	TP.TANK_DAMAGE_ANCHORS = { [73] = { 4, 6, 8 }, default = { 3, 5, 7 } }
+	local saved, savedUnit = TP.TANK_DAMAGE_ANCHORS, TP.TANK_DAMAGE_ANCHOR_UNIT
+	TP.TANK_DAMAGE_ANCHOR_UNIT = "mean-multiple"
+	-- a median tank of this spec does 0.36x what the average player does
+	TP.TANK_DAMAGE_ANCHORS = { [73] = { 0.24, 0.36, 0.48 }, default = { 0.18, 0.30, 0.42 } }
 
-	-- The anchors are a SHARE of a raid's damage, so the metric only
-	-- applies to raid-sized groups: six players here, five of them DPS
-	-- splitting the remainder, with the raid total pinned at 1000 so the
-	-- tank's share stays exact.
-	local function fightWith(tankDamage, specID)
+	-- Raid-sized groups only, so six players: the tank plus five DPS
+	-- splitting the remainder, total pinned at 1000 so the multiple is exact.
+	local function fightOfSize(n, tankDamage, specID)
 		local players = {
 			t1 = { guid = "t1", name = "Tank", class = "WARRIOR", role = "TANK",
 				specID = specID,
 				metrics = { damage = tankDamage, healing = 0, damageTaken = 500,
 					interrupts = 0, dispels = 0 } },
 		}
-		for i = 1, 5 do
+		for i = 1, n - 1 do
 			local id = "d" .. i
 			players[id] = { guid = id, name = (i == 1) and "Dps" or ("Dps" .. i),
 				class = "MAGE", role = "DAMAGER",
-				metrics = { damage = (1000 - tankDamage) / 5, healing = 0,
+				metrics = { damage = (1000 - tankDamage) / (n - 1), healing = 0,
 					damageTaken = 50, interrupts = 0, dispels = 0 } }
 		end
 		return { name = "Anchor Test", duration = 300, players = players }
+	end
+	local function fightWith(tankDamage, specID)
+		return fightOfSize(6, tankDamage, specID)
 	end
 	local function tankDamageScore(f)
 		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(f)) do
@@ -4351,10 +4374,10 @@ end)()
 		end
 	end
 
-	-- 60 of 1000 = 6% = exactly this spec's median
+	-- 60 against a mean of 1000/6 = 0.36x = exactly this spec's median
 	local mid = tankDamageScore(fightWith(60, 73))
 	check(mid and math.abs(mid.normalized - 50) < 0.5,
-		("a median tank share scores 50 (%.1f)"):format(mid and mid.normalized or -1))
+		("a median tank scores 50 (%.1f)"):format(mid and mid.normalized or -1))
 
 	-- the same tank doing more, and less
 	local hi = tankDamageScore(fightWith(80, 73))
@@ -4362,14 +4385,35 @@ end)()
 	check(hi.normalized > mid.normalized and mid.normalized > lo.normalized,
 		"more damage still scores higher")
 	check(math.abs(hi.normalized - 75) < 0.5,
-		("p75 share scores 75 (%.1f)"):format(hi.normalized))
+		("p75 scores 75 (%.1f)"):format(hi.normalized))
 	check(math.abs(lo.normalized - 25) < 0.5,
-		("p25 share scores 25 (%.1f)"):format(lo.normalized))
+		("p25 scores 25 (%.1f)"):format(lo.normalized))
 
 	-- an uncrawled spec falls back to the median of the crawled ones
 	local unk = tankDamageScore(fightWith(50, 999))
 	check(unk and math.abs(unk.normalized - 50) < 0.5,
 		("an uncrawled tank spec uses the default anchor (%.1f)"):format(unk and unk.normalized or -1))
+
+	-- THE POINT OF THE UNIT: identical relative play, three group sizes, one
+	-- score. Under the old share anchor the 10-man tank pegged at 100 and the
+	-- 25-man tank sank, from the same performance.
+	local sizes = {}
+	for _, n in ipairs({ 10, 20, 25 }) do
+		-- 0.36x the mean of 1000/n, i.e. the spec's exact median every time
+		local r = tankDamageScore(fightOfSize(n, 0.36 * 1000 / n, 73))
+		sizes[#sizes + 1] = r and r.normalized or -1
+	end
+	check(math.abs(sizes[1] - 50) < 0.5 and math.abs(sizes[2] - 50) < 0.5
+		and math.abs(sizes[3] - 50) < 0.5,
+		("a median tank scores 50 at ANY raid size (10/20/25 -> %.1f/%.1f/%.1f)")
+			:format(sizes[1], sizes[2], sizes[3]))
+
+	-- a stale share-based data file must NOT be scored against
+	TP.TANK_DAMAGE_ANCHOR_UNIT = nil
+	local stale = tankDamageScore(fightWith(60, 73))
+	check(not stale or math.abs(stale.normalized - 50) > 1,
+		"an anchor file in the old share unit is refused, not mixed in")
+	TP.TANK_DAMAGE_ANCHOR_UNIT = savedUnit
 
 	-- no crawled data at all: the ranked curve path is untouched
 	TP.TANK_DAMAGE_ANCHORS = {}
@@ -4388,6 +4432,88 @@ end)()
 		("a DPS is scored on the curve, not the tank anchor (%.1f)"):format(dps and dps.normalized or -1))
 
 	TP.TANK_DAMAGE_ANCHORS = saved
+end)()
+
+-- 44. Five-man healers score INTAKE COVERAGE, not healing rate. HPS in a
+-- five-man mostly measures how much damage the group TOOK (+0.44 correlation
+-- with intake on 21 real M+ fights), so it pays a healer for their group
+-- standing in things. Coverage x healerN is near-neutral on that and, unlike
+-- HPS, does not move when the roster changes healer count.
+;(function()
+	local savedA, savedU = TP.HEALER_COVERAGE_ANCHORS, TP.HEALER_COVERAGE_UNIT
+	TP.HEALER_COVERAGE_UNIT = "healable-share-x-healers"
+	-- a median Resto Druid covers 0.68 of a fair share of the group's intake
+	TP.HEALER_COVERAGE_ANCHORS = { [105] = { 0.50, 0.68, 0.86 }, default = { 0.45, 0.62, 0.80 } }
+
+	-- intake pinned at 1000 so coverage is exact; n players, h of them healers
+	local function fight(n, h, healPerHealer, specID, selfHealEach)
+		local players = {}
+		for i = 1, n do
+			local guid = "p" .. i
+			local isHealer = i <= h
+			players[guid] = {
+				guid = guid, name = isHealer and ("Heal" .. i) or ("Dps" .. i),
+				class = "DRUID", role = isHealer and "HEALER" or "DAMAGER",
+				specID = isHealer and specID or 64, ilvl = 550,
+				metrics = { damage = 1000,
+					healing = isHealer and healPerHealer or (selfHealEach or 0),
+					damageTaken = 1000 / n, interrupts = 0, dispels = 0, deaths = 0,
+					avoidableTaken = 0 },
+			}
+		end
+		return { name = "Coverage Test", duration = 300, players = players,
+			instanceType = "party", difficultyID = 8 }
+	end
+	local function healScore(f, who)
+		for _, r in ipairs(TP.Scoring.Engine.ScoreFight(f)) do
+			if r.name == who then return r.breakdown and r.breakdown.healing end
+		end
+	end
+
+	-- solo healer covering 0.68 of 1000 intake = exactly the spec median
+	local mid = healScore(fight(5, 1, 680, 105), "Heal1")
+	check(mid and math.abs(mid.normalized - 50) < 0.5,
+		("a median five-man healer scores 50 (%.1f)"):format(mid and mid.normalized or -1))
+
+	local hi = healScore(fight(5, 1, 860, 105), "Heal1")
+	local lo = healScore(fight(5, 1, 500, 105), "Heal1")
+	check(hi and lo and hi.normalized > mid.normalized and mid.normalized > lo.normalized,
+		"covering more of the intake still scores higher")
+
+	-- THE POINT: two healers each covering half as much is the SAME play.
+	-- Raw coverage would halve; times the healer count it must not move.
+	local two = healScore(fight(5, 2, 340, 105), "Heal1")
+	check(two and math.abs(two.normalized - 50) < 0.5,
+		("splitting the same work across two healers scores the same (%.1f)")
+			:format(two and two.normalized or -1))
+
+	-- JOSH 2026-07-31: a self-healing group must not drag the healer down. A
+	-- Blood DK covering a quarter of the intake leaves 750 healable, so the
+	-- same median healer now needs 0.68 x 750 = 510, not 680 - and scores the
+	-- same 50. Against RAW intake this reads 26.4 - a 23.6-point tax for
+	-- having a tank who heals himself. Verified by reverting the denominator.
+	local sustained = healScore(fight(5, 1, 510, 105, 250 / 4), "Heal1")
+	check(sustained and math.abs(sustained.normalized - 50) < 0.5,
+		("a self-healing group scores its healer the same (%.1f)")
+			:format(sustained and sustained.normalized or -1))
+
+	-- an uncrawled spec falls back to the median of the crawled ones
+	local unk = healScore(fight(5, 1, 620, 999), "Heal1")
+	check(unk and math.abs(unk.normalized - 50) < 0.5,
+		("an uncrawled healer spec uses the default anchor (%.1f)"):format(unk and unk.normalized or -1))
+
+	-- RAIDS ARE NOT TOUCHED: raid healing already matches WCL to 2.4 points
+	local raid = healScore(fight(20, 2, 340, 105), "Heal1")
+	check(not raid or math.abs(raid.normalized - 50) > 1,
+		"a raid-sized group keeps the healing curve, not the coverage anchor")
+
+	-- and a data file whose units we do not recognise is refused outright
+	TP.HEALER_COVERAGE_UNIT = "something-else"
+	local stale = healScore(fight(5, 1, 680, 105), "Heal1")
+	check(not stale or math.abs(stale.normalized - 50) > 1,
+		"a coverage file in an unknown unit is refused, not mixed in")
+
+	TP.HEALER_COVERAGE_ANCHORS, TP.HEALER_COVERAGE_UNIT = savedA, savedU
 end)()
 
 print("")

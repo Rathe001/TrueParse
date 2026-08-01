@@ -40,12 +40,12 @@ local CLIENTS = {
 		"Data/Benchmarks.lua", "Data/Percentiles.lua", "Data/Percentiles_Dungeons.lua",
 		"Data/Percentiles_LFR.lua", "Data/Percentiles_Sporefall.lua",
 		"Data/Totals.lua", "Data/Totals_Dungeons.lua", "Data/Totals_Sporefall.lua",
-		"Data/TankAnchors.lua",
+		"Data/TankAnchors.lua", "Data/TankDamage.lua",
 	}), { HAS_CLEU = false, IS_RETAIL = true }),
 	mists = build(files({
 		"Data/Benchmarks_Mists.lua", "Data/Percentiles_Mists.lua",
 		"Data/Percentiles_Mists_25.lua", "Data/Totals_Mists.lua",
-		"Data/TankAnchors_Mists.lua",
+		"Data/TankAnchors_Mists.lua", "Data/TankDamage_Mists.lua",
 	}), { HAS_CLEU = true, IS_RETAIL = false }),
 }
 
@@ -526,6 +526,43 @@ for _, sc in ipairs({ SCENARIOS[2], SCENARIOS[3], SCENARIOS[10] }) do -- Normal,
 			sup.metrics.buffUptime =
 				(target * 0.7) / (buffedTop4 * (W.ebonTransfer or 0.12))
 			players.s1 = sup
+			-- A tank's DAMAGE is not scored against the damage curve - the
+			-- whole reason Data/TankDamage exists is that WCL's ranked tank
+			-- damage is a self-selected, damage-pushing slice. It is scored
+			-- against a per-spec anchor in multiples of the group's mean. So
+			-- model the tank from the reference it will actually meet, exactly
+			-- as mitigationPct above already does; feeding it a point off the
+			-- curve compares two different populations and calls the gap bias.
+			--
+			-- Solved rather than iterated: the tank's damage is part of the
+			-- mean it is measured against. With S = the others' total, k tanks
+			-- at multiple m and n players, t = m*S / (n - m*k).
+			local DAN = TP.TANK_DAMAGE_ANCHORS
+			if DAN and TP.TANK_DAMAGE_ANCHOR_UNIT == "mean-multiple" then
+				local da = DAN[tankID] or DAN.default
+				if da then
+					local m = uptimeForPct(da, pct) -- same p25/p50/p75 shape
+					local others, n, k = 0, 0, 0
+					for _, pl in pairs(players) do
+						n = n + 1
+						if pl.role == "TANK" then
+							k = k + 1
+						else
+							others = others + (pl.metrics.damage or 0)
+						end
+					end
+					local denom = n - m * k
+					if denom > 0 then
+						local t = m * others / denom
+						for _, pl in pairs(players) do
+							if pl.role == "TANK" then
+								pl.metrics.damage = t
+							end
+						end
+					end
+				end
+			end
+
 
 			local fight = { name = encName, isBoss = true, duration = duration,
 				zone = "Test Raid", instanceType = "raid", difficultyID = sc.difficultyID,
@@ -644,6 +681,89 @@ print(("  violations: total-cap %d | score range %d | per-adjustment max %d | na
 if bad > 0 then
 	problems[#problems + 1] = ("adjustment fuzz: %d invariant violations across %d fights")
 		:format(bad, FIGHTS)
+end
+
+-- ====================================================== group-size invariance
+-- The same shape as the gear sweep above, and it exists because of a real
+-- bug: tank damage was scored as a SHARE of the group's total, which falls
+-- as the group grows. A 10-man tank cleared p75 on 65 of 69 real fights and
+-- auto-scored 100 while a 25-man tank fell below p25 for identical play
+-- (2026-07-31). No unit test caught it, because every fixture was one size.
+--
+-- The invariant: a player of FIXED RELATIVE standing - same multiple of what
+-- their group-mates do - must score the same in a 6-man and a 25-man. Any
+-- metric that quietly divides by the group's total instead of its mean
+-- shows up here as drift, whether or not anyone remembered to test it.
+print("\n=== group-size invariance: fixed relative standing, swept across roster size ===")
+print(("%-22s %-6s %-34s %s"):format("SCENARIO", "ROLE", "score at n=6/10/20/25", "DRIFT"))
+
+local SIZE_SWEEP = { 6, 10, 20, 25 }
+local sizeProblems = 0
+for _, sc in ipairs(SCENARIOS) do
+	local TP = CLIENTS[sc.client]
+	local encName, specID, dpsEntry = pickCurve(TP, sc.bracket, (not sc.unranked) and sc.dungeon or nil)
+	if encName then
+		local duration = 300
+		local p50 = curveValueAt(dpsEntry.curve, 50)
+		-- Sweep a DPS and a TANK. The tank matters most: its damage metric is
+		-- the one that was share-based, and a DPS-only fixture would have
+		-- passed this test on the very day the bug shipped.
+		local tankSpec = TP.Compat.IS_RETAIL and 73 or 73
+		for _, subject in ipairs({
+			{ role = "DAMAGER", spec = specID, label = "DPS" },
+			{ role = "TANK", spec = tankSpec, label = "TANK" },
+		}) do
+			local scores = {}
+			for _, n in ipairs(SIZE_SWEEP) do
+				local fight = makeFight(TP, sc, encName, specID, dpsEntry, duration)
+				-- rebuild the roster at size n: the subject plus n-1 peers,
+				-- all at the SAME rate, so the subject sits at exactly 1.0x
+				-- the group mean at every size. Only the headcount changes.
+				fight.players = {}
+				for i = 1, n do
+					local guid = "g" .. i
+					fight.players[guid] = {
+						guid = guid, name = (i == 1) and "Subject" or ("Peer" .. i),
+						class = "MAGE",
+						role = (i == 1) and subject.role or "DAMAGER",
+						specID = (i == 1) and subject.spec or specID,
+						ilvl = (sc.client == "mists") and 550 or 200,
+						isLocalPlayer = (i == 1) or nil,
+						metrics = { damage = p50 * duration, healing = 0,
+							damageTaken = (i == 1 and subject.role == "TANK") and 5e6 or 1e5,
+							interrupts = 0, dispels = 0, deaths = 0, avoidableTaken = 0 },
+					}
+				end
+				local rs = TP.Scoring.Engine.ScoreFight(fight, { normalizeIlvl = false })
+				for _, r in ipairs(rs) do
+					if r.name == "Subject" then
+						-- the DAMAGE metric specifically: a tank's overall
+						-- score blends in mitigation, which has no group-size
+						-- exposure and would dilute the signal we are after
+						local b = r.breakdown and r.breakdown.damage
+						scores[#scores + 1] = (b and b.normalized) or r.score or -1
+					end
+				end
+			end
+			if #scores == #SIZE_SWEEP then
+				local lo, hi = scores[1], scores[1]
+				for _, v in ipairs(scores) do
+					lo, hi = math.min(lo, v), math.max(hi, v)
+				end
+				local drift = hi - lo
+				print(("%-22s %-6s %-34s %.1f%s"):format(sc.label, subject.label,
+					("%.1f / %.1f / %.1f / %.1f"):format(scores[1], scores[2], scores[3], scores[4]),
+					drift, drift > 5 and "  <-- SIZE-DEPENDENT" or ""))
+				if drift > 5 then
+					sizeProblems = sizeProblems + 1
+				end
+			end
+		end
+	end
+end
+if sizeProblems > 0 then
+	problems[#problems + 1] = ("group-size invariance: %d scenario(s) score the same play differently by roster size")
+		:format(sizeProblems)
 end
 
 print("")
