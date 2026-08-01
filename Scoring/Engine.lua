@@ -1522,6 +1522,23 @@ local function normalizeMetric(p, role, key, ctx)
 				-- True's base IS the percentile (Josh 2026-07-25); the old
 				-- 30 + 0.7x softener predated adjustments, which now do the
 				-- earning-back honestly. Knobs neutral in Weights.
+				-- A DERIVED comparison is uncertain by construction - the
+				-- curve was sampled on other content - and an uncertain
+				-- comparison must not produce a CONFIDENT extreme. Measured on
+				-- 349 real Timewalking damager scores the metric read p25 8.9,
+				-- median 69.0, p75 99.0 with 39% above ninety: bimodal, both
+				-- tails pegged, because the pooled reference has a short tail
+				-- and a few percent of rate swings the percentile end to end.
+				-- The score ceiling was papering over that downstream; this
+				-- squeezes the PERCENTILE toward the middle, which is what
+				-- Weights.lua's own note asked for ("fix the tail shape, not
+				-- the lift"). Ordering is preserved exactly - it is a linear
+				-- squeeze about 50, not a clamp.
+				local squeeze = ctx.derived and W.derivedPctileCompress
+					and W.derivedPctileCompress[ctx.derived.tier]
+				if squeeze and squeeze < 1 then
+					pct = 50 + (pct - 50) * squeeze
+				end
 				absolute = math.min(100, (W.trueAbsFloor or 0) + (W.trueAbsSlope or 1) * pct)
 				-- A derived tier can approximate a good parse, never certify an
 				-- elite one — but SQUEEZE the top rather than clamping it, or a

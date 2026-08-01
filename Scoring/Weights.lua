@@ -262,6 +262,40 @@ Weights.derivedCeiling = { [2] = 95, [3] = 90 }
 -- piles up except players the curve genuinely cannot separate.
 Weights.derivedCeilingKnee = 70
 
+-- How far a DERIVED percentile is squeezed toward 50 before it becomes a
+-- score. 1.0 = untouched. Scaled to how UNCERTAIN the comparison is: tier 2
+-- borrows this dungeon's own curves at another difficulty, tier 3 pools
+-- curves from other content entirely, so tier 3 is squeezed harder.
+--
+-- Why (Josh's Timewalking run, 2026-08-01). The tier-3 damage metric read
+-- p25 8.9, median 69.0, p75 99.0 with 39% above ninety - bimodal with both
+-- tails pegged, because the pooled reference has a short tail and a few
+-- percent of rate swings the percentile end to end. A healer measured
+-- against a properly calibrated anchor scored 39 on the same pull and looked
+-- broken next to four inflated damagers; the healer was the honest number.
+--
+-- THIS IS WHAT UNBLOCKED THE LIFT. derivedOffDifficultyScaled was measured
+-- alone in July and left at 4.0 because lowering it "only picked which end
+-- was wrong" - it fixed the median and wrecked p25. That was true with the
+-- short tail in place: at squeeze 1.0, lift 3.0 gives p25 6.5. With the
+-- shape fixed, the same lift gives p25 27.9. Fix the tail, then the lift.
+--
+-- Swept against Weights' own criterion, T2/T3 tracking TIER 1 (which reads
+-- p25 27.3 / median 42.6 / p75 60.8 on the same captures):
+--   Timewalking, squeeze x lift        heroic dungeons, squeeze
+--     1.0 / 4.0  ->  maxdev 23.8         1.00  ->  maxdev 20.9
+--     0.5 / 4.0  ->  maxdev 12.4         0.85  ->  maxdev 13.0
+--     0.5 / 3.5  ->  maxdev  7.4         0.75  ->  maxdev 12.4
+--     0.5 / 3.0  ->  maxdev  7.0         0.65  ->  maxdev 12.0
+-- 3.0 fits a hair better but puts the median BELOW tier 1's; 3.5 errs
+-- generous instead, which is the safer direction given how often "everything
+-- is grey" has been the complaint. Below 0.65 the tier-2 gain flattens while
+-- p25 keeps inflating, so 0.75 is the knee.
+--
+-- Ordering is preserved exactly: this is a linear squeeze about 50, not a
+-- clamp, so nobody piles up and nobody overtakes anybody.
+Weights.derivedPctileCompress = { [2] = 0.75, [3] = 0.5 }
+
 -- Dispersion between the reference curve and the rooms we score does NOT
 -- line up (2.48x observed against 1.97x pooled), and damping the
 -- deviation to match was tried and REVERTED 2026-07-28: measured against
@@ -365,7 +399,7 @@ Weights.derivedOffDifficultyT3 = 3.0  -- tier III, normal-power content
 -- gear - and with the gear slope now honest (0.23%/ilvl) nothing else was
 -- accounting for it. Tuned the same way as the others: swept until the
 -- Timewalking distribution tracked tier 1's (2026-07-28).
-Weights.derivedOffDifficultyScaled = 4.0
+Weights.derivedOffDifficultyScaled = 3.5
 
 -- === Mythic+ key level ===============================================
 -- Key level below which the comparison stops being DIRECT. The dungeon curves
