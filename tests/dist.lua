@@ -172,8 +172,20 @@ for _, path in ipairs(paths) do
 					end
 				end
 				if #all > 0 then
-					table.sort(all)
-					fights[fkey] = { n = #all, p50 = pct(all, 50) }
+					-- MERGE on collision, never overwrite. Two captures can
+					-- share a key - same name and duration, both missing
+					-- startedAt - and letting one win made the result depend
+					-- on pairs() order, so the gate flapped between runs and
+					-- reported two fights as "changed" immediately after
+					-- writing its own baseline. Merging is order-independent.
+					local acc = fights[fkey]
+					if not acc then
+						acc = {}
+						fights[fkey] = acc
+					end
+					for _, v in ipairs(all) do
+						acc[#acc + 1] = v
+					end
 				end
 			end
 		end
@@ -184,6 +196,12 @@ local measured = {}
 for k, list in pairs(buckets) do
 	measured[k] = statsOf(list)
 end
+local fightStats = {}
+for k, list in pairs(fights) do
+	table.sort(list)
+	fightStats[k] = { n = #list, p50 = pct(list, 50) }
+end
+fights = fightStats
 
 -- -------------------------------------------------------------------- write
 local function esc(s)
