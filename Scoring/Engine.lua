@@ -1324,6 +1324,38 @@ local function normalizeMetric(p, role, key, ctx)
 		end
 	end
 
+	-- FIVE-MAN HEALER DAMAGE IS NOT SCORED. It is not that we lack a good
+	-- reference - there is no formulation that isolates the healer at all.
+	-- As a RATE there is nothing to compare against: heroic dungeons and
+	-- Timewalking have no Warcraft Logs rankings, and the raid-healer curve
+	-- it was falling back on says 955/s for a Resto Druid against a real
+	-- dungeon healer's 16-31k. As a SHARE the denominator is the party's DPS,
+	-- so it measures how weak THEY are: crawling dungeon-healer anchors and
+	-- scoring the multiple of party mean was tried and made it worse (above-90
+	-- went 37% -> 45%), because ranked groups have strong damage and pugs do
+	-- not. Measured across Josh's captures, five-man healer damage means 70.7
+	-- with 53% above ninety; the same metric in RAIDS means 51.7 with 17%,
+	-- which is why this is scoped to five-mans and raids keep it.
+	--
+	-- Dropping it moves its weight onto healing - which intake coverage now
+	-- measures properly - rather than pinning it neutral, which would leave
+	-- 21% of the grade carrying no information and dilute the part we trust.
+	-- For a Mistweaver it was double-counted anyway: fistweaving GENERATES
+	-- healing, so the damage already shows up in the healing number.
+	--
+	-- The cost, stated plainly: a non-fistweaving healer who does add real
+	-- damage in a dungeon stops being credited for it. Today they are credited
+	-- whether they earned it or not, which is worse (Josh 2026-08-01).
+	if role == "HEALER" and key == "damage" and not ctx.parseMode then
+		local scored = 0
+		for _, list in pairs(ctx.cohorts or {}) do
+			scored = scored + #list
+		end
+		if scored > 0 and scored <= 5 then
+			return nil, false
+		end
+	end
+
 	-- FIVE-MAN HEALERS: score INTAKE COVERAGE, not healing rate.
 	--
 	-- HPS in a five-man is mostly a function of how much damage the group

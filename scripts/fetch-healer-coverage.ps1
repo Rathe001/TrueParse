@@ -1,5 +1,13 @@
-# Per-spec HEALER DAMAGE baselines for five-man content. Emits
-# Data/HealerDamage.lua.
+# Per-spec healer INTAKE COVERAGE baselines, crawled from FIVE-MAN content.
+# Emits Data/HealerCoverage.lua.
+#
+# Supersedes the raid-crawled version. That one was justified by a portability
+# check - raw coverage x healerN read 0.652/0.723 in two- and three-healer
+# raids against 0.680 for a solo M+ healer - but the metric's DENOMINATOR then
+# changed twice (healer-count normalisation, then removing self-healing) and
+# portability was never re-validated. It does not hold: Josh's five-man healers
+# median 0.78 against the raid anchor's 0.97, so they scored a median of 22.
+# Crawl the population you actually score against.
 #
 # Why (Josh 2026-08-01, found by field-testing a heroic dungeon). A healer's
 # damage metric was scored against WCL's ranked RAID healers, who barely DPS:
@@ -23,7 +31,7 @@ param(
     [string]$Bands = "2,5,8,11,14",   # keystone bands to sample separately
     [int]$MaxReports = 160,
     [int]$MinSamples = 20,            # specs thinner than this stay on the default
-    [string]$OutFile = "HealerDamage.lua",
+    [string]$OutFile = "HealerCoverage.lua",
     [string]$ClientFile = "$PSScriptRoot\wcl-v2-client.local.txt"
 )
 $ErrorActionPreference = "Stop"
@@ -108,26 +116,35 @@ $done = 0
 foreach ($ref in $refs) {
     if ($done -ge $MaxReports) { break }
     Assert-Points
-    $q = "{ reportData { report(code: `"$($ref.code)`") { table(fightIDs: [$($ref.fight)], dataType: DamageDone) } } }"
-    $t = $null
-    try { $t = (Invoke-GQL $q).reportData.report.table } catch { continue }
-    if ($t -is [string]) { $t = $t | ConvertFrom-Json }
-    if (-not ($t -and $t.data -and $t.data.entries)) { continue }
+    $q = "{ reportData { report(code: `"$($ref.code)`") { hd: table(fightIDs: [$($ref.fight)], dataType: Healing) dt: table(fightIDs: [$($ref.fight)], dataType: DamageTaken) } } }"
+    $r = $null
+    try { $r = (Invoke-GQL $q).reportData.report } catch { continue }
+    if (-not $r) { continue }
+    $hd = $r.hd; if ($hd -is [string]) { $hd = $hd | ConvertFrom-Json }
+    $dt = $r.dt; if ($dt -is [string]) { $dt = $dt | ConvertFrom-Json }
+    if (-not ($hd -and $hd.data -and $hd.data.entries -and $dt -and $dt.data -and $dt.data.entries)) { continue }
     $done++
-    $n = $t.data.entries.Count
-    if ($n -lt 4) { continue }
-    $total = 0.0
-    foreach ($e in $t.data.entries) { $total += [double]$e.total }
-    if ($total -le 0) { continue }
-    $mean = $total / $n
-    foreach ($e in $t.data.entries) {
+    # WCL's DamageTaken already INCLUDES absorbed damage (probe-verified:
+    # healing/damageTaken = 0.996 on a reference report), so it is the same
+    # "damage that had to be handled" the addon computes as damageTaken+absorbs
+    $intake = 0.0
+    foreach ($e in $dt.data.entries) { $intake += [double]$e.total }
+    $healerN = 0
+    $selfHeal = 0.0
+    foreach ($e in $hd.data.entries) {
+        if ($healerByIcon[$e.icon]) { $healerN++ } else { $selfHeal += [double]$e.total }
+    }
+    # only what nobody else covered is the healer's to cover
+    $healable = $intake - $selfHeal
+    if ($healable -lt $intake * 0.15) { $healable = $intake * 0.15 }
+    if ($healable -le 0 -or $healerN -le 0) { continue }
+    foreach ($e in $hd.data.entries) {
         $spec = $healerByIcon[$e.icon]
         if (-not $spec) { continue }
-        $mult = [double]$e.total / $mean
-        # a healer out-damaging the party mean twice over is not a healer row
-        if ($mult -le 0 -or $mult -gt 2.5) { continue }
+        $cov = [double]$e.total / $healable * $healerN
+        if ($cov -le 0 -or $cov -gt 4) { continue }
         if (-not $samples.ContainsKey($spec)) { $samples[$spec] = New-Object System.Collections.ArrayList }
-        [void]$samples[$spec].Add($mult)
+        [void]$samples[$spec].Add($cov)
     }
     if ($done % 20 -eq 0) { Write-Host ("  processed $done/$MaxReports reports") }
 }
@@ -162,26 +179,24 @@ if ($a50.Count -ge 2) {
     if ($x25 -le $x50 -and $x50 -le $x75) { $defLine = "{ $x25, $x50, $x75 }, -- DERIVED: median of the $($a50.Count) crawled specs" }
 }
 $body = @"
--- Per-spec HEALER DAMAGE baselines for five-man content: { p25, p50, p75 } of
--- a healer's damage as a MULTIPLE OF THE PARTY'S PER-PLAYER MEAN. Read 0.40 as
--- "this healer did 40% of what the average party member did".
+-- Per-spec healer COVERAGE baselines, crawled from FIVE-MAN content:
+-- { p25, p50, p75 } of a healer's healing divided by the intake that was
+-- actually THEIRS TO HEAL - damage taken less what the group healed itself -
+-- times the healer count. Read 0.99 as "covered 99% of a fair share of the
+-- damage nobody else picked up".
 --
--- Why this exists (Josh 2026-08-01, found by field-testing a heroic dungeon).
--- Healer damage was scored against WCL's ranked RAID healers, who barely DPS -
--- the reference for a Resto Druid is 955/s against a real dungeon healer's
--- 16-31k. 37% of healer damage scores came out above 90 on a metric carrying
--- 21% of the healing family's weight, so it was roughly ten free points. Same
--- shape as the M+ healer HPS problem: a reference from a population playing
--- different content.
---
--- A MULTIPLE of the party mean rather than a rate, for the same reason the
--- tank anchors use it: invariant to key level and party size, so one number
--- per spec covers every dungeon and every key instead of a curve per band.
+-- CRAWLED FROM MYTHIC+, not raids, and that distinction cost a day. Scoring a
+-- five-man healer on HPS pays them for their group standing in things
+-- (correlation +0.44 with group intake), so coverage replaced it - but the
+-- first crawl took its anchors from raid logs, justified by a portability
+-- check made BEFORE the denominator changed twice. It did not hold: Josh's
+-- five-man healers median 0.78 against a raid anchor of 0.97 and scored a
+-- median of 22. Crawl the population you score against.
 local _, TP = ...
 
-TP.HEALER_DAMAGE_UNIT = "party-mean-multiple"
+TP.HEALER_COVERAGE_UNIT = "healable-share-x-healers"
 
-TP.HEALER_DAMAGE_ANCHORS = {
+TP.HEALER_COVERAGE_ANCHORS = {
 	default = $defLine
 $($lines -join "`n")
 }

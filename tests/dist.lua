@@ -69,7 +69,7 @@ local function loadClient(isRetail)
 			"KillTimes_Sporefall", "Totals", "Totals_Sporefall", "Totals_Dungeons",
 			"Potions", "GroupBuffs", "Defensives", "Mitigation", "Lust", "HealerCDs",
 			"SpellProfiles", "Overheal", "DamageProfiles", "ActivityProfiles",
-			"TankAnchors", "TankDamage", "HealerCoverage", "HealerDamage", "ProcExclusions" }
+			"TankAnchors", "TankDamage", "HealerCoverage", "ProcExclusions" }
 		or { "Benchmarks_Mists", "Percentiles_Mists", "Percentiles_Mists_25",
 			"Overheal_Mists", "KillTimes_Mists", "KillTimes_Mists_Dungeons",
 			"Totals_Mists", "SpellProfiles_Mists", "Potions", "Avoidable_Mists",
