@@ -1346,13 +1346,29 @@ local function normalizeMetric(p, role, key, ctx)
 	-- The cost, stated plainly: a non-fistweaving healer who does add real
 	-- damage in a dungeon stops being credited for it. Today they are credited
 	-- whether they earned it or not, which is worse (Josh 2026-08-01).
-	if role == "HEALER" and key == "damage" and not ctx.parseMode then
+	-- ...but ONLY where the healing metric has actually been replaced. Mists
+	-- has no coverage anchors (deliberately - they are crawled from retail),
+	-- so dropping damage there would leave a five-man healer resting entirely
+	-- on the HPS curve, and MoP celestial dungeons are exactly where that
+	-- curve is worst: Josh's Scarlet Halls run scored its healers 0.0, 5.6,
+	-- 32.4, 73.8, 86.2 and 90.0 on consecutive pulls. Never remove a metric
+	-- before its replacement is in place (Josh's MoP run, 2026-08-01).
+	if role == "HEALER" and key == "damage" and not ctx.parseMode
+		and TP.HEALER_COVERAGE_UNIT == "healable-share-x-healers" then
 		local scored = 0
 		for _, list in pairs(ctx.cohorts or {}) do
 			scored = scored + #list
 		end
 		if scored > 0 and scored <= 5 then
-			return nil, false
+			-- 50-and-inapplicable, NOT nil. applicable=false already keeps it
+			-- out of activeWeight so it cannot move the grade, but the card
+			-- renders `b.normalized or 0` - a nil would have shown the player a
+			-- damage row reading ZERO, which is the exact failure mode this
+			-- codebase has been bitten by before: an unmeasurable number must
+			-- never render as a measured bad one. Same shape as the SUPPORT
+			-- damage path below. The card labels it "context, not weighted
+			-- into the grade".
+			return 50, false
 		end
 	end
 
