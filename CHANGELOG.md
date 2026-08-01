@@ -1,5 +1,38 @@
 # TrueParse Changelog
 
+## 2.10.1
+
+**Fixes two mistakes in 2.10.0 that affected healers in five-player content.**
+
+A healer's damage stopped being scored in dungeons in 2.10.0, because there
+is no fair way to measure it there. That was right, but it left the card
+showing a damage row reading **zero** - an unmeasurable number displayed as a
+measured bad one. It now reads as context and says so.
+
+Worse, on Mists it also removed the metric without anything to replace it.
+The healing side of that swap only exists on retail, so Mists healers in
+five-player content were left resting entirely on the one comparison we
+already knew was poor there. They keep their damage score until the
+replacement reaches that client.
+
+**A healer's damage in five-player content now earns credit instead of being
+ignored.** It still is not graded - there is no honest baseline to grade it
+against - but out-damaging your own party is a real contribution, and reading
+it as nothing was wrong. It is measured against what your group's damage
+dealers actually did, capped, and can only ever help: a healer who skips it
+is never penalised.
+
+**Scores on content Warcraft Logs does not rank are no longer confidently
+extreme.** Timewalking damage was reading either near-zero or near-perfect
+with little in between - nearly two in five scores sat above 90 - because
+those comparisons are stretched from other content and a few percent of
+output swung the result end to end. A comparison that uncertain should not
+produce a confident verdict, so those scores are now drawn toward the middle,
+harder the further the comparison had to reach. Rankings within a fight are
+unchanged; only the confidence is. Timewalking now lines up with raid scoring
+where it used to sit twenty points off.
+
+
 ## 2.10.0
 
 **Scores move in this release, and career stats reset because of it.** Three
