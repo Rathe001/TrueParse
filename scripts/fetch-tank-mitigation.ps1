@@ -263,11 +263,22 @@ foreach ($ref in $refs) {
     if ($hd -and $hd.data -and $hd.data.entries -and $dt -and $dt.data -and $dt.data.entries) {
         $intake = 0.0
         foreach ($e in $dt.data.entries) { $intake += [double]$e.total }
-        if ($intake -gt 0) {
+        # Count the healers first: raw coverage is split among them, so it
+        # falls as the roster adds healers - the SAME defect as scoring a tank
+        # on share of raid damage. Measured on Josh's MoP raids, median
+        # coverage was 0.326 with two healers and 0.241 with three; multiplying
+        # by the count gives 0.652 and 0.723, and a solo M+ healer 0.680. A
+        # 2.82x spread across those three collapses to 1.11x. So the quantity
+        # is coverage x healerN: "your share of the group's intake, against a
+        # fair share among the healers". That is what makes one anchor hold
+        # for five-mans and raids alike instead of needing separate tables.
+        $healerN = 0
+        foreach ($e in $hd.data.entries) { if ($healerByIcon[$e.icon]) { $healerN++ } }
+        if ($intake -gt 0 -and $healerN -gt 0) {
             foreach ($e in $hd.data.entries) {
                 $spec = $healerByIcon[$e.icon]
                 if (-not $spec) { continue }
-                $cov = [double]$e.total / $intake
+                $cov = [double]$e.total / $intake * $healerN
                 # a healer covering more than the whole group's intake is an
                 # overheal-counting artefact, not a sample
                 if ($cov -le 0 -or $cov -gt 2) { continue }
@@ -442,8 +453,16 @@ if ($c50s.Count -ge 2) {
 }
 $cHeader = @"
 -- Per-spec healer INTAKE COVERAGE baselines: { p25, p50, p75 } of a healer's
--- healing divided by the GROUP'S TOTAL DAMAGE TAKEN for that fight. Read 0.68
--- as "this healer personally covered 68% of the damage their group ate".
+-- healing divided by the GROUP'S TOTAL DAMAGE TAKEN, times the number of
+-- healers. Read 0.68 as "this healer covered 0.68 of a fair share of the
+-- damage their group ate" - 1.0 being an even split of the whole intake.
+--
+-- Times the healer count because raw coverage is divided among the healers,
+-- so it falls as the roster adds them: the same defect as scoring a tank on
+-- share of raid damage. Josh's MoP raids median 0.326 coverage on two healers
+-- and 0.241 on three; normalised those are 0.652 and 0.723, against 0.680 for
+-- a solo Mythic+ healer. A 2.82x spread becomes 1.11x, which is why ONE table
+-- covers five-mans and raids instead of needing separate ones.
 --
 -- Why not HPS (Josh 2026-07-31). Healing rate in a 5-man is mostly a function
 -- of how much damage the group TAKES, which is mostly avoidable - so scoring a
@@ -462,7 +481,7 @@ $cHeader = @"
 -- units it does not recognise instead of scoring against the wrong scale.
 local _, TP = ...
 
-TP.HEALER_COVERAGE_UNIT = "intake-share"
+TP.HEALER_COVERAGE_UNIT = "intake-share-x-healers"
 
 TP.HEALER_COVERAGE_ANCHORS = {
 	default = $cDefLine
