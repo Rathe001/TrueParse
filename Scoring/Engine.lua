@@ -1356,26 +1356,45 @@ local function normalizeMetric(p, role, key, ctx)
 	-- spread where the un-normalised numbers span 2.82x.
 	if role == "HEALER" and key == "healing" and not ctx.parseMode
 		and TP.HEALER_COVERAGE_UNIT == "healable-share-x-healers" then
-		local scored, healerN, selfHeal = 0, 0, 0
+		local scored, healerN, selfHeal, absorbed = 0, 0, 0, 0
 		for r, list in pairs(ctx.cohorts or {}) do
 			scored = scored + #list
+			for _, any in ipairs(list) do
+				absorbed = absorbed + ((any.metrics and any.metrics.absorbs) or 0)
+			end
 			if r == "HEALER" then
 				healerN = healerN + #list
 			else
 				for _, other in ipairs(list) do
-					selfHeal = selfHeal + ((other.metrics and other.metrics.healing) or 0)
+					-- effHealing, NOT metrics.healing: absorbs are healing for
+					-- every other purpose in this file (metricValue calls it
+					-- "WCL-comparable"), and WCL's Healing table - which the
+					-- anchor is crawled from - counts shields the same way.
+					-- Reading raw healing here made a Disc Priest's shields
+					-- vanish and would have scored them near zero.
+					selfHeal = selfHeal + effHealing(other.metrics or {})
 				end
 			end
 		end
 		local intake = ctx.totals and ctx.totals.damageTaken
 		local AN = TP.HEALER_COVERAGE_ANCHORS
 		local a = AN and ((p.specID and AN[p.specID]) or AN.default)
-		if a and scored > 0 and scored <= 5 and healerN > 0 and intake and intake > 0 then
+		-- ABSORBS GO IN BOTH SIDES OR NEITHER. A shield prevents damage, so the
+		-- damage it stopped never reaches damageTaken - but effHealing counts
+		-- the shield as healing. Crediting it in the numerator while the
+		-- denominator ignores what it prevented inflates the ratio and, on
+		-- Josh's 21 M+ fights, made the metric 84% group-composition (+0.92
+		-- against the self-heal share, median 1.34, one fight at 2.59). Adding
+		-- absorbed damage to the intake restores it to 3% (+0.18), which is
+		-- where healing-only also lands (+0.13) - and unlike healing-only it
+		-- does not quietly undercount a Discipline Priest to nothing.
+		local handled = (intake or 0) + absorbed
+		if a and scored > 0 and scored <= 5 and healerN > 0 and handled > 0 then
 			-- only what nobody else picked up is the healer's to cover; the
-			-- floor stops a group that out-heals its own intake (absorb-heavy
-			-- pulls, overheal accounting) from dividing by ~nothing
-			local healable = math.max(intake - selfHeal, intake * 0.15)
-			local cov = (p.metrics.healing or 0) / healable * healerN
+			-- floor stops a group that out-heals its own intake (overheal
+			-- accounting, odd pulls) from dividing by ~nothing
+			local healable = math.max(handled - selfHeal, handled * 0.15)
+			local cov = effHealing(p.metrics) / healable * healerN
 			local score = anchorScore(cov, a[1], a[2], a[3])
 			return score, true, score
 		end

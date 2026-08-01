@@ -4446,7 +4446,7 @@ end)()
 	TP.HEALER_COVERAGE_ANCHORS = { [105] = { 0.50, 0.68, 0.86 }, default = { 0.45, 0.62, 0.80 } }
 
 	-- intake pinned at 1000 so coverage is exact; n players, h of them healers
-	local function fight(n, h, healPerHealer, specID, selfHealEach)
+	local function fight(n, h, healPerHealer, specID, selfHealEach, asAbsorb)
 		local players = {}
 		for i = 1, n do
 			local guid = "p" .. i
@@ -4456,8 +4456,16 @@ end)()
 				class = "DRUID", role = isHealer and "HEALER" or "DAMAGER",
 				specID = isHealer and specID or 64, ilvl = 550,
 				metrics = { damage = 1000,
-					healing = isHealer and healPerHealer or (selfHealEach or 0),
-					damageTaken = 1000 / n, interrupts = 0, dispels = 0, deaths = 0,
+					-- absorbs ARE healing here (effHealing), which is how the
+					-- rest of the file and WCL's own table both count them
+					absorbs = (isHealer and asAbsorb) and healPerHealer or nil,
+					healing = (isHealer and asAbsorb) and 0
+						or (isHealer and healPerHealer or (selfHealEach or 0)),
+					-- a shield PREVENTS damage, so the same fight lands less
+					-- of it: total damage handled stays 1000 either way, which
+					-- is what makes the two cases comparable at all
+					damageTaken = (asAbsorb and (1000 - healPerHealer) or 1000) / n,
+					interrupts = 0, dispels = 0, deaths = 0,
 					avoidableTaken = 0 },
 			}
 		end
@@ -4498,6 +4506,14 @@ end)()
 			:format(sustained and sustained.normalized or -1))
 
 	-- an uncrawled spec falls back to the median of the crawled ones
+	-- A Disc Priest does the same work as a shield. Reading raw metrics.healing
+	-- made those shields vanish and scored them near zero; effHealing counts
+	-- absorbs, which is what the crawled anchor measures too.
+	local shielded = healScore(fight(5, 1, 680, 105, nil, true), "Heal1")
+	check(shielded and math.abs(shielded.normalized - 50) < 0.5,
+		("healing delivered as absorbs scores the same (%.1f)")
+			:format(shielded and shielded.normalized or -1))
+
 	local unk = healScore(fight(5, 1, 620, 999), "Heal1")
 	check(unk and math.abs(unk.normalized - 50) < 0.5,
 		("an uncrawled healer spec uses the default anchor (%.1f)"):format(unk and unk.normalized or -1))

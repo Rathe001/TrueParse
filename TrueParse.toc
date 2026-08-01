@@ -40,6 +40,7 @@ Data\Overheal.lua
 Data\DamageProfiles.lua
 Data\TankAnchors.lua
 Data\TankDamage.lua
+Data\HealerCoverage.lua
 Collect\Roster.lua
 Metrics\Registry.lua
 Metrics\Spikes.lua

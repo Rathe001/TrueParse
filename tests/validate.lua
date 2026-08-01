@@ -40,7 +40,7 @@ local CLIENTS = {
 		"Data/Benchmarks.lua", "Data/Percentiles.lua", "Data/Percentiles_Dungeons.lua",
 		"Data/Percentiles_LFR.lua", "Data/Percentiles_Sporefall.lua",
 		"Data/Totals.lua", "Data/Totals_Dungeons.lua", "Data/Totals_Sporefall.lua",
-		"Data/TankAnchors.lua", "Data/TankDamage.lua",
+		"Data/TankAnchors.lua", "Data/TankDamage.lua", "Data/HealerCoverage.lua",
 	}), { HAS_CLEU = false, IS_RETAIL = true }),
 	mists = build(files({
 		"Data/Benchmarks_Mists.lua", "Data/Percentiles_Mists.lua",
