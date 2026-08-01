@@ -57,12 +57,12 @@ function Addon:OnInitialize()
 	self:RegisterChatCommand("tp", "HandleSlash")
 	-- probes retired 2026-07-12 (all experiments concluded); clear the log
 	self.db.global.probeLog = nil
-	-- /tp baddies curation data survives reloads (account-wide, resettable).
-	-- Prune at login so months of raiding can't bloat SavedVariables: keep
-	-- the 200 biggest totals (the curation-relevant tail).
 	-- error sink: persists so a capture handed over carries its own crash log
 	self.db.global.errors = self.db.global.errors or {}
 	TP.TrapInit(self.db.global.errors)
+	-- /tp baddies curation data survives reloads (account-wide, resettable).
+	-- Prune at login so months of raiding can't bloat SavedVariables: keep
+	-- the 200 biggest totals (the curation-relevant tail).
 	self.db.global.takenSpells = self.db.global.takenSpells or {}
 	TP.TakenSpells = self.db.global.takenSpells
 	-- /tp procs twins (damage done / healing done by spell): same
@@ -471,6 +471,18 @@ function Addon:HandleSlash(input)
 		self:Print("Letter grades " .. (self.db.profile.letterGrades and "on (F to S+)." or "off (numbers)."))
 		TP.MeterWindow:Invalidate()
 	elseif cmd == "diag" then
+		-- One umbrella over every diagnostic, so there is one command to
+		-- remember instead of six. The sections keep working as top-level
+		-- commands too (habits are already formed, and breaking them buys
+		-- nothing) - this just routes to the same code rather than copying it.
+		local section = rest:match("^(%S*)") or ""
+		if TP.DIAG_SECTIONS[section] then
+			return self:HandleSlash(section .. " " .. rest:sub(#section + 1))
+		end
+		if section == "copy" then
+			TP.ShowDiagString()
+			return
+		end
 		-- Everything a bug report needs, in one paste: what is running, and
 		-- what has thrown. The errors persist in SavedVariables, so this is
 		-- also what a handed-over capture carries with it.
@@ -503,6 +515,7 @@ function Addon:HandleSlash(input)
 				e.build and (" on @" .. e.build) or (e.version and (" on v" .. e.version) or "")))
 			self:Print("      " .. tostring(e.msg))
 		end
+		self:Print("  /tp diag copy - all of this as one pasteable line")
 	elseif cmd == "who" then
 		-- Who in the group is running TrueParse, on what build, and what they
 		-- announced about themselves. Added 2026-07-31: `hasAddon` alone could
@@ -590,10 +603,9 @@ function Addon:HandleSlash(input)
 		self:Print("  /tp run - run report · /tp share - post last kill vs WCL · /tp guild - weekly standings")
 		self:Print("  /tp career - your stats · /tp trends - where they're heading")
 		self:Print("  /tp fights - capture history · /tp score [n] - rescore one")
-		self:Print("  /tp who - who's running TrueParse, on what version")
-		self:Print("  /tp diag - build info + recorded errors (for bug reports)")
-		self:Print("  /tp buffs - pre-pull raid buff diagnostic")
-		self:Print("  /tp mit - tank mitigation tracking diagnostic")
+		self:Print("  /tp diag - build, errors and every diagnostic below")
+		self:Print("    diag copy - all of it as one pasteable line")
+		self:Print("    diag who / mit / procs / baddies / buffs / fights")
 		self:Print("  /tp announce · /tp ilvl - toggles")
 		self:Print("  /tp lock - lock the window · /tp reset - re-center it")
 		self:Print("Bugs: github.com/Rathe001/TrueParse/issues")

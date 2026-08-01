@@ -22,6 +22,80 @@ function TP.TrapInit(store)
 	TP.Errors = store
 end
 
+-- The diagnostic sections /tp diag routes to. They stay available as
+-- top-level commands as well; this is one name to remember, not a rename.
+TP.DIAG_SECTIONS = {
+	mit = true, procs = true, baddies = true, who = true, buffs = true,
+	fights = true,
+}
+
+-- The whole diagnostic state as ONE line, for pasting into a bug report.
+--
+-- Deliberately NOT base64 or any other encoding: base64 makes a string ~33%
+-- LONGER, so it would cost space rather than save it. Only compression
+-- shrinks, and the only way to get that here is embedding LibDeflate (~1500
+-- lines) to squeeze a few hundred characters - the wrong trade for an addon
+-- watching its size. A terse delimited format is both smaller than encoded
+-- text AND readable without a decoder, which matters when the person reading
+-- it is trying to help you at 1am.
+--
+--   TP1|<version>|<build>|<client>|<interface>|f<captures>|p<peers>|e<errors>
+--   then one ";" per error: <context>~<count>~<build>~<message>
+function TP.DiagString()
+	local parts = {
+		"TP1",
+		TP.AddonVersion and TP.AddonVersion() or "?",
+		TP.BUILD or "-",
+		(TP.Compat and TP.Compat.IS_RETAIL) and "retail" or "mists",
+		tostring((GetBuildInfo and select(4, GetBuildInfo())) or "?"),
+		"f" .. tostring(TP.FightHistory and #(TP.FightHistory.fights or {}) or 0),
+	}
+	local peers = 0
+	for _ in pairs((TP.Sync and TP.Sync.users) or {}) do
+		peers = peers + 1
+	end
+	local errs = TP.Errors or {}
+	parts[#parts + 1] = "p" .. peers
+	parts[#parts + 1] = "e" .. #errs
+	local out = table.concat(parts, "|")
+	for _, e in ipairs(errs) do
+		-- the delimiters must not survive inside a message, or the line
+		-- stops being parseable at exactly the moment it matters
+		local msg = tostring(e.msg or ""):gsub("[|;~\n\r]", " ")
+		out = ("%s;%s~%d~%s~%s"):format(out, tostring(e.context or "?"),
+			e.count or 1, e.build or "-", msg)
+	end
+	return out
+end
+
+-- Registered on FIRST USE, not at file scope: nothing should be created for a
+-- dialog most sessions never open, and file-scope code that touches a
+-- Blizzard global is exactly what tests/load.lua exists to catch.
+function TP.ShowDiagString()
+	if not StaticPopupDialogs["TRUEPARSE_DIAG"] then
+		StaticPopupDialogs["TRUEPARSE_DIAG"] = {
+			text = "TrueParse diagnostics - Ctrl-C to copy:",
+			button1 = CLOSE or "Close",
+			hasEditBox = true,
+			editBoxWidth = 350,
+			OnShow = function(self)
+				local eb = self.editBox or (self.GetEditBox and self:GetEditBox())
+				if not eb then
+					return
+				end
+				eb:SetText(TP.DiagString())
+				eb:HighlightText()
+				eb:SetFocus()
+			end,
+			EditBoxOnEscapePressed = function(self)
+				self:GetParent():Hide()
+			end,
+			timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+		}
+	end
+	StaticPopup_Show("TRUEPARSE_DIAG")
+end
+
 -- Same shape as pcall: TP.Trap(context, fn, ...) -> ok, ...
 -- `context` is a short stable label ("AttachReports"), not a message - it is
 -- the dedup key, so a failure firing every pull records once with a count
