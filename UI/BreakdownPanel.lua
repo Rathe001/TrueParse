@@ -1073,6 +1073,7 @@ local function infoHelp()
 			coach = "The biggest gap between this fight and top parses of this spec.",
 			interrupts = "Casts this player interrupted.",
 			dispels = "Debuffs this player dispelled.",
+			healerDamage = "Damage added on top of healing, vs the party's dealers. Credit only, never a penalty.",
 			dispelReact = "How fast debuffs got cleared. Top healers react under 2s; over 6s costs a point.",
 		}
 	end

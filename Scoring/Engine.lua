@@ -2469,6 +2469,24 @@ function Engine.ScoreFight(fight, opts)
 		end
 
 		if not ctx.parseMode then
+			-- A five-man healer's damage is not a graded metric (see
+			-- normalizeMetric), but out-damaging the party is real
+			-- contribution and must not read as nothing. Credit only.
+			local hdb = breakdown.damage
+			if role == "HEALER" and hdb and not hdb.applicable then
+				local sum, n = 0, 0
+				for _, other in ipairs((ctx.cohorts and ctx.cohorts.DAMAGER) or {}) do
+					sum = sum + ((other.metrics and other.metrics.damage) or 0)
+					n = n + 1
+				end
+				if n > 0 and sum > 0 then
+					local ratio = (m.damage or 0) / (sum / n)
+					local lo, hi = A.healerDamageLo or 0.35, A.healerDamageHi or 1.0
+					local t = (ratio - lo) / math.max(hi - lo, 0.01)
+					t = math.max(0, math.min(1, t))
+					put("healerDamage", t * (A.healerDamageMax or 4))
+				end
+			end
 			-- kicks / dispels: lean vs an even share, scaled by how much of
 			-- the mechanic THIS fight had (a kick-heavy fight swings the
 			-- full range; a 1-kick fight barely registers)

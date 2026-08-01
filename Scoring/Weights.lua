@@ -82,6 +82,25 @@ Weights.adjustments = {
 	dispelReactBonus = 1, dispelReactFast = 2.5,
 	dispelReactPenalty = 1, dispelReactSlow = 6,
 	shareCenter = 55, -- smoothed share score that reads as "did your part"
+	-- FIVE-MAN HEALER DAMAGE, as earned credit rather than a graded duty.
+	-- The metric itself cannot be scored there: as a rate no reference exists
+	-- (heroic dungeons and Timewalking are unranked), and as a share its
+	-- denominator is the party's DPS, so it measures how weak THEY are.
+	-- But a healer OUT-DAMAGING the group is unambiguous contribution
+	-- whatever the reference, and ignoring it produced the case Josh flagged:
+	-- a fistweaver topping both meters and scoring last on the card.
+	--
+	-- Positive-only and capped, because healing is the job and damage is
+	-- extra. It cannot punish a healer who does none, and being bounded it
+	-- cannot hand back the free grade the old metric gave (53% of five-man
+	-- healer damage scores sat above 90).
+	--
+	-- Measured against the group's own damagers - the only reference that
+	-- does not depend on a population we cannot match. Below `Lo` of their
+	-- average is nothing; at `Hi` it is the full award.
+	healerDamageMax = 4,
+	healerDamageLo = 0.35,
+	healerDamageHi = 1.0,
 	-- avoidable damage (meter data, everyone): clean play earns a little,
 	-- standing in bad costs up to the old penalty cap
 	avoidableCleanBonus = 3,
