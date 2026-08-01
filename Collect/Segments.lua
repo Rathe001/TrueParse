@@ -80,6 +80,10 @@ function Segments:StartFight(name)
 		return
 	end
 	self:CancelEndCheck()
+	-- by-target damage is a per-PULL diagnostic (see Metrics/Damage.lua)
+	if TP.DoneByTarget then
+		wipe(TP.DoneByTarget)
+	end
 	if not name then
 		-- Best guess at a label; boss segments get renamed by ENCOUNTER_START
 		name = (UnitExists("target") and UnitName("target")) or GetZoneText() or "Fight"

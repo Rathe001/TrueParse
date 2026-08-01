@@ -387,6 +387,32 @@ function Addon:HandleSlash(input)
 		-- whoever WEARS it, so it reads as healing that player never did.
 		-- Naming it here is how it gets retired.
 		top(TP.AbsorbSpells, "Top absorb shields this session:")
+		-- by-TARGET for the last pull only: this is the line that can be
+		-- diffed straight against a WCL "Damage Done -> by Target" table,
+		-- which is how the Paragons over-count gets pinned down instead of
+		-- reasoned about from raid totals (2026-07-31).
+		do
+			local list = {}
+			for npc, total in pairs(TP.DoneByTarget or {}) do
+				list[#list + 1] = { npc = npc, total = total }
+			end
+			if #list > 0 then
+				table.sort(list, function(a, b)
+					return a.total > b.total
+				end)
+				local sum = 0
+				for _, e in ipairs(list) do
+					sum = sum + e.total
+				end
+				self:Print(("Group damage by target, LAST PULL (total %s):")
+					:format(TP.FormatNumber(sum)))
+				for i = 1, math.min(15, #list) do
+					local e = list[i]
+					self:Print(("  %d. npc %s - %s (%.1f%%)"):format(
+						i, e.npc, TP.FormatNumber(e.total), e.total / sum * 100))
+				end
+			end
+		end
 		if not next(TP.DoneSpells or {}) and not next(TP.HealSpells or {})
 			and not next(TP.AbsorbSpells or {}) then
 			self:Print("No spell damage, healing or absorbs recorded this session.")

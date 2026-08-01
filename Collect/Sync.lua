@@ -434,12 +434,25 @@ end
 -- A payload's claimed GUID must belong to the SENDER: without this, any
 -- groupmate could overwrite teammates' spec/ilvl or inject fight reports
 -- for them (defensives, readiness) that flow into cards and history.
+-- Addon-message senders are ALWAYS realm-qualified ("Elessar-Rotmire"), but
+-- GetUnitName(unit, true) only appends the realm for a player on a DIFFERENT
+-- one. Comparing the two raw strings therefore matched cross-realm peers and
+-- rejected every player on your own realm — their hellos, self-reports and
+-- wipe calls were all dropped, so they rendered "no addon" with "?" for every
+-- self-reported metric. It looked like a version problem because connected
+-- realms are cross-realm, so most of a pug DID work (Josh 2026-07-31,
+-- Elessar in Rotmire: no addon dot, no self-reported mitigation).
+--
+-- The matching itself is TP.SameCharacter (Core/Utils.lua), where the realm
+-- rules are unit-tested.
+local sameCharacter = TP.SameCharacter
+
 local function senderOwnsGuid(sender, guid)
 	local info = TP.Roster.players[guid]
-	if not info or not info.name or not sender then
+	if not info then
 		return false
 	end
-	return Ambiguate(info.name, "none") == Ambiguate(sender, "none")
+	return sameCharacter(info.name, sender)
 end
 
 -- "Wipe it" permission (Josh 2026-07-26): when any raid lead or assist
@@ -552,7 +565,7 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		end
 		local senderGuid
 		for g, info in pairs(TP.Roster.players) do
-			if info.name and Ambiguate(info.name, "none") == Ambiguate(sender, "none") then
+			if sameCharacter(info.name, sender) then
 				senderGuid = g
 				break
 			end

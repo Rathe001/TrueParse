@@ -8,12 +8,39 @@ local FRIENDLY = COMBATLOG_OBJECT_REACTION_FRIENDLY
 
 local tracker = { subevents = {} }
 
+-- Damage BY TARGET for the CURRENT fight: npc id (as a string) -> damage.
+-- Reset at every StartFight, because the thing it exists to answer is "does
+-- our by-target breakdown for THIS pull match WCL's". /tp procs prints it.
+-- No memo table keyed by GUID: spawn GUIDs are unique, so that grows without
+-- bound over a raid night. An anchored match on a 30-char string is cheap
+-- enough for the damage hot path.
+TP.DoneByTarget = {}
+local function targetKey(guid)
+	if not guid then
+		return nil
+	end
+	-- Creature-0-3299-1136-9-71152-000136DF91 -> "71152" (field 6 is the npc id)
+	return guid:match("^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)%-") or "other"
+end
+
 local function addDamage(seg, srcGUID, dstGUID, dstFlags, amount, overkill)
 	if not amount then
 		return
 	end
 	-- Ignore friendly-fire mechanics; dummies and mobs are neutral/hostile.
 	if band(dstFlags, FRIENDLY) ~= 0 then
+		return
+	end
+	-- ...and NEVER count damage dealt to a PLAYER, whatever the flags say. A
+	-- mind-controlled ally reads HOSTILE in the combat log, so the reaction
+	-- check above waves it straight through, and breaking an MC by beating on
+	-- a teammate is not damage done to the encounter. Warcraft Logs does not
+	-- count it either. Paragons of the Klaxxi (Kaz'tik mind-controls) is the
+	-- one fight of three where our raid total ran 1.44x WCL's; Garrosh and
+	-- Siegecrafter matched within 1-2% (Josh's 2026-07-30 SoO, ground truth).
+	-- Whether this is the WHOLE of that gap is NOT proven - see DoneByTarget
+	-- below, which the next pull settles - but counting it was wrong anyway.
+	if dstGUID and dstGUID:find("^Player%-") then
 		return
 	end
 	local guid = TP.Roster:ResolveGUID(srcGUID)
@@ -45,6 +72,14 @@ local function addDamage(seg, srcGUID, dstGUID, dstFlags, amount, overkill)
 				g.tankFirstDamage = GetTime() - seg.startTime
 			end
 		end
+	end
+	-- damage BY TARGET, so our numbers can be diffed against WCL's own
+	-- by-target table for the same pull instead of argued about from raid
+	-- totals. Added 2026-07-31: Paragons ran 1.44x WCL while Garrosh and
+	-- Siegecrafter matched, and no reasoning from aggregates could say WHERE.
+	local tk = targetKey(dstGUID)
+	if tk then
+		TP.DoneByTarget[tk] = (TP.DoneByTarget[tk] or 0) + amount
 	end
 	local d = acc.damage
 	d.total = d.total + amount
