@@ -1,6 +1,19 @@
 # TrueParse Changelog
 
-## 2.10.1
+## 2.10.2
+
+**Fixes the load-time error on the addon list, reported against 2.10.0 and
+2.10.1.** Thanks to MrFIXIT on CurseForge for the report.
+
+The addon's file list referenced `Core/Build.lua`, a file that exists only in
+a development copy and was never meant to be part of a release. The published
+zip correctly did not contain it, but the file list still asked for it, so
+every client complained about a missing file on login. Nothing was actually
+broken - no feature depended on that file - but the warning was real and
+should never have shipped.
+
+The release build now omits the reference entirely, and the test suite fails
+the build if any listed file would be absent from the published package.
 
 **Fixes two mistakes in 2.10.0 that affected healers in five-player content.**
 

@@ -45,28 +45,70 @@ _G.StaticPopupDialogs = {}
 _G.StaticPopup_Show = function() end
 _G.UIParent = frame()
 _G.C_DamageMeter = nil
+-- Everything git tracks, which is everything the packager can possibly ship.
+-- A TOC line naming a file outside this set loads fine on the dev machine and
+-- is a red Lua error for every user - exactly how Core/Build.lua shipped
+-- broken in 2.10.0 and 2.10.1.
+local tracked
+do
+	local pipe = io.popen("git ls-files")
+	if pipe then
+		tracked = {}
+		for line in pipe:lines() do
+			tracked[(line:gsub("\\", "/"))] = true
+		end
+		pipe:close()
+		if not next(tracked) then tracked = nil end
+	end
+	if not tracked then
+		print("WARN  git ls-files unavailable - packaging check skipped")
+	end
+end
+
 local function checkToc(toc)
 	-- a FRESH namespace per client: the two TOCs load different files and
 	-- must not inherit each other's tables
 	local TP = {}
 	local files, n, bad, present = {}, 0, 0, 0
+	-- The packager DELETES do-not-package blocks from the released .toc, so a
+	-- file inside one is dev-only by design and need not exist. Every other
+	-- line survives into the shipped TOC and must therefore be shippable.
+	local packaged = true
 	for line in io.lines(toc) do
 		line = line:gsub("^98791", ""):gsub("%s+$", "")
-		if line:match("%.lua$") and not line:match("^#") then
-			files[#files + 1] = (line:gsub("\\", "/"))
+		if line:match("^#@do%-not%-package@") then
+			packaged = false
+		elseif line:match("^#@end%-do%-not%-package@") then
+			packaged = true
+		elseif line:match("%.lua$") and not line:match("^#") then
+			files[#files + 1] = { path = (line:gsub("\\", "/")), packaged = packaged }
 		end
 	end
-	for _, f in ipairs(files) do
-		-- Core/Build.lua is generated for the dev client and gitignored, so a
-		-- CI checkout genuinely does not have it. Missing is fine; PRESENT
-		-- but broken is not, so only skip when the file is truly absent.
+	if not packaged then
+		print(("TOC-FAIL  %s unterminated #@do-not-package@ block"):format(toc))
+		bad = bad + 1
+	end
+	for _, entry in ipairs(files) do
+		local f = entry.path
+		-- A packaged line must name a file the user's zip will actually
+		-- contain. Absent, or present-but-untracked, both fail that.
 		local exists = io.open(f)
 		if exists then
 			exists:close()
 		end
+		if entry.packaged then
+			if not exists then
+				print(("MISSING   %-34s listed in %s, not on disk"):format(f, toc))
+				bad = bad + 1
+			elseif tracked and not tracked[f] then
+				print(("UNTRACKED %-34s listed in %s but git does not track it,"
+					.. " so it will NOT be packaged"):format(f, toc))
+				bad = bad + 1
+			end
+		end
 		local chunk, err = exists and loadfile(f)
 		if not exists then
-			-- absent optional file: not counted either way
+			-- dev-only file absent from this checkout: nothing to execute
 		elseif not chunk then
 			present = present + 1
 			print(("LOAD-FAIL %-34s %s"):format(f, err))
@@ -93,7 +135,7 @@ for _, t in ipairs(tocs) do
 end
 print("")
 if failed > 0 then
-	print(("%d FILES FAILED TO LOAD"):format(failed))
+	print(("%d TOC PROBLEMS - failed to load, or would not be in the package"):format(failed))
 	os.exit(1)
 end
-print("ALL FILES LOAD CLEAN")
+print("ALL FILES LOAD CLEAN AND SHIP IN THE PACKAGE")

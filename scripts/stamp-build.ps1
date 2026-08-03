@@ -6,6 +6,11 @@
 # straight from the repo carries it - which is precisely the dev client. A
 # CurseForge install has TP.BUILD = nil and its released version instead.
 #
+# That is why every .toc wraps its Core\Build.lua line in a #@do-not-package@
+# block: the packager deletes those lines, so the shipped TOC never asks for a
+# file the zip does not contain. Omitting the wrapper shipped a load-time
+# error to every user in 2.10.0 and 2.10.1; tests/load.lua now fails on it.
+#
 # Run it yourself, or install the hooks that keep it current:
 #   pwsh scripts/stamp-build.ps1
 #   pwsh scripts/install-hooks.ps1     (stamps on every commit and checkout)
