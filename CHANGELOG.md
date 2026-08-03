@@ -15,6 +15,8 @@ should never have shipped.
 The release build now omits the reference entirely, and the test suite fails
 the build if any listed file would be absent from the published package.
 
+## 2.10.1
+
 **Fixes two mistakes in 2.10.0 that affected healers in five-player content.**
 
 A healer's damage stopped being scored in dungeons in 2.10.0, because there
