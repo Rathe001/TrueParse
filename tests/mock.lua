@@ -356,10 +356,30 @@ do
 	check(mop.PullDepth(P3deep) > mop.PullDepth(P3),
 		"within a phase, lower health is still deeper")
 	check(mop.PullDepth({}) == nil, "no bossPct, no depth")
-	check(mop.WipeLabel(P1) == "wipe 5%",
+	-- The figure is the boss's REMAINING health and now says so. "P2 0%" read
+	-- as a kill, and "91%" outranked "47%" while being the worse pull.
+	check(mop.WipeLabel(P1) == "wipe 5% left",
 		("a single-phase boss labels plainly (%s)"):format(tostring(mop.WipeLabel(P1))))
-	check(mop.WipeLabel(P3) == "wipe P3 80%",
+	check(mop.WipeLabel(P3) == "wipe P3 · 80% left",
 		("a refilling boss names the phase (%s)"):format(tostring(mop.WipeLabel(P3))))
+	-- PullProgress is the same text without the word, for lines that supply
+	-- their own ("boss at ..."). RunSummary used to strip it with a gsub.
+	check(mop.PullProgress(P1) == "5% left", "PullProgress drops the wipe word")
+	check(mop.PullProgress({}) == nil, "no bossPct, no progress text")
+
+	-- Difficulty labels are derived from difficultyID, because the localized
+	-- NAME is nil on every Mists capture. The ids collide across clients, so
+	-- the same id must resolve differently per client.
+	do
+		local h, c = mop.DifficultyParts({ difficultyID = 5 })
+		check(h == "10 Heroic" and c == "10H", ("Mists 5 is 10 Heroic (%s/%s)"):format(tostring(h), tostring(c)))
+		h, c = mop.DifficultyParts({ difficultyID = 237 })
+		check(h == "Celestial" and c == "C", "Mists 237 is Celestial")
+		-- id 15 is retail Heroic and means nothing on Mists: no guess
+		check(mop.DifficultyParts({ difficultyID = 15 }) == nil, "an id from the other client is not guessed at")
+		check(mop.DifficultyParts({}) == nil, "no difficultyID, no label")
+		check(mop.DifficultyChip({ difficultyID = 5 }) == "|cff3d8ee010H|r", "the chip carries its colour")
+	end
 	check(mop.WipeLabel({}) == nil, "no bossPct, no label")
 end
 

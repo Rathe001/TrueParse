@@ -557,20 +557,59 @@ local function createWindow()
 	-- waiting card inside unrecorded content); every capture — the newest
 	-- included — is its own pinnable entry. Falls back to click-cycling on
 	-- any client without the modern menu API.
+	-- The deepest wipe on each boss, so the pull list answers "how close did we
+	-- get" without the reader ranking eleven rows by hand. Keyed by encounter
+	-- AND difficulty: a Heroic attempt is not progress on the Normal boss.
+	-- PullDepth already orders phase-first, which is the only ordering that
+	-- holds when a boss refills.
+	local function markBestPulls(fights, upto)
+		local best = {}
+		for i = 1, upto do
+			local f = fights[i]
+			if f and f.wipe then
+				local d = TP.PullDepth(f)
+				local key = ("%s|%s"):format(tostring(f.encounterID or f.name),
+					tostring(f.difficultyID))
+				if d and (not best[key] or d > best[key].d) then
+					best[key] = { d = d, f = f }
+				end
+			end
+		end
+		local mark = {}
+		for _, b in pairs(best) do
+			mark[b.f] = true
+		end
+		return mark
+	end
+	local bestPulls = {}
+
 	local function fightLabel(fight)
 		local name = (fight.name or "Fight"):gsub("^%(!%)%s*", "")
 		local d = fight.duration or 0
-		-- boss % on every wipe entry, matching the header ("wipe 41%"):
-		-- the progression story reads straight off the pull list
+		-- difficulty rides the ROW, not just the run header: the header
+		-- scrolls away, and a night of mixed lockouts rendered three
+		-- identical "Siege of Orgrimmar" titles (Josh 2026-08-05)
+		local chip = TP.DifficultyChip(fight)
 		local tag = ""
 		if fight.wipe then
 			tag = fight.bossPct
-				and (" |cffe64d4d(%s)|r"):format(TP.WipeLabel(fight))
-				or " |cffe64d4d(wipe)|r"
+				and (" |cffe64d4d%s|r"):format(TP.PullProgress(fight))
+				or " |cffe64d4dwipe|r"
+			-- the furthest attempt on this boss, at a glance. A WORD, not a
+			-- glyph: WoW's default face has patchy symbol coverage and an
+			-- unrenderable marker shows the player a hollow box.
+			if bestPulls[fight] then
+				tag = tag .. " |cffffd36ebest|r"
+			end
 		elseif fight.practice then
-			tag = " |cff66ccff(practice)|r"
+			tag = " |cff66ccffpractice|r"
+		else
+			-- a kill used to be the ABSENCE of a tag; naming it lets the eye
+			-- find it in a wall of attempts
+			tag = " |cff7ec98akill|r"
 		end
-		return ("%s · %d:%02d%s"):format(name, math.floor(d / 60), d % 60, tag)
+		return ("%s%s · %d:%02d%s"):format(chip and (chip .. " ") or "",
+			name, math.floor(d / 60), d % 60, tag)
 	end
 	local function selectFight(f)
 		pinnedFight = f -- nil = back to Current
@@ -591,15 +630,25 @@ local function createWindow()
 			root:CreateRadio("Current · follows new fights",
 				function() return pinnedFight == nil end,
 				function() selectFight(nil) end)
-			-- grouped by run: one group's visit to one instance+difficulty
-			local lastRunID
-			for i = 1, math.min(#fights, 25) do
+			-- ONE heading per instance visit, even when the difficulty changes
+			-- mid-night (Josh 2026-08-05: "raids can change difficulty from
+			-- fight to fight ... a single Siege of Orgrimmar heading, with a
+			-- mix of 10N and 10H tags"). runID deliberately SPLITS on
+			-- difficulty, because run averages must not blend 10N with 10H -
+			-- so the menu groups on its own, coarser rule and leaves runID
+			-- alone. Difficulty now rides each row instead of the title.
+			local shown = math.min(#fights, 25)
+			bestPulls = markBestPulls(fights, shown)
+			local prev
+			for i = 1, shown do
 				local f = fights[i]
-				if f.runID ~= lastRunID then
-					lastRunID = f.runID
-					local diff = f.difficulty and f.difficulty ~= "" and (" · " .. f.difficulty) or ""
-					root:CreateTitle((f.zone or "Unknown") .. diff)
+				-- the list runs newest-first, so an hour of daylight between
+				-- neighbours is the boundary between two nights
+				if not prev or (f.zone or "?") ~= (prev.zone or "?")
+					or math.abs((prev.capturedAt or 0) - (f.capturedAt or 0)) > 3600 then
+					root:CreateTitle(f.zone or "Unknown")
 				end
+				prev = f
 				root:CreateRadio(fightLabel(f),
 					function() return pinnedFight == f end,
 					function() selectFight(f) end)

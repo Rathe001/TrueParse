@@ -132,17 +132,91 @@ function TP.PullDepth(fight)
 	return ((fight.bossPhase or 1) - 1) * 100 + (100 - fight.bossPct)
 end
 
--- "wipe 12%" for a single-phase boss, "wipe P3 12%" once one has refilled -
--- the number means something different and has to say so.
-function TP.WipeLabel(fight)
+-- How far the pull got, WITHOUT the "wipe" word - "12% left", or
+-- "P3 · 12% left" once a phase has refilled and the number means something
+-- different. The figure has always been the boss's REMAINING health; nothing
+-- said so, and on Immerseus "P2 0%" read as a kill while "P2 91%" outranked
+-- "P2 47%" despite being the worse pull (Josh 2026-08-05: "the phase and wipe
+-- % is a bit confusing"). One word fixes the direction of the scale.
+function TP.PullProgress(fight)
 	if not (fight and fight.bossPct) then
 		return nil
 	end
 	local phase = fight.bossPhase or 1
 	if phase > 1 then
-		return ("wipe P%d %.0f%%"):format(phase, fight.bossPct)
+		return ("P%d · %.0f%% left"):format(phase, fight.bossPct)
 	end
-	return ("wipe %.0f%%"):format(fight.bossPct)
+	return ("%.0f%% left"):format(fight.bossPct)
+end
+
+-- The same thing with the word in front, for lists that show kills too.
+function TP.WipeLabel(fight)
+	local at = TP.PullProgress(fight)
+	return at and ("wipe " .. at) or nil
+end
+
+-- Difficulty as a HEADER string ("10 Heroic") and a compact CHIP ("10H") with
+-- its colour. Derived from difficultyID, because GetInstanceInfo's difficulty
+-- NAME is nil on every Mists capture (267 of 267 in Josh's file) - which is
+-- why two different lockouts of one raid rendered identical headers.
+--
+-- The ids COLLIDE across clients: 1 and 2 are dungeon Normal/Heroic on both,
+-- 3-6 are Mists raid SIZES, 14-17 are retail raids. So this is client-aware,
+-- and Mists keeps its size because Warcraft Logs brackets 10 and 25 apart.
+-- Colours are WoW's own tier colours, which players already read without a
+-- legend. A fight with NO difficultyID gets nothing rather than a guess: a
+-- wrong difficulty silently splits or merges lockouts that belong together.
+local DIFF_RETAIL = {
+	[17] = { "LFR", "LFR", "9aa0a6" },
+	[14] = { "Normal", "N", "4fb04f" },
+	[15] = { "Heroic", "H", "3d8ee0" },
+	[16] = { "Mythic", "M", "a86fe0" },
+	[1] = { "Normal", "N", "4fb04f" },
+	[2] = { "Heroic", "H", "3d8ee0" },
+	[23] = { "Mythic", "M", "a86fe0" },
+	[8] = { "Mythic+", "M+", "e0913d" },
+}
+local DIFF_MISTS = {
+	[3] = { "10 Normal", "10N", "4fb04f" },
+	[4] = { "25 Normal", "25N", "4fb04f" },
+	[5] = { "10 Heroic", "10H", "3d8ee0" },
+	[6] = { "25 Heroic", "25H", "3d8ee0" },
+	[1] = { "Normal", "N", "4fb04f" },
+	[2] = { "Heroic", "H", "3d8ee0" },
+	[237] = { "Celestial", "C", "d8b45c" },
+}
+
+-- header text, chip text, chip colour - any of them nil when unknown
+function TP.DifficultyParts(fight)
+	if not fight then
+		return nil
+	end
+	local map = (TP.Compat and TP.Compat.IS_RETAIL) and DIFF_RETAIL or DIFF_MISTS
+	local e = fight.difficultyID and map[fight.difficultyID]
+	if not e then
+		-- retail populates the localized name; prefer it when we have no id
+		local s = fight.difficulty
+		if s and s ~= "" then
+			return s, nil, nil
+		end
+		return nil
+	end
+	local header, chip = e[1], e[2]
+	-- a keystone says WHICH key, which is the whole point of the row
+	if fight.keystoneLevel and fight.keystoneLevel > 0 then
+		header = ("Mythic+ %d"):format(fight.keystoneLevel)
+		chip = ("+%d"):format(fight.keystoneLevel)
+	end
+	return header, chip, e[3]
+end
+
+-- "|cff3d8ee010H|r", ready to concatenate into a menu line
+function TP.DifficultyChip(fight)
+	local _, chip, colour = TP.DifficultyParts(fight)
+	if not chip then
+		return nil
+	end
+	return ("|cff%s%s|r"):format(colour or "9aa0a6", chip)
 end
 
 -- Does this fight belong in numbers that ACCUMULATE — career GPA, run

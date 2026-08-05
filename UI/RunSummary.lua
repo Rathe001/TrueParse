@@ -368,7 +368,7 @@ function RunSummary:WipeDebrief(fight)
 				end
 			end
 		end
-		local at = TP.WipeLabel(fight):gsub("^wipe ", "")
+		local at = TP.PullProgress(fight)
 		if bestDepth and mine and bestDepth > mine + 0.5 then
 			head = head .. (" Pull %d - boss at %s (best %.0f%%)."):format(pull, at, best)
 		else
