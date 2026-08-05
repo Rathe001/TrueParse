@@ -625,9 +625,15 @@ local function createWindow()
 	-- the window's backdrop, tierChip's 1px-inset chip, and wheel scrolling.
 	-- Anchoring is ours end to end, which is also why this is SAFER than
 	-- decorating menu buttons - nothing depends on Blizzard's internals.
-	local PICK_ROW_H, PICK_CHIP_W, PICK_CHIP_H = 17, 30, 13
-	local PICK_VISIBLE = 14 -- rows on screen; the wheel reaches the rest
+	-- Proportions taken off the mockup rather than guessed: a 20px row against
+	-- a 13px name, and a heading with room to breathe above its group.
+	local PICK_ROW_H, PICK_HEAD_H = 20, 23
+	local PICK_CHIP_W, PICK_CHIP_H = 32, 15
+	local PICK_VISIBLE = 14 -- entries on screen; the wheel reaches the rest
 	local picker, pickRows, pickEntries, pickScroll = nil, {}, {}, 0
+	local function entryHeight(e)
+		return (e and e.kind == "head") and PICK_HEAD_H or PICK_ROW_H
+	end
 
 	local function hexToRGB(hex)
 		if not hex or #hex < 6 then return 0.6, 0.63, 0.65 end
@@ -646,23 +652,13 @@ local function createWindow()
 		row:SetScript("OnEnter", function(self) self.hl:Show() end)
 		row:SetScript("OnLeave", function(self) self.hl:Hide() end)
 
-		-- selection dot, the menu's radio in our own hand
-		row.dot = CreateFrame("Frame", nil, row)
-		row.dot:SetSize(9, 9)
-		row.dot:SetPoint("LEFT", 6, 0)
-		row.dot.fill = row.dot:CreateTexture(nil, "OVERLAY")
-		row.dot.fill:SetAllPoints()
-		row.dot.fill:SetColorTexture(1, 1, 1, 1)
-		row.dot.ring = {}
-		for i = 1, 4 do
-			local e = row.dot:CreateTexture(nil, "ARTWORK")
-			e:SetColorTexture(0.42, 0.44, 0.49, 1)
-			if i == 1 then e:SetPoint("TOPLEFT"); e:SetPoint("TOPRIGHT"); e:SetHeight(1)
-			elseif i == 2 then e:SetPoint("BOTTOMLEFT"); e:SetPoint("BOTTOMRIGHT"); e:SetHeight(1)
-			elseif i == 3 then e:SetPoint("TOPLEFT"); e:SetPoint("BOTTOMLEFT"); e:SetWidth(1)
-			else e:SetPoint("TOPRIGHT"); e:SetPoint("BOTTOMRIGHT"); e:SetWidth(1) end
-			row.dot.ring[i] = e
-		end
+		-- Selection dot. Blizzard's radio ART, not four hand-drawn edges: the
+		-- mockup's dot is ROUND and a square frame can only ever be a square.
+		-- Left half of the texture is the empty ring, right half the filled.
+		row.dot = row:CreateTexture(nil, "ARTWORK")
+		row.dot:SetSize(13, 13)
+		row.dot:SetPoint("LEFT", 7, 0)
+		row.dot:SetTexture("Interface\\Buttons\\UI-RadioButton")
 
 		-- difficulty chip: tierChip's construction, at row scale
 		row.chip = CreateFrame("Frame", nil, row)
@@ -682,7 +678,7 @@ local function createWindow()
 		row.chip.label = row.chip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 		row.chip.label:SetPoint("CENTER", 0, 0)
 		local cf = row.chip.label:GetFont()
-		if cf then row.chip.label:SetFont(cf, 9, "") end
+		if cf then row.chip.label:SetFont(cf, 10, "") end
 
 		local function fs(size)
 			local t = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -691,26 +687,34 @@ local function createWindow()
 			return t
 		end
 		-- RIGHT-anchored and laid out right to left, so the columns line up
-		-- however long a boss name is - the thing plain text could not do
-		row.best = fs(11)
-		row.best:SetPoint("RIGHT", -7, 0)
-		row.best:SetJustifyH("RIGHT")
-		row.prog = fs(12)
-		row.prog:SetPoint("RIGHT", row.best, "LEFT", -5, 0)
+		-- however long a boss name is - the thing plain text could not do.
+		-- The best marker is a DIAMOND, and a rotated square texture rather
+		-- than a glyph, because WoW's face has patchy symbol coverage and an
+		-- unrenderable character shows a hollow box.
+		row.best = row:CreateTexture(nil, "OVERLAY")
+		row.best:SetSize(7, 7)
+		row.best:SetColorTexture(1, 0.827, 0.43, 1)
+		row.best:SetPoint("RIGHT", -8, 0)
+		if row.best.SetRotation then
+			row.best:SetRotation(math.rad(45))
+		end
+		row.prog = fs(13)
+		row.prog:SetPoint("RIGHT", row.best, "LEFT", -6, 0)
 		row.prog:SetJustifyH("RIGHT")
-		row.time = fs(12)
-		row.time:SetPoint("RIGHT", row.prog, "LEFT", -7, 0)
+		row.time = fs(13)
+		row.time:SetPoint("RIGHT", row.prog, "LEFT", -8, 0)
 		row.time:SetJustifyH("RIGHT")
-		row.name = fs(12)
-		row.name:SetPoint("LEFT", row.chip, "RIGHT", 8, 0)
+		row.name = fs(13)
+		row.name:SetPoint("LEFT", row.chip, "RIGHT", 9, 0)
 		row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
 		row.name:SetJustifyH("LEFT")
 		row.name:SetWordWrap(false)
 
 		-- group heading: gold zone name over a hairline, drawn by the same
 		-- row so the list stays one flat, scrollable sequence
-		row.head = fs(12)
-		row.head:SetPoint("LEFT", 8, 0)
+		row.head = fs(13)
+		row.head:SetPoint("LEFT", 9, 0)
+		row.head:SetPoint("BOTTOM", row, "BOTTOM", 0, 3)
 		row.head:SetTextColor(1, 0.827, 0.43)
 		row.rule = row:CreateTexture(nil, "ARTWORK")
 		row.rule:SetColorTexture(0.22, 0.19, 0.30, 0.95)
@@ -736,10 +740,12 @@ local function createWindow()
 		row:EnableMouse(true)
 
 		local sel = e.fight == pinnedFight or (e.current and pinnedFight == nil)
-		row.dot.fill:SetShown(sel)
-		if sel then row.dot.fill:SetColorTexture(1, 0.827, 0.43, 1) end
-		for _, t in ipairs(row.dot.ring) do
-			t:SetColorTexture(sel and 1 or 0.42, sel and 0.827 or 0.44, sel and 0.43 or 0.49, 1)
+		-- left half of the radio art is the empty ring, right half the filled
+		row.dot:SetTexCoord(sel and 0.25 or 0, sel and 0.5 or 0.25, 0, 1)
+		if sel then
+			row.dot:SetVertexColor(1, 0.827, 0.43)
+		else
+			row.dot:SetVertexColor(0.62, 0.64, 0.70)
 		end
 
 		if e.current then
@@ -748,10 +754,11 @@ local function createWindow()
 			row.name:SetPoint("LEFT", row.dot, "RIGHT", 7, 0)
 			row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
 			row.name:SetText("Current")
-			row.name:SetTextColor(0.75, 0.78, 0.85)
-			row.time:SetText("follows new fights")
-			row.time:SetTextColor(0.45, 0.47, 0.53)
-			row.prog:SetText(""); row.best:SetText("")
+			row.name:SetTextColor(0.91, 0.90, 0.87)
+			row.time:SetText("")
+			row.prog:SetText("follows new fights")
+			row.prog:SetTextColor(0.45, 0.47, 0.53)
+			row.best:Hide()
 			row:SetScript("OnClick", function() selectFight(nil); picker:Hide() end)
 			return
 		end
@@ -779,23 +786,23 @@ local function createWindow()
 		row.name:SetTextColor(0.91, 0.90, 0.87)
 		local d = f.duration or 0
 		row.time:SetText(("%d:%02d"):format(math.floor(d / 60), math.floor(d % 60)))
+		-- The DURATION stays neutral and only the outcome carries colour, as
+		-- in the mockup. Colouring both made every wipe row a wall of red and
+		-- lost the one word the eye is actually looking for.
+		row.time:SetTextColor(0.91, 0.90, 0.87)
 
 		if f.wipe then
-			row.time:SetTextColor(0.90, 0.30, 0.30)
 			row.prog:SetText(TP.PullProgress(f) or "wipe")
 			row.prog:SetTextColor(0.90, 0.30, 0.30)
-			row.best:SetText(e.best and "best" or "")
-			row.best:SetTextColor(1, 0.827, 0.43)
 		elseif f.practice then
-			row.time:SetTextColor(0.40, 0.80, 1)
-			row.prog:SetText("practice"); row.prog:SetTextColor(0.40, 0.80, 1)
-			row.best:SetText("")
+			row.prog:SetText("practice")
+			row.prog:SetTextColor(0.40, 0.80, 1)
 		else
-			row.time:SetTextColor(0.49, 0.79, 0.54)
-			row.prog:SetText("kill"); row.prog:SetTextColor(0.49, 0.79, 0.54)
-			row.best:SetText("")
+			row.prog:SetText("kill")
+			row.prog:SetTextColor(0.49, 0.79, 0.54)
 		end
-		row.prog:Show(); row.best:Show()
+		row.prog:Show()
+		row.best:SetShown(f.wipe and e.best or false)
 		row:SetScript("OnClick", function() selectFight(f); picker:Hide() end)
 	end
 
@@ -803,23 +810,32 @@ local function createWindow()
 		local n = #pickEntries
 		local visible = math.min(PICK_VISIBLE, n)
 		pickScroll = math.max(0, math.min(pickScroll, n - visible))
-		picker:SetHeight(visible * PICK_ROW_H + 10)
 		-- surplus rows stay in the pool, just hidden
 		for i = #pickRows, visible + 1, -1 do
 			pickRows[i]:Hide()
 		end
+		local y = 5
 		for i = 1, visible do
 			local row = pickRows[i]
 			if not row then
 				row = makePickRow(picker)
 				pickRows[i] = row
 			end
+			local e = pickEntries[i + pickScroll]
+			local h = entryHeight(e)
+			row:SetHeight(h)
 			row:ClearAllPoints()
-			row:SetPoint("TOPLEFT", 5, -(5 + (i - 1) * PICK_ROW_H))
-			row:SetPoint("TOPRIGHT", -5, -(5 + (i - 1) * PICK_ROW_H))
+			row:SetPoint("TOPLEFT", 5, -y)
+			row:SetPoint("TOPRIGHT", -5, -y)
 			row:Show()
-			paintPickRow(row, pickEntries[i + pickScroll])
+			paintPickRow(row, e)
+			y = y + h
 		end
+		picker:SetHeight(y + 5)
+		-- Same arrows the meter uses, for the same reason: without them a
+		-- capped list looks like the whole list (Josh 2026-08-05).
+		picker.up:SetShown(pickScroll > 0)
+		picker.down:SetShown(n - (pickScroll + visible) > 0)
 	end
 
 	local function buildPickEntries()
@@ -858,6 +874,26 @@ local function createWindow()
 			picker:SetBackdropBorderColor(0.220, 0.192, 0.298, 0.95)
 			picker:SetFrameStrata("DIALOG")
 			picker:EnableMouse(true)
+			picker:EnableMouseWheel(true)
+
+			-- scroll indicators, built the way mkArrow builds the meter's
+			local function pickArrow(tex, point, yOff)
+				local f = CreateFrame("Frame", nil, picker)
+				f:SetSize(26, 11)
+				f:SetFrameLevel(picker:GetFrameLevel() + 10)
+				local bg = f:CreateTexture(nil, "BACKGROUND")
+				bg:SetAllPoints()
+				bg:SetColorTexture(0, 0, 0, 0.75)
+				local t = f:CreateTexture(nil, "OVERLAY")
+				t:SetSize(14, 10)
+				t:SetPoint("CENTER", 0, 0)
+				t:SetTexture(tex)
+				f:SetPoint(point, 0, yOff)
+				f:Hide()
+				return f
+			end
+			picker.up = pickArrow("Interface\\Buttons\\Arrow-Up-Up", "TOP", -2)
+			picker.down = pickArrow("Interface\\Buttons\\Arrow-Down-Up", "BOTTOM", 2)
 			picker:SetScript("OnMouseWheel", function(_, delta)
 				local visible = math.min(PICK_VISIBLE, #pickEntries)
 				local newOffset = math.max(0,
