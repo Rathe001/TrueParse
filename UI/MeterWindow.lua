@@ -616,6 +616,303 @@ local function createWindow()
 		scrollOffset = 0
 		MeterWindow:Invalidate()
 	end
+	-- ---------------------------------------------------------------- picker
+	-- Blizzard's dropdown is a MenuUtil context menu, and its buttons are TEXT
+	-- plus colour escapes - no borders, no columns, no right alignment. That
+	-- is the whole reason the picker never looked like the mockup (Josh
+	-- 2026-08-05: "we are losing a lot by not following the design mockup").
+	-- So the picker is our own frame. Every piece of it already existed here:
+	-- the window's backdrop, tierChip's 1px-inset chip, and wheel scrolling.
+	-- Anchoring is ours end to end, which is also why this is SAFER than
+	-- decorating menu buttons - nothing depends on Blizzard's internals.
+	local PICK_ROW_H, PICK_CHIP_W, PICK_CHIP_H = 17, 30, 13
+	local PICK_VISIBLE = 14 -- rows on screen; the wheel reaches the rest
+	local picker, pickRows, pickEntries, pickScroll = nil, {}, {}, 0
+
+	local function hexToRGB(hex)
+		if not hex or #hex < 6 then return 0.6, 0.63, 0.65 end
+		return tonumber(hex:sub(1, 2), 16) / 255,
+			tonumber(hex:sub(3, 4), 16) / 255,
+			tonumber(hex:sub(5, 6), 16) / 255
+	end
+
+	local function makePickRow(parent)
+		local row = CreateFrame("Button", nil, parent)
+		row:SetHeight(PICK_ROW_H)
+		row.hl = row:CreateTexture(nil, "BACKGROUND")
+		row.hl:SetAllPoints()
+		row.hl:SetColorTexture(1, 1, 1, 0.07)
+		row.hl:Hide()
+		row:SetScript("OnEnter", function(self) self.hl:Show() end)
+		row:SetScript("OnLeave", function(self) self.hl:Hide() end)
+
+		-- selection dot, the menu's radio in our own hand
+		row.dot = CreateFrame("Frame", nil, row)
+		row.dot:SetSize(9, 9)
+		row.dot:SetPoint("LEFT", 6, 0)
+		row.dot.fill = row.dot:CreateTexture(nil, "OVERLAY")
+		row.dot.fill:SetAllPoints()
+		row.dot.fill:SetColorTexture(1, 1, 1, 1)
+		row.dot.ring = {}
+		for i = 1, 4 do
+			local e = row.dot:CreateTexture(nil, "ARTWORK")
+			e:SetColorTexture(0.42, 0.44, 0.49, 1)
+			if i == 1 then e:SetPoint("TOPLEFT"); e:SetPoint("TOPRIGHT"); e:SetHeight(1)
+			elseif i == 2 then e:SetPoint("BOTTOMLEFT"); e:SetPoint("BOTTOMRIGHT"); e:SetHeight(1)
+			elseif i == 3 then e:SetPoint("TOPLEFT"); e:SetPoint("BOTTOMLEFT"); e:SetWidth(1)
+			else e:SetPoint("TOPRIGHT"); e:SetPoint("BOTTOMRIGHT"); e:SetWidth(1) end
+			row.dot.ring[i] = e
+		end
+
+		-- difficulty chip: tierChip's construction, at row scale
+		row.chip = CreateFrame("Frame", nil, row)
+		row.chip:SetSize(PICK_CHIP_W, PICK_CHIP_H)
+		row.chip:SetPoint("LEFT", row.dot, "RIGHT", 7, 0)
+		row.chip.bg = row.chip:CreateTexture(nil, "BACKGROUND")
+		row.chip.bg:SetAllPoints()
+		row.chip.edges = {}
+		for i = 1, 4 do
+			local e = row.chip:CreateTexture(nil, "BORDER")
+			if i == 1 then e:SetPoint("TOPLEFT"); e:SetPoint("TOPRIGHT"); e:SetHeight(1)
+			elseif i == 2 then e:SetPoint("BOTTOMLEFT"); e:SetPoint("BOTTOMRIGHT"); e:SetHeight(1)
+			elseif i == 3 then e:SetPoint("TOPLEFT"); e:SetPoint("BOTTOMLEFT"); e:SetWidth(1)
+			else e:SetPoint("TOPRIGHT"); e:SetPoint("BOTTOMRIGHT"); e:SetWidth(1) end
+			row.chip.edges[i] = e
+		end
+		row.chip.label = row.chip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		row.chip.label:SetPoint("CENTER", 0, 0)
+		local cf = row.chip.label:GetFont()
+		if cf then row.chip.label:SetFont(cf, 9, "") end
+
+		local function fs(size)
+			local t = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+			local f = t:GetFont()
+			if f then t:SetFont(f, size, "") end
+			return t
+		end
+		-- RIGHT-anchored and laid out right to left, so the columns line up
+		-- however long a boss name is - the thing plain text could not do
+		row.best = fs(11)
+		row.best:SetPoint("RIGHT", -7, 0)
+		row.best:SetJustifyH("RIGHT")
+		row.prog = fs(12)
+		row.prog:SetPoint("RIGHT", row.best, "LEFT", -5, 0)
+		row.prog:SetJustifyH("RIGHT")
+		row.time = fs(12)
+		row.time:SetPoint("RIGHT", row.prog, "LEFT", -7, 0)
+		row.time:SetJustifyH("RIGHT")
+		row.name = fs(12)
+		row.name:SetPoint("LEFT", row.chip, "RIGHT", 8, 0)
+		row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
+		row.name:SetJustifyH("LEFT")
+		row.name:SetWordWrap(false)
+
+		-- group heading: gold zone name over a hairline, drawn by the same
+		-- row so the list stays one flat, scrollable sequence
+		row.head = fs(12)
+		row.head:SetPoint("LEFT", 8, 0)
+		row.head:SetTextColor(1, 0.827, 0.43)
+		row.rule = row:CreateTexture(nil, "ARTWORK")
+		row.rule:SetColorTexture(0.22, 0.19, 0.30, 0.95)
+		row.rule:SetHeight(1)
+		row.rule:SetPoint("TOPLEFT", 0, 0)
+		row.rule:SetPoint("TOPRIGHT", 0, 0)
+		return row
+	end
+
+	local function paintPickRow(row, e)
+		if e.kind == "head" then
+			row.head:SetText(e.text)
+			row.head:Show()
+			row.rule:SetShown(not e.first)
+			row.dot:Hide(); row.chip:Hide()
+			row.name:Hide(); row.time:Hide(); row.prog:Hide(); row.best:Hide()
+			row:SetScript("OnClick", nil)
+			row:EnableMouse(false)
+			return
+		end
+		row.head:Hide(); row.rule:Hide()
+		row.dot:Show(); row.name:Show(); row.time:Show()
+		row:EnableMouse(true)
+
+		local sel = e.fight == pinnedFight or (e.current and pinnedFight == nil)
+		row.dot.fill:SetShown(sel)
+		if sel then row.dot.fill:SetColorTexture(1, 0.827, 0.43, 1) end
+		for _, t in ipairs(row.dot.ring) do
+			t:SetColorTexture(sel and 1 or 0.42, sel and 0.827 or 0.44, sel and 0.43 or 0.49, 1)
+		end
+
+		if e.current then
+			row.chip:Hide()
+			row.name:ClearAllPoints()
+			row.name:SetPoint("LEFT", row.dot, "RIGHT", 7, 0)
+			row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
+			row.name:SetText("Current")
+			row.name:SetTextColor(0.75, 0.78, 0.85)
+			row.time:SetText("follows new fights")
+			row.time:SetTextColor(0.45, 0.47, 0.53)
+			row.prog:SetText(""); row.best:SetText("")
+			row:SetScript("OnClick", function() selectFight(nil); picker:Hide() end)
+			return
+		end
+
+		local f = e.fight
+		local _, chip, colour = TP.DifficultyParts(f)
+		if chip then
+			local r, g, b = hexToRGB(colour)
+			row.chip:Show()
+			row.chip.bg:SetColorTexture(r, g, b, 0.13)
+			for _, t in ipairs(row.chip.edges) do t:SetColorTexture(r, g, b, 0.85) end
+			row.chip.label:SetText(chip)
+			row.chip.label:SetTextColor(r, g, b)
+			row.name:ClearAllPoints()
+			row.name:SetPoint("LEFT", row.chip, "RIGHT", 8, 0)
+			row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
+		else
+			row.chip:Hide()
+			row.name:ClearAllPoints()
+			row.name:SetPoint("LEFT", row.dot, "RIGHT", 7, 0)
+			row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
+		end
+
+		row.name:SetText((f.name or "Fight"):gsub("^%(!%)%s*", ""))
+		row.name:SetTextColor(0.91, 0.90, 0.87)
+		local d = f.duration or 0
+		row.time:SetText(("%d:%02d"):format(math.floor(d / 60), math.floor(d % 60)))
+
+		if f.wipe then
+			row.time:SetTextColor(0.90, 0.30, 0.30)
+			row.prog:SetText(TP.PullProgress(f) or "wipe")
+			row.prog:SetTextColor(0.90, 0.30, 0.30)
+			row.best:SetText(e.best and "best" or "")
+			row.best:SetTextColor(1, 0.827, 0.43)
+		elseif f.practice then
+			row.time:SetTextColor(0.40, 0.80, 1)
+			row.prog:SetText("practice"); row.prog:SetTextColor(0.40, 0.80, 1)
+			row.best:SetText("")
+		else
+			row.time:SetTextColor(0.49, 0.79, 0.54)
+			row.prog:SetText("kill"); row.prog:SetTextColor(0.49, 0.79, 0.54)
+			row.best:SetText("")
+		end
+		row.prog:Show(); row.best:Show()
+		row:SetScript("OnClick", function() selectFight(f); picker:Hide() end)
+	end
+
+	local function layoutPicker()
+		local n = #pickEntries
+		local visible = math.min(PICK_VISIBLE, n)
+		pickScroll = math.max(0, math.min(pickScroll, n - visible))
+		picker:SetHeight(visible * PICK_ROW_H + 10)
+		-- surplus rows stay in the pool, just hidden
+		for i = #pickRows, visible + 1, -1 do
+			pickRows[i]:Hide()
+		end
+		for i = 1, visible do
+			local row = pickRows[i]
+			if not row then
+				row = makePickRow(picker)
+				pickRows[i] = row
+			end
+			row:ClearAllPoints()
+			row:SetPoint("TOPLEFT", 5, -(5 + (i - 1) * PICK_ROW_H))
+			row:SetPoint("TOPRIGHT", -5, -(5 + (i - 1) * PICK_ROW_H))
+			row:Show()
+			paintPickRow(row, pickEntries[i + pickScroll])
+		end
+	end
+
+	local function buildPickEntries()
+		local fights = TP.FightHistory.fights
+		pickEntries = { { kind = "row", current = true, first = true } }
+		local shown = math.min(#fights, 25)
+		local best = markBestPulls(fights, shown)
+		local prev
+		for i = 1, shown do
+			local f = fights[i]
+			-- ONE heading per instance visit even when difficulty changes
+			-- mid-night; the chip on each row carries 10N vs 10H.
+			if not prev or (f.zone or "?") ~= (prev.zone or "?")
+				or math.abs((prev.capturedAt or 0) - (f.capturedAt or 0)) > 3600 then
+				pickEntries[#pickEntries + 1] =
+					{ kind = "head", text = f.zone or "Unknown", first = #pickEntries == 1 }
+			end
+			prev = f
+			pickEntries[#pickEntries + 1] = { kind = "row", fight = f, best = best[f] }
+		end
+	end
+
+	local function openFightPicker(anchor)
+		if #TP.FightHistory.fights == 0 then
+			return false
+		end
+		if not picker then
+			picker = CreateFrame("Frame", "TrueParseFightPicker", UIParent, "BackdropTemplate")
+			picker:SetBackdrop({
+				bgFile = "Interface\\Buttons\\WHITE8X8",
+				edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+				edgeSize = 12,
+				insets = { left = 3, right = 3, top = 3, bottom = 3 },
+			})
+			picker:SetBackdropColor(0.043, 0.047, 0.063, 0.98)
+			picker:SetBackdropBorderColor(0.220, 0.192, 0.298, 0.95)
+			picker:SetFrameStrata("DIALOG")
+			picker:EnableMouse(true)
+			picker:SetScript("OnMouseWheel", function(_, delta)
+				local visible = math.min(PICK_VISIBLE, #pickEntries)
+				local newOffset = math.max(0,
+					math.min(pickScroll - delta, #pickEntries - visible))
+				if newOffset ~= pickScroll then
+					pickScroll = newOffset
+					layoutPicker()
+				end
+			end)
+			-- click anywhere else, or press Escape, closes it - the two things
+			-- a real dropdown does that a bare frame does not. Keyboard input
+			-- PROPAGATES, so capturing Escape here never swallows a keystroke
+			-- meant for chat or a bind.
+			picker:EnableKeyboard(true)
+			picker:SetScript("OnKeyDown", function(self, key)
+				if key == "ESCAPE" then
+					if self.SetPropagateKeyboardInput then
+						self:SetPropagateKeyboardInput(false)
+					end
+					self:Hide()
+				elseif self.SetPropagateKeyboardInput then
+					self:SetPropagateKeyboardInput(true)
+				end
+			end)
+			picker:SetScript("OnShow", function(self)
+				if self.SetPropagateKeyboardInput then
+					self:SetPropagateKeyboardInput(true)
+				end
+			end)
+			picker.catcher = CreateFrame("Button", nil, UIParent)
+			picker.catcher:SetAllPoints(UIParent)
+			picker.catcher:SetFrameStrata("DIALOG")
+			picker.catcher:SetFrameLevel(math.max(1, picker:GetFrameLevel() - 1))
+			picker.catcher:Hide()
+			picker.catcher:SetScript("OnClick", function() picker:Hide() end)
+			picker:HookScript("OnShow", function() picker.catcher:Show() end)
+			picker:HookScript("OnHide", function() picker.catcher:Hide() end)
+		end
+		if picker:IsShown() then
+			picker:Hide()
+			return true
+		end
+		pickScroll = 0
+		buildPickEntries()
+		picker:ClearAllPoints()
+		picker:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
+		picker:SetWidth(math.max(300, window:GetWidth() - 12))
+		layoutPicker()
+		picker:Show()
+		picker:Raise()
+		return true
+	end
+
+	-- Kept for any client without the modern menu API, and as the reference
+	-- for what the picker used to be.
 	local function openFightMenu(anchor)
 		local fights = TP.FightHistory.fights
 		if #fights == 0 or not (MenuUtil and MenuUtil.CreateContextMenu) then
@@ -657,6 +954,12 @@ local function createWindow()
 		return true
 	end
 	window.fightDrop:SetScript("OnClick", function(self)
+		-- our own panel first; the Blizzard menu and click-cycling remain as
+		-- fallbacks so a failure here degrades instead of breaking the picker
+		local ok, opened = TP.Trap("fightPicker", openFightPicker, self)
+		if ok and opened then
+			return
+		end
 		if not openFightMenu(self) then
 			MeterWindow:StepFight(1) -- no menu API: old cycling behavior
 		end
