@@ -1,4 +1,4 @@
--- The main TrueParse window. Primary view: post-fight SCORECARD — one row
+﻿-- The main TrueParse window. Primary view: post-fight SCORECARD — one row
 -- per player with a colored letter grade, sorted by contribution score.
 -- Until the first fight is captured it falls back to a live damage view
 -- (Blizzard session data), and Classic clients use the CLEU segment view.
@@ -628,7 +628,7 @@ local function createWindow()
 	-- Proportions taken off the mockup rather than guessed: a 20px row against
 	-- a 13px name, and a heading with room to breathe above its group.
 	local PICK_ROW_H, PICK_HEAD_H = 20, 23
-	local PICK_CHIP_W, PICK_CHIP_H = 32, 15
+	local PICK_CHIP_W, PICK_CHIP_H = 30, 14
 	local PICK_VISIBLE = 14 -- entries on screen; the wheel reaches the rest
 	local picker, pickRows, pickEntries, pickScroll = nil, {}, {}, 0
 	local function entryHeight(e)
@@ -652,13 +652,23 @@ local function createWindow()
 		row:SetScript("OnEnter", function(self) self.hl:Show() end)
 		row:SetScript("OnLeave", function(self) self.hl:Hide() end)
 
-		-- Selection dot. Blizzard's radio ART, not four hand-drawn edges: the
-		-- mockup's dot is ROUND and a square frame can only ever be a square.
-		-- Left half of the texture is the empty ring, right half the filled.
+		-- Selection dot, as TWO textures from Blizzard's radio art. The ring
+		-- is always drawn; the centre only when selected. One texture could
+		-- not do it: the "checked" quadrant is a pinprick meant to sit INSIDE
+		-- a ring, so on its own it read as a speck rather than the mockup's
+		-- filled circle. Drawing both, with the centre scaled up, gives a
+		-- gold dot inside a gold ring at any size.
 		row.dot = row:CreateTexture(nil, "ARTWORK")
-		row.dot:SetSize(13, 13)
+		row.dot:SetSize(16, 16)
 		row.dot:SetPoint("LEFT", 7, 0)
 		row.dot:SetTexture("Interface\\Buttons\\UI-RadioButton")
+		row.dot:SetTexCoord(0, 0.25, 0, 1)
+		row.dotFill = row:CreateTexture(nil, "OVERLAY")
+		row.dotFill:SetSize(11, 11)
+		row.dotFill:SetPoint("CENTER", row.dot, "CENTER", 0, 0)
+		row.dotFill:SetTexture("Interface\\Buttons\\UI-RadioButton")
+		row.dotFill:SetTexCoord(0.25, 0.5, 0, 1)
+		row.dotFill:Hide()
 
 		-- difficulty chip: tierChip's construction, at row scale
 		row.chip = CreateFrame("Frame", nil, row)
@@ -678,7 +688,7 @@ local function createWindow()
 		row.chip.label = row.chip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 		row.chip.label:SetPoint("CENTER", 0, 0)
 		local cf = row.chip.label:GetFont()
-		if cf then row.chip.label:SetFont(cf, 10, "") end
+		if cf then row.chip.label:SetFont(cf, 9, "") end
 
 		local function fs(size)
 			local t = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -698,13 +708,13 @@ local function createWindow()
 		if row.best.SetRotation then
 			row.best:SetRotation(math.rad(45))
 		end
-		row.prog = fs(13)
+		row.prog = fs(12)
 		row.prog:SetPoint("RIGHT", row.best, "LEFT", -6, 0)
 		row.prog:SetJustifyH("RIGHT")
-		row.time = fs(13)
+		row.time = fs(12)
 		row.time:SetPoint("RIGHT", row.prog, "LEFT", -8, 0)
 		row.time:SetJustifyH("RIGHT")
-		row.name = fs(13)
+		row.name = fs(12)
 		row.name:SetPoint("LEFT", row.chip, "RIGHT", 9, 0)
 		row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
 		row.name:SetJustifyH("LEFT")
@@ -712,7 +722,7 @@ local function createWindow()
 
 		-- group heading: gold zone name over a hairline, drawn by the same
 		-- row so the list stays one flat, scrollable sequence
-		row.head = fs(13)
+		row.head = fs(12)
 		row.head:SetPoint("LEFT", 9, 0)
 		row.head:SetPoint("BOTTOM", row, "BOTTOM", 0, 3)
 		row.head:SetTextColor(1, 0.827, 0.43)
@@ -729,7 +739,7 @@ local function createWindow()
 			row.head:SetText(e.text)
 			row.head:Show()
 			row.rule:SetShown(not e.first)
-			row.dot:Hide(); row.chip:Hide()
+			row.dot:Hide(); row.dotFill:Hide(); row.chip:Hide()
 			row.name:Hide(); row.time:Hide(); row.prog:Hide(); row.best:Hide()
 			row:SetScript("OnClick", nil)
 			row:EnableMouse(false)
@@ -740,13 +750,9 @@ local function createWindow()
 		row:EnableMouse(true)
 
 		local sel = e.fight == pinnedFight or (e.current and pinnedFight == nil)
-		-- left half of the radio art is the empty ring, right half the filled
-		row.dot:SetTexCoord(sel and 0.25 or 0, sel and 0.5 or 0.25, 0, 1)
-		if sel then
-			row.dot:SetVertexColor(1, 0.827, 0.43)
-		else
-			row.dot:SetVertexColor(0.62, 0.64, 0.70)
-		end
+		row.dot:SetVertexColor(sel and 1 or 0.62, sel and 0.827 or 0.64, sel and 0.43 or 0.70)
+		row.dotFill:SetVertexColor(1, 0.827, 0.43)
+		row.dotFill:SetShown(sel)
 
 		if e.current then
 			row.chip:Hide()
@@ -831,7 +837,9 @@ local function createWindow()
 			paintPickRow(row, e)
 			y = y + h
 		end
-		picker:SetHeight(y + 5)
+		-- extra room at the bottom so the down arrow sits in padding instead
+		-- of over the last row's text
+		picker:SetHeight(y + 11)
 		-- Same arrows the meter uses, for the same reason: without them a
 		-- capped list looks like the whole list (Josh 2026-08-05).
 		picker.up:SetShown(pickScroll > 0)
