@@ -485,6 +485,62 @@ do
 		"MoP does not load the retail healer-coverage anchors")
 end
 
+-- FIGHT WINDOW. Every per-second rate in the addon divides by this, so an
+-- error here moves every score at once and looks like a calibration problem.
+-- It shipped exactly that way: Josh's Norushen Heroic kill was stored as 545s
+-- against WCL's 360s, because the segment opened when the previous wipe ended
+-- and stayed open through the run-back. 191 of those seconds carried zero
+-- group damage. The group scored a mean 28.9 points UNDER their real WCL
+-- parses at corr 0.27; on the corrected clock, +2.6 at corr 0.86.
+do
+	local TP = {}
+	local chunk = assert(loadfile("Collect/FightHistory.lua"))
+	-- FightHistory registers frames at file scope; stub just enough to let it
+	-- load, and put the globals back so nothing after this sees them.
+	local saved = { CreateFrame = _G.CreateFrame, UnitGUID = _G.UnitGUID,
+		GetTime = _G.GetTime, C_Timer = _G.C_Timer, wipe = _G.wipe }
+	local stub = setmetatable({}, { __index = function() return function() end end })
+	_G.CreateFrame = function()
+		return setmetatable({}, { __index = function() return function() return stub end end })
+	end
+	_G.UnitGUID = _G.UnitGUID or function() return "Player-1-0001" end
+	_G.GetTime = _G.GetTime or function() return 1000 end
+	_G.C_Timer = _G.C_Timer or { After = function() end, NewTicker = function() return stub end }
+	_G.wipe = _G.wipe or function(t) for k in pairs(t) do t[k] = nil end return t end
+	local ok, err = pcall(chunk, "TrueParse", TP)
+	for k, v in pairs(saved) do _G[k] = v end
+	if not ok then print("     load error: " .. tostring(err)) end
+	local pick = ok and TP.FightHistory and TP.FightHistory.ChooseFightWindow
+	check(type(pick) == "function", "the fight-window chooser is reachable for tests")
+	if type(pick) == "function" then
+		-- WCL counts the RP intro, so a short lead-in stays on the encounter
+		-- window. Norushen Normal really is ~27 dead seconds long.
+		local f, t = pick(0, 271, 27, 244)
+		check(f == 0 and t == 271, "a short RP intro keeps the encounter window")
+
+		-- 191s of dead air is not an intro. Damage bounds win.
+		f, t = pick(0, 545, 191, 355)
+		check(f == 191 and t == 355, "a run-back inside the segment is trimmed away")
+
+		-- no encounter events (celestial dungeons): damage bounds are all we have
+		f, t = pick(nil, nil, 12, 300)
+		check(f == 12 and t == 300, "without encounter events the damage window is used")
+
+		-- no damage buckets at all: never invent a window
+		f, t = pick(5, 200, nil, nil)
+		check(f == 5 and t == 200, "a missing damage window leaves the encounter window alone")
+		f, t = pick(nil, nil, nil, nil)
+		check(f == nil and t == nil, "with neither window the segment is left untrimmed")
+
+		-- the boundary is a threshold, not a slope: 60s of dead air is still
+		-- an intro, 61 is not. Pinned so a future tweak has to be deliberate.
+		f, t = pick(0, 300, 60, 240)
+		check(t == 300, "60s of dead air is still treated as an intro")
+		f, t = pick(0, 301, 61, 240)
+		check(t == 240, "61s of dead air is treated as a run-back")
+	end
+end
+
 print("")
 if failures > 0 then
 	print(("%d/%d CHECKS FAILED"):format(failures, checks))

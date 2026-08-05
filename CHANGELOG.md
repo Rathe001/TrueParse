@@ -1,5 +1,32 @@
 # TrueParse Changelog
 
+## 2.11.0
+
+**Fixes fights that were recorded as far longer than they really were, which
+pushed every score in the group down at once.**
+
+If a pull ended and the group stayed in combat - the usual case after a wipe,
+with a lingering add or a damage-over-time effect still ticking - the next
+fight's timer could start immediately and keep running through the whole
+release and run back. One Heroic Norushen kill was recorded as nine minutes
+when the fight itself lasted six, with over three minutes of nothing at the
+front of it.
+
+Every per-second number divides by that clock, so damage, healing and tank
+mitigation uptime were all understated together. It does not look like a
+timing bug when you see it: it looks like the whole group played badly. On
+that pull, everyone scored an average of 29 points below their actual
+Warcraft Logs parse, and the ranking barely resembled theirs. On the corrected
+clock the same pull lands within 3 points of Warcraft Logs and the ordering
+matches.
+
+The intro before a boss is still counted, because Warcraft Logs counts it too
+and scores are meant to line up with theirs. Only dead time far longer than
+any intro is now treated as a fight that had not started yet.
+
+This affects fights recorded from now on. Fights already in your history keep
+the length they were saved with.
+
 ## 2.10.2
 
 **Fixes the load-time error on the addon list, reported against 2.10.0 and

@@ -18,6 +18,34 @@ local FightHistory = {
 }
 TP.FightHistory = FightHistory
 
+-- Dead air an ENCOUNTER window may legitimately contain before first damage.
+-- WCL's fight bounds ARE the encounter events, RP intros included (verified
+-- against live logs 2026-07-16), so the intro is NOT trimmed - Norushen's is
+-- ~27s and trimming it read SHORT of WCL by ~15s. Anything far beyond that is
+-- not an intro: it is the previous pull's segment still open across a
+-- run-back. Measured 2026-08-05 on Josh's Norushen Heroic kill - 191 dead
+-- seconds inside a 545s segment WCL reports as 360s, which deflated every
+-- rate by a third and scored the group 28.9 points under their real parses.
+local MAX_INTRO = 60
+
+-- Which window is the fight? Pure, and exposed because it decides every
+-- per-second rate in the addon and must be testable without a live client.
+-- Returns first (seconds of lead-in to drop), tight (fight length), or nil to
+-- leave the segment untrimmed.
+function FightHistory.ChooseFightWindow(encFirst, encTight, dmgFirst, dmgTight)
+	-- The encounter window is authoritative when we have one: it is what WCL
+	-- ranks against, intro included.
+	if encTight then
+		-- ...unless it contains dead air no intro explains, in which case the
+		-- segment opened before the pull and only the damage bounds are real.
+		if dmgTight and (encTight - dmgTight) > MAX_INTRO then
+			return dmgFirst, dmgTight
+		end
+		return encFirst, encTight
+	end
+	return dmgFirst, dmgTight
+end
+
 local IsSecret
 local metrics -- resolved METRIC_DEFS: { {key, enumValue}, ... }
 local specIconMap -- icon fileID -> { specID, role }
@@ -994,22 +1022,27 @@ function FightHistory:AddFromSegment(seg)
 		-- SHORT of WCL by ~15s). Anchor to the encounter window when we
 		-- have one; fall back to damage-bucket bounds only for segments
 		-- without a clean encounter verdict.
-		local first, tight
+		local encFirst, encTight
 		if seg.encounterStartTime and seg.encounterEnded and seg.endTime then
-			first = math.max(0, math.floor(seg.encounterStartTime - seg.startTime))
-			tight = math.max(1, math.floor(seg.endTime - seg.encounterStartTime + 0.5))
-		elseif seg.group and seg.group.out then
-			local last
+			encFirst = math.max(0, math.floor(seg.encounterStartTime - seg.startTime))
+			encTight = math.max(1, math.floor(seg.endTime - seg.encounterStartTime + 0.5))
+		end
+		local dmgFirst, dmgTight
+		if seg.group and seg.group.out then
+			local lo, hi
 			for t in pairs(seg.group.out) do
-				if not first or t < first then
-					first = t
+				if not lo or t < lo then
+					lo = t
 				end
-				if not last or t > last then
-					last = t
+				if not hi or t > hi then
+					hi = t
 				end
 			end
-			tight = first and last and last > first and (last - first + 1) or nil
+			if lo and hi and hi > lo then
+				dmgFirst, dmgTight = lo, hi - lo + 1
+			end
 		end
+		local first, tight = FightHistory.ChooseFightWindow(encFirst, encTight, dmgFirst, dmgTight)
 		if first and tight then
 			if tight >= 10 and tight < seg.duration then
 				seg.rawDuration = seg.duration
