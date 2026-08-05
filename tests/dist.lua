@@ -75,7 +75,7 @@ local function loadClient(isRetail)
 			"Totals_Mists", "SpellProfiles_Mists", "Potions", "Avoidable_Mists",
 			"DamageProfiles_Mists", "ActivityProfiles_Mists", "ProcExclusions_Mists",
 			"Lust_Mists", "Mitigation_Mists", "HealerCDs_Mists", "GroupBuffs",
-			"Defensives", "TankAnchors_Mists", "TankDamage_Mists" }
+			"Defensives", "TankAnchors_Mists", "TankAnchors_Mists_Heroic", "TankDamage_Mists" }
 	for _, d in ipairs(DATA) do
 		load("Data/" .. d .. ".lua")
 	end

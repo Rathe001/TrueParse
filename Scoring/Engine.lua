@@ -51,6 +51,39 @@ end
 -- specs whose fields are tightest, on 55% of a tank's grade. The guard only
 -- ever needed to prevent division by zero, so make it epsilon.
 local EPS = 1e-6
+-- Active-mitigation anchors for this fight's DIFFICULTY, not just this spec.
+-- Tanks genuinely hold mitigation up far less on Heroic than on Normal -
+-- measured 2026-08-05 on Josh's SoO captures, median uptime 40% Normal vs 28%
+-- Heroic on the corrected clock - and the crawl that produced TANK_ANCHORS
+-- runs Normal only (fetch-tank-mitigation.ps1 defaults -Brackets "3x10,3x25").
+-- Scoring a Heroic tank against the Normal field put the median at 17-19 on
+-- the metric carrying half their grade. TANK_ANCHORS_ALT carries a set for
+-- the difficulties it names; absent, everything keeps using the Normal field.
+local function tankAnchorsFor(ctx, specID)
+	local AN = TP.TANK_ANCHORS or {}
+	local alt = TP.TANK_ANCHORS_ALT
+	if alt and alt.anchors and alt.difficulties
+		and ctx and ctx.difficultyID and alt.difficulties[ctx.difficultyID] then
+		AN = alt.anchors
+	end
+	return (specID and AN[specID]) or AN.default
+end
+
+-- Same split for tank DAMAGE. Both anchor files came out of the one Normal
+-- crawl, so leaving damage difficulty-blind while mitigation is difficulty-
+-- aware would just move the error rather than fix it. Heroic tanks put out
+-- more relative to their group too: Blood DK's median is 1.63x the group mean
+-- on Heroic against 1.09x on Normal.
+local function tankDamageAnchorsFor(ctx, specID)
+	local AN = TP.TANK_DAMAGE_ANCHORS
+	local alt = TP.TANK_DAMAGE_ANCHORS_ALT
+	if alt and alt.anchors and alt.difficulties
+		and ctx and ctx.difficultyID and alt.difficulties[ctx.difficultyID] then
+		AN = alt.anchors
+	end
+	return AN and ((specID and AN[specID]) or AN.default)
+end
+
 local function anchorScore(v, p25, p50, p75)
 	if v <= p25 then
 		return math.max(0, 25 * v / math.max(p25, EPS))
@@ -1248,8 +1281,7 @@ local function normalizeMetric(p, role, key, ctx)
 			-- median uptime and loses below it, symmetrically.
 			return 50, true
 		end
-		local AN = TP.TANK_ANCHORS or {}
-		local a = (p.specID and AN[p.specID]) or AN.default or { 30, 55, 75 }
+		local a = tankAnchorsFor(ctx, p.specID) or { 30, 55, 75 }
 		return anchorScore(up, a[1], a[2], a[3]), true
 	end
 
@@ -1307,8 +1339,7 @@ local function normalizeMetric(p, role, key, ctx)
 			+ #(ctx.cohorts.DAMAGER or {}) + #(ctx.cohorts.SUPPORT or {}))
 	if role == "TANK" and key == "damage" and not ctx.parseMode
 		and scoredCount and scoredCount > 5 then
-		local AN = TP.TANK_DAMAGE_ANCHORS
-		local a = AN and ((p.specID and AN[p.specID]) or AN.default)
+		local a = tankDamageAnchorsFor(ctx, p.specID)
 		local groupTotal = ctx.totals and ctx.totals.damage
 		local n = ctx.playerCount or 0
 		-- Refuse a stale share-based data file outright rather than score
@@ -1861,6 +1892,7 @@ function Engine.ScoreFight(fight, opts)
 		fightFactors = resolveFightFactors(fight),
 		curves = nil, -- widening WCL evidence ladder, set below
 		duration = fight.duration,
+		difficultyID = fight.difficultyID, -- selects the tank-anchor field
 		totals = { damage = 0, healing = 0, damageTaken = 0, interrupts = 0, dispels = 0, avoidable = 0,
 			-- debuff types actually dispelled this fight (learned at
 			-- capture): gates who is ELIGIBLE for dispel scoring
@@ -2350,8 +2382,7 @@ function Engine.ScoreFight(fight, opts)
 			-- tooltip shows the raw uptime vs the spec's WCL median
 			if key == "mitigation" then
 				breakdown[key].value = (p.metrics and p.metrics.mitigationPct) or 0
-				local AN = TP.TANK_ANCHORS or {}
-				breakdown[key].anchors = (p.specID and AN[p.specID]) or AN.default
+				breakdown[key].anchors = tankAnchorsFor(ctx, p.specID)
 				-- matches the imputation above: a flat 0 is unmeasured, so
 				-- the row must show "?" and not a measured mid-pack 50
 				-- ...and practice is unmeasured for a different reason: the

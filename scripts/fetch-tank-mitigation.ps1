@@ -23,6 +23,11 @@ param(
     [int]$MinSamples = 20,   # specs with fewer tank-fights stay on the default
     [string]$MitIds = "mists", # "mists" | "retail" | comma-separated ids
     [string]$OutFile = "TankAnchors.lua",
+    # Comma-separated BLIZZARD difficultyIDs. When set, the anchor files are
+    # emitted as *_ALT tables gated to those difficulties instead of replacing
+    # the base ones - so a Heroic crawl sits ALONGSIDE the Normal field rather
+    # than overwriting it (Josh 2026-08-05).
+    [string]$EmitAlt = "",
     [string]$OutDamageFile = "TankDamage.lua",
     [string]$OutCoverageFile = "HealerCoverage.lua",
     [string]$ClientFile = "$PSScriptRoot\wcl-v2-client.local.txt"
@@ -55,6 +60,16 @@ function Get-Token {
 }
 $script:token = Get-Token
 Write-Host "OAuth OK; endpoint $GameBase/api/v2/client"
+
+# _ALT wrapping: same numbers, gated to the difficulties this crawl covers.
+$altSuffix = ""; $altOpen = ""; $altClose = ""
+if ($EmitAlt -ne "") {
+    $ids = @($EmitAlt -split "," | ForEach-Object { "[{0}] = true" -f [int]$_.Trim() })
+    $altSuffix = "_ALT"
+    $altOpen = "`n`tdifficulties = { $($ids -join ', ') },`n`tanchors = {"
+    $altClose = "`n}"
+    Write-Host ("Emitting *_ALT tables gated to difficultyIDs: {0}" -f $EmitAlt)
+}
 
 function Invoke-GQL($query) {
     for ($attempt = 1; $attempt -le 6; $attempt++) {
@@ -363,10 +378,10 @@ $header = @"
 -- rare spec is judged against the middle of its peers rather than a guess.
 local _, TP = ...
 
-TP.TANK_ANCHORS = {
+TP.TANK_ANCHORS$altSuffix = {$altOpen
 	default = $defLine
 $($lines -join "`n")
-}
+}$altClose
 "@
 $outPath = if ([System.IO.Path]::IsPathRooted($OutFile)) { $OutFile } else { Join-Path (Split-Path $PSScriptRoot -Parent) "Data\$OutFile" }
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
@@ -430,10 +445,10 @@ local _, TP = ...
 
 TP.TANK_DAMAGE_ANCHOR_UNIT = "mean-multiple"
 
-TP.TANK_DAMAGE_ANCHORS = {
+TP.TANK_DAMAGE_ANCHORS$altSuffix = {$altOpen
 	default = $dDefLine
 $($dLines -join "`n")
-}
+}$altClose
 "@
 $dOut = if ([System.IO.Path]::IsPathRooted($OutDamageFile)) { $OutDamageFile } else { Join-Path (Split-Path $PSScriptRoot -Parent) "Data\$OutDamageFile" }
 [System.IO.File]::WriteAllText($dOut, $dHeader, $utf8Bom)
