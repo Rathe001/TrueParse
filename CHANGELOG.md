@@ -1,5 +1,28 @@
 # TrueParse Changelog
 
+## 2.11.1
+
+**Fixes two problems with the new fight list, and makes it a good deal more
+useful.**
+
+The list needed two clicks to open the first time, and it now opens on the
+first. Worse, while it was open, clicking or right-click-dragging to move the
+camera only closed the list and the camera never moved. Clicking away closes
+it as before, but the click reaches the game again.
+
+**Repeat attempts on a boss are now grouped.** A night of progression showed
+one row per pull, so fourteen attempts on one boss filled the whole list. The
+latest attempt leads, the count sits beside its name, and the earlier ones fold
+away underneath until you open them. One evening's raiding went from
+twenty-eight rows to six.
+
+**Hovering a pull shows that fight's whole group** - everyone's score, best to
+worst, with the group average. A quick look back at a pull without leaving the
+list or switching to it.
+
+The list is also smaller throughout, and now lines up with the meter's edge
+instead of hanging past it.
+
 ## 2.11.0
 
 **Fixes fights that were recorded as far longer than they really were, which
