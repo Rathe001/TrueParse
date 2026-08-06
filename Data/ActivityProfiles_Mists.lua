@@ -5,22 +5,22 @@
 -- as bad play - this carries each boss's own expected activity so the
 -- anchor can shift to match what the fight actually allows.
 -- factor = this encounter's median / the median across all encounters.
--- Generated 2026-07-28 - Siege of Orgrimmar. Reference median: 97.7%.
+-- Generated 2026-08-06 - Siege of Orgrimmar. Reference median: 97.7%.
 local _, TP = ...
 
 TP.ActivityProfiles = TP.ActivityProfiles or {}
 TP.ActivityProfiles.reference = 97.7
-TP.ActivityProfiles["Fallen Protectors"] = { n = 70, p50 = 99.2, factor = 1.015 }
-TP.ActivityProfiles["Galakras"] = { n = 70, p50 = 80.6, factor = 0.825 }
-TP.ActivityProfiles["Garrosh Hellscream"] = { n = 60, p50 = 98.9, factor = 1.012 }
-TP.ActivityProfiles["General Nazgrim"] = { n = 60, p50 = 91.3, factor = 0.934 }
-TP.ActivityProfiles["Immerseus"] = { n = 69, p50 = 76.4, factor = 0.782 }
-TP.ActivityProfiles["Iron Juggernaut"] = { n = 70, p50 = 99.2, factor = 1.015 }
-TP.ActivityProfiles["Kor'kron Dark Shaman"] = { n = 60, p50 = 98.6, factor = 1.009 }
-TP.ActivityProfiles["Malkorok"] = { n = 60, p50 = 99.2, factor = 1.015 }
-TP.ActivityProfiles["Norushen"] = { n = 70, p50 = 99, factor = 1.013 }
-TP.ActivityProfiles["Paragons of the Klaxxi"] = { n = 60, p50 = 96.6, factor = 0.989 }
-TP.ActivityProfiles["Sha of Pride"] = { n = 70, p50 = 98.7, factor = 1.01 }
-TP.ActivityProfiles["Siegecrafter Blackfuse"] = { n = 59, p50 = 98.4, factor = 1.007 }
-TP.ActivityProfiles["Spoils of Pandaria"] = { n = 60, p50 = 87, factor = 0.89 }
-TP.ActivityProfiles["Thok the Bloodthirsty"] = { n = 60, p50 = 99.3, factor = 1.016 }
+TP.ActivityProfiles["Fallen Protectors"] = { n = 109, p50 = 99.3, factor = 1.016 }
+TP.ActivityProfiles["Galakras"] = { n = 110, p50 = 78.4, factor = 0.802 }
+TP.ActivityProfiles["Garrosh Hellscream"] = { n = 100, p50 = 97.7, factor = 1 }
+TP.ActivityProfiles["General Nazgrim"] = { n = 109, p50 = 94.5, factor = 0.967 }
+TP.ActivityProfiles["Immerseus"] = { n = 110, p50 = 77.8, factor = 0.796 }
+TP.ActivityProfiles["Iron Juggernaut"] = { n = 110, p50 = 99.1, factor = 1.014 }
+TP.ActivityProfiles["Kor'kron Dark Shaman"] = { n = 110, p50 = 98.4, factor = 1.007 }
+TP.ActivityProfiles["Malkorok"] = { n = 110, p50 = 99.1, factor = 1.014 }
+TP.ActivityProfiles["Norushen"] = { n = 110, p50 = 99, factor = 1.013 }
+TP.ActivityProfiles["Paragons of the Klaxxi"] = { n = 100, p50 = 97, factor = 0.993 }
+TP.ActivityProfiles["Sha of Pride"] = { n = 110, p50 = 99, factor = 1.013 }
+TP.ActivityProfiles["Siegecrafter Blackfuse"] = { n = 99, p50 = 98.2, factor = 1.005 }
+TP.ActivityProfiles["Spoils of Pandaria"] = { n = 110, p50 = 90.9, factor = 0.93 }
+TP.ActivityProfiles["Thok the Bloodthirsty"] = { n = 100, p50 = 98.9, factor = 1.012 }
