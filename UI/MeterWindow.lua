@@ -642,6 +642,82 @@ local function createWindow()
 			tonumber(hex:sub(5, 6), 16) / 255
 	end
 
+	-- Hovering a pull shows the whole group's card for it (Josh 2026-08-05:
+	-- "a quick review of the raid scores"). Scoring a fight is not free and a
+	-- mouse crossing a 25-row list would rescore on every row, so each card is
+	-- built once and kept - history records never change after capture.
+	local cardCache = {}
+	local function fightCard(f)
+		local hit = cardCache[f]
+		if hit then
+			return hit.title, hit.lines
+		end
+		local ok, rows = pcall(TP.Scoring.Engine.ScoreFight, f)
+		if not ok or type(rows) ~= "table" then
+			return nil
+		end
+		local scored = {}
+		for _, r in ipairs(rows) do
+			if type(r.score) == "number" then
+				scored[#scored + 1] = r
+			end
+		end
+		table.sort(scored, function(a, b) return a.score > b.score end)
+
+		local header, _ = TP.DifficultyParts(f)
+		local d = f.duration or 0
+		local outcome = f.wipe and (TP.PullProgress(f) or "wipe")
+			or (f.practice and "practice" or "kill")
+		local lines = { {
+			("%s%d:%02d · %s"):format(header and (header .. " · ") or "",
+				math.floor(d / 60), math.floor(d % 60), outcome),
+			0.62, 0.64, 0.70,
+		} }
+
+		-- A 25-man roster is a 27-line card, which runs off a short screen.
+		-- The tail of a sorted list is the least interesting part of it, so
+		-- the card keeps the top and SAYS how many it dropped rather than
+		-- quietly ending.
+		local CAP = 20
+		-- summed over EVERYONE before the cap is applied, so trimming the
+		-- list can never move the average
+		local sum = 0
+		for _, r in ipairs(scored) do
+			sum = sum + r.score
+		end
+		for i, r in ipairs(scored) do
+			if i > CAP then break end
+			local cr, cg, cb = TP.Scoring.Grades.ColorForScore(r.score)
+			-- SHAME is an ARRAY, {r, g, b} - the same danger red the meter
+			-- paints a zero-with-penalties in, so the two agree
+			local S = TP.Scoring.Grades.SHAME
+			if S and TP.Scoring.Grades.IsShamed and TP.Scoring.Grades.IsShamed(r) then
+				cr, cg, cb = S[1], S[2], S[3]
+			end
+			lines[#lines + 1] = {
+				TP.ShortName and TP.ShortName(r.name) or tostring(r.name),
+				cr, cg, cb,
+				chip = ("%.0f"):format(r.score),
+				active = true,
+				rule = (i == 1) or nil,
+			}
+		end
+		if #scored > CAP then
+			lines[#lines + 1] = {
+				("+%d more"):format(#scored - CAP), 0.50, 0.52, 0.58, size = 11,
+			}
+		end
+		if #scored > 0 then
+			lines[#lines + 1] = {
+				("Group average %.0f across %d"):format(sum / #scored, #scored),
+				0.62, 0.64, 0.70, rule = true, size = 11,
+			}
+		end
+		local title = (f.name or "Fight"):gsub("^%(!%)%s*", "")
+		cardCache[f] = { title = title, lines = lines }
+		return title, lines
+	end
+
 	local function makePickRow(parent)
 		local row = CreateFrame("Button", nil, parent)
 		row:SetHeight(PICK_ROW_H)
@@ -649,8 +725,22 @@ local function createWindow()
 		row.hl:SetAllPoints()
 		row.hl:SetColorTexture(1, 1, 1, 0.07)
 		row.hl:Hide()
-		row:SetScript("OnEnter", function(self) self.hl:Show() end)
-		row:SetScript("OnLeave", function(self) self.hl:Hide() end)
+		row:SetScript("OnEnter", function(self)
+			self.hl:Show()
+			if not self.fight then return end
+			-- nil anchor: the tooltip picks the side with room, which matters
+			-- because the meter can sit hard against either screen edge
+			TP.Trap("fightCard", function()
+				local title, lines = fightCard(self.fight)
+				if title then
+					TP.Tooltip:Show(self, nil, title, lines)
+				end
+			end)
+		end)
+		row:SetScript("OnLeave", function(self)
+			self.hl:Hide()
+			TP.Tooltip:Hide()
+		end)
 
 		-- Selection dot, as TWO textures from Blizzard's radio art. The ring
 		-- is always drawn; the centre only when selected. One texture could
@@ -739,6 +829,7 @@ local function createWindow()
 			row.head:SetText(e.text)
 			row.head:Show()
 			row.rule:SetShown(not e.first)
+			row.fight = nil
 			row.dot:Hide(); row.dotFill:Hide(); row.chip:Hide()
 			row.name:Hide(); row.time:Hide(); row.prog:Hide(); row.best:Hide()
 			row:SetScript("OnClick", nil)
@@ -765,11 +856,13 @@ local function createWindow()
 			row.prog:SetText("follows new fights")
 			row.prog:SetTextColor(0.45, 0.47, 0.53)
 			row.best:Hide()
+			row.fight = nil
 			row:SetScript("OnClick", function() selectFight(nil); picker:Hide() end)
 			return
 		end
 
 		local f = e.fight
+		row.fight = f -- what the hover card is built from
 		local _, chip, colour = TP.DifficultyParts(f)
 		if chip then
 			local r, g, b = hexToRGB(colour)
@@ -953,6 +1046,7 @@ local function createWindow()
 			-- Frames are born SHOWN. Without this the first click created the
 			-- picker, the toggle below saw it as already open, and hid it -
 			-- so the first click did nothing and the second one worked.
+			picker:HookScript("OnHide", function() TP.Tooltip:Hide() end)
 			picker:Hide()
 		end
 		if picker:IsShown() then
