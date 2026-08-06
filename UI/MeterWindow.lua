@@ -627,12 +627,12 @@ local function createWindow()
 	-- decorating menu buttons - nothing depends on Blizzard's internals.
 	-- Proportions taken off the mockup rather than guessed: a 20px row against
 	-- a 13px name, and a heading with room to breathe above its group.
-	local PICK_ROW_H, PICK_HEAD_H, PICK_KID_H = 20, 23, 17
+	local PICK_ROW_H, PICK_HEAD_H, PICK_KID_H = 16, 18, 14
 	-- Which encounter groups are open. Keyed by encounter+difficulty+the
 	-- newest pull in the run, so it survives a rebuild but a NEW night's
 	-- attempts on the same boss start collapsed like everything else.
 	local pickExpanded = {}
-	local PICK_CHIP_W, PICK_CHIP_H = 30, 14
+	local PICK_CHIP_W, PICK_CHIP_H = 26, 12
 	local PICK_VISIBLE = 14 -- entries on screen; the wheel reaches the rest
 	local picker, pickRows, pickEntries, pickScroll = nil, {}, {}, 0
 	-- FORWARD DECLARED. paintPickRow's expander handler calls both, and it is
@@ -757,10 +757,10 @@ local function createWindow()
 		-- column is reserved on EVERY row, empty ones included, so names stay
 		-- on one x whether or not a boss was pulled twice.
 		row.exp = CreateFrame("Button", nil, row)
-		row.exp:SetSize(13, 13)
-		row.exp:SetPoint("LEFT", 3, 0)
+		row.exp:SetSize(11, 11)
+		row.exp:SetPoint("LEFT", 2, 0)
 		row.exp.tex = row.exp:CreateTexture(nil, "OVERLAY")
-		row.exp.tex:SetSize(9, 7)
+		row.exp.tex:SetSize(7, 6)
 		row.exp.tex:SetPoint("CENTER")
 		row.exp.tex:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
 		row.exp:Hide()
@@ -772,12 +772,12 @@ local function createWindow()
 		-- filled circle. Drawing both, with the centre scaled up, gives a
 		-- gold dot inside a gold ring at any size.
 		row.dot = row:CreateTexture(nil, "ARTWORK")
-		row.dot:SetSize(16, 16)
-		row.dot:SetPoint("LEFT", row.exp, "RIGHT", 2, 0)
+		row.dot:SetSize(13, 13)
+		row.dot:SetPoint("LEFT", row.exp, "RIGHT", 1, 0)
 		row.dot:SetTexture("Interface\\Buttons\\UI-RadioButton")
 		row.dot:SetTexCoord(0, 0.25, 0, 1)
 		row.dotFill = row:CreateTexture(nil, "OVERLAY")
-		row.dotFill:SetSize(11, 11)
+		row.dotFill:SetSize(9, 9)
 		row.dotFill:SetPoint("CENTER", row.dot, "CENTER", 0, 0)
 		row.dotFill:SetTexture("Interface\\Buttons\\UI-RadioButton")
 		row.dotFill:SetTexCoord(0.25, 0.5, 0, 1)
@@ -786,7 +786,7 @@ local function createWindow()
 		-- difficulty chip: tierChip's construction, at row scale
 		row.chip = CreateFrame("Frame", nil, row)
 		row.chip:SetSize(PICK_CHIP_W, PICK_CHIP_H)
-		row.chip:SetPoint("LEFT", row.dot, "RIGHT", 7, 0)
+		row.chip:SetPoint("LEFT", row.dot, "RIGHT", 5, 0)
 		row.chip.bg = row.chip:CreateTexture(nil, "BACKGROUND")
 		row.chip.bg:SetAllPoints()
 		row.chip.edges = {}
@@ -801,7 +801,7 @@ local function createWindow()
 		row.chip.label = row.chip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 		row.chip.label:SetPoint("CENTER", 0, 0)
 		local cf = row.chip.label:GetFont()
-		if cf then row.chip.label:SetFont(cf, 9, "") end
+		if cf then row.chip.label:SetFont(cf, 8, "") end
 
 		local function fs(size)
 			local t = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -815,29 +815,29 @@ local function createWindow()
 		-- than a glyph, because WoW's face has patchy symbol coverage and an
 		-- unrenderable character shows a hollow box.
 		row.best = row:CreateTexture(nil, "OVERLAY")
-		row.best:SetSize(7, 7)
+		row.best:SetSize(6, 6)
 		row.best:SetColorTexture(1, 0.827, 0.43, 1)
-		row.best:SetPoint("RIGHT", -8, 0)
+		row.best:SetPoint("RIGHT", -6, 0)
 		if row.best.SetRotation then
 			row.best:SetRotation(math.rad(45))
 		end
-		row.prog = fs(12)
-		row.prog:SetPoint("RIGHT", row.best, "LEFT", -6, 0)
+		row.prog = fs(11)
+		row.prog:SetPoint("RIGHT", row.best, "LEFT", -5, 0)
 		row.prog:SetJustifyH("RIGHT")
-		row.time = fs(12)
-		row.time:SetPoint("RIGHT", row.prog, "LEFT", -8, 0)
+		row.time = fs(11)
+		row.time:SetPoint("RIGHT", row.prog, "LEFT", -6, 0)
 		row.time:SetJustifyH("RIGHT")
-		row.name = fs(12)
-		row.name:SetPoint("LEFT", row.chip, "RIGHT", 9, 0)
-		row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
+		row.name = fs(11)
+		row.name:SetPoint("LEFT", row.chip, "RIGHT", 6, 0)
+		row.name:SetPoint("RIGHT", row.time, "LEFT", -5, 0)
 		row.name:SetJustifyH("LEFT")
 		row.name:SetWordWrap(false)
 
 		-- group heading: gold zone name over a hairline, drawn by the same
 		-- row so the list stays one flat, scrollable sequence
-		row.head = fs(12)
-		row.head:SetPoint("LEFT", 9, 0)
-		row.head:SetPoint("BOTTOM", row, "BOTTOM", 0, 3)
+		row.head = fs(11)
+		row.head:SetPoint("LEFT", 7, 0)
+		row.head:SetPoint("BOTTOM", row, "BOTTOM", 0, 2)
 		row.head:SetTextColor(1, 0.827, 0.43)
 		row.rule = row:CreateTexture(nil, "ARTWORK")
 		row.rule:SetColorTexture(0.22, 0.19, 0.30, 0.95)
@@ -869,7 +869,7 @@ local function createWindow()
 		-- by construction the same difficulty as the row above.
 		local kid = e.child and true or false
 		row.exp:ClearAllPoints()
-		row.exp:SetPoint("LEFT", kid and 16 or 3, 0)
+		row.exp:SetPoint("LEFT", kid and 13 or 2, 0)
 		if e.groupKey then
 			row.exp:Show()
 			-- Arrow-Down-Up rotated a quarter turn points RIGHT, which saves
@@ -889,11 +889,11 @@ local function createWindow()
 			local p = f:GetFont()
 			if p then f:SetFont(p, size, "") end
 		end
-		sized(row.name, kid and 11 or 12)
-		sized(row.time, kid and 11 or 12)
-		sized(row.prog, kid and 11 or 12)
-		row.dot:SetSize(kid and 13 or 16, kid and 13 or 16)
-		row.dotFill:SetSize(kid and 9 or 11, kid and 9 or 11)
+		sized(row.name, kid and 10 or 11)
+		sized(row.time, kid and 10 or 11)
+		sized(row.prog, kid and 10 or 11)
+		row.dot:SetSize(kid and 11 or 13, kid and 11 or 13)
+		row.dotFill:SetSize(kid and 7 or 9, kid and 7 or 9)
 
 		local sel = e.fight == pinnedFight or (e.current and pinnedFight == nil)
 		row.dot:SetVertexColor(sel and 1 or 0.62, sel and 0.827 or 0.64, sel and 0.43 or 0.70)
@@ -903,8 +903,8 @@ local function createWindow()
 		if e.current then
 			row.chip:Hide()
 			row.name:ClearAllPoints()
-			row.name:SetPoint("LEFT", row.dot, "RIGHT", 7, 0)
-			row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
+			row.name:SetPoint("LEFT", row.dot, "RIGHT", 5, 0)
+			row.name:SetPoint("RIGHT", row.time, "LEFT", -5, 0)
 			row.name:SetText("Current")
 			row.name:SetTextColor(0.91, 0.90, 0.87)
 			row.time:SetText("")
@@ -929,13 +929,13 @@ local function createWindow()
 			row.chip.label:SetText(chip)
 			row.chip.label:SetTextColor(r, g, b)
 			row.name:ClearAllPoints()
-			row.name:SetPoint("LEFT", row.chip, "RIGHT", 8, 0)
-			row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
+			row.name:SetPoint("LEFT", row.chip, "RIGHT", 6, 0)
+			row.name:SetPoint("RIGHT", row.time, "LEFT", -5, 0)
 		else
 			row.chip:Hide()
 			row.name:ClearAllPoints()
-			row.name:SetPoint("LEFT", row.dot, "RIGHT", 7, 0)
-			row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
+			row.name:SetPoint("LEFT", row.dot, "RIGHT", 5, 0)
+			row.name:SetPoint("RIGHT", row.time, "LEFT", -5, 0)
 		end
 
 		local label = (f.name or "Fight"):gsub("^%(!%)%s*", "")
@@ -980,7 +980,7 @@ local function createWindow()
 		for i = #pickRows, visible + 1, -1 do
 			pickRows[i]:Hide()
 		end
-		local y = 5
+		local y = 4
 		for i = 1, visible do
 			local row = pickRows[i]
 			if not row then
@@ -991,15 +991,15 @@ local function createWindow()
 			local h = entryHeight(e)
 			row:SetHeight(h)
 			row:ClearAllPoints()
-			row:SetPoint("TOPLEFT", 5, -y)
-			row:SetPoint("TOPRIGHT", -5, -y)
+			row:SetPoint("TOPLEFT", 4, -y)
+			row:SetPoint("TOPRIGHT", -4, -y)
 			row:Show()
 			paintPickRow(row, e)
 			y = y + h
 		end
 		-- extra room at the bottom so the down arrow sits in padding instead
 		-- of over the last row's text
-		picker:SetHeight(y + 11)
+		picker:SetHeight(y + 9)
 		-- Same arrows the meter uses, for the same reason: without them a
 		-- capped list looks like the whole list (Josh 2026-08-05).
 		picker.up:SetShown(pickScroll > 0)
@@ -1162,7 +1162,12 @@ local function createWindow()
 		picker.anchor = anchor -- so an outside click can spare the button
 		picker:ClearAllPoints()
 		picker:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
-		picker:SetWidth(math.max(300, window:GetWidth() - 12))
+		-- Line the RIGHT edge up with the meter's. A fixed width made the
+		-- panel hang past the window it drops out of, which read as a
+		-- separate floating thing rather than part of the meter.
+		local left, right = anchor:GetLeft(), window:GetRight()
+		local w = (left and right) and (right - left) or 0
+		picker:SetWidth(math.max(230, w))
 		layoutPicker()
 		picker:Show()
 		picker:Raise()
