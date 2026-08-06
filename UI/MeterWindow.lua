@@ -627,12 +627,22 @@ local function createWindow()
 	-- decorating menu buttons - nothing depends on Blizzard's internals.
 	-- Proportions taken off the mockup rather than guessed: a 20px row against
 	-- a 13px name, and a heading with room to breathe above its group.
-	local PICK_ROW_H, PICK_HEAD_H = 20, 23
+	local PICK_ROW_H, PICK_HEAD_H, PICK_KID_H = 20, 23, 17
+	-- Which encounter groups are open. Keyed by encounter+difficulty+the
+	-- newest pull in the run, so it survives a rebuild but a NEW night's
+	-- attempts on the same boss start collapsed like everything else.
+	local pickExpanded = {}
 	local PICK_CHIP_W, PICK_CHIP_H = 30, 14
 	local PICK_VISIBLE = 14 -- entries on screen; the wheel reaches the rest
 	local picker, pickRows, pickEntries, pickScroll = nil, {}, {}, 0
+	-- FORWARD DECLARED. paintPickRow's expander handler calls both, and it is
+	-- defined above them - without this the calls would resolve to nil
+	-- globals rather than these locals, and every expander click would throw.
+	local layoutPicker, buildPickEntries
 	local function entryHeight(e)
-		return (e and e.kind == "head") and PICK_HEAD_H or PICK_ROW_H
+		if not e then return PICK_ROW_H end
+		if e.kind == "head" then return PICK_HEAD_H end
+		return e.child and PICK_KID_H or PICK_ROW_H
 	end
 
 	local function hexToRGB(hex)
@@ -742,6 +752,19 @@ local function createWindow()
 			TP.Tooltip:Hide()
 		end)
 
+		-- Disclosure triangle, its own button so clicking it toggles the group
+		-- while clicking anywhere else on the row still picks the fight. The
+		-- column is reserved on EVERY row, empty ones included, so names stay
+		-- on one x whether or not a boss was pulled twice.
+		row.exp = CreateFrame("Button", nil, row)
+		row.exp:SetSize(13, 13)
+		row.exp:SetPoint("LEFT", 3, 0)
+		row.exp.tex = row.exp:CreateTexture(nil, "OVERLAY")
+		row.exp.tex:SetSize(9, 7)
+		row.exp.tex:SetPoint("CENTER")
+		row.exp.tex:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
+		row.exp:Hide()
+
 		-- Selection dot, as TWO textures from Blizzard's radio art. The ring
 		-- is always drawn; the centre only when selected. One texture could
 		-- not do it: the "checked" quadrant is a pinprick meant to sit INSIDE
@@ -750,7 +773,7 @@ local function createWindow()
 		-- gold dot inside a gold ring at any size.
 		row.dot = row:CreateTexture(nil, "ARTWORK")
 		row.dot:SetSize(16, 16)
-		row.dot:SetPoint("LEFT", 7, 0)
+		row.dot:SetPoint("LEFT", row.exp, "RIGHT", 2, 0)
 		row.dot:SetTexture("Interface\\Buttons\\UI-RadioButton")
 		row.dot:SetTexCoord(0, 0.25, 0, 1)
 		row.dotFill = row:CreateTexture(nil, "OVERLAY")
@@ -830,6 +853,7 @@ local function createWindow()
 			row.head:Show()
 			row.rule:SetShown(not e.first)
 			row.fight = nil
+			row.exp:Hide(); row.exp:SetScript("OnClick", nil)
 			row.dot:Hide(); row.dotFill:Hide(); row.chip:Hide()
 			row.name:Hide(); row.time:Hide(); row.prog:Hide(); row.best:Hide()
 			row:SetScript("OnClick", nil)
@@ -839,6 +863,37 @@ local function createWindow()
 		row.head:Hide(); row.rule:Hide()
 		row.dot:Show(); row.name:Show(); row.time:Show()
 		row:EnableMouse(true)
+
+		-- A CHILD is a previous attempt on the boss its parent leads: indented
+		-- under it, a size down, and without a difficulty chip because it is
+		-- by construction the same difficulty as the row above.
+		local kid = e.child and true or false
+		row.exp:ClearAllPoints()
+		row.exp:SetPoint("LEFT", kid and 16 or 3, 0)
+		if e.groupKey then
+			row.exp:Show()
+			-- Arrow-Down-Up rotated a quarter turn points RIGHT, which saves
+			-- shipping a second texture for the collapsed state
+			row.exp.tex:SetRotation(e.expanded and 0 or math.rad(90))
+			row.exp.tex:SetVertexColor(0.72, 0.74, 0.80)
+			row.exp:SetScript("OnClick", function()
+				pickExpanded[e.groupKey] = not pickExpanded[e.groupKey]
+				buildPickEntries()
+				layoutPicker()
+			end)
+		else
+			row.exp:Hide()
+			row.exp:SetScript("OnClick", nil)
+		end
+		local function sized(f, size)
+			local p = f:GetFont()
+			if p then f:SetFont(p, size, "") end
+		end
+		sized(row.name, kid and 11 or 12)
+		sized(row.time, kid and 11 or 12)
+		sized(row.prog, kid and 11 or 12)
+		row.dot:SetSize(kid and 13 or 16, kid and 13 or 16)
+		row.dotFill:SetSize(kid and 9 or 11, kid and 9 or 11)
 
 		local sel = e.fight == pinnedFight or (e.current and pinnedFight == nil)
 		row.dot:SetVertexColor(sel and 1 or 0.62, sel and 0.827 or 0.64, sel and 0.43 or 0.70)
@@ -856,6 +911,7 @@ local function createWindow()
 			row.prog:SetText("follows new fights")
 			row.prog:SetTextColor(0.45, 0.47, 0.53)
 			row.best:Hide()
+			row.exp:Hide(); row.exp:SetScript("OnClick", nil)
 			row.fight = nil
 			row:SetScript("OnClick", function() selectFight(nil); picker:Hide() end)
 			return
@@ -864,6 +920,7 @@ local function createWindow()
 		local f = e.fight
 		row.fight = f -- what the hover card is built from
 		local _, chip, colour = TP.DifficultyParts(f)
+		if kid then chip = nil end
 		if chip then
 			local r, g, b = hexToRGB(colour)
 			row.chip:Show()
@@ -881,8 +938,18 @@ local function createWindow()
 			row.name:SetPoint("RIGHT", row.time, "LEFT", -6, 0)
 		end
 
-		row.name:SetText((f.name or "Fight"):gsub("^%(!%)%s*", ""))
-		row.name:SetTextColor(0.91, 0.90, 0.87)
+		local label = (f.name or "Fight"):gsub("^%(!%)%s*", "")
+		-- SAY how many are hidden. A collapsed group that looks like a single
+		-- pull is the same silent truncation the scroll arrows exist to avoid.
+		if e.groupCount and not e.expanded then
+			label = ("%s (%d)"):format(label, e.groupCount)
+		end
+		row.name:SetText(label)
+		if kid then
+			row.name:SetTextColor(0.66, 0.67, 0.72)
+		else
+			row.name:SetTextColor(0.91, 0.90, 0.87)
+		end
 		local d = f.duration or 0
 		row.time:SetText(("%d:%02d"):format(math.floor(d / 60), math.floor(d % 60)))
 		-- The DURATION stays neutral and only the outcome carries colour, as
@@ -905,7 +972,7 @@ local function createWindow()
 		row:SetScript("OnClick", function() selectFight(f); picker:Hide() end)
 	end
 
-	local function layoutPicker()
+	layoutPicker = function()
 		local n = #pickEntries
 		local visible = math.min(PICK_VISIBLE, n)
 		pickScroll = math.max(0, math.min(pickScroll, n - visible))
@@ -939,13 +1006,14 @@ local function createWindow()
 		picker.down:SetShown(n - (pickScroll + visible) > 0)
 	end
 
-	local function buildPickEntries()
+	buildPickEntries = function()
 		local fights = TP.FightHistory.fights
 		pickEntries = { { kind = "row", current = true, first = true } }
 		local shown = math.min(#fights, 25)
 		local best = markBestPulls(fights, shown)
 		local prev
-		for i = 1, shown do
+		local i = 1
+		while i <= shown do
 			local f = fights[i]
 			-- ONE heading per instance visit even when difficulty changes
 			-- mid-night; the chip on each row carries 10N vs 10H.
@@ -954,8 +1022,44 @@ local function createWindow()
 				pickEntries[#pickEntries + 1] =
 					{ kind = "head", text = f.zone or "Unknown", first = #pickEntries == 1 }
 			end
-			prev = f
-			pickEntries[#pickEntries + 1] = { kind = "row", fight = f, best = best[f] }
+
+			-- CONSECUTIVE attempts on one boss collapse into a group (Josh
+			-- 2026-08-05). Contiguous only, and difficulty counts: coming back
+			-- to a boss later in the night is a separate run of attempts, and
+			-- a Heroic pull is not progress on the Normal one. The list is
+			-- newest-first, so fights[i] is the LATEST of the run and leads it.
+			local j = i
+			while j < shown do
+				local nf = fights[j + 1]
+				if (nf.zone or "?") ~= (f.zone or "?")
+					or (nf.encounterID or nf.name) ~= (f.encounterID or f.name)
+					or (nf.difficultyID or 0) ~= (f.difficultyID or 0)
+					or math.abs((fights[j].capturedAt or 0) - (nf.capturedAt or 0)) > 3600 then
+					break
+				end
+				j = j + 1
+			end
+
+			local count = j - i + 1
+			if count > 1 then
+				local key = ("%s|%s|%s"):format(tostring(f.encounterID or f.name),
+					tostring(f.difficultyID), tostring(f.capturedAt))
+				local open = pickExpanded[key]
+				pickEntries[#pickEntries + 1] = {
+					kind = "row", fight = f, best = best[f],
+					groupKey = key, groupCount = count, expanded = open,
+				}
+				if open then
+					for k = i + 1, j do
+						pickEntries[#pickEntries + 1] =
+							{ kind = "row", fight = fights[k], best = best[fights[k]], child = true }
+					end
+				end
+			else
+				pickEntries[#pickEntries + 1] = { kind = "row", fight = f, best = best[f] }
+			end
+			prev = fights[j]
+			i = j + 1
 		end
 	end
 
