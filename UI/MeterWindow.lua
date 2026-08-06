@@ -931,14 +931,29 @@ local function createWindow()
 					self:SetPropagateKeyboardInput(true)
 				end
 			end)
-			picker.catcher = CreateFrame("Button", nil, UIParent)
-			picker.catcher:SetAllPoints(UIParent)
-			picker.catcher:SetFrameStrata("DIALOG")
-			picker.catcher:SetFrameLevel(math.max(1, picker:GetFrameLevel() - 1))
-			picker.catcher:Hide()
-			picker.catcher:SetScript("OnClick", function() picker:Hide() end)
-			picker:HookScript("OnShow", function() picker.catcher:Show() end)
-			picker:HookScript("OnHide", function() picker.catcher:Hide() end)
+			-- CLOSING ON AN OUTSIDE CLICK, WITHOUT EATING IT. This started as a
+			-- fullscreen catcher Button, which closed the picker but also
+			-- swallowed the mouse-down - so right-click-dragging to spin the
+			-- camera just dismissed the menu and the camera never moved
+			-- (Josh 2026-08-05). A frame that takes mouse input cannot pass
+			-- it through to the world, so the catcher had to go entirely.
+			-- GLOBAL_MOUSE_DOWN is an EVENT: it reports the click without
+			-- consuming it, which is how Blizzard's own menus manage this.
+			local ok = pcall(picker.RegisterEvent, picker, "GLOBAL_MOUSE_DOWN")
+			if ok then
+				picker:SetScript("OnEvent", function(self)
+					-- clicks on the dropdown button itself are ITS business:
+					-- closing here would race its OnClick and the picker would
+					-- shut and immediately reopen
+					if self:IsMouseOver() then return end
+					if self.anchor and self.anchor:IsMouseOver() then return end
+					self:Hide()
+				end)
+			end
+			-- Frames are born SHOWN. Without this the first click created the
+			-- picker, the toggle below saw it as already open, and hid it -
+			-- so the first click did nothing and the second one worked.
+			picker:Hide()
 		end
 		if picker:IsShown() then
 			picker:Hide()
@@ -946,6 +961,7 @@ local function createWindow()
 		end
 		pickScroll = 0
 		buildPickEntries()
+		picker.anchor = anchor -- so an outside click can spare the button
 		picker:ClearAllPoints()
 		picker:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
 		picker:SetWidth(math.max(300, window:GetWidth() - 12))
