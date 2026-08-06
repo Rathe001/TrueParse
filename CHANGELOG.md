@@ -27,6 +27,28 @@ any intro is now treated as a fight that had not started yet.
 This affects fights recorded from now on. Fights already in your history keep
 the length they were saved with.
 
+**The fight list has been rebuilt.** It now shows which difficulty each pull
+was, on the row itself rather than the heading, so a night that switches
+between Normal and Heroic reads correctly instead of showing the same raid
+name three times over. Difficulty is colour-coded the way the game does it.
+
+Wipes now say how much boss was **left**. That figure was always the boss's
+remaining health, but nothing said so, and on a boss whose health refills
+between phases "P2 0%" could easily read as a kill while a worse pull showed a
+bigger number. The deepest attempt on each boss is marked, so the night's
+progress reads at a glance instead of being worked out row by row.
+
+The list also scrolls now - it never did - and shows arrows when there is more
+above or below.
+
+**Mists tanks on Heroic are now compared against Heroic tanks.** Both tank
+baselines were built only from Normal logs and then used for Heroic as well,
+which made tanks the one role measured against players who had not run the
+same content. **Expect Heroic tank scores to go down.** Heroic tanks hold
+active mitigation up more than Normal tanks do, not less, and contribute more
+of their group's damage, so the correct comparison is a harder one. Normal
+raids, dungeons and retail are unaffected.
+
 ## 2.10.2
 
 **Fixes the load-time error on the addon list, reported against 2.10.0 and
