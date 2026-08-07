@@ -1,49 +1,48 @@
--- Healer INTAKE COVERAGE baselines for FIVE-MAN content: { p25, p50, p75 } of
--- a healer's healing divided by the intake that was actually THEIRS TO HEAL -
--- damage taken (absorbs counted on both sides) less what the group healed
--- itself - times the healer count. 1.0 means they covered a fair share of the
--- damage nobody else picked up.
+﻿-- Per-spec healer COVERAGE baselines: { p25, p50, p75 } of a healer's healing
+-- divided by the intake that was actually THEIRS TO HEAL - the group's damage
+-- taken, less whatever the group healed itself - times the number of healers.
+-- Read 0.99 as "this healer covered 99% of a fair share of the damage nobody
+-- else picked up".
 --
--- CALIBRATED FROM REAL CAPTURES, NOT CRAWLED FROM WARCRAFT LOGS, and that is a
--- deliberate reversal after two crawls failed (Josh 2026-08-01).
+-- Self-healing comes out of the denominator because a healer only gets to
+-- cover what nobody else covered. Against raw intake, coverage correlated
+-- -0.76 with the non-healer healing share on 21 real M+ fights: 58% of its
+-- variance was group composition, not the healer, and a single Blood DK tank
+-- could move it. Against healable intake that falls to +0.13, i.e. 2%, while
+-- 1.70x of spread survives (Josh spotted this before the crawl ran).
 --
--- Scoring a five-man healer on HPS pays them for their group standing in
--- things: correlation +0.44 with group intake, healers medianing 87.9 in M+
--- against damagers' 12.3 in the same runs. Coverage fixes that MEASUREMENT.
--- What it could not fix was the REFERENCE:
+-- Times the healer count because raw coverage is divided among the healers,
+-- so it falls as the roster adds them: the same defect as scoring a tank on
+-- share of raid damage. Josh's MoP raids median 0.326 coverage on two healers
+-- and 0.241 on three; normalised those are 0.652 and 0.723, against 0.680 for
+-- a solo Mythic+ healer. A 2.82x spread becomes 1.11x, which is why ONE table
+-- covers five-mans and raids instead of needing separate ones.
 --
---   raid-crawled anchors   p50 0.97  -> real players scored a median of 22
---   M+-crawled anchors     p50 1.04  -> a median of 19.5, 23% under ten
+-- Why not HPS (Josh 2026-07-31). Healing rate in a 5-man is mostly a function
+-- of how much damage the group TAKES, which is mostly avoidable - so scoring a
+-- healer on HPS pays them for their group standing in things. Measured on 21
+-- real Mythic+ fights: correlation(group intake/s, healer percentile) = +0.44,
+-- and intake above 65k/s lifted the median healer percentile from 68 to 87.
+-- In the same runs healers medianed 87.9 while damagers medianed 12.3.
 --
--- The M+ crawl is the instructive failure. Its ranked population spans just
--- 0.06 from p25 to p75 - an elite slice with almost no internal dispersion,
--- the same short-tail problem the dungeon damage curves have - while real
--- players span 0.41 to 1.00. Every real healer sits below its p25. No metric
--- survives a reference like that, and the reference was always the problem.
+-- Coverage is immune to that: double the intake and the healer heals roughly
+-- double, so the ratio holds. It still discriminates - 0.36 to 0.84 across
+-- those same fights, a 2.3x spread - because what varies is how much of the
+-- group's damage the HEALER covered rather than the group self-sustaining.
 --
--- So these quartiles are the OBSERVED distribution of 175 real five-man
--- healer-fights. 50 means "an average healer in content people actually run",
--- not "an average healer who logs Mythic+ to Warcraft Logs". For casual
--- five-man content that is the more honest comparison, and it is the only one
--- that produced a usable number.
---
--- TWO CAVEATS THAT MATTER:
---  * This is a BOOTSTRAP. Measuring the fitted population back against these
---    anchors returns a median of 50 BY CONSTRUCTION - definitional, not
---    evidence. Only captures taken AFTER this was written can test it.
---  * The sample is one player's groups, so "average" means average-for-those
---    pugs until there is a broader one. Re-fit when there is.
---
--- POOLED, not per-spec, on purpose. Per-spec samples ran n=13-18 for five of
--- six specs and their quartiles swung from p50 0.346 to 0.858, which is noise
--- rather than spec identity - and unlike healer DAMAGE, where fistweaving is a
--- real kit difference, no mechanism should make one healer cover a different
--- share of the same intake. Absorbs already cancel on both sides.
+-- A spec too rare to crawl falls back to default, itself the median of the
+-- crawled specs. HEALER_COVERAGE_UNIT lets the engine refuse a file whose
+-- units it does not recognise instead of scoring against the wrong scale.
 local _, TP = ...
 
 TP.HEALER_COVERAGE_UNIT = "healable-share-x-healers"
 
 TP.HEALER_COVERAGE_ANCHORS = {
-	-- p25 / p50 / p75 of 175 real five-man healer-fights, retail
-	default = { 0.414, 0.782, 1.001 },
+	default = { 0.909, 1.067, 1.278 }, -- DERIVED: median of the 6 crawled specs
+	[65] = { 0.998, 1.14, 1.337 }, -- Holy Paladin (n=114)
+	[105] = { 0.917, 1.067, 1.278 }, -- Resto Druid (n=150)
+	[256] = { 0.89, 1.047, 1.258 }, -- Disc Priest (n=123)
+	[257] = { 0.801, 1.027, 1.186 }, -- Holy Priest (n=74)
+	[264] = { 0.909, 1.038, 1.224 }, -- Resto Shaman (n=152)
+	[270] = { 0.904, 1.089, 1.439 }, -- Mistweaver (n=70)
 }
