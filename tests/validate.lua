@@ -769,8 +769,14 @@ end
 print("")
 if #problems == 0 then
 	print("VALIDATION CLEAN")
-else
-	print(("%d PROBLEMS"):format(#problems))
-	for _, p in ipairs(problems) do print("  - " .. p) end
+	return
 end
-return #problems
+print(("%d PROBLEMS"):format(#problems))
+for _, p in ipairs(problems) do print("  - " .. p) end
+-- THIS GATE COULD NOT FAIL. It ended `return #problems`, and a top-level
+-- return does NOT set a Lua script's exit code - the process still exited 0,
+-- so CI went green while the script printed "N PROBLEMS" (found 2026-08-08,
+-- after the monthly data refresh widened Heroic raid role spread to 16 points
+-- and shipped as v2.11.2 with every check reporting success). A gate that
+-- cannot fail is worse than no gate: it certifies what it never checked.
+os.exit(1)
