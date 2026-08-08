@@ -45,7 +45,8 @@ local CLIENTS = {
 	mists = build(files({
 		"Data/Benchmarks_Mists.lua", "Data/Percentiles_Mists.lua",
 		"Data/Percentiles_Mists_25.lua", "Data/Totals_Mists.lua",
-		"Data/TankAnchors_Mists.lua", "Data/TankDamage_Mists.lua",
+		"Data/TankAnchors_Mists.lua", "Data/TankAnchors_Mists_Heroic.lua",
+		"Data/TankDamage_Mists.lua",
 	}), { HAS_CLEU = true, IS_RETAIL = false }),
 }
 
