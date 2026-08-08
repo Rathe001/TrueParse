@@ -6,205 +6,206 @@
 -- taker's typical damage from it (per-taker, not per-hit - the table
 -- has no hit counts). Feeds DeathCause (why a player died) and mechanic
 -- coaching (names + impact of the avoidable ability a player ate).
--- Generated 2026-07-26 - Siege of Orgrimmar.
+-- Generated 2026-08-06 - Siege of Orgrimmar.
 local _, TP = ...
 
 TP.DAMAGE_PROFILES = TP.DAMAGE_PROFILES or {}
 TP.DAMAGE_PROFILES.ids = TP.DAMAGE_PROFILES.ids or {}
 local E = TP.DAMAGE_PROFILES
 E["Fallen Protectors"] = E["Fallen Protectors"] or {}
-E["Fallen Protectors"]["Calamity"] = { hitRate = 0.5, tankOnly = false, share = 0.034, avgDmg = 642821, guid = 143493, n = 110 }
-E["Fallen Protectors"]["Corruption Kick"] = { hitRate = 0.318, tankOnly = false, share = 0.025, avgDmg = 739131, guid = 143010, n = 110 }
-E["Fallen Protectors"]["Corruption Shock"] = { hitRate = 0.145, tankOnly = false, share = 0.009, avgDmg = 572586, guid = 144018, n = 110 }
-E["Fallen Protectors"]["Dark Meditation"] = { hitRate = 0.991, tankOnly = false, share = 0.169, avgDmg = 1590524, guid = 143559, n = 110 }
-E["Fallen Protectors"]["Defiled Ground"] = { hitRate = 0.327, tankOnly = false, share = 0.113, avgDmg = 3236938, guid = 144357, n = 110 }
-E["Fallen Protectors"]["Garrote"] = { hitRate = 0.3, tankOnly = false, share = 0.077, avgDmg = 2412939, guid = 143198, n = 110 }
-E["Fallen Protectors"]["Inferno Strike"] = { hitRate = 0.218, tankOnly = false, share = 0.018, avgDmg = 751072, guid = 143962, n = 110 }
-E["Fallen Protectors"]["Mark of Anguish"] = { hitRate = 0.291, tankOnly = false, share = 0.056, avgDmg = 1792395, guid = 144365, n = 110 }
-E["Fallen Protectors"]["Melee"] = { hitRate = 0.273, tankOnly = false, share = 0.197, avgDmg = 6765779, guid = 1, n = 110 }
-E["Fallen Protectors"]["Noxious Poison"] = { hitRate = 0.136, tankOnly = false, share = 0.017, avgDmg = 1179086, guid = 144367, n = 110 }
-E["Fallen Protectors"]["Sha Sear"] = { hitRate = 0.664, tankOnly = false, share = 0.126, avgDmg = 1776446, guid = 143424, n = 110 }
-E["Fallen Protectors"]["Shadow Word: Bane"] = { hitRate = 0.536, tankOnly = false, share = 0.121, avgDmg = 2116647, guid = 143434, n = 110 }
-E["Fallen Protectors"]["Vengeful Strikes"] = { hitRate = 0.127, tankOnly = false, share = 0.024, avgDmg = 1788891, guid = 144397, n = 110 }
+E["Fallen Protectors"]["Calamity"] = { hitRate = 0.5, tankOnly = false, share = 0.033, avgDmg = 612419, guid = 143493, n = 110 }
+E["Fallen Protectors"]["Corruption Kick"] = { hitRate = 0.218, tankOnly = false, share = 0.016, avgDmg = 687772, guid = 143010, n = 110 }
+E["Fallen Protectors"]["Corruption Shock"] = { hitRate = 0.136, tankOnly = false, share = 0.009, avgDmg = 640278, guid = 144018, n = 110 }
+E["Fallen Protectors"]["Dark Meditation"] = { hitRate = 0.991, tankOnly = false, share = 0.174, avgDmg = 1638271, guid = 143559, n = 110 }
+E["Fallen Protectors"]["Defiled Ground"] = { hitRate = 0.236, tankOnly = false, share = 0.081, avgDmg = 3199239, guid = 144357, n = 110 }
+E["Fallen Protectors"]["Garrote"] = { hitRate = 0.345, tankOnly = false, share = 0.088, avgDmg = 2390378, guid = 143198, n = 110 }
+E["Fallen Protectors"]["Inferno Strike"] = { hitRate = 0.264, tankOnly = false, share = 0.02, avgDmg = 709334, guid = 143962, n = 110 }
+E["Fallen Protectors"]["Instant Poison"] = { hitRate = 0.055, tankOnly = true, share = 0.004, avgDmg = 687818, guid = 143224, n = 110 }
+E["Fallen Protectors"]["Mark of Anguish"] = { hitRate = 0.3, tankOnly = false, share = 0.058, avgDmg = 1804495, guid = 144365, n = 110 }
+E["Fallen Protectors"]["Melee"] = { hitRate = 0.291, tankOnly = false, share = 0.207, avgDmg = 6642591, guid = -32, n = 110 }
+E["Fallen Protectors"]["Noxious Poison"] = { hitRate = 0.127, tankOnly = false, share = 0.015, avgDmg = 1110549, guid = 144367, n = 110 }
+E["Fallen Protectors"]["Sha Sear"] = { hitRate = 0.664, tankOnly = false, share = 0.13, avgDmg = 1832944, guid = 143424, n = 110 }
+E["Fallen Protectors"]["Shadow Word: Bane"] = { hitRate = 0.609, tankOnly = false, share = 0.119, avgDmg = 1821528, guid = 143434, n = 110 }
+E["Fallen Protectors"]["Vengeful Strikes"] = { hitRate = 0.145, tankOnly = false, share = 0.027, avgDmg = 1736019, guid = 144397, n = 110 }
 E.ids[51598] = "Fallen Protectors"
 E["Galakras"] = E["Galakras"] or {}
-E["Galakras"]["Drakefire"] = { hitRate = 0.48, tankOnly = false, share = 0.062, avgDmg = 1741454, guid = 148560, n = 152 }
-E["Galakras"]["Falling"] = { hitRate = 0.033, tankOnly = false, share = 0.002, avgDmg = 673998, guid = 3, n = 152 }
-E["Galakras"]["Flame Arrows"] = { hitRate = 0.23, tankOnly = false, share = 0.045, avgDmg = 2611259, guid = 146764, n = 152 }
-E["Galakras"]["Flames of Galakrond"] = { hitRate = 0.717, tankOnly = false, share = 0.191, avgDmg = 3578334, guid = 146992, n = 152 }
-E["Galakras"]["Fracture"] = { hitRate = 0.158, tankOnly = false, share = 0.376, avgDmg = 32054408, guid = 146901, n = 152 }
-E["Galakras"]["Melee"] = { hitRate = 0.25, tankOnly = false, share = 0.115, avgDmg = 6188378, guid = 1, n = 152 }
-E["Galakras"]["Pulsing Flames"] = { hitRate = 0.645, tankOnly = false, share = 0.083, avgDmg = 1733773, guid = 147043, n = 152 }
-E["Galakras"]["Shattering Roar"] = { hitRate = 0.586, tankOnly = false, share = 0.084, avgDmg = 1921297, guid = 147204, n = 152 }
-E["Galakras"]["Shoot"] = { hitRate = 0.033, tankOnly = false, share = 0.004, avgDmg = 1769354, guid = 146773, n = 152 }
-E["Galakras"]["Stagger"] = { hitRate = 0.039, tankOnly = true, share = 0.021, avgDmg = 7034227, guid = 124255, n = 152 }
-E["Galakras"]["Tidal Wave"] = { hitRate = 0.072, tankOnly = false, share = 0.002, avgDmg = 399176, guid = 147820, n = 152 }
-E["Galakras"]["Venom Bolt Volley"] = { hitRate = 0.276, tankOnly = false, share = 0.009, avgDmg = 454867, guid = 147713, n = 152 }
+E["Galakras"]["Bombard"] = { hitRate = 0.047, tankOnly = false, share = 0.005, avgDmg = 1146747, guid = 148311, n = 149 }
+E["Galakras"]["Drakefire"] = { hitRate = 0.584, tankOnly = false, share = 0.109, avgDmg = 2220333, guid = 148560, n = 149 }
+E["Galakras"]["Flame Arrows"] = { hitRate = 0.181, tankOnly = false, share = 0.044, avgDmg = 2895196, guid = 146764, n = 149 }
+E["Galakras"]["Flame Breath"] = { hitRate = 0.047, tankOnly = false, share = 0.004, avgDmg = 958461, guid = 146779, n = 149 }
+E["Galakras"]["Flames of Galakrond"] = { hitRate = 0.738, tankOnly = false, share = 0.204, avgDmg = 3275451, guid = 146992, n = 149 }
+E["Galakras"]["Fracture"] = { hitRate = 0.134, tankOnly = false, share = 0.33, avgDmg = 29135554, guid = 146901, n = 149 }
+E["Galakras"]["Melee"] = { hitRate = 0.208, tankOnly = false, share = 0.11, avgDmg = 6290297, guid = 1, n = 149 }
+E["Galakras"]["Pulsing Flames"] = { hitRate = 0.638, tankOnly = false, share = 0.08, avgDmg = 1490003, guid = 147043, n = 149 }
+E["Galakras"]["Shattering Roar"] = { hitRate = 0.577, tankOnly = false, share = 0.077, avgDmg = 1580797, guid = 147204, n = 149 }
+E["Galakras"]["Shoot"] = { hitRate = 0.06, tankOnly = false, share = 0.009, avgDmg = 1740781, guid = 146773, n = 149 }
+E["Galakras"]["Tidal Wave"] = { hitRate = 0.047, tankOnly = false, share = 0.001, avgDmg = 368217, guid = 147820, n = 149 }
+E["Galakras"]["Venom Bolt Volley"] = { hitRate = 0.235, tankOnly = false, share = 0.008, avgDmg = 387966, guid = 147713, n = 149 }
 E.ids[51622] = "Galakras"
 E["Garrosh Hellscream"] = E["Garrosh Hellscream"] or {}
-E["Garrosh Hellscream"]["Annihilate"] = { hitRate = 0.95, tankOnly = false, share = 0.206, avgDmg = 2857517, guid = 144969, n = 100 }
-E["Garrosh Hellscream"]["Chain Lightning"] = { hitRate = 0.07, tankOnly = false, share = 0.003, avgDmg = 491820, guid = 144584, n = 100 }
-E["Garrosh Hellscream"]["Desecrate"] = { hitRate = 0.47, tankOnly = false, share = 0.022, avgDmg = 622229, guid = 144758, n = 100 }
-E["Garrosh Hellscream"]["Desecrated"] = { hitRate = 0.78, tankOnly = false, share = 0.136, avgDmg = 2291519, guid = 144762, n = 100 }
-E["Garrosh Hellscream"]["Empowered Gripping Despair"] = { hitRate = 0.08, tankOnly = true, share = 0.014, avgDmg = 2348794, guid = 145195, n = 100 }
-E["Garrosh Hellscream"]["Empowered Whirling Corruption"] = { hitRate = 0.05, tankOnly = false, share = 0.004, avgDmg = 986752, guid = 145033, n = 100 }
-E["Garrosh Hellscream"]["Exploding Iron Star"] = { hitRate = 0.41, tankOnly = false, share = 0.02, avgDmg = 626812, guid = 144798, n = 100 }
-E["Garrosh Hellscream"]["Gripping Despair"] = { hitRate = 0.19, tankOnly = true, share = 0.081, avgDmg = 5625871, guid = 145183, n = 100 }
-E["Garrosh Hellscream"]["Melee"] = { hitRate = 0.28, tankOnly = false, share = 0.238, avgDmg = 11184137, guid = 1, n = 100 }
-E["Garrosh Hellscream"]["Stagger"] = { hitRate = 0.07, tankOnly = true, share = 0.039, avgDmg = 7256213, guid = 124255, n = 100 }
-E["Garrosh Hellscream"]["Whirling Corruption"] = { hitRate = 0.99, tankOnly = false, share = 0.225, avgDmg = 2987208, guid = 144989, n = 100 }
+E["Garrosh Hellscream"]["Annihilate"] = { hitRate = 0.97, tankOnly = false, share = 0.226, avgDmg = 2861112, guid = 144969, n = 100 }
+E["Garrosh Hellscream"]["Chain Lightning"] = { hitRate = 0.09, tankOnly = false, share = 0.003, avgDmg = 419036, guid = 144584, n = 100 }
+E["Garrosh Hellscream"]["Desecrate"] = { hitRate = 0.46, tankOnly = false, share = 0.023, avgDmg = 600853, guid = 144758, n = 100 }
+E["Garrosh Hellscream"]["Desecrated"] = { hitRate = 0.78, tankOnly = false, share = 0.143, avgDmg = 2248371, guid = 144762, n = 100 }
+E["Garrosh Hellscream"]["Empowered Gripping Despair"] = { hitRate = 0.07, tankOnly = true, share = 0.007, avgDmg = 1201524, guid = 145195, n = 100 }
+E["Garrosh Hellscream"]["Empowered Whirling Corruption"] = { hitRate = 0.14, tankOnly = false, share = 0.006, avgDmg = 563260, guid = 145033, n = 100 }
+E["Garrosh Hellscream"]["Exploding Iron Star"] = { hitRate = 0.36, tankOnly = false, share = 0.013, avgDmg = 446232, guid = 144798, n = 100 }
+E["Garrosh Hellscream"]["Gripping Despair"] = { hitRate = 0.19, tankOnly = true, share = 0.081, avgDmg = 5240483, guid = 145183, n = 100 }
+E["Garrosh Hellscream"]["Melee"] = { hitRate = 0.28, tankOnly = false, share = 0.224, avgDmg = 9791147, guid = 1, n = 100 }
+E["Garrosh Hellscream"]["Stagger"] = { hitRate = 0.06, tankOnly = true, share = 0.039, avgDmg = 7872706, guid = 124255, n = 100 }
+E["Garrosh Hellscream"]["Whirling Corruption"] = { hitRate = 0.99, tankOnly = false, share = 0.219, avgDmg = 2717405, guid = 144989, n = 100 }
 E.ids[51623] = "Garrosh Hellscream"
 E["General Nazgrim"] = E["General Nazgrim"] or {}
-E["General Nazgrim"]["Aftershock"] = { hitRate = 0.061, tankOnly = false, share = 0.006, avgDmg = 662940, guid = 143712, n = 114 }
-E["General Nazgrim"]["Arcane Shock"] = { hitRate = 0.307, tankOnly = false, share = 0.017, avgDmg = 399697, guid = 143432, n = 114 }
-E["General Nazgrim"]["Backstab"] = { hitRate = 0.105, tankOnly = false, share = 0.008, avgDmg = 515921, guid = 143481, n = 114 }
-E["General Nazgrim"]["Bonecracker"] = { hitRate = 0.658, tankOnly = false, share = 0.188, avgDmg = 2024266, guid = 143638, n = 114 }
-E["General Nazgrim"]["Heroic Shockwave"] = { hitRate = 0.447, tankOnly = false, share = 0.026, avgDmg = 414621, guid = 143716, n = 114 }
-E["General Nazgrim"]["Ironstorm"] = { hitRate = 0.447, tankOnly = false, share = 0.024, avgDmg = 384673, guid = 143421, n = 114 }
-E["General Nazgrim"]["Magistrike"] = { hitRate = 0.211, tankOnly = false, share = 0.008, avgDmg = 264316, guid = 143431, n = 114 }
-E["General Nazgrim"]["Melee"] = { hitRate = 0.474, tankOnly = false, share = 0.199, avgDmg = 2960785, guid = 1, n = 114 }
-E["General Nazgrim"]["Ravager"] = { hitRate = 0.482, tankOnly = false, share = 0.082, avgDmg = 1206793, guid = 143873, n = 114 }
-E["General Nazgrim"]["Stagger"] = { hitRate = 0.061, tankOnly = true, share = 0.05, avgDmg = 5809586, guid = 124255, n = 114 }
-E["General Nazgrim"]["Sundering Blow"] = { hitRate = 0.175, tankOnly = true, share = 0.069, avgDmg = 2761218, guid = 143494, n = 114 }
-E["General Nazgrim"]["War Song"] = { hitRate = 0.947, tankOnly = false, share = 0.321, avgDmg = 2395706, guid = 143503, n = 114 }
+E["General Nazgrim"]["Aftershock"] = { hitRate = 0.08, tankOnly = false, share = 0.008, avgDmg = 755010, guid = 143712, n = 113 }
+E["General Nazgrim"]["Arcane Shock"] = { hitRate = 0.345, tankOnly = false, share = 0.019, avgDmg = 392350, guid = 143432, n = 113 }
+E["General Nazgrim"]["Backstab"] = { hitRate = 0.124, tankOnly = false, share = 0.009, avgDmg = 532523, guid = 143481, n = 113 }
+E["General Nazgrim"]["Bonecracker"] = { hitRate = 0.69, tankOnly = false, share = 0.207, avgDmg = 2194631, guid = 143638, n = 113 }
+E["General Nazgrim"]["Heroic Shockwave"] = { hitRate = 0.425, tankOnly = false, share = 0.022, avgDmg = 378893, guid = 143716, n = 113 }
+E["General Nazgrim"]["Ironstorm"] = { hitRate = 0.381, tankOnly = false, share = 0.023, avgDmg = 449929, guid = 143421, n = 113 }
+E["General Nazgrim"]["Magistrike"] = { hitRate = 0.265, tankOnly = false, share = 0.009, avgDmg = 247881, guid = 143431, n = 113 }
+E["General Nazgrim"]["Melee"] = { hitRate = 0.531, tankOnly = false, share = 0.219, avgDmg = 3010126, guid = 1, n = 113 }
+E["General Nazgrim"]["Ravager"] = { hitRate = 0.416, tankOnly = false, share = 0.055, avgDmg = 972204, guid = 143873, n = 113 }
+E["General Nazgrim"]["Stagger"] = { hitRate = 0.044, tankOnly = true, share = 0.039, avgDmg = 6403537, guid = 124255, n = 113 }
+E["General Nazgrim"]["Sundering Blow"] = { hitRate = 0.186, tankOnly = true, share = 0.069, avgDmg = 2694218, guid = 143494, n = 113 }
+E["General Nazgrim"]["War Song"] = { hitRate = 0.973, tankOnly = false, share = 0.32, avgDmg = 2402052, guid = 143503, n = 113 }
 E.ids[51603] = "General Nazgrim"
 E["Immerseus"] = E["Immerseus"] or {}
-E["Immerseus"]["Corrosive Blast"] = { hitRate = 0.264, tankOnly = false, share = 0.052, avgDmg = 1033338, guid = 143436, n = 110 }
-E["Immerseus"]["Erupting Sha"] = { hitRate = 0.682, tankOnly = false, share = 0.04, avgDmg = 307056, guid = 143498, n = 110 }
-E["Immerseus"]["Erupting Water"] = { hitRate = 1, tankOnly = false, share = 0.287, avgDmg = 1501659, guid = 145377, n = 110 }
-E["Immerseus"]["Melee"] = { hitRate = 0.273, tankOnly = false, share = 0.129, avgDmg = 2471808, guid = 1, n = 110 }
-E["Immerseus"]["Seeping Sha"] = { hitRate = 0.136, tankOnly = false, share = 0.008, avgDmg = 317752, guid = 143286, n = 110 }
-E["Immerseus"]["Sha Bolt"] = { hitRate = 0.745, tankOnly = false, share = 0.03, avgDmg = 208015, guid = 143295, n = 110 }
-E["Immerseus"]["Sha Splash"] = { hitRate = 1, tankOnly = false, share = 0.386, avgDmg = 2021635, guid = 143297, n = 110 }
-E["Immerseus"]["Swirl"] = { hitRate = 0.609, tankOnly = false, share = 0.054, avgDmg = 461342, guid = 143412, n = 110 }
+E["Immerseus"]["Corrosive Blast"] = { hitRate = 0.309, tankOnly = false, share = 0.06, avgDmg = 1022752, guid = 143436, n = 110 }
+E["Immerseus"]["Erupting Sha"] = { hitRate = 0.591, tankOnly = false, share = 0.052, avgDmg = 464566, guid = 143498, n = 110 }
+E["Immerseus"]["Erupting Water"] = { hitRate = 1, tankOnly = false, share = 0.279, avgDmg = 1459351, guid = 145377, n = 110 }
+E["Immerseus"]["Melee"] = { hitRate = 0.273, tankOnly = false, share = 0.12, avgDmg = 2314034, guid = 1, n = 110 }
+E["Immerseus"]["Seeping Sha"] = { hitRate = 0.091, tankOnly = false, share = 0.006, avgDmg = 327924, guid = 143286, n = 110 }
+E["Immerseus"]["Sha Bolt"] = { hitRate = 0.709, tankOnly = false, share = 0.028, avgDmg = 206252, guid = 143295, n = 110 }
+E["Immerseus"]["Sha Splash"] = { hitRate = 1, tankOnly = false, share = 0.391, avgDmg = 2050046, guid = 143297, n = 110 }
+E["Immerseus"]["Swirl"] = { hitRate = 0.591, tankOnly = false, share = 0.058, avgDmg = 511419, guid = 143412, n = 110 }
 E.ids[51602] = "Immerseus"
 E["Iron Juggernaut"] = E["Iron Juggernaut"] or {}
-E["Iron Juggernaut"]["Borer Drill"] = { hitRate = 0.809, tankOnly = false, share = 0.125, avgDmg = 1506064, guid = 144218, n = 110 }
-E["Iron Juggernaut"]["Crawler Mine Blast"] = { hitRate = 0.055, tankOnly = false, share = 0.002, avgDmg = 414267, guid = 144766, n = 110 }
-E["Iron Juggernaut"]["Cutter Laser"] = { hitRate = 0.045, tankOnly = false, share = 0.001, avgDmg = 308873, guid = 144918, n = 110 }
-E["Iron Juggernaut"]["Demolisher Cannons"] = { hitRate = 0.645, tankOnly = false, share = 0.094, avgDmg = 1427349, guid = 144154, n = 110 }
-E["Iron Juggernaut"]["Engulfed Explosion"] = { hitRate = 0.264, tankOnly = false, share = 0.059, avgDmg = 2199814, guid = 144791, n = 110 }
-E["Iron Juggernaut"]["Falling"] = { hitRate = 0.064, tankOnly = false, share = 0.008, avgDmg = 1250191, guid = 3, n = 110 }
-E["Iron Juggernaut"]["Flame Vents"] = { hitRate = 0.164, tankOnly = false, share = 0.028, avgDmg = 1687167, guid = 144464, n = 110 }
-E["Iron Juggernaut"]["Ignite Armor"] = { hitRate = 0.264, tankOnly = false, share = 0.2, avgDmg = 7424822, guid = 144467, n = 110 }
-E["Iron Juggernaut"]["Laser Burn"] = { hitRate = 0.564, tankOnly = false, share = 0.061, avgDmg = 1057366, guid = 144459, n = 110 }
-E["Iron Juggernaut"]["Melee"] = { hitRate = 0.2, tankOnly = true, share = 0.097, avgDmg = 4767204, guid = 1, n = 110 }
-E["Iron Juggernaut"]["Mortar Blast"] = { hitRate = 0.682, tankOnly = false, share = 0.08, avgDmg = 1144253, guid = 144316, n = 110 }
-E["Iron Juggernaut"]["Seismic Activity"] = { hitRate = 0.982, tankOnly = false, share = 0.221, avgDmg = 2202897, guid = 144484, n = 110 }
-E["Iron Juggernaut"]["Shock Pulse"] = { hitRate = 0.136, tankOnly = false, share = 0.003, avgDmg = 199119, guid = 144485, n = 110 }
-E["Iron Juggernaut"]["Tar Explosion"] = { hitRate = 0.055, tankOnly = false, share = 0.002, avgDmg = 367481, guid = 144919, n = 110 }
+E["Iron Juggernaut"]["Borer Drill"] = { hitRate = 0.782, tankOnly = false, share = 0.129, avgDmg = 1584149, guid = 144218, n = 110 }
+E["Iron Juggernaut"]["Demolisher Cannons"] = { hitRate = 0.673, tankOnly = false, share = 0.121, avgDmg = 1723176, guid = 144154, n = 110 }
+E["Iron Juggernaut"]["Engulfed Explosion"] = { hitRate = 0.3, tankOnly = false, share = 0.052, avgDmg = 1676652, guid = 144791, n = 110 }
+E["Iron Juggernaut"]["Falling"] = { hitRate = 0.045, tankOnly = false, share = 0.006, avgDmg = 1181459, guid = 3, n = 110 }
+E["Iron Juggernaut"]["Flame Vents"] = { hitRate = 0.164, tankOnly = false, share = 0.03, avgDmg = 1778247, guid = 144464, n = 110 }
+E["Iron Juggernaut"]["Ignite Armor"] = { hitRate = 0.245, tankOnly = false, share = 0.182, avgDmg = 7090199, guid = 144467, n = 110 }
+E["Iron Juggernaut"]["Laser Burn"] = { hitRate = 0.545, tankOnly = false, share = 0.064, avgDmg = 1116144, guid = 144459, n = 110 }
+E["Iron Juggernaut"]["Melee"] = { hitRate = 0.209, tankOnly = false, share = 0.092, avgDmg = 4199511, guid = 1, n = 110 }
+E["Iron Juggernaut"]["Mortar Blast"] = { hitRate = 0.727, tankOnly = false, share = 0.102, avgDmg = 1340847, guid = 144316, n = 110 }
+E["Iron Juggernaut"]["Seismic Activity"] = { hitRate = 0.991, tankOnly = false, share = 0.207, avgDmg = 2000705, guid = 144484, n = 110 }
+E["Iron Juggernaut"]["Shock Pulse"] = { hitRate = 0.173, tankOnly = false, share = 0.003, avgDmg = 174567, guid = 144485, n = 110 }
 E.ids[51600] = "Iron Juggernaut"
 E["Kor'kron Dark Shaman"] = E["Kor'kron Dark Shaman"] or {}
-E["Kor'kron Dark Shaman"]["Falling Ash"] = { hitRate = 0.827, tankOnly = false, share = 0.1, avgDmg = 643900, guid = 143987, n = 110 }
-E["Kor'kron Dark Shaman"]["Foul Geyser"] = { hitRate = 0.382, tankOnly = false, share = 0.065, avgDmg = 908327, guid = 143993, n = 110 }
-E["Kor'kron Dark Shaman"]["Foul Stream"] = { hitRate = 0.573, tankOnly = false, share = 0.052, avgDmg = 480975, guid = 144090, n = 110 }
-E["Kor'kron Dark Shaman"]["Foulness"] = { hitRate = 0.145, tankOnly = false, share = 0.009, avgDmg = 319853, guid = 144066, n = 110 }
-E["Kor'kron Dark Shaman"]["Froststorm Bolt"] = { hitRate = 0.173, tankOnly = true, share = 0.068, avgDmg = 2099713, guid = 144214, n = 110 }
-E["Kor'kron Dark Shaman"]["Froststorm Strike"] = { hitRate = 0.2, tankOnly = true, share = 0.107, avgDmg = 2830397, guid = 144215, n = 110 }
-E["Kor'kron Dark Shaman"]["Melee"] = { hitRate = 0.6, tankOnly = false, share = 0.27, avgDmg = 2381975, guid = 1, n = 110 }
-E["Kor'kron Dark Shaman"]["Rend"] = { hitRate = 0.055, tankOnly = true, share = 0.019, avgDmg = 1886367, guid = 144304, n = 110 }
-E["Kor'kron Dark Shaman"]["Toxic Mist"] = { hitRate = 0.573, tankOnly = false, share = 0.18, avgDmg = 1663272, guid = 144089, n = 110 }
-E["Kor'kron Dark Shaman"]["Toxic Storm"] = { hitRate = 0.509, tankOnly = false, share = 0.073, avgDmg = 757469, guid = 144017, n = 110 }
-E["Kor'kron Dark Shaman"]["Toxic Tornado"] = { hitRate = 0.318, tankOnly = false, share = 0.032, avgDmg = 527780, guid = 144030, n = 110 }
+E["Kor'kron Dark Shaman"]["Falling Ash"] = { hitRate = 0.845, tankOnly = false, share = 0.094, avgDmg = 629429, guid = 143987, n = 110 }
+E["Kor'kron Dark Shaman"]["Foul Geyser"] = { hitRate = 0.318, tankOnly = false, share = 0.07, avgDmg = 1245759, guid = 143993, n = 110 }
+E["Kor'kron Dark Shaman"]["Foul Stream"] = { hitRate = 0.518, tankOnly = false, share = 0.042, avgDmg = 461134, guid = 144090, n = 110 }
+E["Kor'kron Dark Shaman"]["Foulness"] = { hitRate = 0.118, tankOnly = false, share = 0.01, avgDmg = 493686, guid = 144066, n = 110 }
+E["Kor'kron Dark Shaman"]["Froststorm Bolt"] = { hitRate = 0.209, tankOnly = false, share = 0.073, avgDmg = 1968571, guid = 144214, n = 110 }
+E["Kor'kron Dark Shaman"]["Froststorm Strike"] = { hitRate = 0.209, tankOnly = false, share = 0.114, avgDmg = 3087236, guid = 144215, n = 110 }
+E["Kor'kron Dark Shaman"]["Melee"] = { hitRate = 0.582, tankOnly = false, share = 0.288, avgDmg = 2796952, guid = 1, n = 110 }
+E["Kor'kron Dark Shaman"]["Toxic Mist"] = { hitRate = 0.609, tankOnly = false, share = 0.173, avgDmg = 1603620, guid = 144089, n = 110 }
+E["Kor'kron Dark Shaman"]["Toxic Storm"] = { hitRate = 0.5, tankOnly = false, share = 0.075, avgDmg = 847012, guid = 144017, n = 110 }
+E["Kor'kron Dark Shaman"]["Toxic Tornado"] = { hitRate = 0.327, tankOnly = false, share = 0.026, avgDmg = 445411, guid = 144030, n = 110 }
 E.ids[51606] = "Kor'kron Dark Shaman"
 E["Malkorok"] = E["Malkorok"] or {}
-E["Malkorok"]["Ancient Miasma"] = { hitRate = 1, tankOnly = false, share = 0.353, avgDmg = 2341699, guid = 142906, n = 109 }
-E["Malkorok"]["Blood Rage"] = { hitRate = 0.532, tankOnly = false, share = 0.145, avgDmg = 1801856, guid = 142890, n = 109 }
-E["Malkorok"]["Breath of Y'Shaarj"] = { hitRate = 0.055, tankOnly = false, share = 0.018, avgDmg = 2222460, guid = 142816, n = 109 }
-E["Malkorok"]["Displaced Energy"] = { hitRate = 0.202, tankOnly = false, share = 0.016, avgDmg = 535016, guid = 142913, n = 109 }
-E["Malkorok"]["Falling"] = { hitRate = 0.385, tankOnly = false, share = 0.019, avgDmg = 322118, guid = 3, n = 109 }
-E["Malkorok"]["Imploding Energy"] = { hitRate = 0.807, tankOnly = false, share = 0.196, avgDmg = 1608854, guid = 142986, n = 109 }
-E["Malkorok"]["Melee"] = { hitRate = 0.193, tankOnly = true, share = 0.164, avgDmg = 5633550, guid = 1, n = 109 }
-E["Malkorok"]["Seismic Slam"] = { hitRate = 0.376, tankOnly = false, share = 0.048, avgDmg = 842882, guid = 142849, n = 109 }
-E["Malkorok"]["Stagger"] = { hitRate = 0.055, tankOnly = true, share = 0.035, avgDmg = 4249273, guid = 124255, n = 109 }
+E["Malkorok"]["Ancient Miasma"] = { hitRate = 1, tankOnly = false, share = 0.347, avgDmg = 2268543, guid = 142906, n = 110 }
+E["Malkorok"]["Arcing Smash"] = { hitRate = 0.073, tankOnly = false, share = 0.008, avgDmg = 717600, guid = 142815, n = 110 }
+E["Malkorok"]["Blood Rage"] = { hitRate = 0.409, tankOnly = false, share = 0.12, avgDmg = 1916104, guid = 142890, n = 110 }
+E["Malkorok"]["Breath of Y'Shaarj"] = { hitRate = 0.082, tankOnly = false, share = 0.017, avgDmg = 1347572, guid = 142816, n = 110 }
+E["Malkorok"]["Displaced Energy"] = { hitRate = 0.2, tankOnly = false, share = 0.021, avgDmg = 672814, guid = 142913, n = 110 }
+E["Malkorok"]["Falling"] = { hitRate = 0.3, tankOnly = false, share = 0.016, avgDmg = 350498, guid = 3, n = 110 }
+E["Malkorok"]["Imploding Energy"] = { hitRate = 0.918, tankOnly = false, share = 0.26, avgDmg = 1855682, guid = 142986, n = 110 }
+E["Malkorok"]["Melee"] = { hitRate = 0.2, tankOnly = true, share = 0.156, avgDmg = 5093370, guid = 1, n = 110 }
+E["Malkorok"]["Seismic Slam"] = { hitRate = 0.336, tankOnly = false, share = 0.04, avgDmg = 776589, guid = 142849, n = 110 }
 E.ids[51595] = "Malkorok"
 E["Norushen"] = E["Norushen"] or {}
-E["Norushen"]["Blind Hatred"] = { hitRate = 0.082, tankOnly = false, share = 0.004, avgDmg = 656808, guid = 145227, n = 110 }
-E["Norushen"]["Bottomless Pit"] = { hitRate = 0.055, tankOnly = false, share = 0.001, avgDmg = 183167, guid = 146703, n = 110 }
-E["Norushen"]["Burst of Anger"] = { hitRate = 0.873, tankOnly = false, share = 0.037, avgDmg = 516936, guid = 147082, n = 110 }
-E["Norushen"]["Disheartening Laugh"] = { hitRate = 0.136, tankOnly = false, share = 0.004, avgDmg = 315853, guid = 146707, n = 110 }
-E["Norushen"]["Expelled Corruption"] = { hitRate = 0.345, tankOnly = false, share = 0.005, avgDmg = 164227, guid = 144480, n = 110 }
-E["Norushen"]["Hurl Corruption"] = { hitRate = 0.045, tankOnly = true, share = 0.003, avgDmg = 756325, guid = 144649, n = 110 }
-E["Norushen"]["Icy Fear"] = { hitRate = 1, tankOnly = false, share = 0.702, avgDmg = 8563611, guid = 145735, n = 110 }
-E["Norushen"]["Melee"] = { hitRate = 0.436, tankOnly = false, share = 0.132, avgDmg = 3688891, guid = 1, n = 110 }
-E["Norushen"]["Residual Corruption"] = { hitRate = 0.982, tankOnly = false, share = 0.078, avgDmg = 972691, guid = 145073, n = 110 }
-E["Norushen"]["Stagger"] = { hitRate = 0.045, tankOnly = true, share = 0.014, avgDmg = 3747396, guid = 124255, n = 110 }
-E["Norushen"]["Unleashed Anger"] = { hitRate = 0.227, tankOnly = false, share = 0.019, avgDmg = 993813, guid = 145212, n = 110 }
+E["Norushen"]["Blind Hatred"] = { hitRate = 0.082, tankOnly = false, share = 0.003, avgDmg = 528958, guid = 145227, n = 110 }
+E["Norushen"]["Bottomless Pit"] = { hitRate = 0.055, tankOnly = false, share = 0.001, avgDmg = 216667, guid = 146703, n = 110 }
+E["Norushen"]["Burst of Anger"] = { hitRate = 0.882, tankOnly = false, share = 0.036, avgDmg = 505704, guid = 147082, n = 110 }
+E["Norushen"]["Disheartening Laugh"] = { hitRate = 0.155, tankOnly = false, share = 0.004, avgDmg = 301518, guid = 146707, n = 110 }
+E["Norushen"]["Expelled Corruption"] = { hitRate = 0.4, tankOnly = false, share = 0.005, avgDmg = 165515, guid = 145134, n = 110 }
+E["Norushen"]["Hurl Corruption"] = { hitRate = 0.055, tankOnly = true, share = 0.003, avgDmg = 775295, guid = 144649, n = 110 }
+E["Norushen"]["Icy Fear"] = { hitRate = 1, tankOnly = false, share = 0.705, avgDmg = 8853561, guid = 145735, n = 110 }
+E["Norushen"]["Melee"] = { hitRate = 0.455, tankOnly = false, share = 0.123, avgDmg = 3402337, guid = 1, n = 110 }
+E["Norushen"]["Residual Corruption"] = { hitRate = 1, tankOnly = false, share = 0.084, avgDmg = 1057893, guid = 145073, n = 110 }
+E["Norushen"]["Stagger"] = { hitRate = 0.045, tankOnly = true, share = 0.016, avgDmg = 4343285, guid = 124255, n = 110 }
+E["Norushen"]["Unleashed Anger"] = { hitRate = 0.191, tankOnly = false, share = 0.018, avgDmg = 1212209, guid = 145212, n = 110 }
 E.ids[51624] = "Norushen"
 E["Paragons of the Klaxxi"] = E["Paragons of the Klaxxi"] or {}
-E["Paragons of the Klaxxi"]["Caustic Amber"] = { hitRate = 0.38, tankOnly = false, share = 0.04, avgDmg = 946239, guid = 143735, n = 100 }
-E["Paragons of the Klaxxi"]["Devour"] = { hitRate = 0.12, tankOnly = false, share = 0.012, avgDmg = 908333, guid = 142649, n = 100 }
-E["Paragons of the Klaxxi"]["Diminish"] = { hitRate = 0.51, tankOnly = false, share = 0.051, avgDmg = 915010, guid = 143666, n = 100 }
-E["Paragons of the Klaxxi"]["Feed"] = { hitRate = 0.21, tankOnly = false, share = 0.128, avgDmg = 5538262, guid = 143362, n = 100 }
-E["Paragons of the Klaxxi"]["Fiery Edge"] = { hitRate = 0.6, tankOnly = false, share = 0.075, avgDmg = 1132552, guid = 142809, n = 100 }
-E["Paragons of the Klaxxi"]["Fire"] = { hitRate = 0.29, tankOnly = false, share = 0.02, avgDmg = 638526, guid = 142950, n = 100 }
-E["Paragons of the Klaxxi"]["Genetic Alteration"] = { hitRate = 0.06, tankOnly = false, share = 0.031, avgDmg = 4719455, guid = 143278, n = 100 }
-E["Paragons of the Klaxxi"]["Hew"] = { hitRate = 0.1, tankOnly = false, share = 0.025, avgDmg = 2260021, guid = 143274, n = 100 }
-E["Paragons of the Klaxxi"]["Melee"] = { hitRate = 0.25, tankOnly = false, share = 0.149, avgDmg = 5414327, guid = 1, n = 100 }
-E["Paragons of the Klaxxi"]["Multi-Shot"] = { hitRate = 0.72, tankOnly = false, share = 0.137, avgDmg = 1719510, guid = 144839, n = 100 }
-E["Paragons of the Klaxxi"]["Mutate"] = { hitRate = 0.09, tankOnly = false, share = 0.019, avgDmg = 1908024, guid = 143337, n = 100 }
-E["Paragons of the Klaxxi"]["Noxious Vapors"] = { hitRate = 0.09, tankOnly = false, share = 0.01, avgDmg = 1018853, guid = 142797, n = 100 }
-E["Paragons of the Klaxxi"]["Razor Sharp Blades"] = { hitRate = 0.14, tankOnly = true, share = 0.084, avgDmg = 5441213, guid = 142930, n = 100 }
-E["Paragons of the Klaxxi"]["Reaction: Blue"] = { hitRate = 0.08, tankOnly = false, share = 0.003, avgDmg = 327333, guid = 142735, n = 100 }
-E["Paragons of the Klaxxi"]["Reaction: Red"] = { hitRate = 0.08, tankOnly = false, share = 0.004, avgDmg = 477173, guid = 142736, n = 100 }
-E["Paragons of the Klaxxi"]["Sonic Projection"] = { hitRate = 0.35, tankOnly = false, share = 0.043, avgDmg = 1115953, guid = 143768, n = 100 }
-E["Paragons of the Klaxxi"]["Sonic Resonance"] = { hitRate = 0.08, tankOnly = false, share = 0.002, avgDmg = 248336, guid = 144094, n = 100 }
-E["Paragons of the Klaxxi"]["Stagger"] = { hitRate = 0.05, tankOnly = true, share = 0.055, avgDmg = 9996500, guid = 124255, n = 100 }
-E["Paragons of the Klaxxi"]["Vicious Assault"] = { hitRate = 0.15, tankOnly = false, share = 0.048, avgDmg = 2879069, guid = 143979, n = 100 }
-E["Paragons of the Klaxxi"]["Whirling"] = { hitRate = 0.26, tankOnly = false, share = 0.03, avgDmg = 1043231, guid = 143702, n = 100 }
+E["Paragons of the Klaxxi"]["Caustic Amber"] = { hitRate = 0.36, tankOnly = false, share = 0.038, avgDmg = 1021953, guid = 143735, n = 100 }
+E["Paragons of the Klaxxi"]["Death from Above"] = { hitRate = 0.09, tankOnly = false, share = 0.005, avgDmg = 586258, guid = 142232, n = 100 }
+E["Paragons of the Klaxxi"]["Devour"] = { hitRate = 0.16, tankOnly = false, share = 0.013, avgDmg = 784209, guid = 142649, n = 100 }
+E["Paragons of the Klaxxi"]["Diminish"] = { hitRate = 0.56, tankOnly = false, share = 0.051, avgDmg = 880495, guid = 143666, n = 100 }
+E["Paragons of the Klaxxi"]["Feed"] = { hitRate = 0.23, tankOnly = false, share = 0.123, avgDmg = 5120344, guid = 143362, n = 100 }
+E["Paragons of the Klaxxi"]["Fiery Edge"] = { hitRate = 0.59, tankOnly = false, share = 0.078, avgDmg = 1274393, guid = 142809, n = 100 }
+E["Paragons of the Klaxxi"]["Fire"] = { hitRate = 0.31, tankOnly = false, share = 0.025, avgDmg = 761354, guid = 142950, n = 100 }
+E["Paragons of the Klaxxi"]["Genetic Alteration"] = { hitRate = 0.09, tankOnly = false, share = 0.036, avgDmg = 3838811, guid = 143278, n = 100 }
+E["Paragons of the Klaxxi"]["Hew"] = { hitRate = 0.08, tankOnly = true, share = 0.018, avgDmg = 2128690, guid = 143274, n = 100 }
+E["Paragons of the Klaxxi"]["Melee"] = { hitRate = 0.25, tankOnly = false, share = 0.135, avgDmg = 5180730, guid = 1, n = 100 }
+E["Paragons of the Klaxxi"]["Multi-Shot"] = { hitRate = 0.71, tankOnly = false, share = 0.144, avgDmg = 1948697, guid = 144839, n = 100 }
+E["Paragons of the Klaxxi"]["Mutate"] = { hitRate = 0.11, tankOnly = false, share = 0.02, avgDmg = 1756686, guid = 143337, n = 100 }
+E["Paragons of the Klaxxi"]["Noxious Vapors"] = { hitRate = 0.09, tankOnly = false, share = 0.012, avgDmg = 1261922, guid = 142797, n = 100 }
+E["Paragons of the Klaxxi"]["Razor Sharp Blades"] = { hitRate = 0.12, tankOnly = true, share = 0.091, avgDmg = 7314889, guid = 142930, n = 100 }
+E["Paragons of the Klaxxi"]["Reaction: Blue"] = { hitRate = 0.06, tankOnly = false, share = 0.003, avgDmg = 482680, guid = 142735, n = 100 }
+E["Paragons of the Klaxxi"]["Sonic Projection"] = { hitRate = 0.31, tankOnly = false, share = 0.058, avgDmg = 1807592, guid = 143768, n = 100 }
+E["Paragons of the Klaxxi"]["Sonic Resonance"] = { hitRate = 0.18, tankOnly = false, share = 0.008, avgDmg = 402136, guid = 144094, n = 100 }
+E["Paragons of the Klaxxi"]["Stagger"] = { hitRate = 0.05, tankOnly = true, share = 0.063, avgDmg = 12140343, guid = 124255, n = 100 }
+E["Paragons of the Klaxxi"]["Vicious Assault"] = { hitRate = 0.11, tankOnly = false, share = 0.036, avgDmg = 3168124, guid = 143979, n = 100 }
+E["Paragons of the Klaxxi"]["Whirling"] = { hitRate = 0.21, tankOnly = false, share = 0.019, avgDmg = 855143, guid = 143702, n = 100 }
 E.ids[51593] = "Paragons of the Klaxxi"
 E["Sha of Pride"] = E["Sha of Pride"] or {}
-E["Sha of Pride"]["Bursting Pride"] = { hitRate = 0.145, tankOnly = false, share = 0.012, avgDmg = 589340, guid = 144911, n = 110 }
-E["Sha of Pride"]["Corrupted Prison"] = { hitRate = 0.364, tankOnly = false, share = 0.018, avgDmg = 371146, guid = 144574, n = 110 }
-E["Sha of Pride"]["Mark of Arrogance"] = { hitRate = 0.773, tankOnly = false, share = 0.522, avgDmg = 5022882, guid = 144351, n = 110 }
-E["Sha of Pride"]["Melee"] = { hitRate = 0.436, tankOnly = false, share = 0.16, avgDmg = 2728067, guid = 1, n = 110 }
-E["Sha of Pride"]["Mocking Blast"] = { hitRate = 0.064, tankOnly = false, share = 0.002, avgDmg = 245571, guid = 144379, n = 110 }
-E["Sha of Pride"]["Projection"] = { hitRate = 0.091, tankOnly = false, share = 0.003, avgDmg = 206550, guid = 145320, n = 110 }
-E["Sha of Pride"]["Self-Reflection"] = { hitRate = 0.182, tankOnly = false, share = 0.012, avgDmg = 497076, guid = 144788, n = 110 }
-E["Sha of Pride"]["Stagger"] = { hitRate = 0.064, tankOnly = true, share = 0.029, avgDmg = 3354671, guid = 124255, n = 110 }
-E["Sha of Pride"]["Swelling Pride"] = { hitRate = 0.991, tankOnly = false, share = 0.077, avgDmg = 577072, guid = 144400, n = 110 }
-E["Sha of Pride"]["Unleashed"] = { hitRate = 0.991, tankOnly = false, share = 0.166, avgDmg = 1242975, guid = 144836, n = 110 }
+E["Sha of Pride"]["Bursting Pride"] = { hitRate = 0.091, tankOnly = false, share = 0.004, avgDmg = 380650, guid = 144911, n = 110 }
+E["Sha of Pride"]["Corrupted Prison"] = { hitRate = 0.355, tankOnly = false, share = 0.013, avgDmg = 317757, guid = 144574, n = 110 }
+E["Sha of Pride"]["Mark of Arrogance"] = { hitRate = 0.755, tankOnly = false, share = 0.564, avgDmg = 6263408, guid = 144351, n = 110 }
+E["Sha of Pride"]["Melee"] = { hitRate = 0.536, tankOnly = false, share = 0.149, avgDmg = 2324478, guid = 1, n = 110 }
+E["Sha of Pride"]["Mocking Blast"] = { hitRate = 0.073, tankOnly = false, share = 0.003, avgDmg = 368156, guid = 144379, n = 110 }
+E["Sha of Pride"]["Projection"] = { hitRate = 0.209, tankOnly = false, share = 0.008, avgDmg = 325298, guid = 145320, n = 110 }
+E["Sha of Pride"]["Self-Reflection"] = { hitRate = 0.164, tankOnly = false, share = 0.009, avgDmg = 446214, guid = 144788, n = 110 }
+E["Sha of Pride"]["Stagger"] = { hitRate = 0.055, tankOnly = true, share = 0.021, avgDmg = 3226274, guid = 124255, n = 110 }
+E["Sha of Pride"]["Swelling Pride"] = { hitRate = 0.982, tankOnly = false, share = 0.069, avgDmg = 589421, guid = 144400, n = 110 }
+E["Sha of Pride"]["Unleashed"] = { hitRate = 0.982, tankOnly = false, share = 0.158, avgDmg = 1345479, guid = 144836, n = 110 }
 E.ids[51604] = "Sha of Pride"
 E["Siegecrafter Blackfuse"] = E["Siegecrafter Blackfuse"] or {}
-E["Siegecrafter Blackfuse"]["Death From Above"] = { hitRate = 0.05, tankOnly = false, share = 0.004, avgDmg = 443201, guid = 144210, n = 100 }
-E["Siegecrafter Blackfuse"]["Detonate!"] = { hitRate = 0.38, tankOnly = false, share = 0.02, avgDmg = 284179, guid = 143002, n = 100 }
-E["Siegecrafter Blackfuse"]["Electrostatic Charge"] = { hitRate = 0.22, tankOnly = false, share = 0.078, avgDmg = 1932781, guid = 143385, n = 100 }
-E["Siegecrafter Blackfuse"]["Magnetic Crush"] = { hitRate = 0.65, tankOnly = false, share = 0.101, avgDmg = 847835, guid = 144466, n = 100 }
-E["Siegecrafter Blackfuse"]["Melee"] = { hitRate = 0.21, tankOnly = false, share = 0.296, avgDmg = 7696782, guid = 1, n = 100 }
-E["Siegecrafter Blackfuse"]["Overload"] = { hitRate = 1, tankOnly = false, share = 0.308, avgDmg = 1680152, guid = 145444, n = 100 }
-E["Siegecrafter Blackfuse"]["Serrated Slash"] = { hitRate = 0.69, tankOnly = false, share = 0.101, avgDmg = 799446, guid = 143327, n = 100 }
-E["Siegecrafter Blackfuse"]["Shockwave Missile"] = { hitRate = 0.31, tankOnly = false, share = 0.025, avgDmg = 448117, guid = 144660, n = 100 }
-E["Siegecrafter Blackfuse"]["Superheated"] = { hitRate = 0.34, tankOnly = false, share = 0.047, avgDmg = 758705, guid = 143856, n = 100 }
+E["Siegecrafter Blackfuse"]["Death From Above"] = { hitRate = 0.091, tankOnly = false, share = 0.008, avgDmg = 554924, guid = 144210, n = 99 }
+E["Siegecrafter Blackfuse"]["Detonate!"] = { hitRate = 0.394, tankOnly = false, share = 0.039, avgDmg = 594317, guid = 143002, n = 99 }
+E["Siegecrafter Blackfuse"]["Electrostatic Charge"] = { hitRate = 0.202, tankOnly = false, share = 0.066, avgDmg = 1973546, guid = 143385, n = 99 }
+E["Siegecrafter Blackfuse"]["Magnetic Crush"] = { hitRate = 0.717, tankOnly = false, share = 0.128, avgDmg = 1075035, guid = 144466, n = 99 }
+E["Siegecrafter Blackfuse"]["Matter Purification Beam"] = { hitRate = 0.051, tankOnly = false, share = 0.004, avgDmg = 526892, guid = 144335, n = 99 }
+E["Siegecrafter Blackfuse"]["Melee"] = { hitRate = 0.232, tankOnly = false, share = 0.264, avgDmg = 6834666, guid = 1, n = 99 }
+E["Siegecrafter Blackfuse"]["Overload"] = { hitRate = 1, tankOnly = false, share = 0.269, avgDmg = 1620312, guid = 145444, n = 99 }
+E["Siegecrafter Blackfuse"]["Serrated Slash"] = { hitRate = 0.747, tankOnly = false, share = 0.122, avgDmg = 984146, guid = 143327, n = 99 }
+E["Siegecrafter Blackfuse"]["Shockwave Missile"] = { hitRate = 0.263, tankOnly = false, share = 0.017, avgDmg = 389604, guid = 144660, n = 99 }
+E["Siegecrafter Blackfuse"]["Stagger"] = { hitRate = 0.051, tankOnly = true, share = 0.031, avgDmg = 3680847, guid = 124255, n = 99 }
+E["Siegecrafter Blackfuse"]["Superheated"] = { hitRate = 0.354, tankOnly = false, share = 0.047, avgDmg = 796138, guid = 143856, n = 99 }
 E.ids[51601] = "Siegecrafter Blackfuse"
 E["Spoils of Pandaria"] = E["Spoils of Pandaria"] or {}
-E["Spoils of Pandaria"]["Breath of Fire"] = { hitRate = 0.045, tankOnly = false, share = 0.004, avgDmg = 503515, guid = 146226, n = 110 }
-E["Spoils of Pandaria"]["Carnivorous Bite"] = { hitRate = 0.091, tankOnly = false, share = 0.014, avgDmg = 958664, guid = 144853, n = 110 }
-E["Spoils of Pandaria"]["Encapsulated Pheromones"] = { hitRate = 0.345, tankOnly = false, share = 0.029, avgDmg = 536643, guid = 145748, n = 110 }
-E["Spoils of Pandaria"]["Forbidden Magic"] = { hitRate = 0.155, tankOnly = false, share = 0.02, avgDmg = 801707, guid = 145240, n = 110 }
-E["Spoils of Pandaria"]["Fracture"] = { hitRate = 0.318, tankOnly = false, share = 0.029, avgDmg = 572790, guid = 148514, n = 110 }
-E["Spoils of Pandaria"]["Gusting Bomb"] = { hitRate = 0.082, tankOnly = false, share = 0.004, avgDmg = 327070, guid = 145716, n = 110 }
-E["Spoils of Pandaria"]["Gusting Crane Kick"] = { hitRate = 0.109, tankOnly = false, share = 0.007, avgDmg = 414534, guid = 146182, n = 110 }
-E["Spoils of Pandaria"]["Jade Tempest"] = { hitRate = 0.364, tankOnly = false, share = 0.034, avgDmg = 590971, guid = 148583, n = 110 }
-E["Spoils of Pandaria"]["Keg Toss"] = { hitRate = 0.164, tankOnly = false, share = 0.011, avgDmg = 408717, guid = 146217, n = 110 }
-E["Spoils of Pandaria"]["Matter Scramble"] = { hitRate = 0.1, tankOnly = false, share = 0.007, avgDmg = 453145, guid = 145393, n = 110 }
-E["Spoils of Pandaria"]["Melee"] = { hitRate = 0.4, tankOnly = false, share = 0.332, avgDmg = 5226333, guid = 1, n = 110 }
-E["Spoils of Pandaria"]["Molten Fist"] = { hitRate = 0.345, tankOnly = false, share = 0.043, avgDmg = 789294, guid = 148517, n = 110 }
-E["Spoils of Pandaria"]["Nova"] = { hitRate = 0.064, tankOnly = false, share = 0.004, avgDmg = 398606, guid = 142775, n = 110 }
-E["Spoils of Pandaria"]["Path of Blossoms"] = { hitRate = 0.118, tankOnly = false, share = 0.01, avgDmg = 554732, guid = 146257, n = 110 }
-E["Spoils of Pandaria"]["Pheromone Cloud"] = { hitRate = 0.955, tankOnly = false, share = 0.276, avgDmg = 1818840, guid = 148760, n = 110 }
-E["Spoils of Pandaria"]["Pulse"] = { hitRate = 0.2, tankOnly = false, share = 0.023, avgDmg = 713265, guid = 142759, n = 110 }
-E["Spoils of Pandaria"]["Return to Stone"] = { hitRate = 0.218, tankOnly = false, share = 0.014, avgDmg = 410294, guid = 145514, n = 110 }
-E["Spoils of Pandaria"]["Set to Blow"] = { hitRate = 0.164, tankOnly = false, share = 0.017, avgDmg = 647889, guid = 145993, n = 110 }
-E["Spoils of Pandaria"]["Shadow Volley"] = { hitRate = 0.355, tankOnly = false, share = 0.04, avgDmg = 713259, guid = 148516, n = 110 }
-E["Spoils of Pandaria"]["Stagger"] = { hitRate = 0.055, tankOnly = true, share = 0.055, avgDmg = 6356885, guid = 124255, n = 110 }
-E["Spoils of Pandaria"]["Windstorm"] = { hitRate = 0.191, tankOnly = false, share = 0.017, avgDmg = 576983, guid = 145817, n = 110 }
+E["Spoils of Pandaria"]["Carnivorous Bite"] = { hitRate = 0.109, tankOnly = false, share = 0.012, avgDmg = 770422, guid = 144853, n = 110 }
+E["Spoils of Pandaria"]["Encapsulated Pheromones"] = { hitRate = 0.336, tankOnly = false, share = 0.028, avgDmg = 611208, guid = 145748, n = 110 }
+E["Spoils of Pandaria"]["Forbidden Magic"] = { hitRate = 0.155, tankOnly = true, share = 0.023, avgDmg = 1094168, guid = 145240, n = 110 }
+E["Spoils of Pandaria"]["Fracture"] = { hitRate = 0.327, tankOnly = false, share = 0.039, avgDmg = 858088, guid = 148514, n = 110 }
+E["Spoils of Pandaria"]["Gusting Bomb"] = { hitRate = 0.055, tankOnly = false, share = 0.003, avgDmg = 372296, guid = 145718, n = 110 }
+E["Spoils of Pandaria"]["Gusting Crane Kick"] = { hitRate = 0.082, tankOnly = false, share = 0.006, avgDmg = 513206, guid = 146182, n = 110 }
+E["Spoils of Pandaria"]["Harden Flesh"] = { hitRate = 0.055, tankOnly = false, share = 0.005, avgDmg = 711752, guid = 145218, n = 110 }
+E["Spoils of Pandaria"]["Jade Tempest"] = { hitRate = 0.327, tankOnly = false, share = 0.032, avgDmg = 699958, guid = 148583, n = 110 }
+E["Spoils of Pandaria"]["Keg Toss"] = { hitRate = 0.145, tankOnly = false, share = 0.01, avgDmg = 475049, guid = 146217, n = 110 }
+E["Spoils of Pandaria"]["Matter Scramble"] = { hitRate = 0.227, tankOnly = false, share = 0.018, avgDmg = 566693, guid = 145393, n = 110 }
+E["Spoils of Pandaria"]["Melee"] = { hitRate = 0.445, tankOnly = false, share = 0.342, avgDmg = 5565811, guid = 1, n = 110 }
+E["Spoils of Pandaria"]["Molten Fist"] = { hitRate = 0.318, tankOnly = false, share = 0.03, avgDmg = 687202, guid = 148517, n = 110 }
+E["Spoils of Pandaria"]["Nova"] = { hitRate = 0.073, tankOnly = false, share = 0.003, avgDmg = 345800, guid = 142775, n = 110 }
+E["Spoils of Pandaria"]["Path of Blossoms"] = { hitRate = 0.136, tankOnly = false, share = 0.011, avgDmg = 586705, guid = 146257, n = 110 }
+E["Spoils of Pandaria"]["Pheromone Cloud"] = { hitRate = 0.955, tankOnly = false, share = 0.284, avgDmg = 2157682, guid = 148760, n = 110 }
+E["Spoils of Pandaria"]["Pulse"] = { hitRate = 0.145, tankOnly = false, share = 0.016, avgDmg = 782069, guid = 142759, n = 110 }
+E["Spoils of Pandaria"]["Return to Stone"] = { hitRate = 0.136, tankOnly = false, share = 0.008, avgDmg = 426509, guid = 145514, n = 110 }
+E["Spoils of Pandaria"]["Set to Blow"] = { hitRate = 0.209, tankOnly = false, share = 0.02, avgDmg = 709322, guid = 145993, n = 110 }
+E["Spoils of Pandaria"]["Shadow Volley"] = { hitRate = 0.355, tankOnly = false, share = 0.034, avgDmg = 699889, guid = 148516, n = 110 }
+E["Spoils of Pandaria"]["Stagger"] = { hitRate = 0.045, tankOnly = true, share = 0.049, avgDmg = 7772756, guid = 124255, n = 110 }
+E["Spoils of Pandaria"]["Windstorm"] = { hitRate = 0.182, tankOnly = false, share = 0.014, avgDmg = 543816, guid = 145817, n = 110 }
 E.ids[51594] = "Spoils of Pandaria"
 E["Thok the Bloodthirsty"] = E["Thok the Bloodthirsty"] or {}
-E["Thok the Bloodthirsty"]["Corrosive Blood"] = { hitRate = 0.05, tankOnly = false, share = 0.003, avgDmg = 617902, guid = 143791, n = 100 }
-E["Thok the Bloodthirsty"]["Deafening Screech"] = { hitRate = 1, tankOnly = false, share = 0.798, avgDmg = 9676607, guid = 143343, n = 100 }
-E["Thok the Bloodthirsty"]["Fearsome Roar"] = { hitRate = 0.15, tankOnly = true, share = 0.012, avgDmg = 979965, guid = 143426, n = 100 }
-E["Thok the Bloodthirsty"]["Icy Blood"] = { hitRate = 0.07, tankOnly = false, share = 0.001, avgDmg = 245812, guid = 143800, n = 100 }
-E["Thok the Bloodthirsty"]["Melee"] = { hitRate = 0.22, tankOnly = false, share = 0.118, avgDmg = 6493753, guid = 1, n = 100 }
-E["Thok the Bloodthirsty"]["Shock Blast"] = { hitRate = 0.83, tankOnly = false, share = 0.032, avgDmg = 465050, guid = 143707, n = 100 }
-E["Thok the Bloodthirsty"]["Stagger"] = { hitRate = 0.06, tankOnly = true, share = 0.027, avgDmg = 5492486, guid = 124255, n = 100 }
+E["Thok the Bloodthirsty"]["Acid Breath"] = { hitRate = 0.05, tankOnly = false, share = 0.002, avgDmg = 614435, guid = 143780, n = 100 }
+E["Thok the Bloodthirsty"]["Corrosive Blood"] = { hitRate = 0.1, tankOnly = false, share = 0.009, avgDmg = 1207694, guid = 143791, n = 100 }
+E["Thok the Bloodthirsty"]["Deafening Screech"] = { hitRate = 1, tankOnly = false, share = 0.789, avgDmg = 10293739, guid = 143343, n = 100 }
+E["Thok the Bloodthirsty"]["Fearsome Roar"] = { hitRate = 0.17, tankOnly = true, share = 0.013, avgDmg = 974685, guid = 143426, n = 100 }
+E["Thok the Bloodthirsty"]["Icy Blood"] = { hitRate = 0.05, tankOnly = false, share = 0.001, avgDmg = 133499, guid = 143800, n = 100 }
+E["Thok the Bloodthirsty"]["Melee"] = { hitRate = 0.2, tankOnly = false, share = 0.117, avgDmg = 7616784, guid = 1, n = 100 }
+E["Thok the Bloodthirsty"]["Shock Blast"] = { hitRate = 0.82, tankOnly = false, share = 0.035, avgDmg = 561535, guid = 143707, n = 100 }
+E["Thok the Bloodthirsty"]["Stagger"] = { hitRate = 0.05, tankOnly = true, share = 0.024, avgDmg = 6169258, guid = 124255, n = 100 }
+E["Thok the Bloodthirsty"]["Tail Lash"] = { hitRate = 0.08, tankOnly = false, share = 0.001, avgDmg = 146052, guid = 143428, n = 100 }
 E.ids[51599] = "Thok the Bloodthirsty"

@@ -1,5 +1,10 @@
 # TrueParse Changelog
 
+## 2.11.2
+
+Automated monthly Warcraft Logs data refresh (percentile curves and kill times).
+
+
 ## 2.11.1
 
 **Fixes two problems with the new fight list, and makes it a good deal more
