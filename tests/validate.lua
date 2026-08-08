@@ -767,6 +767,28 @@ if sizeProblems > 0 then
 		:format(sizeProblems)
 end
 
+-- ================================================ healer coverage provenance
+-- Every other check here is a ROUND TRIP against shipped data, which cannot
+-- work for this table: its correctness is a claim about the REAL five-man
+-- population, and nothing in Data/ describes that population. Measuring the
+-- anchors against themselves returns 50 by construction whatever they say.
+--
+-- So check where they CAME FROM instead. v2.11.2 auto-published a crawled
+-- table over the fitted one (the tank-mitigation slice defaulted its output
+-- here) and every gate reported success while real five-man healers dropped
+-- 30-38 points, up to 30% of them under ten. A crawled reference cannot work
+-- for this metric at any freshness - WCL's ranked slice spans 0.06 from p25 to
+-- p75 where real players span 0.41 to 1.00 - so "was it crawled" is the whole
+-- question, and it is one CI can actually answer.
+do
+	local TP = CLIENTS.retail
+	local src = TP.HEALER_COVERAGE_SOURCE
+	if TP.HEALER_COVERAGE_ANCHORS and src ~= "captures" then
+		problems[#problems + 1] = ("healer coverage anchors are %s, not fitted to captures - a crawled reference puts the real median below its own p25")
+			:format(src and ("'" .. tostring(src) .. "'") or "unmarked")
+	end
+end
+
 print("")
 if #problems == 0 then
 	print("VALIDATION CLEAN")

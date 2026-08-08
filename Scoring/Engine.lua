@@ -1439,10 +1439,17 @@ local function normalizeMetric(p, role, key, ctx)
 	-- RAIDS ARE DELIBERATELY LEFT ALONE. Raid healing already matches WCL
 	-- parses to a mean absolute error of 2.4 points, which is the best
 	-- accuracy anything in this addon has. There is nothing to fix there and
-	-- everything to lose. The ANCHOR is crawled from raid logs even so,
-	-- because coverage x healerN proved portable: 0.652 and 0.723 for two-
-	-- and three-healer raids against 0.680 for a solo Mythic+ healer, a 1.11x
-	-- spread where the un-normalised numbers span 2.82x.
+	-- everything to lose. The x healerN normalisation is what makes ONE anchor
+	-- portable across roster sizes: 0.652 and 0.723 for two- and three-healer
+	-- raids against 0.680 for a solo Mythic+ healer, a 1.11x spread where the
+	-- un-normalised numbers span 2.82x.
+	--
+	-- THE ANCHOR IS FITTED TO REAL CAPTURES, NOT CRAWLED. This comment used to
+	-- say "crawled from raid logs", which was true of an earlier attempt and
+	-- became false in v2.10.0 - and a stale provenance note is not harmless
+	-- here, because re-crawling this table is the specific mistake that keeps
+	-- getting made. It shipped again in v2.11.2 and cost five-man healers 30-38
+	-- points. Data/HealerCoverage.lua has the full reasoning.
 	if role == "HEALER" and key == "healing" and not ctx.parseMode
 		and TP.HEALER_COVERAGE_UNIT == "healable-share-x-healers" then
 		local scored, healerN, selfHeal, absorbed = 0, 0, 0, 0

@@ -29,7 +29,14 @@ param(
     # than overwriting it (Josh 2026-08-05).
     [string]$EmitAlt = "",
     [string]$OutDamageFile = "TankDamage.lua",
-    [string]$OutCoverageFile = "HealerCoverage.lua",
+    # EMPTY ON PURPOSE - healer coverage is NOT crawlable. Data/HealerCoverage.lua
+    # is fitted to real captures because two crawls failed structurally: WCL's
+    # ranked five-man slice spans p25-p75 of 0.06 while real players span 0.41
+    # to 1.00, so every real healer lands below its p25. This used to default to
+    # "HealerCoverage.lua", and the monthly refresh silently overwrote the fitted
+    # table with a crawl - v2.11.2 shipped it and five-man healers lost 30-38
+    # points. Pass an explicit path ONLY to inspect a crawl; never to Data/.
+    [string]$OutCoverageFile = "",
     [string]$ClientFile = "$PSScriptRoot\wcl-v2-client.local.txt"
 )
 $ErrorActionPreference = "Stop"
@@ -520,11 +527,21 @@ local _, TP = ...
 
 TP.HEALER_COVERAGE_UNIT = "healable-share-x-healers"
 
+-- CRAWLED, so tests/validate.lua will REFUSE this file if it is dropped into
+-- Data/. The shipped table must stay fitted to real captures - see the header
+-- of Data/HealerCoverage.lua for why a crawled reference cannot work here.
+TP.HEALER_COVERAGE_SOURCE = "wcl-crawl"
+
 TP.HEALER_COVERAGE_ANCHORS = {
 	default = $cDefLine
 $($cLines -join "`n")
 }
 "@
-$cOut = if ([System.IO.Path]::IsPathRooted($OutCoverageFile)) { $OutCoverageFile } else { Join-Path (Split-Path $PSScriptRoot -Parent) "Data\$OutCoverageFile" }
-[System.IO.File]::WriteAllText($cOut, $cHeader, $utf8Bom)
-Write-Host ("Wrote {0} ({1} specs)" -f $cOut, $cLines.Count)
+if ([string]::IsNullOrWhiteSpace($OutCoverageFile)) {
+    Write-Host "Skipping healer coverage: not crawlable, and no -OutCoverageFile given (see the param comment)."
+}
+else {
+    $cOut = if ([System.IO.Path]::IsPathRooted($OutCoverageFile)) { $OutCoverageFile } else { Join-Path (Split-Path $PSScriptRoot -Parent) "Data\$OutCoverageFile" }
+    [System.IO.File]::WriteAllText($cOut, $cHeader, $utf8Bom)
+    Write-Host ("Wrote {0} ({1} specs)" -f $cOut, $cLines.Count)
+}
