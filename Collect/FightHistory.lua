@@ -147,7 +147,66 @@ local function hasPlacedTwin(fights, fight)
 	end
 	return false
 end
+-- PLACELESS-vs-PLACELESS: the hole hasPlacedTwin cannot cover (Josh 2026-08-08).
+-- His Spiritflayer Jin'ma came back THREE times - captured 08-04, 08-05 and
+-- 08-07, every one of them placeless, so there was never a placed twin to
+-- match against and the guard above never fired. The 6-hour resume replacement
+-- below missed them too, because they are DAYS apart.
+--
+-- What separates a re-read from a genuine second kill is that a re-read is the
+-- same numbers, not merely a similar fight: all three records carry damage
+-- 20053198, damageTaken 4531303, healing 4682992, absorbs 866199 and
+-- avoidableTaken 910811, identical to the digit. Two real kills never do that.
+--
+-- NAME AND DURATION ALONE ARE NOT ENOUGH and must not be used here. This same
+-- history holds Halkias twice at 38s and Nalthor twice at 52s, on consecutive
+-- days - genuine repeat Timewalking kills that happen to run the same length,
+-- which is ordinary for a short boss. It is also why totals-only was retracted
+-- once before: a boss has a fixed health pool, so damage totals CLUSTER. The
+-- claim here is exact equality across five independent metrics at once, which
+-- clustering does not produce.
+--
+-- Bulk-unlocked (LFR-style) fights stay safe: they are placeless with no twin,
+-- but two DIFFERENT fights cannot post identical totals, so nothing legitimate
+-- matches. All-zero captures are refused outright rather than matching each
+-- other - an unread session must never look like a duplicate.
+local DUPE_TOTALS = { "damage", "healing", "damageTaken", "absorbs", "avoidableTaken" }
+
+local function sameTotals(a, b)
+	local ta, tb = a.totals, b.totals
+	if not ta or not tb then
+		return false
+	end
+	local any = false
+	for _, k in ipairs(DUPE_TOTALS) do
+		local va, vb = ta[k] or 0, tb[k] or 0
+		if va ~= vb then
+			return false
+		end
+		if va > 0 then
+			any = true
+		end
+	end
+	return any
+end
+
+-- Is this capture a re-read of one we already hold? Requires the existing
+-- record to be EARLIER, so the original survives and the phantom is dropped.
+local function duplicatesEarlierCapture(fights, fight)
+	for i = 1, #fights do
+		local f = fights[i]
+		if f ~= fight and f.name == fight.name
+			and (f.duration or 0) == (fight.duration or 0)
+			and (f.capturedAt or 0) < (fight.capturedAt or 0)
+			and sameTotals(f, fight) then
+			return true
+		end
+	end
+	return false
+end
+
 FightHistory.IsPlaceless = isPlaceless -- exposed for diagnostics
+FightHistory.DuplicatesEarlierCapture = duplicatesEarlierCapture -- and for tests
 
 -- Attempts a full capture. Returns false when the session is still locked.
 function FightHistory:TrySnapshot(sessionID, descriptor)
@@ -501,6 +560,13 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- (LFR-style) fights that stream in after you leave, and those must
 	-- still capture.
 	if isPlaceless(fight) and hasPlacedTwin(self.fights, fight) then
+		self.snapshotted[sessionID] = true
+		return true
+	end
+
+	-- ...and the same phantom when the ORIGINAL was placeless too, which is
+	-- the case hasPlacedTwin structurally cannot see. See duplicatesEarlierCapture.
+	if isPlaceless(fight) and duplicatesEarlierCapture(self.fights, fight) then
 		self.snapshotted[sessionID] = true
 		return true
 	end
@@ -1737,6 +1803,15 @@ function FightHistory:OnEnable()
 	-- name normalization above so twin matching compares clean names.
 	for i = #self.fights, 1, -1 do
 		if isPlaceless(self.fights[i]) and hasPlacedTwin(self.fights, self.fights[i]) then
+			table.remove(self.fights, i)
+		end
+	end
+	-- Same sweep for the placeless-vs-placeless copies, which the pass above
+	-- cannot see. Walking newest-first and keeping the EARLIEST capture means
+	-- a boss re-read three times collapses to the one original, not to a pair.
+	for i = #self.fights, 1, -1 do
+		if isPlaceless(self.fights[i])
+			and duplicatesEarlierCapture(self.fights, self.fights[i]) then
 			table.remove(self.fights, i)
 		end
 	end

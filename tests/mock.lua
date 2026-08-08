@@ -588,6 +588,47 @@ do
 		f, t = pick(0, 301, 61, 240)
 		check(t == 240, "61s of dead air is treated as a run-back")
 	end
+
+	-- PLACELESS-vs-PLACELESS re-reads (Josh 2026-08-08). His Spiritflayer
+	-- Jin'ma sat in history three times - 08-04, 08-05, 08-07, every copy
+	-- placeless, so hasPlacedTwin had nothing to match and the 6-hour resume
+	-- replacement was days out of range. The tell is that a re-read reports
+	-- IDENTICAL totals; two real kills never do.
+	local dup = ok and TP.FightHistory and TP.FightHistory.DuplicatesEarlierCapture
+	check(type(dup) == "function", "the placeless dedupe predicate is reachable for tests")
+	if type(dup) == "function" then
+		local function fight(t)
+			return { name = t.name or "Spiritflayer Jin'ma", duration = t.duration or 152,
+				capturedAt = t.capturedAt, totals = t.totals or
+					{ damage = 20053198, healing = 4682992, damageTaken = 4531303,
+						absorbs = 866199, avoidableTaken = 910811 } }
+		end
+		local original = fight({ capturedAt = 1785896809 }) -- 08-04
+		local reread = fight({ capturedAt = 1785982191 }) -- 08-05, same numbers
+		check(dup({ original }, reread), "a later capture with identical totals is a re-read")
+		check(not dup({ reread }, original),
+			"the EARLIEST capture survives - the original is never the duplicate")
+
+		-- the retraction that cost a session: totals CLUSTER because a boss has
+		-- a fixed health pool, so near-equal is not equal. And Halkias/Nalthor
+		-- really do repeat at the same duration on consecutive days.
+		local nearly = fight({ capturedAt = 1785982191,
+			totals = { damage = 20049200, healing = 4682992, damageTaken = 4531303,
+				absorbs = 866199, avoidableTaken = 910811 } })
+		check(not dup({ original }, nearly),
+			"totals 0.02% apart are a different kill, not a duplicate")
+
+		-- a bulk-unlocked LFR fight is placeless with no twin and must survive
+		local otherBoss = fight({ name = "Someone Else", capturedAt = 1785982191 })
+		check(not dup({ original }, otherBoss), "a different boss is never a duplicate")
+		local otherLength = fight({ duration = 151, capturedAt = 1785982191 })
+		check(not dup({ original }, otherLength), "a different duration is never a duplicate")
+
+		-- an unread session must not look like a duplicate of another unread one
+		local zeroA = fight({ capturedAt = 1785896809, totals = {} })
+		local zeroB = fight({ capturedAt = 1785982191, totals = {} })
+		check(not dup({ zeroA }, zeroB), "two empty captures do not match each other")
+	end
 end
 
 -- KILL/WIPE VERDICT. ENCOUNTER_END's success flag is a REPORT; a dead boss is
