@@ -379,6 +379,14 @@ do
 		check(mop.DifficultyParts({ difficultyID = 15 }) == nil, "an id from the other client is not guessed at")
 		check(mop.DifficultyParts({}) == nil, "no difficultyID, no label")
 		check(mop.DifficultyChip({ difficultyID = 5 }) == "|cff3d8ee010H|r", "the chip carries its colour")
+		-- PRACTICE_ANCHOR stamps difficultyID 3 on a dummy session so it can
+		-- borrow Iron Juggernaut's bracket to score against. That is a
+		-- scoring detail; rendering it claimed Josh had been in a 10-player
+		-- Normal raid while he was hitting a dummy in a city.
+		check(mop.DifficultyParts({ difficultyID = 3, practice = true }) == nil,
+			"a training dummy shows no difficulty, borrowed bracket or not")
+		check(mop.DifficultyChip({ difficultyID = 3, practice = true }) == nil,
+			"...and no chip either")
 	end
 	check(mop.WipeLabel({}) == nil, "no bossPct, no label")
 end

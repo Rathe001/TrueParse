@@ -191,6 +191,16 @@ function TP.DifficultyParts(fight)
 	if not fight then
 		return nil
 	end
+	-- A TRAINING DUMMY HAS NO DIFFICULTY. PRACTICE_ANCHOR stamps a
+	-- difficultyID onto a practice session purely so it can borrow a real
+	-- boss's bracket to score against (MoP: Iron Juggernaut, difficulty 3).
+	-- That is a scoring detail, not a statement about where the player was -
+	-- and rendering it told Josh he had been in a 10-player Normal raid while
+	-- he was hitting a dummy outside the Shrine of Two Moons (2026-08-08).
+	-- The row already says "practice", which is the true label.
+	if fight.practice then
+		return nil
+	end
 	local map = (TP.Compat and TP.Compat.IS_RETAIL) and DIFF_RETAIL or DIFF_MISTS
 	local e = fight.difficultyID and map[fight.difficultyID]
 	if not e then

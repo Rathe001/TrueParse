@@ -418,7 +418,7 @@ local function createWindow()
 		-- summary leads at +2pt and near-white; the footnote drops back to
 		-- the default size and dims, so the eye lands on the answer first
 		local body = {
-			{ t.what, 0.95, 0.95, 0.95, size = 13 },
+			{ self.tierWhat or t.what, 0.95, 0.95, 0.95, size = 13 },
 			-- a fight can explain its OWN tier better than the generic
 			-- footnote can (tier II's names dungeons and Mythic+, which says
 			-- nothing true about a training dummy)
@@ -1416,12 +1416,13 @@ end
 -- Engine numbering throughout (1 = direct); see TIERS. tier = nil means
 -- nothing is scored on screen (empty/waiting state) and the chip hides
 -- rather than describing a fight that isn't there.
-function MeterWindow:UpdateTierChip(tier, how)
+function MeterWindow:UpdateTierChip(tier, how, what)
 	lastTier = tier
 	if not (window and window.tierChip) then
 		return
 	end
 	window.tierChip.tierHow = how
+	window.tierChip.tierWhat = what
 	local def
 	for _, t in ipairs(TIERS) do
 		if t.tier == tier then
@@ -1812,6 +1813,7 @@ local lastRawAvailable = true
 -- fight took the early return and never re-lit it (Josh 2026-07-28).
 local lastFightTier = 1
 local lastFightHow -- per-fight override for the chip's footnote
+local lastFightWhat -- ...and for its headline (practice is not "this dungeon")
 
 -- Every row of a scored fight carries the same tier, but a fight can score
 -- to an empty result set; read it defensively.
@@ -1832,6 +1834,17 @@ local function tierHowFor(fight)
 		return anchor
 			and ("Not a real parse: nobody ranks a training dummy, so your rotation is measured against %s's curves."):format(anchor)
 			or "Not a real parse: nobody ranks a training dummy, and this client has no anchor fight to stand in for one."
+	end
+	return nil
+end
+
+-- The tier's headline sentence. Tier II's stock copy is "This dungeon's real
+-- curves", which is simply untrue of a training dummy - the anchor is a RAID
+-- boss on MoP (Iron Juggernaut). `how` was already overridden for practice;
+-- the line above it was not, so the card contradicted itself.
+local function tierWhatFor(fight)
+	if fight and fight.practice then
+		return "A rehearsal, not a ranked fight."
 	end
 	return nil
 end
@@ -1882,7 +1895,7 @@ function MeterWindow:RenderScorecard(fight)
 		-- scores are static once captured; only the subtitle changes.
 		-- The strip still gets re-asserted: something else (the empty state)
 		-- may have blanked it while this same fight stayed pinned.
-		MeterWindow:UpdateTierChip(lastFightTier, lastFightHow)
+		MeterWindow:UpdateTierChip(lastFightTier, lastFightHow, lastFightWhat)
 		window.subtitle:SetText(subtitleText(lastRawAvailable))
 		return
 	end
@@ -1894,7 +1907,8 @@ function MeterWindow:RenderScorecard(fight)
 	-- the strip below the window says what the score is built on
 	lastFightTier = tierOfResults(results, rawAvailable)
 	lastFightHow = tierHowFor(fight)
-	MeterWindow:UpdateTierChip(lastFightTier, lastFightHow)
+	lastFightWhat = tierWhatFor(fight)
+	MeterWindow:UpdateTierChip(lastFightTier, lastFightHow, lastFightWhat)
 	window.subtitle:SetText(subtitleText(rawAvailable))
 	-- effective mode for THIS card: raw only when WCL evidence backs it
 	local isRaw = isRawSetting and rawAvailable
@@ -2364,7 +2378,8 @@ local function refreshImpl(self, force)
 			-- scoreForDisplay returns (results, rawAvailable); the call above
 			-- passes both through Lua's multiple returns
 			lastFightHow = tierHowFor(latest)
-			MeterWindow:UpdateTierChip(lastFightTier, lastFightHow)
+			lastFightWhat = tierWhatFor(latest)
+			MeterWindow:UpdateTierChip(lastFightTier, lastFightHow, lastFightWhat)
 		else
 			MeterWindow:UpdateTierChip(nil)
 		end
