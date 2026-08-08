@@ -561,6 +561,39 @@ do
 	end
 end
 
+-- KILL/WIPE VERDICT. ENCOUNTER_END's success flag is a REPORT; a dead boss is
+-- the event itself. MoP Celestial dungeons disagree: Josh killed Rattlegore
+-- (2026-08-08), ENCOUNTER_END said success=0, and it filed as a wipe at 8.7%
+-- because the corpse detector was gated on seg.bossEngaged - which the
+-- boss-frame fallback only sets when there is NO encounterID. Real encounter
+-- events therefore silenced the one signal that could contradict the flag.
+do
+	-- mirrors Collect/FightHistory.lua's `wiped`
+	local function wiped(encounterWipe, bossKilled)
+		return (encounterWipe and not bossKilled) or nil
+	end
+	check(wiped(nil, nil) == nil, "a clean kill is not a wipe")
+	check(wiped(true, nil) == true, "success=0 with no corpse is a wipe")
+	check(wiped(true, true) == nil, "a dead boss outranks success=0")
+	check(wiped(nil, true) == nil, "success=1 with a corpse is still a kill")
+
+	-- the gate that caused it: boss deaths must be tracked whenever the boss
+	-- GUIDs are known, NOT only on boss-frame-fallback fights
+	local src = io.open("Metrics/Utility.lua")
+	local text = src and src:read("*a") or ""
+	if src then src:close() end
+	check(not text:find("seg%.bossEngaged and seg%.bossGUIDs"),
+		"boss deaths are tracked on encounter fights too, not just fallback ones")
+
+	-- and a bogus wipe flag must not hand a KILL the avoidable-damage
+	-- forgiveness a real collapse earns
+	local fh = io.open("Collect/FightHistory.lua")
+	local ftext = fh and fh:read("*a") or ""
+	if fh then fh:close() end
+	check(not ftext:find("seg%.encounterWipe and seg%.manualWipeAt"),
+		"the wipe-call path respects the corpse, so a kill forgives nothing")
+end
+
 print("")
 if failures > 0 then
 	print(("%d/%d CHECKS FAILED"):format(failures, checks))

@@ -1,4 +1,4 @@
--- Post-fight snapshotter (Midnight+ clients). Once a Blizzard combat session
+﻿-- Post-fight snapshotter (Midnight+ clients). Once a Blizzard combat session
 -- finishes and its values unlock, this captures every TP.METRIC_DEFS
 -- attribute into one plain-data fight record — the input the scoring engine
 -- consumes. Records contain no secrets and no WoW handles, so they persist
@@ -1145,7 +1145,16 @@ function FightHistory:AddFromSegment(seg)
 	-- to reset faster. A wipe fought to the end detects nothing and
 	-- everything counts. BOTH paths require an actual wipe (Josh
 	-- 2026-07-26): a called wipe that turns into a kill forgives nothing.
-	local manualCall = seg.encounterWipe and seg.manualWipeAt or nil
+	-- A KILL IS A KILL. ENCOUNTER_END's success flag is a REPORT; a dead boss
+	-- is the event itself, and where they disagree the corpse wins. MoP
+	-- Celestial dungeons produce exactly that disagreement (Josh's Rattlegore,
+	-- 2026-08-08: killed, reported success=0, filed as a wipe at 8.7%).
+	-- Defined HERE rather than beside the fight table because the wipe-call
+	-- detection below already insists on an actual wipe - "a called wipe that
+	-- turns into a kill forgives nothing" - and a bogus wipe flag would hand a
+	-- KILL the avoidable-damage forgiveness meant for a collapse.
+	local wiped = (seg.encounterWipe and not seg.bossKilled) or nil
+	local manualCall = wiped and seg.manualWipeAt or nil
 	-- 0 is TRUTHY in Lua, so a wipe called at the pull instant (manual
 	-- button at 0s, or a sync-clamped peer call) left calledAt=0 and every
 	-- `calledAt or seg.duration` fallback silently kept 0 → activityPct =
@@ -1154,7 +1163,7 @@ function FightHistory:AddFromSegment(seg)
 	-- degenerate 0 falls through to the heuristic / no-call behavior.
 	if manualCall and manualCall <= 0 then manualCall = nil end
 	local calledAt = manualCall
-	if not calledAt and seg.encounterWipe and TP.Spikes and TP.Spikes.DetectWipeCall then
+	if not calledAt and wiped and TP.Spikes and TP.Spikes.DetectWipeCall then
 		local ok, at = TP.Trap("Spikes.DetectWipeCall", TP.Spikes.DetectWipeCall,
 			seg.group and seg.group.out, seg.duration)
 		calledAt = ok and at or nil
@@ -1416,8 +1425,10 @@ function FightHistory:AddFromSegment(seg)
 		practice = practice or nil,
 		encounterID = seg.encounterID,
 		-- explicit verdict, else the retail-style heuristic: a boss pull
-		-- with no ENCOUNTER_END where every participant died is a wipe
-		wipe = seg.encounterWipe,
+		-- with no ENCOUNTER_END where every participant died is a wipe.
+		-- A CORPSE OUTRANKS THE FLAG: if every boss we saw framed is dead,
+		-- the pull was a kill no matter what success said (see wiped above).
+		wipe = wiped,
 		-- explicit ENCOUNTER_END verdict — or, on boss-frame fallback
 		-- fights, every engaged boss dying (Celestial kill verdict)
 		hadVerdict = (seg.encounterEnded or seg.bossKilled) or nil,
@@ -1431,10 +1442,10 @@ function FightHistory:AddFromSegment(seg)
 		-- lowest boss HP% reached: the progression number on wipes
 		-- where the boss stood when the pull ended (WCL wipe semantics;
 		-- refill-phase bosses like Garrosh made a running min meaningless)
-		bossPct = seg.encounterWipe and seg.bossPctLast or nil,
+		bossPct = wiped and seg.bossPctLast or nil,
 		-- which phase that percentage belongs to; nil/1 = the boss never
 		-- refilled, so the raw percentage IS the progress
-		bossPhase = seg.encounterWipe and seg.bossPhase or nil,
+		bossPhase = wiped and seg.bossPhase or nil,
 		duration = seg.duration or 0,
 		rawDuration = seg.rawDuration, -- untrimmed window (report matching)
 		capturedAt = time(),

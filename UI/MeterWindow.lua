@@ -757,10 +757,13 @@ local function createWindow()
 		-- column is reserved on EVERY row, empty ones included, so names stay
 		-- on one x whether or not a boss was pulled twice.
 		row.exp = CreateFrame("Button", nil, row)
-		row.exp:SetSize(11, 11)
+		row.exp:SetSize(14, 14)
 		row.exp:SetPoint("LEFT", 2, 0)
 		row.exp.tex = row.exp:CreateTexture(nil, "OVERLAY")
-		row.exp.tex:SetSize(7, 6)
+		-- SQUARE on purpose: the tex is rotated a quarter turn for the
+		-- collapsed state, and a non-square region visibly distorts when it
+		-- turns. The arrow art is close enough to square to take it.
+		row.exp.tex:SetSize(10, 10)
 		row.exp.tex:SetPoint("CENTER")
 		row.exp.tex:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
 		row.exp:Hide()

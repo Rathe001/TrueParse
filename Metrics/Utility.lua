@@ -188,9 +188,21 @@ tracker.subevents.SPELL_DISPEL = function(seg, srcGUID, dstGUID, srcFlags, dstFl
 end
 
 tracker.subevents.UNIT_DIED = function(seg, srcGUID, dstGUID)
-	-- boss-frame fallback fights (Celestial dungeons fire no ENCOUNTER
-	-- events): the kill verdict is every engaged boss dying
-	if seg.bossEngaged and seg.bossGUIDs and seg.bossGUIDs[dstGUID] then
+	-- A DEAD BOSS IS GROUND TRUTH, whatever the encounter events claim. This
+	-- used to require seg.bossEngaged, which is ONLY set by the boss-frame
+	-- fallback - and that fallback bails out when seg.encounterID exists. So
+	-- the moment a fight had real ENCOUNTER events the corpse detector went
+	-- silent and `success` was the only verdict, with nothing able to
+	-- contradict it. Josh killed Rattlegore in a Celestial Scholomance
+	-- (2026-08-08) and ENCOUNTER_END reported success=0; it filed as a wipe at
+	-- 8.7% because nothing else was allowed to speak.
+	--
+	-- bossGUIDs is captured at ENCOUNTER_START and re-captured every 2s, and
+	-- only ever GROWS, so "every boss we ever saw framed is dead" stays a
+	-- strict condition - a Paragons wipe still has a live boss in the frames.
+	-- Classic-only either way: captureBossGUIDs returns early on retail,
+	-- where boss GUIDs are secret.
+	if seg.bossGUIDs and seg.bossGUIDs[dstGUID] then
 		seg.bossDead = seg.bossDead or {}
 		seg.bossDead[dstGUID] = true
 		local all = true
