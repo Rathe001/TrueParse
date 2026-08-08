@@ -193,6 +193,16 @@ jobs:
       - name: Headless tests against current data
         run: lua5.4 tests/run.lua
 
+      # run.lua gates on validate.lua by COUNT (`<= 2 known`), so a NEW problem
+      # slips through whenever an old one is fixed - which is how v2.11.2
+      # auto-published a Heroic role-spread regression with every check green.
+      # This compares the refreshed data against the data it REPLACES and fails
+      # only on problems it introduces, so it cannot be tripped by pre-existing
+      # known issues. Josh 2026-08-08 approved the auto-bump "as long as the
+      # data is 100% usable and won't introduce a bug"; this is that condition.
+      - name: Refuse data that makes scoring worse
+        run: bash scripts/data-regression-check.sh
+
       # ---- crawl slices commit their file(s) to the shared branch ----
       - name: Commit slice data
         if: steps.cfg.outputs.slice != 'finalize'
