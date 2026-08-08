@@ -155,15 +155,22 @@ end)()
 
 -- 0d. Score validation across every scenario (tests/validate.lua): the
 -- percentile round trip for damage and healing, the mitigation anchors for
--- tanks, and gear invariance for the derived tiers. Its known-open items
--- (Timewalking's bimodal spread, the unbuildable Celestial fixture) are
--- listed in its own output; this gate only fails on NEW breakage.
+-- tanks, and gear invariance for the derived tiers.
+--
+-- KNOWN IS ZERO NOW, AND TOLERATING A COUNT WAS THE WEAKNESS. This gate used
+-- to allow `count <= 2`, which hides a NEW problem the moment an old one is
+-- fixed - and that is not hypothetical: the two original known items were
+-- fixed, the v2.11.2 refresh introduced a Heroic role spread, and 1 <= 2 kept
+-- the suite green while it shipped. The spread turned out to be a measurement
+-- artefact in validate.lua itself (WCL's 2000-row cap; see the isCapped note
+-- there), so the list is genuinely empty and there is nothing left to
+-- tolerate. If a real design question re-opens, name it here rather than
+-- raising a number - a count says nothing about WHICH problem is allowed.
 ;(function()
-	local KNOWN = 2 -- see tests/validate.lua's printed problem list
 	local ok, count = pcall(dofile, "tests/validate.lua")
-	check(ok and type(count) == "number" and count <= KNOWN,
-		("score validation finds no new problems (%s)"):format(
-			ok and (tostring(count) .. " vs " .. KNOWN .. " known") or tostring(count)))
+	check(ok and count == 0,
+		("score validation is clean (%s)"):format(
+			ok and (tostring(count) .. " problems") or tostring(count)))
 end)()
 
 -- 1. Every role's weights sum to 1.0

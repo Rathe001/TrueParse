@@ -76,6 +76,32 @@ local function curveValueAt(curve, pct)
 	end
 end
 
+-- A CAPPED entry's curve labels are NOT population percentiles, and every
+-- probe in this file assumes they are (Josh 2026-08-08).
+--
+-- WCL's characterRankings serves at most 2000 rows per spec, so for a popular
+-- spec the crawl gets the TOP SLICE and the curve's "p25" means "p25 of the
+-- top 2000", not "p25 of everyone". Engine.entryPercentileFor corrects for
+-- exactly this - it converts a sample percentile to a rank and the recorded
+-- population (entry.total) turns that rank into a real percentile - and the
+-- correction is right: it was validated against WCL's own rankPercents in
+-- 2026-07-22. But it means feeding a probe "the curve's p25 value" and
+-- asserting it must score 25 is measuring the CAP, not the engine.
+--
+-- That is the whole of the "Heroic role spread" that has been open since the
+-- v2.11.2 refresh. LFR and Normal are 14% capped, but Heroic and Mythic are
+-- 72%, so the healer happened to draw a capped spec (65: n=2000, total 2299)
+-- while tank and damager drew uncapped ones - and the 16-point "role bias"
+-- was the ratio n/total, nothing about roles at all. Two earlier attempts to
+-- fix it by re-crawling data were chasing a measurement artefact.
+--
+-- So prefer entries whose sample IS the population. Falls back to the old
+-- behaviour when a bracket has nothing uncapped, so a thin bracket still gets
+-- tested rather than silently skipped - `capped` is reported by the caller.
+local function isCapped(e)
+	return e and e.n and e.total and e.total > e.n
+end
+
 -- Find a real encounter+spec in this client's data for the wanted bracket.
 local function pickCurve(TP, bracket, dungeon, wantRole)
 	local P = TP.Percentiles
@@ -83,26 +109,30 @@ local function pickCurve(TP, bracket, dungeon, wantRole)
 	local names = {}
 	for name in pairs(P.encounters) do names[#names + 1] = name end
 	table.sort(names) -- deterministic pick
-	for _, name in ipairs(names) do
-		local enc = P.encounters[name]
-		local isDungeonKeyed = type(enc.all) == "table"
-		for k, v in pairs(enc) do
-			if k ~= "all" and k ~= "_mono" and type(v) == "table" then
-				isDungeonKeyed = false
+	-- pass 1 demands an uncapped sample, pass 2 accepts anything
+	for _, requireUncapped in ipairs({ true, false }) do
+		for _, name in ipairs(names) do
+			local enc = P.encounters[name]
+			local isDungeonKeyed = type(enc.all) == "table"
+			for k, v in pairs(enc) do
+				if k ~= "all" and k ~= "_mono" and type(v) == "table" then
+					isDungeonKeyed = false
+				end
 			end
-		end
-		if dungeon == nil or dungeon == isDungeonKeyed then
-			local b = enc[bracket or "all"]
-			if type(b) == "table" and b.dps and b.hps then
-				local specs = {}
-				for id in pairs(b.dps) do specs[#specs + 1] = id end
-				table.sort(specs)
-				for _, id in ipairs(specs) do
-					local d, h = b.dps[id], b.hps[id]
-					if (not wantRole or roles[id] == wantRole)
-						and d and d.curve and curveValueAt(d.curve, 50)
-						and h and h.curve and curveValueAt(h.curve, 50) then
-						return name, id, d, h, enc
+			if dungeon == nil or dungeon == isDungeonKeyed then
+				local b = enc[bracket or "all"]
+				if type(b) == "table" and b.dps and b.hps then
+					local specs = {}
+					for id in pairs(b.dps) do specs[#specs + 1] = id end
+					table.sort(specs)
+					for _, id in ipairs(specs) do
+						local d, h = b.dps[id], b.hps[id]
+						if (not wantRole or roles[id] == wantRole)
+							and d and d.curve and curveValueAt(d.curve, 50)
+							and h and h.curve and curveValueAt(h.curve, 50)
+							and not (requireUncapped and (isCapped(d) or isCapped(h))) then
+							return name, id, d, h, enc, (isCapped(d) or isCapped(h)) and true or false
+						end
 					end
 				end
 			end
@@ -468,16 +498,27 @@ local function uptimeForPct(a, pct)
 end
 
 local function specWithRole(TP, bracket, role)
-	local _, id, d, h = pickCurve(TP, bracket, false, role)
-	return id, d, h
+	local name, id, d, h = pickCurve(TP, bracket, false, role)
+	return id, d, h, name
 end
 
 for _, sc in ipairs({ SCENARIOS[2], SCENARIOS[3], SCENARIOS[10] }) do -- Normal, Heroic, SoO 25N
 	local TP = CLIENTS[sc.client]
 	local encName = pickCurve(TP, sc.bracket, false)
-	local tankID, tankD, tankH = specWithRole(TP, sc.bracket, "TANK")
-	local healID, healD, healH = specWithRole(TP, sc.bracket, "HEALER")
-	local dpsID,  dpsD,  dpsH  = specWithRole(TP, sc.bracket, "DAMAGER")
+	local tankID, tankD, tankH, tankEnc = specWithRole(TP, sc.bracket, "TANK")
+	local healID, healD, healH, healEnc = specWithRole(TP, sc.bracket, "HEALER")
+	local dpsID,  dpsD,  dpsH,  dpsEnc  = specWithRole(TP, sc.bracket, "DAMAGER")
+	-- The fight is NAMED encName but the curves come from three independent
+	-- picks, so a role landing on a different encounter would have the engine
+	-- score it against encName's data while the probe was built from another
+	-- boss's. It happens to agree today; say so out loud if it ever stops,
+	-- because the failure looks exactly like role bias.
+	if (tankEnc and tankEnc ~= encName) or (healEnc and healEnc ~= encName)
+		or (dpsEnc and dpsEnc ~= encName) then
+		problems[#problems + 1] = ("%s: role probes span different encounters (%s/%s/%s vs %s)")
+			:format(sc.label, tostring(tankEnc), tostring(healEnc), tostring(dpsEnc),
+				tostring(encName))
+	end
 	-- * SUPPORT is informational: see the note at the parity check below
 	if not (encName and tankID and healID and dpsID) then
 		problems[#problems + 1] = ("%s: could not build a full role set"):format(sc.label)
