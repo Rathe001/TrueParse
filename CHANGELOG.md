@@ -1,5 +1,46 @@
 # TrueParse Changelog
 
+## 2.11.3
+
+**If you heal five-man content, your scores were too low in 2.11.2 and this
+puts them right.** Expect them to jump back up by roughly 30-40 points.
+
+* **Five-man healer scores are fixed.** The healer baselines are deliberately
+  fitted to real recorded fights, because the Warcraft Logs ranked pool for
+  five-mans is far tighter and stronger than the people actually running that
+  content - measured against it, a completely ordinary healer sits below its
+  bottom quartile. The monthly data refresh regenerated that one file from
+  Warcraft Logs anyway, and 2.11.2 shipped it. Five-man healers lost 30-38
+  points and as many as a third of them scored under ten. The fitted baselines
+  are restored, the refresh can no longer touch that file, and the test suite
+  now checks where those numbers came from rather than only what they say.
+
+* **A boss you killed once no longer appears in your fight list several
+  times.** When the damage meter reset, TrueParse could re-read a fight it had
+  already recorded and file it again, hours or days later, with no zone or
+  difficulty attached - one kill showing up three times across three days. A
+  re-read reports byte-identical numbers, which is what now identifies it.
+  Genuine repeat kills of the same boss are unaffected, including back-to-back
+  attempts that happen to run exactly the same length, and fights that unlock
+  in bulk after you leave an instance still record normally. Existing
+  duplicates are cleaned up once, the first time you log in.
+
+* **A kill is no longer reported as a wipe** when the encounter's own
+  end-of-fight flag disagrees with the corpse in front of you.
+
+* **Training dummy sessions score against the population they stand in for**
+  rather than borrowing a raid bracket, and no longer claim a difficulty they
+  never had.
+
+* Expander arrows in the fight list are easier to hit.
+
+Under the hood: the score validator was reporting a 16-point "role bias" on
+Heroic that turned out to be an artefact of how Warcraft Logs caps its
+rankings at 2000 rows per spec, not a scoring fault. Validation is now clean,
+and the release gate no longer tolerates a fixed number of known problems -
+which is what allowed 2.11.2's regression through.
+
+
 ## 2.11.2
 
 Automated monthly Warcraft Logs data refresh (percentile curves and kill times).
