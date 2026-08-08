@@ -830,6 +830,94 @@ do
 	end
 end
 
+-- ==================================================== anchor saturation
+-- An anchor whose quartiles sit on top of each other cannot place anybody,
+-- and NOTHING ELSE HERE CAN SEE THAT. The role-fairness rig above builds its
+-- probe tank at `uptimeForPct(anchors, pct)` - at the anchor's OWN percentile
+-- - so it round-trips by construction however unrealistic the band is. Same
+-- shape as the capped-curve artefact: a probe cannot audit the reference it
+-- is built from.
+--
+-- The live example this was written for. v2.11.2 crawled retail tank specs 66
+-- and 268 for the first time and got { 97.8, 98.6, 99.1 } and
+-- { 99.0, 99.4, 99.6 } - quartile bands 1.3 and 0.6 points wide. A median real
+-- tank holds active mitigation ~61% of a fight (Josh's own readings
+-- 48.2/61.0/73.8; true MoP combat-log uptime 52.2/64.5/71.5), which scores
+-- 15.6 and 15.4 against those. Even 97% uptime scores 24.8 - such a tank can
+-- never clear ~25 on the metric carrying about half their grade. Mists, whose
+-- crawl reads a REAL combat log, gives the same two specs { 41.1, 68.3, 79.7 }
+-- and { 69.3, 80.9, 92.7 }, which is what a usable band looks like.
+--
+-- Measured relative span (p75-p25)/p50 across every shipped anchor, both
+-- clients, all five tables: everything is either >= 0.127 or <= 0.013. The
+-- threshold sits in that empty band, so it is not a taste call.
+local MIN_REL_SPAN = 0.05
+
+-- NAMED, not counted. These two ARE the open bug, kept non-fatal only so a
+-- red suite does not block the monthly data refresh and every release while
+-- it is being fixed. They are printed loudly on every run. DELETE THESE LINES
+-- when the anchors are recalibrated - a stale exemption is the bug written
+-- down, and any anchor NOT named here fails for real.
+local KNOWN_SATURATED = {
+	["retail/TANK_ANCHORS/66"] = "Prot Paladin: crawled buff uptime, not what the collector measures",
+	["retail/TANK_ANCHORS/268"] = "Brewmaster: anchor is Shuffle uptime (~99%), collector estimates it",
+}
+
+do
+	local seen = {}
+	local function audit(client, label, tbl)
+		if type(tbl) ~= "table" then
+			return
+		end
+		local ids = {}
+		for k in pairs(tbl) do ids[#ids + 1] = k end
+		table.sort(ids, function(a, b) return tostring(a) < tostring(b) end)
+		for _, id in ipairs(ids) do
+			local a = tbl[id]
+			if type(a) == "table" and type(a[1]) == "number"
+				and type(a[2]) == "number" and type(a[3]) == "number" then
+				local key = ("%s/%s/%s"):format(client, label, tostring(id))
+				local ascending = a[1] <= a[2] and a[2] <= a[3]
+				if not ascending then
+					problems[#problems + 1] = ("%s: anchor quartiles are not ascending (%.2f/%.2f/%.2f)")
+						:format(key, a[1], a[2], a[3])
+				end
+				local rel = a[2] ~= 0 and (a[3] - a[1]) / math.abs(a[2]) or 0
+				-- only meaningful on an ascending band; a descending one is
+				-- already reported above and would just double-count here
+				if ascending and rel < MIN_REL_SPAN then
+					seen[#seen + 1] = ("%s {%.2f, %.2f, %.2f} spans %.3f of its median")
+						:format(key, a[1], a[2], a[3], rel)
+					if not KNOWN_SATURATED[key] then
+						problems[#problems + 1] =
+							("%s: anchor band is saturated (%.2f/%.2f/%.2f spans %.3f of its median, floor %.2f) - real play cannot be placed against it")
+							:format(key, a[1], a[2], a[3], rel, MIN_REL_SPAN)
+					end
+				end
+			end
+		end
+	end
+	for _, client in ipairs({ "retail", "mists" }) do
+		local TP = CLIENTS[client]
+		audit(client, "TANK_ANCHORS", TP.TANK_ANCHORS)
+		audit(client, "TANK_ANCHORS_ALT", TP.TANK_ANCHORS_ALT and TP.TANK_ANCHORS_ALT.anchors)
+		audit(client, "TANK_DAMAGE_ANCHORS", TP.TANK_DAMAGE_ANCHORS)
+		audit(client, "TANK_DAMAGE_ANCHORS_ALT",
+			TP.TANK_DAMAGE_ANCHORS_ALT and TP.TANK_DAMAGE_ANCHORS_ALT.anchors)
+		audit(client, "HEALER_COVERAGE_ANCHORS", TP.HEALER_COVERAGE_ANCHORS)
+	end
+	if #seen > 0 then
+		print("\n=== saturated anchor bands ===")
+		for _, s in ipairs(seen) do
+			local known = false
+			for k in pairs(KNOWN_SATURATED) do
+				if s:sub(1, #k) == k then known = true end
+			end
+			print(("  %s%s"):format(s, known and "   [KNOWN - open bug, not failing]" or ""))
+		end
+	end
+end
+
 print("")
 if #problems == 0 then
 	print("VALIDATION CLEAN")
