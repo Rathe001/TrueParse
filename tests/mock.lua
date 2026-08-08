@@ -1,4 +1,4 @@
--- Score the synthetic raid nights /tp mock injects, on BOTH clients, and
+﻿-- Score the synthetic raid nights /tp mock injects, on BOTH clients, and
 -- assert the whole thing still holds together (Josh 2026-07-30: "we built out
 -- a whole bunch of mock data before, can we run some tests to assert that all
 -- of our scores are accurate still?").
@@ -387,6 +387,27 @@ do
 			"a training dummy shows no difficulty, borrowed bracket or not")
 		check(mop.DifficultyChip({ difficultyID = 3, practice = true }) == nil,
 			"...and no chip either")
+
+		-- PER-DUMMY ANCHORS. A Dungeoneer's dummy is a dungeon rehearsal and a
+		-- Raider's golem a raid one; scoring both against a raid patchwerk
+		-- measured five-man practice against raiders (Josh 2026-08-08).
+		-- Keyed by NPC ID because dummy names are localized and "Training
+		-- Dummy" is three different creatures on retail alone.
+		local A = mop.PRACTICE_ANCHORS
+		check(A and A.raid and A.dungeon, "both practice anchors exist")
+		check(mop.PracticeAnchorFor(31146) == A.raid, "a Raider's dummy is raid practice")
+		check(mop.PracticeAnchorFor(67127) == A.dungeon, "a plain dummy is dungeon practice")
+		-- an unknown dummy must keep the anchor it always had, not move
+		check(mop.PracticeAnchorFor(999999) == A.raid, "an unknown dummy keeps the raid anchor")
+		check(mop.PracticeAnchorFor(nil) == A.raid, "...and so does a missing id")
+		check(mop.PRACTICE_ANCHOR == A.raid, "PRACTICE_ANCHOR still names the raid anchor")
+		-- every anchor must exist in THIS client's curve file, or the session
+		-- silently scores against nothing
+		for tier, anc in pairs(A) do
+			local enc = mop.Percentiles and mop.Percentiles.encounters
+				and mop.Percentiles.encounters[anc.name]
+			check(enc ~= nil, ("the %s anchor (%s) exists in the Mists curves"):format(tier, anc.name))
+		end
 	end
 	check(mop.WipeLabel({}) == nil, "no bossPct, no label")
 end

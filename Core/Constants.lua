@@ -266,6 +266,47 @@ end
 -- MAINLINE ~= nil guard matters because headless tests define neither
 -- global and a bare equality would make nil == nil read as retail.
 -- Update per tier alongside the zone ids.
-TP.PRACTICE_ANCHOR = (WOW_PROJECT_MAINLINE ~= nil and WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
-	and { name = "Vorasius", difficultyID = 16 }
-	or { name = "Iron Juggernaut", difficultyID = 3 }
+local IS_MAINLINE = (WOW_PROJECT_MAINLINE ~= nil and WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
+
+-- WHICH POPULATION A DUMMY IS MEASURED AGAINST. A Dungeoneer's dummy is a
+-- dungeon rehearsal and a Heavyweight Golem is a raid one, and scoring both
+-- against a raid patchwerk told a five-man player they were bad at raiding
+-- (Josh 2026-08-08). Two anchors per client, chosen by the dummy's NPC ID.
+TP.PRACTICE_ANCHORS = IS_MAINLINE and {
+	raid = { name = "Vorasius", difficultyID = 16 },
+	-- brackets all,k2..k14; a dummy has no key level so it takes `all`
+	dungeon = { name = "Seat of the Triumvirate", difficultyID = 8 },
+} or {
+	raid = { name = "Iron Juggernaut", difficultyID = 3 },
+	dungeon = { name = "Gate of the Setting Sun", difficultyID = 237 },
+}
+
+-- The raid anchor stays the default for anything unrecognised, and remains
+-- TP.PRACTICE_ANCHOR so every existing reader keeps working.
+TP.PRACTICE_ANCHOR = TP.PRACTICE_ANCHORS.raid
+
+-- NPC ID -> which anchor. Ids, never names: dummy names are localized, and
+-- "Training Dummy" is three different creatures on retail alone. Collected by
+-- Josh 2026-08-08 with /dump UnitGUID("target") on each one.
+TP.PRACTICE_DUMMY_TIER = {
+	-- RETAIL, Falconwing Square
+	[243167] = "dungeon", -- Dungeoneer's Training Dummy (Tanking, 7.0M)
+	[243166] = "dungeon", -- Normal Tank Dummy (Tanking, 3.5M)
+	[243207] = "dungeon", -- Training Dummy (Damage, 3.5M)
+	[243208] = "dungeon", -- Cleave Training Dummy (Damage, 3.5M)
+	[243214] = "dungeon", -- Training Dummy (Healing)
+	[243206] = "raid",    -- Heavyweight Golem (Raider's Tanking, BOSS, 14.1M)
+	[243205] = "raid",    -- Reinforced Golem (Raider's, BOSS, 14.1M)
+	-- MISTS, The Golden Terrace
+	[67127] = "dungeon",  -- Training Dummy (L90)
+	[31146] = "raid",     -- Raider's Training Dummy (BOSS, 750.9M)
+}
+
+-- npcID -> the anchor to score that dummy against. An id we have never seen
+-- falls back to the RAID anchor, which is what every dummy used before this
+-- table existed - an unknown dummy scores exactly as it always did rather
+-- than silently changing to something new.
+function TP.PracticeAnchorFor(npcID)
+	local tier = npcID and TP.PRACTICE_DUMMY_TIER[npcID]
+	return (tier and TP.PRACTICE_ANCHORS[tier]) or TP.PRACTICE_ANCHORS.raid
+end

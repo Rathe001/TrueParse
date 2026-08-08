@@ -1830,7 +1830,8 @@ local lastFightWhat -- ...and for its headline (practice is not "this dungeon")
 -- Mythic+, which says nothing true about a training dummy.
 local function tierHowFor(fight)
 	if fight and fight.practice then
-		local anchor = TP.PRACTICE_ANCHOR and TP.PRACTICE_ANCHOR.name
+		local a = TP.PracticeAnchorFor and TP.PracticeAnchorFor(fight.practiceNpcID)
+		local anchor = (a and a.name) or (TP.PRACTICE_ANCHOR and TP.PRACTICE_ANCHOR.name)
 		return anchor
 			and ("Not a real parse: nobody ranks a training dummy, so your rotation is measured against %s's curves."):format(anchor)
 			or "Not a real parse: nobody ranks a training dummy, and this client has no anchor fight to stand in for one."

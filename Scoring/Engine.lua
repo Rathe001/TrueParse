@@ -312,7 +312,17 @@ local function encounterCurvesFor(P, fight)
 	-- (the fight parses are compared on); the record's difficultyID
 	-- already carries the anchor's bracket
 	if fight.practice and TP.PRACTICE_ANCHOR then
-		local enc = encounterByName(P, TP.PRACTICE_ANCHOR.name)
+		-- the dummy decides the population: a Dungeoneer's dummy is measured
+		-- against dungeon curves, a Raider's golem against raid ones
+		local anchor = TP.PracticeAnchorFor and TP.PracticeAnchorFor(fight.practiceNpcID)
+			or TP.PRACTICE_ANCHOR
+		local enc = encounterByName(P, anchor.name)
+		if not enc then
+			-- an anchor missing from THIS client's curve file must not drop
+			-- the session to no curves at all; the raid anchor has always
+			-- been present, so fall back to it
+			enc = encounterByName(P, TP.PRACTICE_ANCHOR.name)
+		end
 		if enc then
 			return sanitizeEncounter(enc)
 		end

@@ -97,6 +97,18 @@ function Segments:StartFight(name)
 		end
 	end
 	local seg = newSegment(TP.SEGMENT.FIGHT, name)
+	-- The pull target's NPC ID, from the SAME unit the label above came from.
+	-- Practice detection is name-based, so taking the id here keeps the two
+	-- consistent: if the name says dummy, this is that dummy. Field 6 of a
+	-- Creature GUID is the npc id. Secrets are skipped - Midnight returns
+	-- GUIDs as secret values mid-combat and a secret must never be parsed.
+	do
+		local ok, guid = pcall(UnitGUID, "target")
+		if ok and type(guid) == "string" and not TP.Compat.IsSecret(guid) then
+			local id = guid:match("^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)%-")
+			seg.targetNpcID = id and tonumber(id) or nil
+		end
+	end
 	for guid in pairs(TP.Roster.players) do
 		self:EnsurePlayer(seg, guid)
 	end

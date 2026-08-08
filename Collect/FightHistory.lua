@@ -463,8 +463,15 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- intended population (a dummy in a capital reads difficulty 0, which
 	-- ladders nowhere). No anchor for this client = the record still keeps,
 	-- it just scores off the fightFactors path instead of a curve.
-	if fight.practice and TP.PRACTICE_ANCHOR and TP.PRACTICE_ANCHOR.difficultyID then
-		fight.difficultyID = TP.PRACTICE_ANCHOR.difficultyID
+	-- Retail's C_DamageMeter path has no segment and therefore no target
+	-- GUID, so a dummy id is recorded live when the session first appears
+	-- (sessionContext); absent, this keeps the raid anchor it always used.
+	if fight.practice then
+		local anchor = TP.PracticeAnchorFor and TP.PracticeAnchorFor(fight.practiceNpcID)
+			or TP.PRACTICE_ANCHOR
+		if anchor and anchor.difficultyID then
+			fight.difficultyID = anchor.difficultyID
+		end
 	end
 	-- Encounter sessions only, everywhere: instance trash AND open-world
 	-- quest mobs are noise in history (a 36s Scavenging Hyena got a 92).
@@ -1154,6 +1161,11 @@ function FightHistory:AddFromSegment(seg)
 	-- turns into a kill forgives nothing" - and a bogus wipe flag would hand a
 	-- KILL the avoidable-damage forgiveness meant for a collapse.
 	local wiped = (seg.encounterWipe and not seg.bossKilled) or nil
+	-- A Dungeoneer's dummy is a dungeon rehearsal, a Heavyweight Golem a raid
+	-- one. Picked by NPC ID; an unknown dummy keeps the raid anchor it always
+	-- had rather than silently moving.
+	local practiceAnchor = TP.PracticeAnchorFor and TP.PracticeAnchorFor(seg.targetNpcID)
+		or TP.PRACTICE_ANCHOR
 	local manualCall = wiped and seg.manualWipeAt or nil
 	-- 0 is TRUTHY in Lua, so a wipe called at the pull instant (manual
 	-- button at 0s, or a sync-clamped peer call) left calledAt=0 and every
@@ -1454,7 +1466,9 @@ function FightHistory:AddFromSegment(seg)
 		zone = GetZoneText(),
 		-- practice fights borrow the anchor's bracket so curve resolution
 		-- lands on the intended population
-		difficultyID = practice and TP.PRACTICE_ANCHOR and TP.PRACTICE_ANCHOR.difficultyID
+		-- which dummy this was, so scoring can pick the right population
+		practiceNpcID = practice and seg.targetNpcID or nil,
+		difficultyID = practice and practiceAnchor and practiceAnchor.difficultyID
 			or instDiff,
 		-- content classification for the curve ladder + login sweep
 		-- (celestial dungeon captures arrive here as "party")
