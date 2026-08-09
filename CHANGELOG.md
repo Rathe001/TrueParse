@@ -1,5 +1,31 @@
 # TrueParse Changelog
 
+## 2.14.0
+
+**Mists of Pandaria scoring only. Retail is untouched.**
+
+* **Celestial and Challenge Mode runs are scored properly.** They used to give
+  almost everyone the same two numbers — 75 for damage, 25 for healing —
+  because a five-man boss dies in half a minute with cooldowns up the whole
+  time, so every player was running four to seven times their raid rate and
+  landing off the top of the scale. Mists has no dungeon rankings to compare
+  against, so those runs borrow the raid ones; the comparison is now raised to
+  match five-man content, separately for each role and for damage and healing,
+  which were inflated by very different amounts. Scores now spread out the way
+  they do everywhere else.
+
+* **Celestial buff damage counts again.** Four empowerment procs were being
+  subtracted from everyone's damage to stop the buff deciding the meter. The
+  filter matched on spell name, and those names also fire in Siege of
+  Orgrimmar — across one session it removed 1.25 billion damage, almost all of
+  it from the raid rather than the dungeon it was meant to police. Raid damage
+  numbers will read very slightly higher as a result.
+
+Known and minor: tanks may read a little high on celestial runs. There is not
+enough data yet to separate that from ordinary boss-to-boss variation, and it
+will be corrected once there is.
+
+
 ## 2.13.0
 
 **Breakdown tooltips are rebuilt around the score, and the awards are rare
