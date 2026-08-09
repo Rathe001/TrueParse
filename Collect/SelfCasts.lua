@@ -37,6 +37,30 @@ local ownCasts -- [spellID] = count for the current window
 -- mitigation-buff uptime and healthstone use. Retail-only collectors:
 -- CLEU observes all of this for everyone on Classic.
 local HEALTHSTONE_SPELL = 6262
+local HEALTHSTONE_ITEM = 5512
+
+-- Did we actually HAVE one when the pull started (Josh 2026-08-08: "the
+-- healthstone penalty should only happen if the player has a healthstone in
+-- their inventory")? A warlock being in the group means healthstones were
+-- OFFERED, not that this player is carrying one - they may have joined after
+-- the summon, eaten it on the previous pull, or had no bag space. Charging
+-- someone for not pressing a button they do not own is the same mistake as
+-- penalising a spec for an ability it does not have.
+--
+-- Sampled at the PULL, before it can be eaten: after the fight the count is
+-- zero either way, so asking then cannot tell "never had one" from "used it".
+local hsHeld = false
+local function countHealthstones()
+	local get = (C_Item and C_Item.GetItemCount) or GetItemCount
+	if not get then
+		return nil -- unknown, which must never read as "had one"
+	end
+	local ok, n = pcall(get, HEALTHSTONE_ITEM)
+	if not ok or type(n) ~= "number" then
+		return nil
+	end
+	return n
+end
 local hsUsed = 0
 local swingsLanded, swingsAvoided, swingDamage = 0, 0, 0
 local mitSeconds = 0
@@ -353,6 +377,12 @@ local function finalizeFight()
 			if hsUsed > 0 then
 				x.hs = hsUsed
 			end
+			-- only sent when TRUE. Absent means "we do not know", which the
+			-- engine treats as no evidence rather than as "had none" - the
+			-- wire has no way to say "definitely not" and should not pretend.
+			if hsHeld then
+				x.hh = 1
+			end
 			if swingsLanded + swingsAvoided > 0 then
 				x.sl, x.sa = swingsLanded, swingsAvoided
 				x.sd = math.floor(swingDamage + 0.5)
@@ -459,6 +489,7 @@ local function startWindow()
 	lastCastAt = nil
 	castStartAt, castSpellID, channelStartAt = nil, nil, nil
 	hsUsed, swingsLanded, swingsAvoided, swingDamage = 0, 0, 0, 0
+	hsHeld = (countHealthstones() or 0) > 0
 	mitSeconds = 0
 	mitCastSeconds, mitCoveredUntil = 0, 0
 	mitTracked = false

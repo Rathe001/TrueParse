@@ -541,6 +541,34 @@ do
 	for k, v in pairs(saved) do _G[k] = v end
 end
 
+-- X-WIRE FIELD CONSISTENCY. The extended report is generic key=value, so a
+-- field only works if THREE places agree: the sender writes it, the receiver
+-- bounds it, and the attach maps it onto a metric. Nothing errors when they
+-- drift - the field just silently never arrives, and for the healthstone the
+-- symptom would be a penalty that quietly stops firing rather than anything
+-- visible. Cheap to assert, so assert it.
+do
+	local function slurp(p)
+		local f = io.open(p)
+		local t = f and f:read("*a") or ""
+		if f then f:close() end
+		return t
+	end
+	local sender = slurp("Collect/SelfCasts.lua")
+	local wire = slurp("Collect/Sync.lua")
+	for _, field in ipairs({
+		{ key = "hh", metric = "healthstoneHeld", what = "carried a healthstone at the pull" },
+		{ key = "hs", metric = "healthstones", what = "healthstones eaten" },
+	}) do
+		check(sender:find("x%." .. field.key .. " =") ~= nil,
+			("X wire: SelfCasts sends %s (%s)"):format(field.key, field.what))
+		check(wire:find(field.key .. " = %d") ~= nil,
+			("X wire: Sync bounds %s in CAPS"):format(field.key))
+		check(wire:find("x%." .. field.key) ~= nil and wire:find(field.metric) ~= nil,
+			("X wire: Sync maps %s onto p.metrics.%s"):format(field.key, field.metric))
+	end
+end
+
 do
 	local src = io.open("Collect/Sync.lua")
 	local text = src and src:read("*a") or ""

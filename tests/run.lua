@@ -2722,17 +2722,25 @@ end
 	-- ...and the PENALTY needs a reason to have pressed it (Josh
 	-- 2026-07-29): a personal spike window, a death, or intake worth at
 	-- least the player's own health pool. The bonus stays unconditional.
+	-- ...and (Josh 2026-08-08) they must have been CARRYING one. A warlock in
+	-- the group only means healthstones were offered.
 	local fhs = ctxFight({})
 	fhs.players.a = dps("Ate", { metrics = { healthstones = 1 } })
-	fhs.players.b = dps("Hoarder", { metrics = { healthstones = 0, spikeWindows = 1 } })
+	fhs.players.b = dps("Hoarder",
+		{ metrics = { healthstones = 0, spikeWindows = 1, healthstoneHeld = true } })
 	fhs.players.c = dps("NoData", { metrics = {} })
-	fhs.players.d = dps("Safe", { metrics = { healthstones = 0 } })
-	fhs.players.e = dps("Chunked", { metrics = { healthstones = 0, damageTaken = 500000 } })
+	fhs.players.d = dps("Safe", { metrics = { healthstones = 0, healthstoneHeld = true } })
+	fhs.players.e = dps("Chunked",
+		{ metrics = { healthstones = 0, damageTaken = 500000, healthstoneHeld = true } })
 	fhs.players.e.maxHP = 400000
+	-- same danger as Hoarder, but their bags were empty: nothing to press
+	fhs.players.f = dps("Empty", { metrics = { healthstones = 0, spikeWindows = 1 } })
 	fhs.players.a.class = "WARLOCK"
 	check((adFor(fhs, "Ate").healthstone or 0) == 1, "healthstone eaten: +1")
 	check((adFor(fhs, "Hoarder").healthstone or 0) == -1,
-		"healthstone unused THROUGH danger: -1")
+		"healthstone unused THROUGH danger, while carrying one: -1")
+	check(adFor(fhs, "Empty").healthstone == nil,
+		"same danger with no healthstone in the bags: not penalised")
 	check(adFor(fhs, "NoData").healthstone == nil, "no cast data: healthstone neutral")
 	check(adFor(fhs, "Safe").healthstone == nil,
 		"no danger, no damage: healthstone not penalised")

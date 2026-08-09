@@ -2780,19 +2780,32 @@ function Engine.ScoreFight(fight, opts)
 					if m.healthstones > 0 then
 						put("healthstone", A.healthstoneBonus or 1)
 					else
-						-- Only a penalty if the fight justified pressing it.
-						-- A personal spike window or a death is direct
-						-- evidence of danger; otherwise fall back to total
-						-- intake against the player's own health pool. No
-						-- evidence either way -> no penalty, the same way
-						-- every other absence stays neutral here.
-						local danger = (m.spikeWindows or 0) > 0 or (m.deaths or 0) > 0
-						if not danger and p.maxHP and p.maxHP > 0 then
-							danger = (m.damageTaken or 0)
-								>= p.maxHP * (A.healthstoneMinIntake or 1.0)
-						end
-						if danger then
-							put("healthstone", -(A.healthstonePenalty or 1))
+						-- THEY MUST ACTUALLY BE CARRYING ONE (Josh 2026-08-08). A warlock
+						-- in the group means healthstones were OFFERED, not that this
+						-- player has one: they may have joined after the summon, eaten it
+						-- on the previous pull, or had no bag space. Charging someone for
+						-- not pressing a button they do not own is the same mistake as
+						-- penalising a spec for an ability it lacks, which capability
+						-- gating exists to prevent everywhere else.
+						--
+						-- Sampled at the PULL, and only ever true or absent - the wire has
+						-- no way to say "definitely not" - so nil means UNKNOWN and earns
+						-- no penalty. A missing measurement must not cost anybody points.
+						if m.healthstoneHeld then
+							-- Only a penalty if the fight justified pressing it.
+							-- A personal spike window or a death is direct
+							-- evidence of danger; otherwise fall back to total
+							-- intake against the player's own health pool. No
+							-- evidence either way -> no penalty, the same way
+							-- every other absence stays neutral here.
+							local danger = (m.spikeWindows or 0) > 0 or (m.deaths or 0) > 0
+							if not danger and p.maxHP and p.maxHP > 0 then
+								danger = (m.damageTaken or 0)
+									>= p.maxHP * (A.healthstoneMinIntake or 1.0)
+							end
+							if danger then
+								put("healthstone", -(A.healthstonePenalty or 1))
+							end
 						end
 					end
 				end

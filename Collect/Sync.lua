@@ -378,6 +378,11 @@ function Sync:AttachReports(fight)
 				local x = report.x
 				if x then
 					local m = p.metrics
+					-- carried one at the pull; only ever true or absent, so a
+					-- missing field stays unknown rather than becoming "no"
+					if m.healthstoneHeld == nil and x.hh then
+						m.healthstoneHeld = x.hh > 0
+					end
 					if m.healthstones == nil and x.hs then
 						m.healthstones = x.hs
 					end
@@ -739,7 +744,7 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 		end
 		-- sanity-bound every field; unknown keys are carried (forward
 		-- compatible) but still numeric-only by construction
-		local CAPS = { hs = 10, sl = 20000, sa = 20000, sd = 2^43, mi = 100,
+		local CAPS = { hs = 10, hh = 1, sl = 20000, sa = 20000, sd = 2^43, mi = 100,
 			la = 7200, lc = 50, lo = 7200, dr = 7200, mm = 100,
 			sw = 50, sc = 50, du = 50, de = 20, dt = 7200, rz = 10, pr = 200 }
 		local x = {}
