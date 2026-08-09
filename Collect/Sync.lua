@@ -47,6 +47,40 @@ Sync.reports = {} -- [guid] = { {duration, defensives, at}, ... } pending fight 
 
 local REPORT_TTL = 7200
 
+-- How long a peer's last word counts as evidence they are still running it.
+--
+-- `users` means "spoke at some point this session", and hasAddon was set from
+-- its mere presence, so a peer who said hello at login and then quit, crashed
+-- or disabled the addon still read hasAddon=true on every later fight. Their
+-- silence then looked like a FAILED REPORT rather than an absent addon, which
+-- is what made the remote attach rate read ~50% and look like a wire bug
+-- (measured 2026-08-08: same night, same fights, one peer attached 27 of 36
+-- while another attached 0 of 10).
+--
+-- DELIBERATELY LONG, and it must stay long. `seen` refreshes on every hello
+-- AND every fight report, so an active peer touches it constantly; an hour of
+-- total silence means they are gone, not lagging. A SHORT window here would
+-- quietly reclassify real transport loss as "not running" and make the attach
+-- rate look healthy while the reports were still going missing - the gate
+-- would be hiding the bug it was added to expose.
+local PRESENCE_TTL = 3600
+
+-- Seconds since this peer last said anything, or nil if never.
+function Sync:SecondsSinceHeard(guid)
+	local u = guid and self.users[guid]
+	if not (u and u.seen) then
+		return nil
+	end
+	return math.max(0, time() - u.seen)
+end
+
+-- Present = spoke recently enough to still count as evidence.
+function Sync:HeardRecently(guid, within)
+	local ago = self:SecondsSinceHeard(guid)
+	return ago ~= nil and ago <= (within or PRESENCE_TTL)
+end
+Sync.PRESENCE_TTL = PRESENCE_TTL
+
 -- readyAtDeath: -1/nil = didn't die; 0+ = defensives off cooldown at death
 -- buffUptime: -1/nil = not a support spec; 0-100 = Ebon Might uptime %
 -- activity: -1/nil = unknown; 0-100 = own active-time percent
@@ -237,15 +271,37 @@ function Sync:AttachReports(fight)
 		-- (our hello went out long enough ago that a reply would have
 		-- arrived), nil = unknown (UI shows "?"). Upgrades to true whenever
 		-- the player finally answers; never downgrades.
+		-- RECENCY, not mere presence (2026-08-08). `self.users[guid] ~= nil`
+		-- alone meant "spoke at any point this session", so a peer who went
+		-- quiet kept claiming true forever - see PRESENCE_TTL for why that
+		-- made a ~50% remote attach rate look like a transport fault.
+		--
+		-- A STALE PEER FALLS BACK TO nil (unknown), NEVER TO false. false
+		-- means "confidently not running it", which we have not established:
+		-- they answered once, so all we honestly have is that the evidence
+		-- went cold. nil and false render identically (a gray dot), so this
+		-- costs nothing on screen and keeps `false` meaning what it says.
 		if p.hasAddon ~= true then
-			if p.isLocalPlayer or self.users[guid] ~= nil then
+			if p.isLocalPlayer or self:HeardRecently(guid) then
 				p.hasAddon = true
 			elseif (self.helloAt and (time() - self.helloAt) > 10)
 				or (self.enabledAt and (time() - self.enabledAt) > 60) then
 				-- the session-age fallback keeps "?" from sticking forever
-				-- when no hello went out (the LFR instance-channel bug)
-				p.hasAddon = false
+				-- when no hello went out (the LFR instance-channel bug).
+				-- Only for peers we have NEVER heard from; one that has gone
+				-- stale stays unknown rather than being called absent.
+				if self.users[guid] == nil then
+					p.hasAddon = false
+				end
 			end
+		end
+		-- Record the EVIDENCE, not just the verdict. Without this the
+		-- SavedVariables cannot say whether a missing report means "not
+		-- running", "old build" or "we lost it on the wire", which is exactly
+		-- why the attach-rate investigation stalled: hasAddon said true and
+		-- could not be questioned afterwards.
+		if not p.isLocalPlayer then
+			p.addonSeenAgo = self:SecondsSinceHeard(guid)
 		end
 		-- Stamp WHICH build they run, not just that they answered. `hasAddon`
 		-- alone cannot tell "on an old version" from "uninstalled it", and on

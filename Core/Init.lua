@@ -534,7 +534,14 @@ function Addon:HandleSlash(input)
 				ver = me and TP.AddonVersion() or (u and u.addonVersion),
 				client = me and (TP.Compat.IS_RETAIL and "retail" or "mists") or (u and u.client),
 				build = me and TP.BUILD or nil,
-				has = me or (u ~= nil),
+				-- RECENTLY heard, not ever-heard: a peer who logged off or
+				-- disabled the addon kept counting all night, which is exactly
+				-- the ambiguity this command was added to kill
+				has = me or (TP.Sync.HeardRecently and TP.Sync:HeardRecently(guid)) or false,
+				-- ...and when absent, say WHICH kind: never heard from at all,
+				-- or heard earlier and since gone quiet
+				quietFor = (not me) and TP.Sync.SecondsSinceHeard
+					and TP.Sync:SecondsSinceHeard(guid) or nil,
 			}
 		end
 		if #rows == 0 then
@@ -567,7 +574,10 @@ function Addon:HandleSlash(input)
 				r.has and ("v" .. (r.ver or "?")
 					.. (r.client and (" " .. r.client) or "")
 					.. (r.build and (" |cff888888@" .. r.build .. "|r") or ""))
-					or "|cff808080no addon|r"))
+					or (r.quietFor
+						and ("|cffb0a040quiet %dm (v%s)|r"):format(
+							math.floor(r.quietFor / 60), r.ver or "?")
+						or "|cff808080no addon|r")))
 		end
 	elseif cmd == "ilvl" then
 		self.db.profile.scoring.normalizeIlvl = not self.db.profile.scoring.normalizeIlvl

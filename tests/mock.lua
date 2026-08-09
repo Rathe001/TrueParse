@@ -493,6 +493,54 @@ end
 -- headless test exercises. So take BOTH out of the real source, build a
 -- sample message from the sender's format, and require the parser to accept
 -- it. (This is how the I: init message is covered - see Sync.lua.)
+-- PRESENCE RECENCY (Josh 2026-08-08). `hasAddon` used to be set from the mere
+-- presence of a peer in Sync.users, which means "spoke at some point this
+-- session" - so a peer who logged off or disabled the addon kept claiming true
+-- all night, and their silence read as a FAILED REPORT. That is what made the
+-- remote attach rate look like a ~50% wire fault when a large part of it was
+-- peers who simply were not running it.
+do
+	local TP = { Compat = { IS_RETAIL = true, IsSecret = function() return false end } }
+	local saved = { time = _G.time, CreateFrame = _G.CreateFrame, wipe = _G.wipe,
+		UnitGUID = _G.UnitGUID, IsInGroup = _G.IsInGroup, IsInRaid = _G.IsInRaid }
+	_G.time = _G.time or os.time
+	_G.wipe = _G.wipe or function(t) for k in pairs(t) do t[k] = nil end return t end
+	_G.UnitGUID = _G.UnitGUID or function() return "Player-self" end
+	_G.IsInGroup = _G.IsInGroup or function() return false end
+	_G.IsInRaid = _G.IsInRaid or function() return false end
+	local ok = pcall(function()
+		assert(loadfile("Collect/Sync.lua"))("TrueParse", TP)
+	end)
+	local S = ok and TP.Sync
+	check(S and type(S.HeardRecently) == "function", "the presence-recency helper is reachable")
+	if S and type(S.HeardRecently) == "function" then
+		local now = _G.time()
+		S.users = {}
+		check(S:HeardRecently("nobody") == false, "a peer we never heard from is not present")
+		check(S:SecondsSinceHeard("nobody") == nil, "and has no last-heard time at all")
+
+		S.users["fresh"] = { seen = now - 5 }
+		check(S:HeardRecently("fresh") == true, "a peer who just spoke is present")
+
+		-- an hour of TOTAL silence: seen refreshes on every hello AND every
+		-- fight report, so an active peer cannot go this quiet
+		S.users["stale"] = { seen = now - 7200 }
+		check(S:HeardRecently("stale") == false, "a peer silent for two hours is not present")
+		check(S:SecondsSinceHeard("stale") >= 7000, "but we still record HOW stale, as evidence")
+
+		-- the window must stay far longer than any plausible transport gap, or
+		-- it reclassifies lost reports as "not running" and hides the very bug
+		-- it exists to expose
+		check((S.PRESENCE_TTL or 0) >= 1800,
+			("the presence window is generous (%ss), so dropped reports cannot masquerade as absence")
+			:format(tostring(S.PRESENCE_TTL)))
+		S.users["minutes"] = { seen = now - 600 }
+		check(S:HeardRecently("minutes") == true,
+			"a ten-minute gap is still present - that is transport, not absence")
+	end
+	for k, v in pairs(saved) do _G[k] = v end
+end
+
 do
 	local src = io.open("Collect/Sync.lua")
 	local text = src and src:read("*a") or ""

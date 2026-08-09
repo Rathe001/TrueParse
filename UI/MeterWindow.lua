@@ -2034,8 +2034,11 @@ function MeterWindow:RenderScorecard(fight)
 		-- stamped at capture OR known live right now: a /reload used to
 		-- wipe Sync.users and gray the whole raid until re-capture; live
 		-- knowledge greens every card the moment their addon speaks
+		-- the live arm asks whether they have spoken RECENTLY, not whether they
+		-- ever spoke this session: a peer who logged off or disabled the addon
+		-- kept a green dot for the rest of the night otherwise
 		local hasAddon = player and (player.hasAddon or player.isLocalPlayer
-			or (TP.Sync and TP.Sync.users and TP.Sync.users[r.guid] ~= nil))
+			or (TP.Sync and TP.Sync.HeardRecently and TP.Sync:HeardRecently(r.guid)))
 		row.name:SetAlpha(1)
 		row.score:SetAlpha(1)
 		row.penalty:SetAlpha(1)
