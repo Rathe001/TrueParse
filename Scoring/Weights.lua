@@ -63,6 +63,53 @@ Weights.roleWeights = {
 	SUPPORT = { damage = 0.36, healing = 0.14, prescience = 0.50 },
 }
 
+-- RETAIL TANKS ARE NOT SCORED ON MITIGATION UPTIME (Josh 2026-08-08).
+--
+-- The metric has no signal on retail. Probed WCL's Buffs table unfiltered and
+-- per tank (sourceID) for three ranked Mythic tanks in each spec: the crawled
+-- ability ids are exactly the ones those tanks carry, and they hold them
+-- essentially all fight -
+--
+--   Prot Paladin  132403 Shield of the Righteous  98.2 / 98.6 / 99.4 %
+--   Brewmaster    215479 Shuffle                  99.6 / 99.5 / 99.3 %
+--   Prot Warrior  132404 Shield Block             99.2 / 99.9 / 97.8 %
+--
+-- so Data/TankAnchors ships quartile bands 1.3 and 0.6 points wide. Nothing
+-- can be placed against a reference that narrow: a median real tank scores
+-- 15.6, and even 97% uptime scores 24.8, on the metric holding 0.55 of the
+-- grade. THE CRAWL IS NOT WRONG - every ranked tank genuinely sits at the
+-- ceiling, which is the same "elite slice has no dispersion" finding as
+-- five-man healer coverage and the dungeon damage curves. Re-crawling cannot
+-- fix a metric that does not vary, so the weight moves instead.
+--
+-- MISTS KEEPS IT. That client has a real combat log, so uptime is measured
+-- rather than estimated, and its field genuinely spreads: the same two specs
+-- crawl to { 41.1, 68.3, 79.7 } and { 69.3, 80.9, 92.7 }. MoP tanks really do
+-- sit near 64%, which is why the retail-vs-Mists comparison that once
+-- "validated" the retail collector was meaningless - different game, different
+-- rotation.
+--
+-- The freed 0.55 goes to damage and healing IN THE PROPORTION THEY ALREADY
+-- HOLD, which is exactly what the intake shift in Engine.lua does when a
+-- fight barely touches the tank. 0.31 and 0.14 renormalise to 0.689 / 0.311.
+--
+-- KNOWN COST, stated plainly: this leans a retail tank's grade toward their
+-- damage meter, which is the very thing the "impute, do not redistribute"
+-- note in Engine.lua warns about. That note is about a PER-FIGHT gap, where
+-- redistributing rewards not-reporting; this is structural and applies to
+-- every retail tank equally, so it carries no such incentive. Survival still
+-- shows up through healing - self-healing is a real tank survival stat on
+-- retail (Death Strike, Purifying Brew, Word of Glory) - and through the
+-- avoidable-damage and death penalties, which are adjustments, not weights.
+-- mitigation stays at weight 0 rather than being deleted, which is the same
+-- trick PARSE_WEIGHTS uses: the breakdown loop walks the weight table, so a
+-- key at 0 is still measured and still shown on the card, it just does not
+-- earn or cost anything. Tanks keep seeing their uptime as context, and the
+-- collector's work is not wasted - only the grading claim is withdrawn.
+Weights.roleWeightsRetail = {
+	TANK = { damage = 0.689, healing = 0.311, mitigation = 0 },
+}
+
 -- Signed adjustments on TOP of the base. Bounded so a score never
 -- drifts far from its verifiable core, and context-scaled: kicks on a
 -- 12-kick fight swing the full range, on a 1-kick fight they barely

@@ -417,10 +417,18 @@ end
 -- Mitigation is not a curve — it is active-mitigation UPTIME scored against
 -- the spec's crawled { p25, p50, p75 } field (Data/TankAnchors). The contract
 -- is exact: feeding an anchor back must return that percentile.
-print("\n=== tanks: mitigation uptime vs the crawled anchors ===")
+--
+-- MISTS ONLY as of 2026-08-08. Retail stopped GRADING mitigation (the ranked
+-- field is saturated - see Weights.roleWeightsRetail), so its metric returns
+-- neutral-and-inapplicable and this round trip has nothing left to assert
+-- there. Asserting it anyway is how a test keeps passing about a thing that no
+-- longer happens. Mists still grades it against a field that genuinely
+-- spreads, so the contract is still real on that client and still checked.
+print("\n=== tanks: mitigation uptime vs the crawled anchors (Mists; retail no longer grades it) ===")
 print(("%-10s %-6s %-18s %s"):format("CLIENT", "SPEC", "anchors p25/50/75", "score at each anchor"))
 for clientName, TP in pairs(CLIENTS) do
-	local anchors = TP.TANK_ANCHORS or {}
+	local gradesMitigation = not (TP.Compat and TP.Compat.IS_RETAIL)
+	local anchors = gradesMitigation and (TP.TANK_ANCHORS or {}) or {}
 	local specs = {}
 	for id in pairs(anchors) do specs[#specs + 1] = id end
 	table.sort(specs, function(a, b) return tostring(a) < tostring(b) end)
@@ -476,6 +484,52 @@ for clientName, TP in pairs(CLIENTS) do
 			if not monotone then
 				problems[#problems + 1] = ("%s tank spec %s: mitigation not monotone")
 					:format(clientName, tostring(id))
+			end
+		end
+	end
+end
+
+-- The other half of that decision, asserted rather than assumed. Skipping the
+-- retail round trip above only removes a claim; it does not establish the new
+-- one, and an untested behaviour change is how the healer-damage-as-ZERO bug
+-- shipped. So: on retail a tank with a perfectly good uptime must come back
+-- NEUTRAL and INAPPLICABLE - not nil (the card renders nil as 0), not a
+-- percentile off the saturated band, and carrying no weight.
+do
+	local TP = CLIENTS.retail
+	local players = {
+		t1 = { guid = "t1", name = "Tank", class = "WARRIOR", role = "TANK", specID = 66,
+			ilvl = 250, metrics = { damage = 3e6, healing = 5e5, damageTaken = 6e6,
+				mitigationPct = 61, interrupts = 0, dispels = 0, deaths = 0, avoidableTaken = 0 } },
+		t2 = { guid = "t2", name = "Tank2", class = "WARRIOR", role = "TANK", specID = 66,
+			ilvl = 250, metrics = { damage = 3e6, healing = 5e5, damageTaken = 6e6,
+				mitigationPct = 61, interrupts = 0, dispels = 0, deaths = 0, avoidableTaken = 0 } },
+		d1 = { guid = "d1", name = "Dps", class = "WARRIOR", role = "DAMAGER", specID = 71,
+			ilvl = 250, metrics = { damage = 9e6, healing = 1e5, damageTaken = 1e6,
+				interrupts = 0, dispels = 0, deaths = 0, avoidableTaken = 0 } },
+	}
+	local fight = { name = "Anchor Boss", isBoss = true, duration = 300, zone = "Test Raid",
+		instanceType = "raid", difficultyID = 14, players = players,
+		totals = { damage = 0, healing = 0, damageTaken = 0, interrupts = 0, dispels = 0 } }
+	for _, r in ipairs(TP.Scoring.Engine.ScoreFight(fight, { normalizeIlvl = false })) do
+		if r.guid == "t1" then
+			local m = r.breakdown and r.breakdown.mitigation
+			if not m then
+				problems[#problems + 1] =
+					"retail: mitigation vanished from the tank breakdown (it should show, unscored)"
+			else
+				if m.applicable ~= false then
+					problems[#problems + 1] =
+						("retail: mitigation must be inapplicable, got applicable=%s"):format(tostring(m.applicable))
+				end
+				if type(m.normalized) ~= "number" then
+					problems[#problems + 1] =
+						("retail: mitigation normalized must be a number (nil renders as 0), got %s"):format(type(m.normalized))
+				end
+				if (m.effectiveWeight or 0) ~= 0 then
+					problems[#problems + 1] =
+						("retail: mitigation must carry no weight, got %.3f"):format(m.effectiveWeight or 0)
+				end
 			end
 		end
 	end
@@ -853,14 +907,16 @@ end
 -- threshold sits in that empty band, so it is not a taste call.
 local MIN_REL_SPAN = 0.05
 
--- NAMED, not counted. These two ARE the open bug, kept non-fatal only so a
--- red suite does not block the monthly data refresh and every release while
--- it is being fixed. They are printed loudly on every run. DELETE THESE LINES
--- when the anchors are recalibrated - a stale exemption is the bug written
--- down, and any anchor NOT named here fails for real.
+-- NAMED, not counted, and now DORMANT rather than live. Retail stopped
+-- grading mitigation on 2026-08-08 (Weights.roleWeightsRetail), so these two
+-- bands no longer reach a score - the data still ships and is still saturated,
+-- which is why the audit still sees them, but nothing is graded against it.
+-- They stay listed so the saturation is visible rather than forgotten. Any
+-- anchor NOT named here fails for real, including these two if retail ever
+-- grades uptime again. Delete them if the file is recalibrated or dropped.
 local KNOWN_SATURATED = {
-	["retail/TANK_ANCHORS/66"] = "Prot Paladin: crawled buff uptime, not what the collector measures",
-	["retail/TANK_ANCHORS/268"] = "Brewmaster: anchor is Shuffle uptime (~99%), collector estimates it",
+	["retail/TANK_ANCHORS/66"] = "Prot Paladin: WCL field saturated at ~98%; retail no longer grades it",
+	["retail/TANK_ANCHORS/268"] = "Brewmaster: Shuffle sits ~99% on every ranked tank; retail no longer grades it",
 }
 
 do

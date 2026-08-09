@@ -173,13 +173,29 @@ end)()
 			ok and (tostring(count) .. " problems") or tostring(count)))
 end)()
 
--- 1. Every role's weights sum to 1.0
-for role, weights in pairs(TP.Scoring.Weights.roleWeights) do
-	local sum = 0
-	for _, w in pairs(weights) do
-		sum = sum + w
+-- 1. Every role's weights sum to 1.0 - in EVERY weight table, not just the
+-- base one. roleWeightsRetail overrides whole roles at scoring time, so a
+-- table that does not sum to 1 silently rescales that client's grades.
+for tableName, tbl in pairs({ roleWeights = TP.Scoring.Weights.roleWeights,
+	roleWeightsRetail = TP.Scoring.Weights.roleWeightsRetail }) do
+	for role, weights in pairs(tbl or {}) do
+		local sum = 0
+		for _, w in pairs(weights) do
+			sum = sum + w
+		end
+		check(math.abs(sum - 1.0) < 1e-9,
+			("%s weights sum to 1.0 for %s (got %.4f)"):format(tableName, role, sum))
 	end
-	check(math.abs(sum - 1.0) < 1e-9, ("weights sum to 1.0 for %s (got %.4f)"):format(role, sum))
+end
+
+-- A retail override must not invent a metric the base role never had: the
+-- breakdown, the bullets and the coach all key off the base set.
+for role, weights in pairs(TP.Scoring.Weights.roleWeightsRetail or {}) do
+	local base = TP.Scoring.Weights.roleWeights[role] or {}
+	for key in pairs(weights) do
+		check(base[key] ~= nil,
+			("roleWeightsRetail.%s.%s also exists in the base weights"):format(role, key))
+	end
 end
 
 -- 1b. Grade mapping: 16 tiers, correct boundaries

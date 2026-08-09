@@ -1240,6 +1240,18 @@ local function normalizeMetric(p, role, key, ctx)
 		if role ~= "TANK" then
 			return 0, false
 		end
+		-- RETAIL DOES NOT GRADE MITIGATION (Josh 2026-08-08, see
+		-- Weights.roleWeightsRetail). Its weight is already 0 there, but the
+		-- breakdown still walks the key, and a percentile read off a band
+		-- 1.3 points wide would put a perfectly normal tank at ~15 as
+		-- "context" - a number we have just declared meaningless. So return
+		-- neutral-and-INAPPLICABLE, the same shape unscored five-man healer
+		-- damage uses. 50 + false, never nil: the card does
+		-- `b.normalized or 0`, and nil renders as a zero (that exact bug
+		-- shipped in 2.10.0 and had to be hotfixed).
+		if TP.Compat and TP.Compat.IS_RETAIL and not ctx.parseMode then
+			return 50, false
+		end
 		local up = p.metrics and p.metrics.mitigationPct
 		-- A flat 0% is treated as "not measured", not "never pressed the
 		-- button" (Josh 2026-07-29: his retail Prot Paladin showed
@@ -2171,6 +2183,14 @@ function Engine.ScoreFight(fight, opts)
 	for _, p in ipairs(players) do
 		local role = normalizeRole(p)
 		local weights = ctx.parseMode and PARSE_WEIGHTS[role] or W.roleWeights[role]
+		-- Client-specific overrides. Retail tanks drop mitigation entirely:
+		-- the uptime field is saturated there and cannot place anyone (see
+		-- Weights.roleWeightsRetail). Read through Compat at scoring time, not
+		-- at file scope - Weights.lua loads before Compat is attached.
+		if not ctx.parseMode and TP.Compat and TP.Compat.IS_RETAIL
+			and W.roleWeightsRetail and W.roleWeightsRetail[role] then
+			weights = W.roleWeightsRetail[role]
+		end
 
 		-- Per-spec throughput profile ("the TrueParse profile"): the role's
 		-- damage+healing weight BUDGET is split by this spec's population
