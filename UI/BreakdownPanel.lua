@@ -1616,15 +1616,22 @@ function Panel:ShowFor(fight, result)
 			-- Label from what was RECORDED, not from the role we scored. Those
 			-- disagree whenever the roster role at capture differs from the
 			-- spec's effective role - soloing a dummy is the everyday case, and
-			-- it drew a "damage intake" graph out of damage DONE. Older
-			-- captures carry no shapeKind, so they keep the old guess.
+			-- it drew a "damage intake" graph out of damage DONE.
 			local kind = player.metrics.shapeKind
+			-- Captures from before shapeKind existed have to be guessed at, but
+			-- the guess can still be CHECKED: a strip cannot be damage intake
+			-- on a fight where nothing damaged this player. That is exactly
+			-- Josh's dummy card - damageTaken is a hard 0 in the record - and
+			-- without this every capture already on disk keeps lying. Nothing
+			-- here invents a kind; it only refuses one the data contradicts.
+			local tookDamage = (player.metrics.damageTaken or 0) > 0
+			local guess = (result.role == "HEALER" and "your HPS")
+				or (result.role == "TANK" and (tookDamage and "damage intake" or "your DPS"))
+				or "your DPS"
 			local series = (kind == "healing" and "your HPS")
 				or (kind == "taken" and "damage intake")
 				or (kind == "damage" and "your DPS")
-				or (result.role == "HEALER" and "your HPS")
-				or (result.role == "TANK" and "damage intake")
-				or "your DPS"
+				or guess
 			-- Lust marks a TANK's strip too (Josh 2026-07-30: "Pickledrot's
 			-- lust window isn't showing on the graph"). It was DPS/healer
 			-- only, presumably because tanks are not scored on lust
