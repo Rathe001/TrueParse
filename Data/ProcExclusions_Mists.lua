@@ -33,17 +33,25 @@ TP.PROC_NAME_KEEP_IDS = {
 }
 
 TP.PROC_EXCLUDE_NAMES = {
-	-- celestial empowerment procs seen 2026-07-14 (Taran Zhu seasonal).
-	-- NEVER exclude legendary-cloak procs: "Essence of Yu'lon" (148008)
-	-- is the caster cloak's own proc — WCL populations include cloak
-	-- damage, and the name-match was subtracting 112M of legitimate SoO
-	-- damage from casters' scores (caught by /tp procs, 2026-07-14).
-	-- "Xuen's Ferocity" stays: the cloak proc is "Flurry of Xuen"
-	-- (147891), a different name.
-	["Serpent's Jadefire"] = true,
-	["Xuen's Ferocity"] = true,
-	["Burning Song"] = true,
-	["Blazing Song"] = true,
+	-- EMPTY ON PURPOSE (Josh 2026-08-09). The four celestial empowerment
+	-- names used to live here, and measuring what they actually removed is
+	-- what retired them: across one of Josh's sessions the filter deleted
+	-- 1,246,881,628 damage - 1.63% of 76.4B - while the celestial run it was
+	-- meant to police accounted for roughly 146M of that session. So almost
+	-- everything it took was SoO RAID damage, which is the same failure as
+	-- the "Essence of Yu'lon" incident these entries were written after:
+	--
+	--   Xuen's Ferocity     487.7M      Serpent's Jadefire  402.4M
+	--   Blazing Song        249.4M      Burning Song        102.7M
+	--
+	-- A name cannot see the context it fired in, and these fire in the raid
+	-- too. The five-man inflation they were standing in for is handled where
+	-- it belongs instead - Weights.mopFiveManReference scales the REFERENCE
+	-- for five-man MoP content, per role and per metric, which is measured
+	-- and cannot delete anybody's damage.
+	--
+	-- PROC_EXCLUDE_IDS above still works and is the right tool if a specific
+	-- proc ever needs removing: an id knows exactly which spell it is.
 	-- NIUZAO'S IS DELIBERATELY OFF (2026-07-30). Josh named it - "Xuen's
 	-- ferocity, Serpent's jadefire, Earthquake(Niuzao), Blazing song" - and it
 	-- belongs here, but "Earthquake" is ALSO Elemental Shaman's AoE and the

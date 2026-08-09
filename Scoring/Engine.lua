@@ -100,6 +100,13 @@ local DUNGEON_ABSOLUTE_DIFFICULTY = {
 	["Mythic Keystone"] = true,
 	["Challenge Mode"] = true, -- MoP Classic
 }
+-- MoP five-man difficulties that get the raid-curve correction. 237 only:
+-- it is the one MoP five-man difficulty there are captures for, and every
+-- factor in Weights.mopFiveManReference was fitted on it.
+local MOP_FIVE_MAN_DIFFICULTIES = {
+	[237] = true, -- Celestial / Challenge Mode
+}
+
 -- dungeon difficultyIDs (1 Normal, 2 Heroic, 8 Keystone, 23 Mythic 0,
 -- 24 Timewalking): fights on these never borrow raid populations
 local DUNGEON_DIFF_IDS = {
@@ -1574,6 +1581,30 @@ local function normalizeMetric(p, role, key, ctx)
 					local cap = W.tier1IlvlCap or 60
 					if gap > cap then gap = cap elseif gap < -cap then gap = -cap end
 					scale = scale * (1 + W.tier1IlvlSlope / 100) ^ (-gap)
+				end
+				-- FIVE-MAN MoP: raise the reference to meet the content. MoP has
+				-- no dungeon curves, so a celestial is scored against pooled raid
+				-- logs, where the same players read 4-7x their raid selves and
+				-- everybody pins at p99. Dividing the player's rate here is the
+				-- same thing as multiplying the reference, and this is the point
+				-- where the two finally meet. See Weights.mopFiveManReference for
+				-- the measurements, including why it splits by metric as well as
+				-- by role.
+				-- Scoped to the difficulties actually MEASURED, not to every
+				-- dungeon id. DUNGEON_DIFF_IDS also holds retail's 8 (Mythic+)
+				-- and 24 (Timewalking), which have their own crawled curves and
+				-- their own calibration; borrowing a MoP celestial factor for
+				-- those would be extending a fit to content it was never taken
+				-- from. MoP heroic dungeons very likely have the same mismatch,
+				-- but there is no capture of one to fit against, so they wait.
+				local fiveMan = (not TP.Compat.IS_RETAIL)
+					and ctx.difficultyID and MOP_FIVE_MAN_DIFFICULTIES[ctx.difficultyID]
+				if fiveMan then
+					local byRole = W.mopFiveManReference and W.mopFiveManReference[role]
+					local factor = byRole and byRole[key]
+					if factor and factor > 0 then
+						scale = (scale or 1) / factor
+					end
 				end
 				-- dungeon samples are keystone-ordered, not metric-ordered
 				local metricOrdered = not (ctx.curves and ctx.curves.dungeonOnly)

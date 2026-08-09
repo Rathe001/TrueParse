@@ -467,6 +467,63 @@ Weights.derivedOffDifficultyT3 = 3.0  -- tier III, normal-power content
 -- Timewalking distribution tracked tier 1's (2026-07-28).
 Weights.derivedOffDifficultyScaled = 3.5
 
+-- FIVE-MAN MoP AGAINST RAID CURVES (Josh 2026-08-09: a celestial run scored
+-- every player 75 damage / 25 healing).
+--
+-- MoP has no dungeon curves - crawling Challenge Modes was considered and
+-- rejected, there is not enough ranked data - so five-man content is scored
+-- against pooled RAID logs. It does not fit: a five-man boss dies in 22-38
+-- seconds with cooldowns up the whole time, so the same players who sit at
+-- 0.95x their spec median in Siege of Orgrimmar sit at 4-7x in a celestial.
+-- Every one of them lands past the curve's top, reads p99, and the tier-3
+-- squeeze maps that to a flat 74.5. 95% of rows pinned there.
+--
+-- `derivedOffDifficultyScaled` IS NOT THE LEVER - swept 1.0 through 3.5 and
+-- the pinning does not move at all, because everyone is past p99 at every
+-- value. Do not reach for it here.
+--
+-- So scale the REFERENCE instead, per role AND per metric. Both splits are
+-- load-bearing: damage runs 4-7x but healing only 1.6-2.0x, so one factor per
+-- role would fix damage and wreck healing. Medians of Josh's captures:
+--
+--            damage            healing
+--   TANK     4.01x (n=108)     1.94x (n=102)
+--   DAMAGER  5.46x (n=319)     2.03x (n=174)
+--   HEALER   7.33x (n=107)     1.61x (n=107)
+--
+-- and the raid buckets they are measured against read 0.78-0.98x, i.e. the
+-- curves themselves are right and it is only five-man content that does not
+-- map onto them.
+--
+-- Verified after the fact, which is the point of fitting to a target rather
+-- than to a ratio: five-man medians land at 49.5 / 50.1 / 50.2 for damager,
+-- healer and tank DAMAGE, and 50.2 for tank healing, against 74.5-pinned
+-- before. Raid is untouched by construction - the gate is MoP dungeon
+-- difficulties only.
+--
+-- HEALER HEALING IS THE EXCEPTION AND ITS FACTOR IS NEARLY INERT. That bucket
+-- is governed by the low-demand floor, not by this scale: a raid-sized healing
+-- curve cannot place a five-man healer, so the floor deliberately pins them at
+-- 75. Swept 1.6 -> 4.5 and the median went UP (72.6 -> 75.0) with pinning
+-- rising 45% -> 61%, because a bigger divisor pushes MORE healers under the
+-- floor rather than down the curve. 1.6 is the measured elevation and the
+-- least-pinned value tried; the floor is the real governor and is a settled
+-- design decision, not something to fight from here.
+--
+-- ONE ROSTER. These are Josh's guild only. Re-measure once other groups' data
+-- exists, and re-measure anyway after the celestial proc filter removal in
+-- the same change lands in fresh captures - it returns damage these numbers
+-- were fitted without.
+--
+-- Calibrated on difficultyID 237 (celestial) because that is the only MoP
+-- five-man content in the captures; it applies to MoP dungeon difficulties
+-- generally, which is the same mismatch for the same reason.
+Weights.mopFiveManReference = {
+	TANK    = { damage = 4.0, healing = 1.9 },
+	DAMAGER = { damage = 5.5, healing = 2.0 },
+	HEALER  = { damage = 7.3, healing = 1.6 },
+}
+
 -- === Mythic+ key level ===============================================
 -- Key level below which the comparison stops being DIRECT. The dungeon curves
 -- are WCL's top 2000 BY KEYSTONE SCORE, so they describe high-key play, and

@@ -211,9 +211,13 @@ check(rt.RANKED_DUNGEON_TIER == "Challenge Mode" or rt.RANKED_DUNGEON_TIER == "M
 	("retail names a ranked dungeon tier (%s)"):format(tostring(rt.RANKED_DUNGEON_TIER)))
 
 
--- Celestial proc exclusions, and the name collision in them. "Earthquake" is
--- both Niuzao's dungeon proc and Elemental Shaman's AoE, so the name rule
--- must NOT strip the Shaman spell (Josh 2026-07-30).
+-- NO NAME IS EXCLUDED ANY MORE (Josh 2026-08-09). The four celestial
+-- empowerment names were retired after measuring what they actually removed:
+-- 1.25B across one session, 1.63% of its damage, while the celestial run they
+-- were policing was ~146M of it - so nearly all of it was SoO RAID damage. A
+-- name cannot see which fight it fired in. Five-man inflation is corrected by
+-- Weights.mopFiveManReference instead, which scales the reference and cannot
+-- delete anybody's damage.
 do
 	local TPm = { Compat = { HAS_CLEU = true, IS_RETAIL = false } }
 	local f = loadfile("Data/ProcExclusions_Mists.lua")
@@ -221,21 +225,50 @@ do
 		f("TrueParse", TPm)
 		for _, n in ipairs({ "Serpent's Jadefire", "Xuen's Ferocity", "Blazing Song",
 			"Burning Song" }) do
-			check(TPm.IsExcludedProc(nil, n) == true,
-				("celestial proc excluded by name: %s"):format(n))
+			check(TPm.IsExcludedProc(nil, n) == false,
+				("celestial proc is COUNTED, not excluded by name: %s"):format(n))
 		end
-		-- Niuzao's proc is off until its id is confirmed: a name rule cannot
-		-- tell it from Elemental Shaman's Earthquake, and SoO is where that
-		-- spell earns real damage.
 		check(TPm.IsExcludedProc(nil, "Earthquake") == false,
-			"Earthquake is NOT excluded by name (Shaman collision)")
+			"Earthquake is not excluded (it is also Elemental Shaman's AoE)")
 		check(TPm.IsExcludedProc(nil, "Fireball") == false,
 			"an ordinary spell is not excluded")
 		check(TPm.IsExcludedProc(148008, "Essence of Yu'lon") == false,
 			"the legendary cloak proc is still counted")
+		-- the MECHANISM survives the policy: an id still excludes, which is the
+		-- only safe way to remove one specific proc if it is ever needed again
+		TPm.PROC_EXCLUDE_IDS[999001] = true
+		check(TPm.IsExcludedProc(999001, "Whatever") == true,
+			"an explicit id still excludes - the tool remains, only the list is empty")
+		TPm.PROC_EXCLUDE_IDS[999001] = nil
 	end
 end
 
+
+-- FIVE-MAN MoP REFERENCE SCALE. A celestial scored every player 75 damage /
+-- 25 healing because five-man rates run 4-7x the raid curves they are measured
+-- against, so everyone pinned at p99. The scale raises the reference; these
+-- checks pin that it is applied to MoP five-man content and NOT to raids, and
+-- that the numbers keep the ordering they were fitted with.
+do
+	local W = mop.Scoring and mop.Scoring.Weights
+	local R = W and W.mopFiveManReference
+	check(R ~= nil, "the five-man MoP reference scale exists")
+	if R then
+		for _, role in ipairs({ "TANK", "DAMAGER", "HEALER" }) do
+			check((R[role] and R[role].damage or 0) > 1,
+				("%s damage is scaled up from the raid curve"):format(role))
+			check((R[role] and R[role].healing or 0) > 1,
+				("%s healing is scaled up from the raid curve"):format(role))
+		end
+		-- damage is far more inflated than healing in a five-man; a single
+		-- per-role factor would fix one and wreck the other
+		check(R.DAMAGER.damage > R.DAMAGER.healing * 2,
+			"damage needs a much bigger correction than healing")
+		-- fitted ordering: healers are the most inflated on damage, tanks least
+		check(R.HEALER.damage > R.DAMAGER.damage and R.DAMAGER.damage > R.TANK.damage,
+			"the fitted per-role damage ordering is HEALER > DAMAGER > TANK")
+	end
+end
 
 -- A kill-times-only encounter entry is NOT "this dungeon's curves". The
 -- KillTimes_*_Dungeons files merge run durations into TP.Percentiles.encounters,
