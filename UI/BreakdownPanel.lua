@@ -41,6 +41,28 @@ local FIRST_ROW_Y = -40
 
 local COUNT_METRICS = { interrupts = true, dispels = true }
 
+-- THE VERDICT GOES FIRST (Josh 2026-08-08: the tips "are very hard to
+-- understand quickly"). The old tip opened with 59.72M - the least useful
+-- number in it - and buried "score 76" at the bottom in the dimmest grey, so
+-- reading it meant starting at the end. The score now leads, coloured by the
+-- same parse bracket the scorecard uses, with a word so the colour is not
+-- carrying the meaning alone.
+--
+-- Bands match Grades.ColorForScore exactly. If those move, move these.
+local function verdictFor(score)
+	score = score or 0
+	if score >= 95 then
+		return "outstanding here"
+	elseif score >= 75 then
+		return "strong here"
+	elseif score >= 50 then
+		return "solid here"
+	elseif score >= 25 then
+		return "below average here"
+	end
+	return "well below par here"
+end
+
 -- Why a spike band has no ability/amount detail (fields 5-6 of a spike
 -- record): on a client WITH a combat log, a bare record is a capture from
 -- before those fields existed and a new pull will fill them in. That is the
@@ -193,16 +215,53 @@ local function showMetricTip(anchor, data)
 			end
 		end
 	end
-	metricTip.value:SetText(valueText)
+	-- Direction B: the headline is the verdict, and the numbers that used to be
+	-- the headline drop to the evidence line below. Deliberately no bar or
+	-- meter - Josh picked the text-only direction ("I don't want to overdo the
+	-- meter graph we're using").
+	local evidenceText = valueText
+	local isAdjustment = COUNT_METRICS[key] and (b.weight or 0) == 0
+	local headline
+	if isAdjustment then
+		-- an adjustment is NOT a score out of 100, so it never wears a bare
+		-- number in the score's colours: it gets its own sign and hue
+		if b.adjust and b.adjust ~= 0 then
+			local hue = b.adjust > 0 and "|cff4fbf6a" or "|cffe05c5c"
+			headline = ("%s%+.0f|r"):format(hue, b.adjust)
+		else
+			headline = "|cff8d85a0no change|r"
+		end
+	elseif type(b.normalized) == "number" and b.applicable then
+		headline = TP.Scoring.Grades.ColoredScore(b.normalized)
+			.. " |cffbfb8cc" .. verdictFor(b.normalized) .. "|r"
+	end
+	-- the old headline becomes the sentence when there is a verdict to lead
+	-- with; when there is not (inapplicable metric), it stays the headline so
+	-- the tip never opens empty
+	if headline then
+		metricTip.value:SetText(headline)
+	else
+		metricTip.value:SetText(valueText)
+		evidenceText = nil
+	end
 	-- multi-line value blocks (the Tanking ingredients) push everything
-	-- below them down one line per extra row
+	-- below them down one line per extra row. With a verdict headline the
+	-- value slot is always ONE line, so those extra rows now sit in the
+	-- evidence slot: they still grow the tip, but they no longer push the
+	-- evidence line itself down.
 	local extraLines = 0
 	for _ in tostring(valueText or ""):gmatch("\n") do
 		extraLines = extraLines + 1
 	end
+	local valueLines = headline and 0 or extraLines
 	metricTip.median:ClearAllPoints()
-	metricTip.median:SetPoint("TOPLEFT", 10, -(38 + extraLines * 14))
+	metricTip.median:SetPoint("TOPLEFT", 10, -(38 + valueLines * 14))
 
+	-- The evidence line: what you actually did, and what it was measured
+	-- against, on ONE line. These used to be two - the headline and the
+	-- median - which meant the comparison was split across the tip and the
+	-- reader had to hold one number in their head to use the other.
+	local medianText
 	if b.specMedian and duration and duration > 0 then
 		-- curveFrom names the comparison population when the evidence
 		-- ladder had to zoom out (other bracket, all bosses, everyone).
@@ -210,52 +269,62 @@ local function showMetricTip(anchor, data)
 		-- THIS player's gear, so say whose median it is (Josh 2026-07-28).
 		local who = b.curveFrom or (b.rolePooled and "role" or "spec")
 		if b.derived then
-			metricTip.median:SetText(("%s median at your item level: %s/s"):format(
+			medianText = (("%s median at your item level: %s/s"):format(
 				who, TP.FormatNumber(b.specMedian)))
 		else
-			metricTip.median:SetText(("%s median: %s/s"):format(
+			medianText = (("%s median: %s/s"):format(
 				who, TP.FormatNumber(b.specMedian)))
 		end
 	elseif b.coverage then
 		-- five-man healers are scored on how much of the group's incoming
 		-- damage they personally covered, not on healing rate, because rate
 		-- in a five-man mostly measures how much the group stood in
-		metricTip.median:SetText(("covered %.0f%% of a fair share of the group's damage")
+		medianText = (("covered %.0f%% of a fair share of the group's damage")
 			:format(b.coverage * 100))
 	elseif b.lowDemand then
-		metricTip.median:SetText("barely anything to heal - scored neutral")
+		medianText = ("barely anything to heal - scored neutral")
 	elseif COUNT_METRICS[key] and b.groupTotal and not wclBacked then
-		metricTip.median:SetText("scored against an even share of the group's total")
+		medianText = ("scored against an even share of the group's total")
 	elseif key == "damageTaken" then
 		-- by design, not missing data: WCL has no damage-taken rankings
-		metricTip.median:SetText("WCL doesn't rank soaking - your share vs the expected tank share")
+		medianText = ("WCL doesn't rank soaking - your share vs the expected tank share")
 	elseif b.relative and not b.absolute then
 		if data.role == "SUPPORT" and key == "damage" then
 			-- the attribution input never arrived, name it
-			metricTip.median:SetText("no buff uptime reported - vs group share")
+			medianText = ("no buff uptime reported - vs group share")
 		else
-			metricTip.median:SetText("no WCL population data - vs group share")
+			medianText = ("no WCL population data - vs group share")
 		end
 	else
-		metricTip.median:SetText("")
+		medianText = ("")
+	end
+
+	if evidenceText and medianText and medianText ~= "" then
+		metricTip.median:SetText(evidenceText .. " |cff6f68809483|r " .. medianText)
+	else
+		metricTip.median:SetText(evidenceText or medianText or "")
 	end
 
 	-- (the coach line left this tip 2026-07-25: it leads the card now)
 	metricTip:SetHeight(76 + extraLines * 14)
 
+	-- The footer answers "how much did this matter", and NOTHING else now -
+	-- the score moved to the headline, so repeating it here was the tip
+	-- saying the same thing twice while the interesting half went unsaid.
+	-- "worth 91% of the grade" also read as a score; it is a weight, and it
+	-- describes the metric rather than the player.
 	local footer = data.footerText
-	if not footer and COUNT_METRICS[key] and (b.weight or 0) == 0 then
-		-- count metrics adjust the score instead of weighting into it
-		if b.adjust then
-			footer = ("%+.0f points · scaled by the fight's volume"):format(b.adjust)
-		else
-			footer = "no score impact this fight"
-		end
+	if not footer and isAdjustment then
+		-- an adjustment moves the score instead of weighting into it, and the
+		-- headline already carries the number, so say what KIND of thing it is
+		footer = (b.adjust and b.adjust ~= 0)
+			and "adjusts your score - not part of the weighted grade"
+			or "no score impact this fight"
 	end
 	local wPct = (b.effectiveWeight or 0) * 100
 	metricTip.footer:SetText(footer or (wPct >= 0.5
-		and ("score %d · worth %d%% of the grade"):format(b.normalized or 0, wPct)
-		or ("score %d · context, not weighted into the grade"):format(b.normalized or 0)))
+		and ("carries %d%% of your grade"):format(wPct)
+		or "context, not weighted into the grade"))
 
 	-- Derived tiers (Josh 2026-07-28): the score came from real WCL curves
 	-- sampled on content at a DIFFERENT difficulty, scaled to this player's
@@ -263,8 +332,8 @@ local function showMetricTip(anchor, data)
 	-- one short line: the footer word-wraps and its height is computed from
 	-- the value block above, so a paragraph here would clip. The median line
 	-- carries the "vs whom" half ("... median at your item level").
-	-- NEVER :format() the concatenation: the footer already reads "worth 97%
-	-- of the grade", and that literal % makes format expect an argument
+	-- NEVER :format() the concatenation: the footer already reads "carries 97%
+	-- of your grade", and that literal % makes format expect an argument
 	-- (live error 2026-07-28). Build the suffix, then concatenate.
 	-- Wording tracks the tier strip under the meter window (MeterWindow
 	-- TIERS): same numerals, same colours, so the two surfaces agree.
