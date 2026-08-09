@@ -41,26 +41,30 @@ local FIRST_ROW_Y = -40
 
 local COUNT_METRICS = { interrupts = true, dispels = true }
 
--- THE VERDICT GOES FIRST (Josh 2026-08-08: the tips "are very hard to
--- understand quickly"). The old tip opened with 59.72M - the least useful
--- number in it - and buried "score 76" at the bottom in the dimmest grey, so
--- reading it meant starting at the end. The score now leads, coloured by the
--- same parse bracket the scorecard uses, with a word so the colour is not
--- carrying the meaning alone.
+-- THE VERDICT RIDES THE TITLE (Josh 2026-08-08: the tips "are very hard to
+-- understand quickly", then "'here' seems redundant after every tooltip score
+-- ... maybe just put the score in the title line?"). The old tip opened with
+-- 59.72M - the least useful number in it - and buried "score 76" at the bottom
+-- in the dimmest grey, so reading it meant starting at the end.
+--
+-- Score and verdict now sit beside the metric name, which buys back a whole
+-- line: a row holding nothing but "below average here" was not earning its
+-- height. "here" went with it - every tip is about this fight, so the word was
+-- true on all of them and therefore told you nothing.
 --
 -- Bands match Grades.ColorForScore exactly. If those move, move these.
 local function verdictFor(score)
 	score = score or 0
 	if score >= 95 then
-		return "outstanding here"
+		return "outstanding"
 	elseif score >= 75 then
-		return "strong here"
+		return "strong"
 	elseif score >= 50 then
-		return "solid here"
+		return "solid"
 	elseif score >= 25 then
-		return "below average here"
+		return "below average"
 	end
-	return "well below par here"
+	return "well below par"
 end
 
 -- Why a spike band has no ability/amount detail (fields 5-6 of a spike
@@ -237,27 +241,21 @@ local function showMetricTip(anchor, data)
 		headline = TP.Scoring.Grades.ColoredScore(b.normalized)
 			.. " |cffbfb8cc" .. verdictFor(b.normalized) .. "|r"
 	end
-	-- the old headline becomes the sentence when there is a verdict to lead
-	-- with; when there is not (inapplicable metric), it stays the headline so
-	-- the tip never opens empty
+	-- The verdict joins the metric name rather than taking a line of its own.
+	-- An inapplicable metric has no verdict, so its title stays bare and the
+	-- value line keeps the old text - the tip never opens empty either way.
 	if headline then
-		metricTip.value:SetText(headline)
-	else
-		metricTip.value:SetText(valueText)
-		evidenceText = nil
+		metricTip.title:SetText((metricTip.title:GetText() or "") .. "  " .. headline)
 	end
 	-- multi-line value blocks (the Tanking ingredients) push everything
-	-- below them down one line per extra row. With a verdict headline the
-	-- value slot is always ONE line, so those extra rows now sit in the
-	-- evidence slot: they still grow the tip, but they no longer push the
-	-- evidence line itself down.
+	-- below them down one line per extra row.
 	local extraLines = 0
 	for _ in tostring(valueText or ""):gmatch("\n") do
 		extraLines = extraLines + 1
 	end
-	local valueLines = headline and 0 or extraLines
-	metricTip.median:ClearAllPoints()
-	metricTip.median:SetPoint("TOPLEFT", 10, -(38 + valueLines * 14))
+	-- the median slot is always empty now, so it no longer needs repositioning
+	-- around a multi-line value block; the footer is bottom-anchored and the
+	-- tip's height below carries those extra rows
 
 	-- The evidence line: what you actually did, and what it was measured
 	-- against, on ONE line. These used to be two - the headline and the
@@ -299,14 +297,21 @@ local function showMetricTip(anchor, data)
 		medianText = ("")
 	end
 
+	-- Evidence goes in the VALUE slot now that the verdict rides the title, so
+	-- the tip is title / evidence / footer with nothing spare between them.
+	-- The median slot is cleared rather than removed: it still owns the
+	-- multi-line Tanking block's spacing, and a stale string here would
+	-- otherwise survive into the next hover.
 	if evidenceText and medianText and medianText ~= "" then
-		metricTip.median:SetText(evidenceText .. " |cff6f6880·|r " .. medianText)
+		metricTip.value:SetText(evidenceText .. " |cff6f6880·|r " .. medianText)
 	else
-		metricTip.median:SetText(evidenceText or medianText or "")
+		metricTip.value:SetText(evidenceText or medianText or "")
 	end
+	metricTip.median:SetText("")
 
 	-- (the coach line left this tip 2026-07-25: it leads the card now)
-	metricTip:SetHeight(76 + extraLines * 14)
+	-- one row shorter than it was: the verdict line is gone
+	metricTip:SetHeight(62 + extraLines * 14)
 
 	-- The footer answers "how much did this matter", and NOTHING else now -
 	-- the score moved to the headline, so repeating it here was the tip
