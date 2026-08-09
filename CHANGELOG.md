@@ -1,5 +1,62 @@
 # TrueParse Changelog
 
+## 2.13.0
+
+**Breakdown tooltips are rebuilt around the score, and the awards are rare
+again.** No scoring changes, so your career stats carry on as they are.
+
+### Tooltips tell you how you did, first
+
+Hovering a metric used to open with its biggest raw number and finish with
+"score 76" in the faintest grey on the card, so reading it meant starting at
+the end and doing the comparison yourself. The score and a plain-English
+verdict now sit next to the metric's name, coloured by the same bracket the
+scorecard uses, and what you did sits on one line with what it was measured
+against:
+
+    Healing + Absorbs  37 below average
+    4.12M · 31.4k/s · vs pooled raid logs median 93.8k/s
+    carries 100% of your grade
+
+Interrupts and dispels adjust your score rather than being weighted into it,
+which the old tip never said - both just showed a number. They now show a
+signed, differently-coloured one and say so outright.
+
+### Awards mean something again
+
+Every award was measured against real recorded fights and the loose ones
+tightened. **Virtuoso** was the most common award in the game while being the
+rarest by design - it now needs a real contribution in the off-category, not
+just a good percentile against a population that barely does it. **Lifesaver**
+and **Not on My Watch** were handed out on most fights; the first now asks for
+double an even share of the group's healing, and the second goes to the healer
+who actually did the most of it rather than to every healer on the card.
+**Giant Slayer** wanted a 25% lead over second place, which was less than the
+average winning margin - it now wants 75%.
+
+Awards also stopped appearing on training dummies, where they compared you to
+a group that was not there. Soloing a dummy used to earn Giant Slayer every
+single time, because there was no second place to beat.
+
+### Fixes
+
+* **A card from an hour ago no longer says "fighting…"** just because you are
+  in combat now.
+* **Training dummies record under the dummy you actually practised on.**
+  Moving from one to the next kept filing everything under the first one, so
+  the Cleave and Dungeoneer's dummies appeared never to record at all.
+* **The fight-shape graph is labelled correctly.** On a training dummy it
+  claimed to be showing damage intake while plotting your damage output.
+* **Mitigation on a dummy explains itself** - "not judged on a dummy" rather
+  than claiming no uptime was reported, which was never true there.
+* **No healthstone penalty unless you were carrying one.** Having a warlock in
+  the group meant healthstones were offered, not that you had one.
+* **Players who log off stop counting as running TrueParse**, so the green dot
+  and the group's addon count stay honest.
+* A practice session that is not recorded now says why in `/tp diag` instead
+  of vanishing silently.
+
+
 ## 2.12.0
 
 **Retail tanks are no longer graded on active-mitigation uptime, and your
