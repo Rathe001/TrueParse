@@ -502,6 +502,20 @@ function Addon:HandleSlash(input)
 			self:Print("  Error log cleared.")
 			return
 		end
+		-- Practice sessions that were REJECTED. Both rejection paths are
+		-- deliberate, but they used to leave nothing behind, so "I hit a dummy
+		-- and no record appeared" had no answer at all.
+		local drops = self.db.global.practiceDrops or {}
+		if #drops > 0 then
+			self:Print(("  |cffb0a040%d practice session(s) not recorded:|r"):format(#drops))
+			for i = math.max(1, #drops - 5), #drops do
+				local d = drops[i]
+				self:Print(("   %s  %s - %s%s"):format(
+					date("%m/%d %H:%M", d.at or 0), tostring(d.name),
+					tostring(d.reason),
+					d.active and (" (%.0fs on target)"):format(d.active) or ""))
+			end
+		end
 		local errs = self.db.global.errors or {}
 		if #errs == 0 then
 			self:Print("  No errors recorded. (/tp diag reset clears the log.)")

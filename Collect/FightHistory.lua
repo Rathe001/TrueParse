@@ -380,6 +380,28 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- dungeon session is snapshotted long after it ended, so the observed
 	-- span would be far too LONG for those, and their durationSeconds is
 	-- already correct.
+	-- A DROPPED PRACTICE SESSION MUST SAY SO (Josh 2026-08-08). He hit the
+	-- Cleave and Dungeoneer's dummies and no record appeared; sessions 14-23
+	-- were all marked snapshotted with nothing stored, no error, and no trace
+	-- of WHY. Both rejection paths below are deliberate, but between them they
+	-- swallowed ten sessions in silence, and the persisted sessionContexts had
+	-- since been wiped by a meter reset, so the evidence was gone by the time
+	-- anyone looked. Leave a breadcrumb instead of a guess.
+	local function noteDrop(reason, active)
+		local g = TP.Addon and TP.Addon.db and TP.Addon.db.global
+		if not g then
+			return
+		end
+		g.practiceDrops = g.practiceDrops or {}
+		table.insert(g.practiceDrops, {
+			at = time(), sessionID = sessionID, name = name,
+			reason = reason, active = active, rawDuration = duration,
+		})
+		for i = #g.practiceDrops - 20, 1, -1 do -- keep the last 20
+			table.remove(g.practiceDrops, i)
+		end
+	end
+
 	if practice then
 		local liveCtx = sessionContext[sessionID]
 		local active = liveCtx and liveCtx.activeSeconds
@@ -388,13 +410,18 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 			-- sessionContext). Every rate on the card would be built on a
 			-- number we know is wrong, so record nothing rather than a
 			-- fabricated one - the mirror of "unmeasurable is not zero".
+			noteDrop("no time-on-target measured", nil)
 			self.snapshotted[sessionID] = true
 			return true
 		end
 		duration = math.floor(active + 0.5)
+		-- the 60s floor is checked against the CORRECTED duration, or a
+		-- session with a runaway clock would qualify no matter how briefly it
+		-- was hit
+		if duration < 60 then
+			noteDrop("under the 60s floor", active)
+		end
 	end
-	-- the 60s floor is checked against the CORRECTED duration, or a session
-	-- with a runaway clock would qualify no matter how briefly it was hit
 	practice = practice and duration >= 60
 
 	local fight = {
