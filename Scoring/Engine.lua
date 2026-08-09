@@ -2429,6 +2429,16 @@ function Engine.ScoreFight(fight, opts)
 					-- the 50 above is an assumption; never let it render as
 					-- a measured mid-pack result
 					breakdown[key].noInput = true
+					-- ...but SAY WHICH assumption. Both render "?", and the
+					-- card used to explain both as "no uptime was reported",
+					-- which is plainly false on a dummy: the uptime was
+					-- measured fine, it is the comparison that does not exist
+					-- (Josh 2026-08-08, seeing "?" on his own tank at a
+					-- training dummy). A reason the player can check beats a
+					-- reason that happens to be true most of the time.
+					if ctx.practice then
+						breakdown[key].noInputWhy = "practice"
+					end
 				end
 			end
 			-- Aug damage: the row's number is EFFECTIVE (own + buffs

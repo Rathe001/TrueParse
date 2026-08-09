@@ -1255,6 +1255,33 @@ do
 	end
 	check(not got, "winning the meter by 1.375x is not Giant Slayer")
 end
+-- SOLO: with nobody else on the meter `second` is 0 and the ratio test
+-- collapses to "best >= 0", so hitting a training dummy handed this out every
+-- time (Josh 2026-08-08). You cannot dominate a field of one.
+do
+	local alone = {
+		name = "(!) Boss", isBoss = true, duration = 120,
+		totals = { deaths = 0, damageTaken = 1000, avoidableTaken = 0, healing = 0, absorbs = 0, damage = 5000 },
+		players = {
+			t1 = { guid = "t1", role = "TANK", metrics = { damage = 5000, healing = 0, deaths = 0 } },
+		},
+	}
+	local a = TP.Scoring.Awards.Compute(alone)
+	check(next(a) == nil, "a solo pull earns no Giant Slayer - there is no second place")
+end
+-- ...and a rehearsal is not a competition at all
+do
+	local dummy = {
+		name = "Raider's Training Dummy", isBoss = true, practice = true, duration = 104,
+		totals = { deaths = 0, damageTaken = 1000, avoidableTaken = 0, healing = 0, absorbs = 0, damage = 5000 },
+		players = {
+			t1 = { guid = "t1", role = "TANK", metrics = { damage = 5000, healing = 0, deaths = 0 } },
+			d1 = { guid = "d1", role = "DAMAGER", metrics = { damage = 100, healing = 0, deaths = 0 } },
+		},
+	}
+	local a = TP.Scoring.Awards.Compute(dummy)
+	check(next(a) == nil, "practice sessions grant no awards at all")
+end
 check(not hasAward("d1", "Lawnmower"), "boss top damage is not Lawnmower")
 
 -- trash variant, a health dip, and a death each kill their award

@@ -115,6 +115,16 @@ function Awards.Compute(fight)
 	if cached then
 		return cached
 	end
+	-- A REHEARSAL IS NOT A COMPETITION. Practice sessions already stand aside
+	-- from runs, career stats and personal bests; awards were simply missed.
+	-- "Giant Slayer" for out-damaging nobody on a training dummy is the case
+	-- that surfaced it, but none of these mean anything against a dummy - they
+	-- compare you to a group that is not there.
+	if fight.practice then
+		computeCache[fight] = {}
+		return computeCache[fight]
+	end
+
 	local byGuid = {} -- [guid] = { key, ... } until the priority pass
 	local function grant(guid, key)
 		byGuid[guid] = byGuid[guid] or {}
@@ -206,7 +216,13 @@ function Awards.Compute(fight)
 				second = v
 			end
 		end
-		if bestGuid and best > 0 and best >= second * DOMINANT_DAMAGE_RATIO then
+		-- SECOND PLACE HAS TO EXIST (Josh 2026-08-08: "shouldn't get Giant
+		-- Slayer if not in a 5+ person group"). With nobody else on the meter
+		-- `second` is 0 and the test collapses to `best >= 0`, which is true of
+		-- any damage at all - so soloing a training dummy handed out the award
+		-- every time. You cannot dominate a field of one.
+		if bestGuid and best > 0 and second > 0
+			and best >= second * DOMINANT_DAMAGE_RATIO then
 			grant(bestGuid, fight.isBoss and "giantSlayer" or "lawnmower")
 		end
 	end

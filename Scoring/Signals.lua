@@ -166,8 +166,15 @@ local function mitigationRow(m, b, specID)
 		-- asserted "this tank isn't running TrueParse", which was wrong on
 		-- his own card - he was running it, the self-report just didn't
 		-- attach to that fight. It also overran the card's width.
-		lines[#lines + 1] = "Mitigation not measured - assumed average."
-		lines[#lines + 1] = "No uptime was reported for this tank."
+		if b.noInputWhy == "practice" then
+			-- on a dummy the uptime IS measured; what is missing is anything
+			-- to measure it against, so saying "not reported" would be a lie
+			lines[#lines + 1] = "Mitigation not judged on a dummy."
+			lines[#lines + 1] = "Nothing is hitting you hard enough to compare."
+		else
+			lines[#lines + 1] = "Mitigation not measured - assumed average."
+			lines[#lines + 1] = "No uptime was reported for this tank."
+		end
 	else
 		lines[#lines + 1] = anc
 			and ("Mitigation up %.0f%%; the spec median holds %.0f%%"):format(up, anc[2])
