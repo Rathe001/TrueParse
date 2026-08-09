@@ -205,6 +205,15 @@ local function duplicatesEarlierCapture(fights, fight)
 	return false
 end
 
+-- The npc id belonging to the name that actually labelled this session. Keyed
+-- by name so it can never disagree with the label: taking "the target's id"
+-- separately would report the first dummy while the record said another.
+local function practiceNpcIDFor(sessionID, name)
+	local ctx = sessionContext[sessionID]
+	local id = ctx and ctx.npcByTarget and ctx.npcByTarget[name]
+	return (type(id) == "number") and id or nil
+end
+
 FightHistory.IsPlaceless = isPlaceless -- exposed for diagnostics
 FightHistory.DuplicatesEarlierCapture = duplicatesEarlierCapture -- and for tests
 
@@ -340,7 +349,18 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		-- unnamed session: fall back to what we were hitting, recorded live
 		-- (the only way a dummy session gets a usable label)
 		local liveCtx = sessionContext[sessionID]
-		name = (liveCtx and liveCtx.targetName) or ("Fight #%d"):format(sessionID)
+		-- Prefer the PRACTICE target that earned the most time on target. The
+		-- sticky targetName is whoever was hit FIRST, which is right for a boss
+		-- pull but wrong at a dummy rack: moving to the next dummy kept filing
+		-- under the previous one, so those sessions never appeared under their
+		-- own name. Ties and non-practice sessions fall through unchanged.
+		local best, bestFor = nil, 0
+		for who, secs in pairs(liveCtx and liveCtx.activeByTarget or {}) do
+			if secs > bestFor and TP.IsPracticeTarget(who) then
+				best, bestFor = who, secs
+			end
+		end
+		name = best or (liveCtx and liveCtx.targetName) or ("Fight #%d"):format(sessionID)
 	end
 
 	if not duration then
@@ -436,8 +456,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		-- which dummy this was, so PRACTICE_DUMMY_TIER can pick the population
 		-- it stands in for (Classic sets this from the segment; retail had no
 		-- equivalent until now)
-		practiceNpcID = practice and sessionContext[sessionID]
-			and sessionContext[sessionID].targetNpcID or nil,
+		practiceNpcID = practice and practiceNpcIDFor(sessionID, name) or nil,
 		duration = duration or 0,
 		capturedAt = time(),
 		-- when the fight actually HAPPENED: the live context's stamp from
@@ -993,6 +1012,14 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 			local delta = ctx0.tickAt and (now - ctx0.tickAt) or nil
 			if delta and delta > 0 and delta < 5 then
 				ctx0.activeSeconds = (ctx0.activeSeconds or 0) + delta
+				-- ...and the same seconds split by WHICH target earned them, so
+				-- a session spanning several dummies can be named after the one
+				-- actually practised on rather than the one targeted first
+				local who = ctx0.currentTarget
+				if who then
+					ctx0.activeByTarget = ctx0.activeByTarget or {}
+					ctx0.activeByTarget[who] = (ctx0.activeByTarget[who] or 0) + delta
+				end
 			end
 			ctx0.tickAt = now
 		end
@@ -1018,6 +1045,31 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 			-- 2026-07-31). A target's name is secret far more often than a
 			-- dummy's is not.
 			local tn = UnitExists and UnitExists("target") and UnitName("target") or nil
+			-- WHICH dummy is under the cursor RIGHT NOW, unsticky. The sticky
+			-- name below is still what labels a boss pull, but a practice
+			-- session needs to know that you moved from one dummy to the next:
+			-- once ANY practice name was stuck, a second dummy could never
+			-- replace it, so the Cleave and Dungeoneer's sessions were filed
+			-- under whichever dummy was hit first and appeared to vanish (Josh
+			-- 2026-08-08 - the live header read "practice · Reinforced Golem"
+			-- while he was stood among the Cleave dummies).
+			if type(tn) == "string" and not IsSecret(tn) and tn ~= "" then
+				ctx.currentTarget = tn
+				-- npc id keyed BY NAME, so whichever name ends up labelling the
+				-- session gets that same unit's id rather than the first
+				-- target's. Field 6 of a Creature GUID; secrets are never
+				-- parsed (Midnight returns GUIDs as secret values in combat).
+				if ctx.npcByTarget == nil then
+					ctx.npcByTarget = {}
+				end
+				if ctx.npcByTarget[tn] == nil then
+					local okGuid, tguid = pcall(UnitGUID, "target")
+					if okGuid and type(tguid) == "string" and not IsSecret(tguid) then
+						local id = tguid:match("^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)%-")
+						ctx.npcByTarget[tn] = id and tonumber(id) or false
+					end
+				end
+			end
 			if type(tn) == "string" and not IsSecret(tn) and tn ~= ""
 				and (not ctx.targetName
 					or (TP.IsPracticeTarget(tn)

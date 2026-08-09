@@ -2136,27 +2136,44 @@ TP.Percentiles.encounters["Virt Boss"] = { ["3x10"] = {
 	dps = { [257] = { n = 500, curve = { { 99, 1000 }, { 95, 900 }, { 90, 800 }, { 75, 650 }, { 50, 500 }, { 25, 380 }, { 10, 300 } } } },
 	hps = {},
 } }
-local virtFight = {
-	name = "(!) Virt Boss", isBoss = true, duration = 100, difficultyID = 3,
-	totals = { deaths = 1, damageTaken = 1000, healing = 100, absorbs = 0, damage = 85000 },
-	players = {
+-- A REAL GROUP, not a one-player raid. The old fixture had the healer alone,
+-- where an even share IS the whole fight and no one can carry double it - so
+-- it could not express the materiality half of the rule at all.
+local function virtFightWith(healerDamage, peerDamage)
+	local players = {
 		h = { guid = "h", name = "Zapheal", role = "HEALER", specID = 257, class = "PRIEST",
-			metrics = { damage = 85000, healing = 100, deaths = 0 } }, -- 850/s ~ p92 among holy priests
-	},
-}
-local virtAwards = TP.Scoring.Awards.Compute(virtFight)
-local hasVirt = false
-for _, a in ipairs(virtAwards.h or {}) do
-	if a == "Virtuoso" then hasVirt = true end
+			metrics = { damage = healerDamage, healing = 100, deaths = 0 } },
+	}
+	local total = healerDamage
+	for i = 1, 4 do
+		players["d" .. i] = { guid = "d" .. i, name = "Dps" .. i, role = "DAMAGER",
+			specID = 63, class = "MAGE", metrics = { damage = peerDamage, healing = 0, deaths = 0 } }
+		total = total + peerDamage
+	end
+	return {
+		name = "(!) Virt Boss", isBoss = true, duration = 100, difficultyID = 3,
+		totals = { deaths = 1, damageTaken = 1000, healing = 100, absorbs = 0, damage = total },
+		players = players,
+	}
 end
-check(hasVirt, "healer parsing p90+ damage earns Virtuoso")
-virtFight.players.h.metrics.damage = 60000 -- 600/s ~ p66: good, not virtuoso
-virtAwards = TP.Scoring.Awards.Compute(virtFight)
-local stillVirt = false
-for _, a in ipairs(virtAwards.h or {}) do
-	if a == "Virtuoso" then stillVirt = true end
+local function earnedVirtuoso(fight)
+	local a = TP.Scoring.Awards.Compute(fight)
+	for _, label in ipairs(a.h or {}) do
+		if label == "Virtuoso" then return true end
+	end
+	return false
 end
-check(not stillVirt, "p66 off-category is not Virtuoso")
+-- 850/s is ~p92 among holy priests, and 85k of 205k is 2.07x an even fifth
+check(earnedVirtuoso(virtFightWith(85000, 30000)),
+	"healer parsing p90+ damage AND carrying 2x an even share earns Virtuoso")
+-- THE POINT OF THE CHANGE: same elite percentile, but the group out-damaged
+-- them so their contribution is ordinary. 85k of 485k is 0.88x an even share.
+check(not earnedVirtuoso(virtFightWith(85000, 100000)),
+	"the same p90+ parse earns nothing when it is not a real share of the group")
+-- and the percentile half still has to hold on its own: 600/s is ~p66 among
+-- holy priests, which is good rather than exceptional, even though 60k of 60k
+-- + 4x5k is comfortably past 2x an even share
+check(not earnedVirtuoso(virtFightWith(60000, 5000)), "p66 off-category is not Virtuoso")
 TP.Percentiles = nil
 
 -- 21. Role-pooled fallback + co-tank soak split

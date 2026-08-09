@@ -1886,7 +1886,12 @@ function MeterWindow:RenderScorecard(fight)
 		elseif fight.practice then
 			label = "|cff66ccffpractice|r · " .. label
 		end
-		if UnitAffectingCombat("player") then
+		-- ...but only about the fight you are actually LOOKING AT. This asked
+		-- whether the PLAYER is in combat, so standing at a training dummy
+		-- stamped "fighting…" onto a Vordaza card from an hour ago (Josh
+		-- 2026-08-08, screenshot: "6/162 · Vordaza · 0:40 · fighting…"). A
+		-- pinned fight is history by definition and can never be in progress.
+		if not pinnedFight and UnitAffectingCombat("player") then
 			label = label .. " |cffff8888· fighting…|r"
 		end
 		return label

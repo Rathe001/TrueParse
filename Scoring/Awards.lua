@@ -40,8 +40,13 @@ Awards.DESCRIPTIONS = {
 	[Awards.LABELS.healedStupid] = "Healer award: the group ate a pile of avoidable damage and nobody died. You know what you did.",
 	[Awards.LABELS.giantSlayer] = "Top damage on a boss fight, and it wasn't close (25%+ over second place).",
 	[Awards.LABELS.lawnmower] = "Top damage on a trash pull, and it wasn't close (25%+ over second place).",
-	[Awards.LABELS.virtuoso] = "Top-10% of their spec in the category that ISN'T their job: a healer parsing like a DPS, a tank out-healing expectations.",
+	[Awards.LABELS.virtuoso] = "Top-10% of their spec in the category that ISN'T their job, AND carried at least double an even share of the group's total there: a healer parsing like a DPS, a tank out-healing expectations.",
 }
+
+-- How much of the group's own total in the off-category a Virtuoso must
+-- actually contribute, as a multiple of an even share. See the rule below for
+-- why a percentile on its own could not carry this award.
+local VIRTUOSO_MIN_EVEN_SHARES = 2
 
 -- One award per player, rarest first: a card where everyone wears two
 -- ribbons makes ribbons worthless (Josh, 2026-07-12). Lower = rarer.
@@ -216,23 +221,60 @@ function Awards.Compute(fight)
 		grantHealers("healedStupid")
 	end
 
-	-- Virtuoso: top-10% of your spec's population in the category that
-	-- isn't your job (needs the off-metric percentile curves)
+	-- Virtuoso: top-10% of your spec's population in the category that isn't
+	-- your job, AND a materially large slice of the group's own total there.
+	--
+	-- THE PERCENTILE ALONE IS NOT ENOUGH, and raising it does not help. Most
+	-- ranked DPS heal almost nothing, so a DPS spec's HEALING curve is
+	-- near-degenerate and any incidental self-healing clears its p90. Measured
+	-- on Josh's captures this fired on 27% of eligible retail rows - the most
+	-- common award in the set, while being PRIORITY 1, the rarest. Tightening
+	-- to p99 still left 12.5%, which is the proof that the threshold was never
+	-- the problem: the reference cannot discriminate at any percentile. Same
+	-- short-tail failure as five-man healer coverage and the tank uptime field.
+	--
+	-- So require a real CONTRIBUTION as well, measured as a multiple of an
+	-- even share rather than a flat percentage: share alone is inversely
+	-- proportional to group size, which is exactly the defect that made tank
+	-- damage auto-100 in ten-mans. 2x an even share means the same thing in a
+	-- five-man and a twenty-five-man.
+	--
+	-- Measured effect: 27.45% -> 2.07% of eligible retail rows, 11.94% ->
+	-- 1.79% on Mists. It skews to tanks, and that is the award working - "a
+	-- tank out-healing expectations" is its own description, and a healer
+	-- genuinely out-damaging a fifth of the group is rare on purpose.
+	--
+	-- NOT ALSO GATED on doing your own job well, though it was tried: adding
+	-- "own-role percentile >= 50" collapsed it to 0.22% (retail), i.e. about
+	-- one grant in five hundred player-rows. Rare is the goal; extinct is not.
 	local Engine = TP.Scoring.Engine
 	local pcts = Engine.ResolvePercentiles and Engine.ResolvePercentiles(fight)
 	if pcts and (fight.duration or 0) > 0 then
+		local groupDamage, groupHealing, groupN = 0, 0, 0
+		for _, p in pairs(fight.players) do
+			groupDamage = groupDamage + (p.metrics.damage or 0)
+			groupHealing = groupHealing + ((p.metrics.healing or 0) + (p.metrics.absorbs or 0))
+			groupN = groupN + 1
+		end
+		local evenShare = (groupN > 0) and (1 / groupN) or 1
 		for guid, p in pairs(fight.players) do
 			local role = TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID)
-			local offTbl, rate
+			local offTbl, rate, own, groupTotal
 			if role == "HEALER" then
 				offTbl = pcts.dps
-				rate = (p.metrics.damage or 0) / fight.duration
+				own = p.metrics.damage or 0
+				groupTotal = groupDamage
 			elseif role ~= "SUPPORT" then
 				offTbl = pcts.hps
-				rate = ((p.metrics.healing or 0) + (p.metrics.absorbs or 0)) / fight.duration
+				own = (p.metrics.healing or 0) + (p.metrics.absorbs or 0)
+				groupTotal = groupHealing
 			end
+			rate = own and (own / fight.duration) or nil
 			local entry = offTbl and p.specID and offTbl[p.specID]
+			local multiple = (groupTotal and groupTotal > 0 and evenShare > 0)
+				and ((own / groupTotal) / evenShare) or 0
 			if entry and entry.curve and #entry.curve > 1
+				and multiple >= VIRTUOSO_MIN_EVEN_SHARES
 				and Engine.EntryPercentileFor(entry, rate) >= 90 then
 				grant(guid, "virtuoso")
 			end
