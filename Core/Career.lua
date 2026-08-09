@@ -22,7 +22,16 @@ local RECENT_CAP = 40
 -- compares two different scales. Josh would have hit this silently after
 -- reloading, since per-fight cards rescore live but career totals accumulate
 -- at capture and never revisit.
-local SCORING_EPOCH = "2026-08-01-gear-and-coverage"
+-- Bumped 2026-08-08: retail tanks stopped being graded on active-mitigation
+-- uptime, and its 0.55 moved to damage and healing. WCL's ranked field for that
+-- metric is saturated (every ranked tank holds it ~99%, so the anchor bands are
+-- 1.3 and 0.6 points wide) and could not separate anybody. Measured on real
+-- captures, individual retail tank rows move -45.8 to +53.7 and the p25-p75
+-- span widens 22.6 -> 36.1 points, so a tank's career GPA would otherwise
+-- average two incompatible definitions of the same number. Retail tanks are the
+-- only rows affected; everyone else resets for consistency, which is the cost of
+-- the epoch being global.
+local SCORING_EPOCH = "2026-08-08-retail-tank-mitigation"
 
 local function countPlayers(players)
 	local n = 0

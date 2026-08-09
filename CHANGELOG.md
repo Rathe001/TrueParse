@@ -1,5 +1,45 @@
 # TrueParse Changelog
 
+## 2.12.0
+
+**Retail tanks are no longer graded on active-mitigation uptime, and your
+career stats reset once on login.** Mists of Pandaria is unchanged.
+
+* **Why the change.** Mitigation uptime was 55% of a retail tank's grade, and
+  it turned out it cannot tell two tanks apart. Checking Warcraft Logs
+  directly: every ranked tank holds their mitigation button essentially the
+  whole fight - Shield of the Righteous 98%, Shuffle 99%, Shield Block 99% -
+  so the entire field fits in a band about one point wide. Against a reference
+  that tight, an ordinary tank scored around 15 and even a near-perfect one
+  could not clear 25, no matter how well they played. The data was not wrong;
+  the statistic simply has no spread on retail, so nothing can be measured
+  against it.
+
+* **What replaces it.** That weight moves to damage and self-healing, in the
+  proportion they already held. On real captures, retail tank scores go from a
+  median of 49.8 to 53.3 and a 75th percentile of 58.6 to 69.0 - and more
+  importantly the range between good and poor tanking roughly doubles, because
+  over half the grade used to be a fixed value for nearly everyone. Your
+  mitigation uptime is still recorded and still shown on the card; it just
+  isn't graded.
+
+* **Mists of Pandaria keeps scoring mitigation**, and is completely unaffected
+  - verified identical across every stored fight. That client has a real combat
+  log, so uptime is measured rather than estimated, and its field genuinely
+  spreads (the same two specs sit at 41-80% there rather than 98-99%).
+
+* **Career stats reset once, on first login.** A tank's career average would
+  otherwise mix two different definitions of the same number. Per-fight cards
+  re-score themselves, so only the running totals need retiring; they
+  re-accumulate immediately under the new rules. Characters that never tank on
+  retail are unaffected by the scoring change but still reset, because career
+  totals are kept per character rather than per role.
+
+Under the hood: the test suite now refuses any anchor whose quartile band is
+too narrow to place a player, so a reference like this cannot reach a release
+again without being noticed.
+
+
 ## 2.11.3
 
 **If you heal five-man content, your scores were too low in 2.11.2 and this
