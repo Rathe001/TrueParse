@@ -1519,16 +1519,29 @@ function FightHistory:AddFromSegment(seg)
 		-- the player's OWN fight shape (Josh 2026-07-24): healers healing,
 		-- tanks intake, everyone else damage — downtime made visible
 		if TP.Scoring.Signals and (seg.duration or 0) > 0 then
-			local series
+			local series, kind
 			if acc.role == "HEALER" then
-				series = acc.healing and acc.healing.out
+				series, kind = acc.healing and acc.healing.out, "healing"
 			elseif acc.role == "TANK" then
-				series = acc.spikes and acc.spikes.taken
+				series, kind = acc.spikes and acc.spikes.taken, "taken"
 			else
-				series = acc.damage and acc.damage.out
+				series, kind = acc.damage and acc.damage.out, "damage"
 			end
 			if series then
 				m.shape = TP.Scoring.Signals.Downsample(series, seg.duration, 40)
+				-- RECORD WHICH SERIES THIS IS. The card used to label the
+				-- strip from the SCORED role, while the series was picked from
+				-- the role the roster had at capture - and those disagree more
+				-- often than you would think. Soloing a training dummy is the
+				-- clean example: with no party role assigned the roster calls
+				-- a Brewmaster a DAMAGER, so damage OUT was recorded, then the
+				-- card resolved TANK from the spec and titled it "damage
+				-- intake". Josh saw a busy intake graph on a dummy that deals
+				-- no damage at all: the capture confirms damageTaken = 0 while
+				-- the strip summed to exactly his damage done (Josh
+				-- 2026-08-08). The label now follows the data instead of
+				-- guessing at it again.
+				m.shapeKind = kind
 			end
 		end
 		-- dispel reaction time (avg seconds a dispelled debuff sat there)

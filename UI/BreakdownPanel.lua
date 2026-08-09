@@ -1613,8 +1613,18 @@ function Panel:ShowFor(fight, result)
 			if not frame.pShapeLabel then
 				frame.pShapeLabel = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
 			end
-			local series = result.role == "HEALER" and "your HPS"
-				or result.role == "TANK" and "damage intake" or "your DPS"
+			-- Label from what was RECORDED, not from the role we scored. Those
+			-- disagree whenever the roster role at capture differs from the
+			-- spec's effective role - soloing a dummy is the everyday case, and
+			-- it drew a "damage intake" graph out of damage DONE. Older
+			-- captures carry no shapeKind, so they keep the old guess.
+			local kind = player.metrics.shapeKind
+			local series = (kind == "healing" and "your HPS")
+				or (kind == "taken" and "damage intake")
+				or (kind == "damage" and "your DPS")
+				or (result.role == "HEALER" and "your HPS")
+				or (result.role == "TANK" and "damage intake")
+				or "your DPS"
 			-- Lust marks a TANK's strip too (Josh 2026-07-30: "Pickledrot's
 			-- lust window isn't showing on the graph"). It was DPS/healer
 			-- only, presumably because tanks are not scored on lust
