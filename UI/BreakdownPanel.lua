@@ -190,7 +190,9 @@ local function showMetricTip(anchor, data)
 				and ("%d casts · %.1f per minute"):format(casts, casts / (duration / 60))
 				or ("%d casts this fight"):format(casts)
 		elseif duration and duration > 0 then
-			valueText = ("%s · %s per second"):format(
+			-- "/s", not "per second": this shares a line with the median now,
+			-- and the tip is 300px wide
+			valueText = ("%s · %s/s"):format(
 				TP.FormatNumber(b.value or 0), TP.FormatNumber((b.value or 0) / duration))
 		else
 			valueText = TP.FormatNumber(b.value or 0)
@@ -268,13 +270,11 @@ local function showMetricTip(anchor, data)
 		-- On a derived tier the median has already been converted back into
 		-- THIS player's gear, so say whose median it is (Josh 2026-07-28).
 		local who = b.curveFrom or (b.rolePooled and "role" or "spec")
-		if b.derived then
-			medianText = (("%s median at your item level: %s/s"):format(
-				who, TP.FormatNumber(b.specMedian)))
-		else
-			medianText = (("%s median: %s/s"):format(
-				who, TP.FormatNumber(b.specMedian)))
-		end
+		-- "at your item level" is gone from the derived form on purpose: it
+		-- shares a line with the value now, and the footer already says
+		-- "scaled to your gear" two lines down. Saying it twice is what
+		-- pushed this line past the tip's 300px and made it read as a wall.
+		medianText = (("vs %s median %s/s"):format(who, TP.FormatNumber(b.specMedian)))
 	elseif b.coverage then
 		-- five-man healers are scored on how much of the group's incoming
 		-- damage they personally covered, not on healing rate, because rate
@@ -300,7 +300,7 @@ local function showMetricTip(anchor, data)
 	end
 
 	if evidenceText and medianText and medianText ~= "" then
-		metricTip.median:SetText(evidenceText .. " |cff6f68809483|r " .. medianText)
+		metricTip.median:SetText(evidenceText .. " |cff6f6880·|r " .. medianText)
 	else
 		metricTip.median:SetText(evidenceText or medianText or "")
 	end
