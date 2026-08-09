@@ -247,8 +247,15 @@ local function showMetricTip(anchor, data)
 	if headline then
 		metricTip.title:SetText((metricTip.title:GetText() or "") .. "  " .. headline)
 	end
-	-- multi-line value blocks (the Tanking ingredients) push everything
-	-- below them down one line per extra row.
+	-- Multi-line values push everything below them down a row each. These come
+	-- from SIGNAL rows (Signals.lua concatenates its parts with newlines), not
+	-- from the old "Tanking ingredients" composite - that metric became plain
+	-- mitigation uptime long ago and the comment here outlived it.
+	--
+	-- Landing them in the VALUE slot is right: it is the one built for this
+	-- (SetJustifyH("LEFT") exists for exactly these). While the verdict lived
+	-- here they were displaced into the median slot, which sets
+	-- SetWordWrap(false).
 	local extraLines = 0
 	for _ in tostring(valueText or ""):gmatch("\n") do
 		extraLines = extraLines + 1
