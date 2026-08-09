@@ -623,14 +623,18 @@ end
 -- 8. Awards
 local awardFight = {
 	name = "Award Test", duration = 60,
-	totals = { damage = 5000000, healing = 800000, absorbs = 0, avoidableTaken = 120000 },
+	-- d1 carries 700k of 1.3M group healing: 54%, against an even share of 25%
+	-- in this four-player group, so 2.15x - past the 2x bar. The old fixture
+	-- sat at exactly 1.0x an even share and passed only because the rule was a
+	-- flat 15%, which is ordinary in a small group.
+	totals = { damage = 5000000, healing = 1300000, absorbs = 0, avoidableTaken = 120000 },
 	players = {
 		t = mkPlayer("t", "Tank", "WARRIOR", "TANK",
 			{ damage = 600000, healing = 50000, interrupts = 4, avoidableTaken = 0 }),
 		h = mkPlayer("h", "Heal", "PRIEST", "HEALER",
 			{ damage = 50000, healing = 500000, dispels = 3, avoidableTaken = 0 }),
 		d1 = mkPlayer("d1", "OffHealer", "PALADIN", "DAMAGER",
-			{ damage = 2000000, healing = 200000, interrupts = 1, avoidableTaken = 120000 }),
+			{ damage = 2000000, healing = 700000, interrupts = 1, avoidableTaken = 120000 }),
 		d2 = mkPlayer("d2", "Tied", "MAGE", "DAMAGER",
 			{ damage = 2350000, healing = 50000, interrupts = 4, avoidableTaken = 0 }),
 	},
@@ -653,7 +657,29 @@ if awards.d1 then
 		end
 	end
 end
-check(offHealerHasLifesaver, "DPS with 25% of group healing earns Lifesaver")
+check(offHealerHasLifesaver, "a DPS carrying 2x an even share of group healing earns Lifesaver")
+
+-- ...and the group-size normalisation is the point: the SAME 25% share that
+-- used to qualify is only an even share in a four-player group, so it earns
+-- nothing now. A flat percentage cannot tell those two situations apart.
+do
+	local ordinary = {
+		name = "Ordinary off-healing", duration = 60,
+		totals = { damage = 5000000, healing = 800000, absorbs = 0, avoidableTaken = 0 },
+		players = {
+			t = mkPlayer("t", "Tank", "WARRIOR", "TANK", { damage = 600000, healing = 50000 }),
+			h = mkPlayer("h", "Heal", "PRIEST", "HEALER", { damage = 50000, healing = 500000 }),
+			d1 = mkPlayer("d1", "OffHealer", "PALADIN", "DAMAGER", { damage = 2000000, healing = 200000 }),
+			d2 = mkPlayer("d2", "Other", "MAGE", "DAMAGER", { damage = 2350000, healing = 50000 }),
+		},
+	}
+	local a = TP.Scoring.Awards.Compute(ordinary)
+	local got = false
+	for _, x in ipairs(a.d1 or {}) do
+		if x == "Lifesaver" or x == "Unbreakable" then got = true end
+	end
+	check(not got, "an even share of group healing is not a Lifesaver")
+end
 -- ...but only when the healing lands on OTHER people: mostly-self
 -- sustain earns Unbreakable instead
 awardFight.players.d1.metrics.selfHealing = awardFight.players.d1.metrics.healing * 0.9
@@ -1184,14 +1210,18 @@ check(lossLine, "tank-loss line shows when nobody specific got charged")
 -- 16. Role- and fight-type-specific awards
 local roleFight = {
 	name = "(!) Boss", isBoss = true, duration = 120,
-	totals = { deaths = 0, damageTaken = 100000, avoidableTaken = 20000, healing = 100, absorbs = 0, damage = 2000 },
+	-- d1 at 1600 against t1's 800 is a 2.0x win: past the 1.75x dominance bar.
+	-- The old 1100 was 1.375x, which is BELOW the median winning margin in real
+	-- fights (p50 1.30) - i.e. an ordinary meter win, which the score already
+	-- says. A trophy has to mean more than "came first".
+	totals = { deaths = 0, damageTaken = 100000, avoidableTaken = 20000, healing = 100, absorbs = 0, damage = 2500 },
 	players = {
 		h1 = { guid = "h1", role = "HEALER", minHealthPct = 0.90,
 			metrics = { damage = 100, healing = 100, deaths = 0 } },
 		t1 = { guid = "t1", role = "TANK", minHealthPct = 0.55,
 			metrics = { damage = 800, healing = 0, deaths = 0 } },
 		d1 = { guid = "d1", role = "DAMAGER", minHealthPct = 0.75,
-			metrics = { damage = 1100, healing = 0, deaths = 0 } },
+			metrics = { damage = 1600, healing = 0, deaths = 0 } },
 	},
 }
 local roleAwards = TP.Scoring.Awards.Compute(roleFight)
@@ -1206,6 +1236,25 @@ check(#(roleAwards.h1 or {}) == 1, "one award per player, rarest wins")
 check(not hasAward("h1", "Not on My Watch"), "lesser awards absorbed by the rarer one")
 check(not hasAward("d1", "Not on My Watch"), "DPS never get healer awards")
 check(hasAward("d1", "Giant Slayer"), "top damage on a boss is Giant Slayer")
+-- and merely WINNING is not dominating: 1.375x used to qualify, which is below
+-- the median winning margin in real fights
+do
+	local closeFight = {
+		name = "(!) Boss", isBoss = true, duration = 120,
+		totals = { deaths = 0, damageTaken = 100000, avoidableTaken = 0, healing = 100, absorbs = 0, damage = 2000 },
+		players = {
+			h1 = { guid = "h1", role = "HEALER", metrics = { damage = 100, healing = 100, deaths = 0 } },
+			t1 = { guid = "t1", role = "TANK", metrics = { damage = 800, healing = 0, deaths = 0 } },
+			d1 = { guid = "d1", role = "DAMAGER", metrics = { damage = 1100, healing = 0, deaths = 0 } },
+		},
+	}
+	local a = TP.Scoring.Awards.Compute(closeFight)
+	local got = false
+	for _, x in ipairs(a.d1 or {}) do
+		if x == "Giant Slayer" then got = true end
+	end
+	check(not got, "winning the meter by 1.375x is not Giant Slayer")
+end
 check(not hasAward("d1", "Lawnmower"), "boss top damage is not Lawnmower")
 
 -- trash variant, a health dip, and a death each kill their award

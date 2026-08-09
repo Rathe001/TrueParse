@@ -31,15 +31,15 @@ Awards.DESCRIPTIONS = {
 	[Awards.LABELS.kickKing] = "Most interrupts this fight (at least 3, no tie).",
 	[Awards.LABELS.cleanser] = "Most dispels this fight (at least 3, no tie).",
 	[Awards.LABELS.untouchable] = "Avoidable damage hit the rest of the group - one player dodged every bit of it.",
-	[Awards.LABELS.lifesaver] = "The top non-healer healer: covered 15%+ of the group's healing - on other people.",
-	[Awards.LABELS.unbreakable] = "The top non-healer healer: covered 15%+ of the group's healing by keeping themselves alive. Nobody heals this one.",
+	[Awards.LABELS.lifesaver] = "The top non-healer healer: carried at least double an even share of the group's healing - on other people.",
+	[Awards.LABELS.unbreakable] = "The top non-healer healer: carried at least double an even share of the group's healing by keeping themselves alive. Nobody heals this one.",
 	[Awards.LABELS.survivalist] = "Most self-rescue healing (potion or Healthstone) - and lived to tell about it.",
 	[Awards.LABELS.ironWall] = "Most defensive cooldowns used (reported by their own TrueParse, at least 3).",
-	[Awards.LABELS.notOnMyWatch] = "Healer award: a real boss fight (90s+) ended with nobody dying.",
+	[Awards.LABELS.notOnMyWatch] = "The group's top healer on a real boss fight (90s+) that ended with nobody dying.",
 	[Awards.LABELS.toppedOff] = "Healer award: nobody dropped below half health for the entire boss fight.",
 	[Awards.LABELS.healedStupid] = "Healer award: the group ate a pile of avoidable damage and nobody died. You know what you did.",
-	[Awards.LABELS.giantSlayer] = "Top damage on a boss fight, and it wasn't close (25%+ over second place).",
-	[Awards.LABELS.lawnmower] = "Top damage on a trash pull, and it wasn't close (25%+ over second place).",
+	[Awards.LABELS.giantSlayer] = "Top damage on a boss fight, and it wasn't close (75%+ over second place).",
+	[Awards.LABELS.lawnmower] = "Top damage on a trash pull, and it wasn't close (75%+ over second place).",
 	[Awards.LABELS.virtuoso] = "Top-10% of their spec in the category that ISN'T their job, AND carried at least double an even share of the group's total there: a healer parsing like a DPS, a tank out-healing expectations.",
 }
 
@@ -47,6 +47,32 @@ Awards.DESCRIPTIONS = {
 -- actually contribute, as a multiple of an even share. See the rule below for
 -- why a percentile on its own could not carry this award.
 local VIRTUOSO_MIN_EVEN_SHARES = 2
+
+-- The rest of the thresholds, named rather than buried in the rules, because
+-- they were audited together against real captures (Josh 2026-08-08: "make
+-- sure they aren't too common") and will be again. Rates below are the share
+-- of PLAYER-ROWS that end up wearing the ribbon after the one-per-player
+-- scarcity pass, measured on Josh's retail history.
+--
+-- A non-healer's healing, as a MULTIPLE OF AN EVEN SHARE, to be the Lifesaver.
+-- The old rule was a flat 15% of group healing and caught 10.8% of rows: in
+-- most fights somebody incidentally clears 15%, so it was close to "the top
+-- off-healer, always". Raising the flat number to 30% (the p90 of real play)
+-- still left 6.7%, because a flat share is not comparable across group sizes -
+-- an even share is 20% in a five-man and 4% in a twenty-five-man, so the same
+-- percentage is ordinary in one and extraordinary in the other. That is the
+-- identical defect that made tank damage auto-100 in ten-mans, and it wants
+-- the identical fix.
+local LIFESAVER_MIN_EVEN_SHARES = 2
+
+-- Top damage must beat second by this much. 1.25x fired on 6.9% of rows;
+-- measured ratios run p50 1.30, p75 1.65, p90 2.04, so 1.25 was BELOW the
+-- median winning margin - it was rewarding an ordinary meter win, which the
+-- score already reflects.
+local DOMINANT_DAMAGE_RATIO = 1.75
+
+-- A deathless boss must last this long to count as a save.
+local SAVE_MIN_DURATION = 90
 
 -- One award per player, rarest first: a card where everyone wears two
 -- ribbons makes ribbons worthless (Josh, 2026-07-12). Lower = rarer.
@@ -143,11 +169,17 @@ function Awards.Compute(fight)
 	if totalHeal > 0 then
 		-- only the TOP qualifying off-healer: three DPS each over the bar
 		-- used to mean three ribbons
+		local groupN = 0
+		for _ in pairs(fight.players) do
+			groupN = groupN + 1
+		end
+		local evenShare = (groupN > 0) and (1 / groupN) or 1
 		local bestGuid, bestShare
 		for guid, p in pairs(fight.players) do
 			if TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID) ~= "HEALER" then
 				local share = ((p.metrics.healing or 0) + (p.metrics.absorbs or 0)) / totalHeal
-				if share >= 0.15 and (not bestShare or share > bestShare) then
+				if share >= evenShare * LIFESAVER_MIN_EVEN_SHARES
+					and (not bestShare or share > bestShare) then
 					bestGuid, bestShare = guid, share
 				end
 			end
@@ -174,7 +206,7 @@ function Awards.Compute(fight)
 				second = v
 			end
 		end
-		if bestGuid and best > 0 and best >= second * 1.25 then
+		if bestGuid and best > 0 and best >= second * DOMINANT_DAMAGE_RATIO then
 			grant(bestGuid, fight.isBoss and "giantSlayer" or "lawnmower")
 		end
 	end
@@ -191,9 +223,29 @@ function Awards.Compute(fight)
 	-- unknown is not the same as flawless
 	local noDeaths = (fight.totals or {}).deaths == 0
 
-	-- 90s+ only: a deathless 20-second heroic steamroll is not a save
-	if fight.isBoss and noDeaths and (fight.duration or 0) >= 90 then
-		grantHealers("notOnMyWatch")
+	-- 90s+ only: a deathless 20-second heroic steamroll is not a save.
+	-- ONE healer, not all of them (Josh 2026-08-08). Every healer on the card
+	-- used to get this, so 99 qualifying retail fights minted 174 ribbons -
+	-- 10.5% of all player-rows, second only to the runaway Virtuoso. On a
+	-- six-healer raid that is six identical trophies for the same fact. The
+	-- award says "not on MY watch"; it belongs to the healer who actually did
+	-- the most of the healing.
+	local function grantTopHealer(key)
+		local bestGuid, bestHealed
+		for guid, p in pairs(fight.players) do
+			if TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID) == "HEALER" then
+				local healed = (p.metrics.healing or 0) + (p.metrics.absorbs or 0)
+				if not bestHealed or healed > bestHealed then
+					bestGuid, bestHealed = guid, healed
+				end
+			end
+		end
+		if bestGuid then
+			grant(bestGuid, key)
+		end
+	end
+	if fight.isBoss and noDeaths and (fight.duration or 0) >= SAVE_MIN_DURATION then
+		grantTopHealer("notOnMyWatch")
 
 		-- Nobody under 50% the whole boss: needs the Classic health sampler's
 		-- data on EVERY player (Midnight secrets friendly health, so retail
