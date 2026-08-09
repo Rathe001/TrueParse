@@ -406,6 +406,11 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		-- itself so kill-speed/comp/career logic steps aside
 		isBoss = name:find("^%(!%)") ~= nil or practice,
 		practice = practice or nil,
+		-- which dummy this was, so PRACTICE_DUMMY_TIER can pick the population
+		-- it stands in for (Classic sets this from the segment; retail had no
+		-- equivalent until now)
+		practiceNpcID = practice and sessionContext[sessionID]
+			and sessionContext[sessionID].targetNpcID or nil,
 		duration = duration or 0,
 		capturedAt = time(),
 		-- when the fight actually HAPPENED: the live context's stamp from
@@ -991,6 +996,24 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 					or (TP.IsPracticeTarget(tn)
 						and not TP.IsPracticeTarget(ctx.targetName))) then
 				ctx.targetName = tn
+				-- ...and WHICH dummy, from the same unit the name came from.
+				-- Retail never recorded this: `practiceNpcID` was only ever set
+				-- on the Classic segment path, so on retail it was nil on every
+				-- practice record (verified across Josh's whole history) and
+				-- PracticeAnchorFor(nil) could not resolve anything. That made
+				-- PRACTICE_DUMMY_TIER inert on the client it was written for -
+				-- its ids are retail ids (243167 Dungeoneer's, 243207 Training
+				-- Dummy, ...), so "score each dummy against the population it
+				-- stands in for" never actually happened here.
+				-- Field 6 of a Creature GUID is the npc id. Secrets are skipped:
+				-- Midnight hands out GUIDs as secret values mid-combat and a
+				-- secret must never be parsed.
+				ctx.targetNpcID = nil
+				local okGuid, tguid = pcall(UnitGUID, "target")
+				if okGuid and type(tguid) == "string" and not IsSecret(tguid) then
+					local id = tguid:match("^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)%-")
+					ctx.targetNpcID = id and tonumber(id) or nil
+				end
 			end
 			for guid, info in pairs(TP.Roster.players) do
 				local e = ctx.roster[guid]
