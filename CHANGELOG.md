@@ -1,5 +1,29 @@
 # TrueParse Changelog
 
+## 2.14.1
+
+**If you tank Mythic+, your damage score was wrong and is now much higher.**
+
+Tank damage is meant to be judged against what other tanks of your spec
+contribute, but that comparison was switched off in groups of five — so in a
+Mythic+ your damage was measured against the *damage dealers* instead. A tank
+loses that comparison by design, and it showed: more than half of real Mythic+
+tank pulls scored their damage below ten out of a hundred.
+
+Checked against real runs, five-man tanks contribute almost exactly what the
+tank comparison expects — slightly more, in fact, than raid tanks do. There was
+never a reason to exclude them. Mythic+ tank damage scores now read around 59
+where they read 9, and overall Mythic+ tank scores roughly double.
+
+This was hiding behind the mitigation change in 2.12.0: while mitigation
+carried over half the tank grade at a fixed value, it propped the total up and
+the broken half underneath went unnoticed.
+
+Mists of Pandaria is deliberately unchanged here — its tank comparison has a
+separate problem of its own, and applying this fix there would have made MoP
+tank scores worse rather than better. That one is queued.
+
+
 ## 2.14.0
 
 **Mists of Pandaria scoring only. Retail is untouched.**
