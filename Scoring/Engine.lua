@@ -1361,13 +1361,42 @@ local function normalizeMetric(p, role, key, ctx)
 	--
 	-- Dividing by the mean removes size from the quantity entirely: those two
 	-- populations differ 2.3x on raw share and agree within 7% normalised
-	-- (0.662 vs 0.713 of mean). The gate stays because a 5-man tank pulls
-	-- differently, not because the arithmetic needs it.
+	-- (0.662 vs 0.713 of mean).
+	--
+	-- THE SIZE GATE USED TO SAY "> 5" ON THE BELIEF THAT "a 5-man tank pulls
+	-- differently, not because the arithmetic needs it". Measured on Josh's
+	-- captures 2026-08-10, that belief is false: M+ tanks sit at a median
+	-- 0.77x the group's per-player mean, RAID tanks at 0.68x, and the shipped
+	-- anchors' p50 band is 0.70-0.82. A five-man tank does not fall outside
+	-- the anchor - they fit it better than raid tanks do.
+	--
+	-- What the gate actually did was send five-man tanks to the DAMAGER curve,
+	-- where a tank is a bad damager by construction: their damage metric read
+	-- a median 9.5 with 57% under ten. Using the anchor instead reads 59.0 and
+	-- 0% under ten, and their overall M+ score goes 17.5 -> 38.1 with
+	-- under-ten falling 33% -> 4.8%. This was masked until v2.12.0, when
+	-- mitigation stopped carrying 55% of the tank grade at a flat imputed 50.
+	--
+	-- A floor of 3 remains, and it is arithmetic rather than belief this time:
+	-- the anchor compares a player against the group's mean, and with one or
+	-- two players that mean is mostly the player themselves, so the multiple
+	-- stops meaning anything. Three is the same bar Untouchable uses.
+	--
+	-- RETAIL ONLY, because only retail's anchor has been checked against real
+	-- play. MoP's expects tanks at 1.00-1.29x the group mean and Josh's MoP
+	-- tanks do 0.84x in raid and 0.67x in five-mans, so that file is
+	-- miscalibrated on its own terms - MoP RAID tank damage already medians
+	-- 24.2 because of it. Opening the gate there would have spread an existing
+	-- fault to a second population rather than fixing anything: measured, MoP
+	-- five-man tanks went 50.7 -> 21.1. Mists keeps the old six-player bar
+	-- until its anchor is recrawled or refitted; this is about which data has
+	-- been validated, not about the clients behaving differently.
+	local minForAnchor = TP.Compat.IS_RETAIL and 3 or 6
 	local scoredCount = ctx.cohorts and
 		(#(ctx.cohorts.TANK or {}) + #(ctx.cohorts.HEALER or {})
 			+ #(ctx.cohorts.DAMAGER or {}) + #(ctx.cohorts.SUPPORT or {}))
 	if role == "TANK" and key == "damage" and not ctx.parseMode
-		and scoredCount and scoredCount > 5 then
+		and scoredCount and scoredCount >= minForAnchor then
 		local a = tankDamageAnchorsFor(ctx, p.specID)
 		local groupTotal = ctx.totals and ctx.totals.damage
 		local n = ctx.playerCount or 0

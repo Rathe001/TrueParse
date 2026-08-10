@@ -4532,6 +4532,39 @@ end)()
 		("a median tank scores 50 at ANY raid size (10/20/25 -> %.1f/%.1f/%.1f)")
 			:format(sizes[1], sizes[2], sizes[3]))
 
+	-- ...INCLUDING A FIVE-MAN (Josh 2026-08-10). This used to be gated out on
+	-- the belief that "a 5-man tank pulls differently"; measured, M+ tanks sit
+	-- at 0.77x the group mean against raid tanks' 0.68x, so they fit the anchor
+	-- better, not worse. Being gated out sent them to the DAMAGER curve, where
+	-- a tank is a bad damager by construction: 57% of real M+ tank-fights
+	-- scored their damage under ten.
+	-- RETAIL ONLY, so the flag has to be right for this one: it is the retail
+	-- anchor that was checked against real play (0.77x actual vs a 0.70-0.82
+	-- expectation). This suite runs Mists-flavoured by default.
+	local savedRetail = TP.Compat.IS_RETAIL
+	TP.Compat.IS_RETAIL = true
+	local five = tankDamageScore(fightOfSize(5, 0.36 * 1000 / 5, 73))
+	check(five and math.abs(five.normalized - 50) < 0.5,
+		("a median tank scores 50 in a FIVE-MAN too, on retail (%.1f)")
+			:format(five and five.normalized or -1))
+	-- ...and NOT on Mists, whose anchor expects 1.00-1.29x the group mean while
+	-- its tanks actually do 0.67-0.84x. Opening the gate there spreads that
+	-- miscalibration instead of fixing anything (measured: 50.7 -> 21.1).
+	TP.Compat.IS_RETAIL = false
+	local fiveMists = tankDamageScore(fightOfSize(5, 0.36 * 1000 / 5, 73))
+	check(not fiveMists or math.abs(fiveMists.normalized - 50) > 0.5,
+		("a Mists five-man does NOT use the group-mean anchor (%s)")
+			:format(fiveMists and ("%.1f"):format(fiveMists.normalized) or "no score"))
+	TP.Compat.IS_RETAIL = savedRetail
+
+	-- ...but not below three, and that floor IS arithmetic: the anchor divides
+	-- by the group's mean, and with one or two players that mean is mostly the
+	-- tank themselves, so the multiple stops carrying information.
+	local solo = tankDamageScore(fightOfSize(1, 1000, 73))
+	check(not solo or math.abs(solo.normalized - 50) > 1,
+		("a solo pull does not use the group-mean anchor (%s)")
+			:format(solo and ("%.1f"):format(solo.normalized) or "no score"))
+
 	-- a stale share-based data file must NOT be scored against
 	TP.TANK_DAMAGE_ANCHOR_UNIT = nil
 	local stale = tankDamageScore(fightWith(60, 73))
