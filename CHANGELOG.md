@@ -1,5 +1,27 @@
 # TrueParse Changelog
 
+## 2.14.2
+
+**Patch 12.1, "Curse of Ula'tek," compatibility. No scoring changes.**
+
+Interface bumped to 120100 so retail no longer flags TrueParse out of date.
+
+Nothing else needed code changes. Boss detection, dungeon detection, and the
+Mythic+ band logic are all name/ID-driven rather than hardcoded to this tier,
+so the new 8-boss raid (**The Venomous Abyss**), the new 3-boss dungeon, and
+the refreshed Mythic+ pool are captured and scored the same way prior
+tiers were on day one — falling back to the derived (ilvl/benchmark) scoring
+tier until real Warcraft Logs curves exist for them, same as any content this
+addon has never seen. The 3 new delves need nothing at all: delves
+(difficultyID 208) have never been scored, by design, since they never rank
+on Warcraft Logs and pad the party with NPCs.
+
+**Warcraft Logs data for the new raid and dungeon is NOT crawled yet.** The
+raid doesn't open until August 18, and a crawl right after that would hit the
+same thin-population problem hit before (curves built from under ~300 parses
+read as junk). Refresh once a real population exists — realistically once
+Wing 2+ are live and keys have had time to climb, not on day one.
+
 ## 2.14.1
 
 **If you tank Mythic+, your damage score was wrong and is now much higher.**
