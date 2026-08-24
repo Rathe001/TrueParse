@@ -61,15 +61,29 @@ TP.SPEC_ROLES = {
 -- `enum` names a key in Enum.DamageMeterType, resolved at runtime so a
 -- missing attribute on some client just drops that metric.
 -- EnemyDamageTaken is skipped: its sources are enemies, not group members.
+-- Dps/Hps are NOT captured, deliberately. Measured 2026-08-23 over 2,054
+-- player-fight rows in a real SavedVariables: metrics.dps equalled
+-- metrics.damage in every single row, and metrics.hps equalled
+-- metrics.healing in every single row - zero exceptions. The enum argument
+-- is being honoured (absorbs differs from healing in 1,853 of those rows,
+-- damageTaken differs from damage in all 2,054), so this is not a wrong-
+-- parameter bug: the Dps and Hps session types simply report the same
+-- totalAmount as their Done counterparts, and a rate is the caller's job to
+-- derive from the fight duration we already store.
+--
+-- Capturing them cost two extra GetCombatSessionFromID calls plus two extra
+-- full combatSources loops per snapshot, and 6.2% of the saved file (85KB of
+-- 1.39MB), for two keys nothing has ever read. Any consumer that wants a rate
+-- should divide by fight.duration. NOTE for anyone re-adding them: they are
+-- not in DUPE_TOTALS and must stay out, or the duplicate-capture check goes
+-- from five independent metrics to three.
 TP.METRIC_DEFS = {
 	{ key = "damage",         enum = "DamageDone" },
-	{ key = "dps",            enum = "Dps" },
 	{ key = "healing",        enum = "HealingDone" },
 	-- Speculative: only captured if the client's enum actually has it.
 	-- If real data shows up we can subtract it from healer scoring the way
 	-- Classic's CLEU path already does (its healing is effective-only).
 	{ key = "overhealing",    enum = "Overhealing" },
-	{ key = "hps",            enum = "Hps" },
 	{ key = "absorbs",        enum = "Absorbs" },
 	{ key = "damageTaken",    enum = "DamageTaken" },
 	{ key = "avoidableTaken", enum = "AvoidableDamageTaken" },
