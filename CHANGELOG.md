@@ -1,5 +1,34 @@
 # TrueParse Changelog
 
+## Unreleased
+
+**The new raid and Mythic+ season now have real Warcraft Logs curves.**
+
+2.14.2 shipped The Venomous Abyss and the Season 2 dungeons scored on the
+derived (ilvl/benchmark) tier, and said the crawl would wait until a real
+population existed rather than build curves out of a few hundred parses. It
+does now — Normal, Heroic and LFR are all deeply ranked and the Mythic+ pool
+has had time to climb — so the crawlers are pointed at the new content and the
+next data refresh carries the curves.
+
+**Mythic raid is deliberately left out for now.** Measured 23 August: Mythic
+had ranked parses on two of the raid's nine bosses and none at all on the other
+seven. A curve built from that reads as junk, and TrueParse presents these as
+real population data, so the Mythic bracket stays out until it has a few weeks
+of kills behind it. Normal, Heroic and LFR are unaffected.
+
+**Practice dummy sessions are measured against a new boss.** The raid anchor
+moved from Vorasius to **Sszorak**, chosen the same way as before: across four
+ranked kills per boss, Sszorak took 100% of the raid's damage on its single
+biggest target every time — a cleaner stand-and-hit fight than the last tier
+offered. Dummy sessions compare against Heroic rather than Mythic for now, for
+the same reason the Mythic bracket is missing, so dummy parses read a little
+high until it comes back. If your curve file is still the previous tier's,
+nothing changes: the old anchor is kept as a fallback.
+
+Saved data is roughly 6% smaller. Two values were recorded per player per fight
+that were exact copies of two others and were never read by anything.
+
 ## 2.14.2
 
 **Patch 12.1, "Curse of Ula'tek," compatibility. No scoring changes.**
