@@ -244,21 +244,25 @@ end
 -- borrows its bracket, so a dummy session is scored against a real WCL
 -- population (tier II - see the practice stamp in Engine.lua).
 --
--- RETAIL = Vorasius, MEASURED not chosen (2026-07-30,
--- scratchpad/find-patchwerk.ps1 over zone 46's ranked fights). For each
--- encounter it asked the DamageDone table, viewed by target, what share of
--- the raid's damage landed on the single biggest target - a patchwerk is one
--- target and no adds, so that share runs near 100%. Vorasius took 96.1%,
--- ahead of Fallen-King Salhadaar 89.5% and Chimaerus 86.4%, with Vaelgor &
--- Ezzorak and Lightblinded Vanguard at ~36% (split-target fights, the
--- opposite of a dummy).
+-- RETAIL = Sszorak, MEASURED not chosen (2026-08-23, re-measured for the
+-- Venomous Abyss rollover with the same method as the zone-46 pass). For
+-- each encounter it asked the DamageDone table, viewed by target, what
+-- share of the raid's damage landed on the single biggest target - a
+-- patchwerk is one target and no adds, so that share runs near 100%.
+-- Sszorak took 100.0% on all four sampled fights (a pure single-target
+-- fight, cleaner than zone 46's best), ahead of Vashnik the Malignant
+-- 78.8% and Nymrissa Wavecaller 73.5%, with The Lost Explorers 36.1% and
+-- Ula'tek 42.5% (split-target fights, the opposite of a dummy).
 --
--- difficultyID 16 = Mythic = WCL bracket "5". Heroic and Mythic are
--- statistically tied on population (68,993 vs 69,550 ranked parses on
--- Vorasius) so "most-parsed" doesn't decide it. Mythic, because a dummy has
--- no fight difficulty at all - no movement, no phases, no target swaps,
--- perfect uptime - so it belongs against the population that executes
--- closest to its own ceiling. The alternative inflates every dummy parse.
+-- difficultyID 15 = Heroic = WCL bracket "4", DEMOTED from Mythic for this
+-- tier. The reasoning for Mythic still stands - a dummy has no movement, no
+-- phases, no target swaps and perfect uptime, so it belongs against the
+-- population executing closest to its own ceiling - but the Mythic bracket
+-- is not being crawled yet: as of 2026-08-23 Mythic has ranked parses on
+-- only 2 of 9 bosses, so Percentiles.lua has no bracket "5" for the anchor
+-- to borrow. Move this back to 16 in the same change that adds "5" to the
+-- retail crawl brackets in data-refresh.yml. Until then dummy parses read
+-- slightly high, since Heroic executes further from the ceiling.
 -- CALIBRATABLE: with dummy sessions and raid parses from one character, the
 -- honest correction is measurable and belongs in derivedOffDifficulty.
 --
@@ -273,9 +277,18 @@ local IS_MAINLINE = (WOW_PROJECT_MAINLINE ~= nil and WOW_PROJECT_ID == WOW_PROJE
 -- against a raid patchwerk told a five-man player they were bad at raiding
 -- (Josh 2026-08-08). Two anchors per client, chosen by the dummy's NPC ID.
 TP.PRACTICE_ANCHORS = IS_MAINLINE and {
-	raid = { name = "Vorasius", difficultyID = 16 },
+	-- legacyName = the PREVIOUS tier's anchor, used only while a client still
+	-- ships the old curve file (see resolve() in Engine.lua). Drop it one
+	-- refresh after the new tier's curves land.
+	raid = { name = "Sszorak", difficultyID = 15, legacyName = "Vorasius" },
 	-- brackets all,k2..k14; a dummy has no key level so it takes `all`
-	dungeon = { name = "Seat of the Triumvirate", difficultyID = 8 },
+	-- The Blinding Vale = the least add-heavy Season 2 dungeon by the same
+	-- top-target measurement (34.2%, vs 25.5% for Ruby Life Pools). WEAK
+	-- SIGNAL, unlike the raid anchor: all eight cluster in 25-34% because
+	-- every M+ route is add-heavy by construction, so this is "closest to a
+	-- dummy" rather than "is a dummy". Revisit if dungeon practice scoring
+	-- reads wrong.
+	dungeon = { name = "The Blinding Vale", difficultyID = 8, legacyName = "Seat of the Triumvirate" },
 } or {
 	raid = { name = "Iron Juggernaut", difficultyID = 3 },
 	dungeon = { name = "Gate of the Setting Sun", difficultyID = 237 },

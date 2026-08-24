@@ -323,12 +323,23 @@ local function encounterCurvesFor(P, fight)
 		-- against dungeon curves, a Raider's golem against raid ones
 		local anchor = TP.PracticeAnchorFor and TP.PracticeAnchorFor(fight.practiceNpcID)
 			or TP.PRACTICE_ANCHOR
-		local enc = encounterByName(P, anchor.name)
+		local function resolve(a)
+			if not a then return nil end
+			-- TIER ROLLOVER (2026-08-23): the anchor constants move to the new
+			-- tier's boss the moment the crawl zone ids change, but the shipped
+			-- curve file only catches up on the next monthly data refresh. In
+			-- that window the new name is absent, and the old assumption below
+			-- ("the raid anchor has always been present") stops holding for
+			-- BOTH anchors at once - which dropped practice sessions to no
+			-- curves at all. Prefer the previous tier's boss over nothing.
+			return encounterByName(P, a.name)
+				or (a.legacyName and encounterByName(P, a.legacyName))
+		end
+		local enc = resolve(anchor)
 		if not enc then
 			-- an anchor missing from THIS client's curve file must not drop
-			-- the session to no curves at all; the raid anchor has always
-			-- been present, so fall back to it
-			enc = encounterByName(P, TP.PRACTICE_ANCHOR.name)
+			-- the session to no curves at all; fall back to the raid anchor
+			enc = resolve(TP.PRACTICE_ANCHOR)
 		end
 		if enc then
 			return sanitizeEncounter(enc)
