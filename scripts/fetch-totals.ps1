@@ -12,7 +12,7 @@
 #             -ZoneId 1054 -BracketStyle classic -CappedCsv capped.csv -OutFile Totals_Mists.lua
 param(
     [string]$GameBase = "https://www.warcraftlogs.com",
-    [int]$ZoneId = 46,
+    [int]$ZoneId = 53,
     [ValidateSet("classic", "retail", "all")]
     [string]$BracketStyle = "retail",
     [Parameter(Mandatory = $true)][string]$CappedCsv,

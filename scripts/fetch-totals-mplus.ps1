@@ -9,7 +9,7 @@
 # NEVER run while another WCL crawl is active (single-active tokens).
 param(
     [string]$GameBase = "https://www.warcraftlogs.com",
-    [int]$ZoneId = 47,
+    [int]$ZoneId = 55,
     [Parameter(Mandatory = $true)][string]$CappedCsv,
     [string]$OutFile = "Totals_Dungeons.lua",
     [string]$ClientFile = "$PSScriptRoot\wcl-v2-client.local.txt"

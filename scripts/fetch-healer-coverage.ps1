@@ -24,10 +24,10 @@
 # did.
 #
 # NEVER run while another WCL crawl is active (single-active tokens).
-#   Retail M+: -GameBase https://www.warcraftlogs.com -ZoneId 47
+#   Retail M+: -GameBase https://www.warcraftlogs.com -ZoneId 55
 param(
     [string]$GameBase = "https://www.warcraftlogs.com",
-    [int]$ZoneId = 47,
+    [int]$ZoneId = 55,
     [string]$Bands = "2,5,8,11,14",   # keystone bands to sample separately
     [int]$MaxReports = 160,
     [int]$MinSamples = 20,            # specs thinner than this stay on the default

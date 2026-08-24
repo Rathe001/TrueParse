@@ -10,7 +10,7 @@
 # session, one CI slice.
 # NEVER run while another WCL crawl is active (single-active tokens).
 #  MoP:    -GameBase https://classic.warcraftlogs.com -ZoneId 1054 -Brackets "3x10,3x25" -Suffix _Mists
-#  Retail: -GameBase https://www.warcraftlogs.com     -ZoneId 46   -Brackets "5,4"       -Suffix ""
+#  Retail: -GameBase https://www.warcraftlogs.com     -ZoneId 53   -Brackets "4,3"       -Suffix ""
 param(
     [string]$GameBase = "https://classic.warcraftlogs.com",
     [int]$ZoneId = 1054,

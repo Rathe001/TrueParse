@@ -69,7 +69,7 @@ jobs:
       - name: Fetch retail percentile curves
         if: steps.v2.outputs.hasv2 == 'true'
         shell: pwsh
-        run: ./scripts/fetch-percentiles-v2.ps1 -ZoneId 46 -Brackets "3,4,5" -MinParses 100 -OutFile "Percentiles.lua"
+        run: ./scripts/fetch-percentiles-v2.ps1 -ZoneId 53 -Brackets "3,4" -MinParses 100 -OutFile "Percentiles.lua"
 
       - name: Fetch MoP percentile curves
         if: steps.v2.outputs.hasv2 == 'true'

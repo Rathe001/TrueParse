@@ -11,7 +11,7 @@
 #                -ZoneId 1054 -OutFile Percentiles_Mists.lua
 param(
     [string]$GameBase = "https://www.warcraftlogs.com",
-    [int]$ZoneId = 46,
+    [int]$ZoneId = 53,
     [int]$MinParses = 300,   # thinner populations give junk curves; skip them
     [int]$ThrottleMs = 1050,
     [int]$MaxProbePages = 512,

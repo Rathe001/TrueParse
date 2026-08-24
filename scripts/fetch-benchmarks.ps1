@@ -11,8 +11,8 @@
 #                       -RaidZoneIds 1054 -DungeonZone 1039 -OutFile Benchmarks_Mists.lua
 param(
     [string]$GameBase = "https://www.warcraftlogs.com",
-    [int[]]$RaidZoneIds = @(46),
-    [int]$DungeonZone = 47,
+    [int[]]$RaidZoneIds = @(53),
+    [int]$DungeonZone = 55,
     [int]$Pages = 1,
     [int]$MinSamples = 20, # lower for Classic where per-spec parses are sparse
     [string]$OutFile = "Benchmarks.lua",

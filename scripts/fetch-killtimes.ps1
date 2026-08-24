@@ -3,12 +3,12 @@
 # curves (seconds; p99 = fastest) that merge into TP.Percentiles as
 # encounters[name][bracket].killTime = { n, curve }.
 # Auth: same client file as fetch-percentiles-v2.ps1.
-# Retail: powershell -File scripts\fetch-killtimes.ps1 -ZoneId 46 -Brackets "3,4,5"
+# Retail: powershell -File scripts\fetch-killtimes.ps1 -ZoneId 53 -Brackets "3,4"
 # MoP:    powershell -File scripts\fetch-killtimes.ps1 -GameBase https://classic.warcraftlogs.com `
 #           -ZoneId 1054 -Brackets "3x10,3x25" -OutFile KillTimes_Mists.lua
 param(
     [string]$GameBase = "https://www.warcraftlogs.com",
-    [int]$ZoneId = 46,
+    [int]$ZoneId = 53,
     [string]$Brackets = "",
     [int]$MinKills = 50,
     [string]$OutFile = "KillTimes.lua",

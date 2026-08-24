@@ -8,10 +8,10 @@
 # MoP:    powershell -File scripts\fetch-percentiles-v2.ps1 `
 #           -GameBase https://classic.warcraftlogs.com -ZoneId 1054 `
 #           -OutFile Percentiles_Mists.lua
-# Retail: powershell -File scripts\fetch-percentiles-v2.ps1 -ZoneId 46
+# Retail: powershell -File scripts\fetch-percentiles-v2.ps1 -ZoneId 53
 param(
     [string]$GameBase = "https://www.warcraftlogs.com",
-    [int]$ZoneId = 46,
+    [int]$ZoneId = 53,
     # Comma-separated WCL brackets: "3" (difficulty only, retail flex) or
     # "3x10" (difficulty x raid size, classic). Empty = one unfiltered "all"
     # bracket. Pooling brackets skews percentiles badly (25H parses bury a
