@@ -11,11 +11,21 @@ does now — Normal, Heroic and LFR are all deeply ranked and the Mythic+ pool
 has had time to climb — so the crawlers are pointed at the new content and the
 next data refresh carries the curves.
 
-**Mythic raid is deliberately left out for now.** Measured 23 August: Mythic
-had ranked parses on two of the raid's nine bosses and none at all on the other
-seven. A curve built from that reads as junk, and TrueParse presents these as
-real population data, so the Mythic bracket stays out until it has a few weeks
-of kills behind it. Normal, Heroic and LFR are unaffected.
+**Mythic raid is deliberately left out for now.** Measured 24 August: of the
+raid's nine bosses, Mythic has a real population on one, a few hundred parses on
+a second, a handful on a third, and nothing at all on the remaining six. A curve
+built from that reads as junk, and TrueParse presents these as real population
+data, so the Mythic bracket stays out until it has a few weeks of kills behind
+it. Normal, Heroic and LFR are unaffected.
+
+**Some bosses will not have curves at first, and that is deliberate.** A spec
+needs 300 ranked parses on a boss before a curve gets built from it; anything
+thinner falls back to the derived (item level and benchmark) score rather than
+inventing a percentile out of a handful of kills. As of 24 August that means
+Ula'tek, whose Heroic population is running far thinner per spec than the bosses
+either side of it, and six of the nine bosses on Looking For Raid, where the
+later wings have not opened yet. These fill themselves in as the tier gets
+played — nothing needs doing.
 
 **Practice dummy sessions are measured against a new boss.** The raid anchor
 moved from Vorasius to **Sszorak**, chosen the same way as before: across four
