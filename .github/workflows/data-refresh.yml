@@ -9,12 +9,18 @@
 # monthly branch; the finalize slice turns that branch into a PR (or, once
 # armed, a tagged release).
 #
-# SAFETY MODEL: every slice gates on the headless test suite before it commits
-# refreshed data, and the finalize slice opens a PULL REQUEST by default —
-# nothing publishes on its own. Merging the PR and tagging stays a human act.
-# AUTO-PUBLISH is stubbed below (env AUTO_PUBLISH=false): after ONE verified
-# cycle of good data, flip it to "true" to have finalize bump the version,
-# tag, and package to CurseForge inline (no PAT needed — see that step).
+# SAFETY MODEL: every slice gates on the headless test suite AND on
+# data-regression-check.sh before it commits refreshed data. AUTO-PUBLISH IS
+# ARMED (env AUTO_PUBLISH=true, below): the finalize slice bumps the patch
+# version, commits to main, tags, and packages to CurseForge inline (no PAT
+# needed — see that step). NOTHING ASKS A HUMAN FIRST. Set AUTO_PUBLISH=false
+# to return to PR mode, where finalize opens a pull request instead and
+# merging plus tagging stays a human act.
+#
+# WHAT SHIPS: finalize resets to origin/main and takes ONLY Data/ from the
+# refresh branch, so a release carries whatever CODE is on main at that moment
+# plus the freshly crawled data. Code merged to main between cycles rides along
+# with the next automated publish — it does not wait for a release of its own.
 #
 # Zone ids change per season/tier: update the crawl invocations when content
 # rolls over. Benchmarks have their own weekly workflow.
@@ -275,9 +281,19 @@ jobs:
           for t in TrueParse.toc TrueParse_Mainline.toc TrueParse_Mists.toc; do
             sed -i "s/## Version: .*/## Version: $NEW/" "$t"
           done
-          { echo "# TrueParse Changelog"; echo; echo "## $NEW"; echo; \
-            echo "Automated monthly Warcraft Logs data refresh (percentile curves and kill times)."; \
-            echo; tail -n +2 CHANGELOG.md; } > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+          # Hand-written notes under "## Unreleased" BECOME this release's
+          # notes. release.yml feeds only the first "## " section to CurseForge
+          # as What's New, so prepending a generic section above them would bury
+          # the real notes on exactly the releases that bothered to write any -
+          # a tier rollover being the obvious case. Plain data-only cycles have
+          # no Unreleased section and keep the generic line as before.
+          if grep -q '^## Unreleased' CHANGELOG.md; then
+            sed -i "0,/^## Unreleased$/s//## $NEW/" CHANGELOG.md
+          else
+            { echo "# TrueParse Changelog"; echo; echo "## $NEW"; echo; \
+              echo "Automated monthly Warcraft Logs data refresh (percentile curves and kill times)."; \
+              echo; tail -n +2 CHANGELOG.md; } > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+          fi
           git add Data/ TrueParse.toc TrueParse_Mainline.toc TrueParse_Mists.toc CHANGELOG.md
           git commit -m "v$NEW: monthly WCL data refresh"
           git push origin main
