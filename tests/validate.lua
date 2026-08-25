@@ -57,7 +57,16 @@ local SCENARIOS = {
 	{ client = "retail", label = "Raid · LFR",          bracket = "1",   difficultyID = 17, itype = "raid",  tier = 1 },
 	{ client = "retail", label = "Raid · Normal",       bracket = "3",   difficultyID = 14, itype = "raid",  tier = 1 },
 	{ client = "retail", label = "Raid · Heroic",       bracket = "4",   difficultyID = 15, itype = "raid",  tier = 1 },
-	{ client = "retail", label = "Raid · Mythic",       bracket = "5",   difficultyID = 16, itype = "raid",  tier = 1 },
+	-- uncrawled = this bracket is deliberately not being crawled right now, so
+	-- "no curve" is an expected state rather than a regression. Mythic raid
+	-- went uncrawled at the Venomous Abyss rollover (2026-08-24): measured per
+	-- spec, the deepest Mythic boss had 61-100 parses against MinParses = 300,
+	-- so crawling bracket 5 would emit nothing anyway. Without this flag the
+	-- scenario reports "no shipped curve", data-regression-check.sh counts that
+	-- as a newly introduced problem, and the whole refresh is refused - a five
+	-- hour crawl discarded over a deliberate decision. CLEAR THIS FLAG in the
+	-- same change that puts "5" back in the retail crawl brackets.
+	{ client = "retail", label = "Raid · Mythic",       bracket = "5",   difficultyID = 16, itype = "raid",  tier = 1, uncrawled = true },
 	{ client = "retail", label = "Dungeon · M+ key",    bracket = "all", difficultyID = 8,  itype = "party", tier = 1, dungeon = true, keystone = 10 },
 	{ client = "retail", label = "Dungeon · Heroic",    bracket = "all", difficultyID = 2,  itype = "party", tier = 2, dungeon = true },
 	{ client = "retail", label = "Dungeon · Normal",    bracket = "all", difficultyID = 1,  itype = "party", tier = 2, dungeon = true },
@@ -190,7 +199,11 @@ end
 for _, sc in ipairs(SCENARIOS) do
 	local TP = CLIENTS[sc.client]
 	local encName, specID, dpsEntry, hpsEntry = pickCurve(TP, sc.bracket, (not sc.unranked) and sc.dungeon or nil)
-	if not encName then
+	if not encName and sc.uncrawled then
+		-- no row: the renderer below formats tier/medErr/lo/hi and would
+		-- throw on a placeholder that has none of them
+		print(("%-22s (bracket not crawled - skipped)"):format(sc.label))
+	elseif not encName then
 		problems[#problems + 1] = ("%s: no shipped curve matches this scenario"):format(sc.label)
 	else
 		local duration = 300
@@ -370,7 +383,9 @@ for _, sc in ipairs(SCENARIOS) do
 	if sc.tier == 1 then -- derived tiers are covered by gear invariance
 		local TP = CLIENTS[sc.client]
 		local encName, specID, _, hpsEntry = pickCurve(TP, sc.bracket, sc.dungeon, "HEALER")
-		if not encName then
+		if not encName and sc.uncrawled then
+			print(("%-22s (bracket not crawled - skipped)"):format(sc.label))
+		elseif not encName then
 			problems[#problems + 1] = ("%s: no HEALER curve in this bracket"):format(sc.label)
 		else
 			local duration = 300
