@@ -1,4 +1,5 @@
-# V2 (GraphQL) percentile fetcher - same output as fetch-percentiles.ps1
+# V2 (GraphQL) percentile fetcher - same output as the retired v1
+# fetch-percentiles.ps1 (removed 2026-08-27; in git history if needed)
 # but batched: one HTTP request carries dozens of aliased characterRankings
 # queries, and population-size probing happens for ALL specs of an
 # encounter simultaneously (one request per probe round instead of a serial

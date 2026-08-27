@@ -5,9 +5,9 @@
 # aliased tables in a single query (verified), so this discovers reports
 # ONCE (walking every boss - damage-taken is per-boss, unlike the old
 # 3-boss cast sample) and harvests all three tables per report at once,
-# emitting SpellProfiles + Overheal + DamageProfiles together. Supersedes
-# fetch-spellprofiles.ps1 + fetch-overheal.ps1: one crawl, one token
-# session, one CI slice.
+# emitting SpellProfiles + Overheal + DamageProfiles together. Replaced
+# fetch-spellprofiles.ps1 + fetch-overheal.ps1 (removed 2026-08-27; git
+# history has them): one crawl, one token session, one CI slice.
 # NEVER run while another WCL crawl is active (single-active tokens).
 #  MoP:    -GameBase https://classic.warcraftlogs.com -ZoneId 1054 -Brackets "3x10,3x25" -Suffix _Mists
 #  Retail: -GameBase https://www.warcraftlogs.com     -ZoneId 53   -Brackets "4,3"       -Suffix ""

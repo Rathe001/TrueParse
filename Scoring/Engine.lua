@@ -2900,8 +2900,9 @@ function Engine.ScoreFight(fight, opts)
 			-- every metric moves the score or stays silent (2026-07-15):
 			-- all four below default to 0 when the data is absent, so
 			-- addon-less/retail players are never touched.
-			-- Overheal: healers with real demand. Fixed thresholds until a
-			-- WCL per-spec overheal crawl exists (rankings API lacks it).
+			-- Overheal: healers with real demand. Per-spec crawled quantiles
+			-- (TP.OverhealCurves, Data/Overheal_*.lua) with fixed-threshold
+			-- fallback for uncrawled specs.
 			-- ctx.lowHealingDemand checked directly: breakdown.lowDemand is
 			-- only computed on the <75-score floor path, so a healer who
 			-- scored WELL on a trivial fight never got the exemption while
