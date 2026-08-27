@@ -631,16 +631,30 @@ do
 end
 
 
--- The retail healer-coverage anchors must NOT be listed in the Mists TOC.
--- They are crawled from retail logs; MoP has no coverage crawl yet, so its
--- five-man healers stay on the healing curve. Loading the wrong client's
--- anchors would score MoP healers against a population they never played.
+-- Each client must load ITS OWN healer-coverage anchors and never the other
+-- client's: the populations genuinely differ (retail p50 0.798 vs Mists
+-- 0.943, fitted 2026-08-27 - MoP groups self-heal far less), so borrowing
+-- across clients scores healers against a population they never played.
+-- This check used to assert Mists loads NO coverage file at all; that era
+-- ended when Data/HealerCoverage_Mists.lua shipped and Mists five-man
+-- healers stopped pinning at the 75 low-demand floor.
 do
-	local mists = io.open("TrueParse_Mists.toc")
-	local text = mists and mists:read("*a") or ""
-	if mists then mists:close() end
-	check(not text:find("HealerCoverage"),
-		"MoP does not load the retail healer-coverage anchors")
+	local function toc(path)
+		local f = io.open(path)
+		local text = f and f:read("*a") or ""
+		if f then f:close() end
+		return text
+	end
+	local mists = toc("TrueParse_Mists.toc")
+	check(mists:find("Data\\HealerCoverage_Mists.lua", 1, true)
+		and not mists:find("Data\\HealerCoverage.lua", 1, true),
+		"Mists loads its own coverage anchors, not retail's")
+	for _, t in ipairs({ "TrueParse.toc", "TrueParse_Mainline.toc" }) do
+		local text = toc(t)
+		check(text:find("Data\\HealerCoverage.lua", 1, true)
+			and not text:find("HealerCoverage_Mists", 1, true),
+			t .. " loads the retail coverage anchors, not Mists'")
+	end
 end
 
 -- FIGHT WINDOW. Every per-second rate in the addon divides by this, so an

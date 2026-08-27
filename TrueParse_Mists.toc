@@ -45,6 +45,7 @@ Data\Defensives.lua
 Data\TankAnchors_Mists.lua
 Data\TankAnchors_Mists_Heroic.lua
 Data\TankDamage_Mists.lua
+Data\HealerCoverage_Mists.lua
 Collect\Roster.lua
 Metrics\Registry.lua
 Metrics\Damage.lua

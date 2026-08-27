@@ -39,6 +39,17 @@ nothing changes: the old anchor is kept as a fallback.
 Saved data is roughly 6% smaller. Two values were recorded per player per fight
 that were exact copies of two others and were never read by anything.
 
+**Mists five-man healers stop pinning at 75.** Dungeon healers on MoP were
+scored on raw HPS against pooled raid curves - the one comparison this addon
+knows is wrong for them - and then caught by the "nothing to heal" floor on
+every clean pull, so most dungeons graded the healer exactly 75 no matter how
+they played. Mists now scores five-man healers the way retail has since
+v2.10.0: on how much of the group's incoming damage they actually covered,
+against quartiles fitted from 99 real MoP dungeon healer-fights (MoP gets its
+own baselines because MoP groups self-heal far less - measured, not assumed).
+Healer damage in five-mans becomes context rather than a fifth of the grade,
+same as retail. Raid healing is untouched on both clients.
+
 **Potion healing now registers on retail.** The potion list still ended at last
 season's consumables, so a Concentrated Silvermoon Health Potion (or a Demonic
 Healthstone) healed you and TrueParse recorded nothing - every retail capture
