@@ -9,6 +9,14 @@ if TP.Compat.IS_RETAIL then
 		[1234768] = "Cosmic Healing Potion",
 		[1262857] = "Potent Healing Potion",
 		[307194] = "Potion of Spectral Rejuvenation",
+		-- Verified against ranked Venomous Abyss kill tables 2026-08-27:
+		-- the current tier pots with these two, and NEITHER was in this
+		-- list - which is why potionHealing read zero in every one of
+		-- 2,054 captured player-fights. When a new season's potion ships,
+		-- verify the id the same way (scan WCL Healing tables of ranked
+		-- kills for "Potion" entries) rather than trusting a constants dump.
+		[1295247] = "Concentrated Silvermoon Health Potion",
+		[452930] = "Demonic Healthstone",
 		[6262] = "Healthstone",
 	}
 else

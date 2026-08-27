@@ -39,6 +39,13 @@ nothing changes: the old anchor is kept as a fallback.
 Saved data is roughly 6% smaller. Two values were recorded per player per fight
 that were exact copies of two others and were never read by anything.
 
+**Potion healing now registers on retail.** The potion list still ended at last
+season's consumables, so a Concentrated Silvermoon Health Potion (or a Demonic
+Healthstone) healed you and TrueParse recorded nothing - every retail capture
+showed zero potion healing, ever. Verified against ranked kill logs: those are
+the two things people actually press this tier, and both now count. Mists was
+never affected.
+
 ## 2.14.2
 
 **Patch 12.1, "Curse of Ula'tek," compatibility. No scoring changes.**
