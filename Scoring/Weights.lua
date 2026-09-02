@@ -355,12 +355,26 @@ Weights.derivedCeilingKnee = 70
 --     0.5 / 3.0  ->  maxdev  7.0         0.65  ->  maxdev 12.0
 -- 3.0 fits a hair better but puts the median BELOW tier 1's; 3.5 errs
 -- generous instead, which is the safer direction given how often "everything
--- is grey" has been the complaint. Below 0.65 the tier-2 gain flattens while
--- p25 keeps inflating, so 0.75 is the knee.
+-- is grey" has been the complaint. That table was fitted PRE-Venomous, when
+-- 0.75 was the knee.
+--
+-- 2026-09-02: crawling The Venomous Abyss (N/H) raised the pooled raid
+-- reference LEVEL that the derived DUNGEON tiers borrow (poolAllCurves sample-
+-- weights p50 across raid encounters; a higher-output tier lifts avgLevel).
+-- That moved the fixed-skill operating point into a steeper part of the curve,
+-- and tier-2 gear drift rose 12 -> 24, past validate.lua's 20-point gate. The
+-- lever is this squeeze, not a reference lift: real max-level heroic-dungeon
+-- output measures ~0.6-0.7x the raid reference (BELOW it), so the MoP-era
+-- "runs 4-7x, pins at 74.5" premise does NOT hold on retail 12.1 dungeons -
+-- a fitted lift returned factors <1. Dropped [2] 0.75 -> 0.55, the least-
+-- aggressive value that clears the gate. The "below 0.65 inflates p25" worry
+-- above was checked on Josh's real captures and does NOT bite: p25 held at 48,
+-- p10 rose 30 -> 33, only the middle tightened (p50 67 -> 64, p75 79 -> 75).
+-- Baseline (no Venomous) stays clean at 0.55 and the full suite passes.
 --
 -- Ordering is preserved exactly: this is a linear squeeze about 50, not a
 -- clamp, so nobody piles up and nobody overtakes anybody.
-Weights.derivedPctileCompress = { [2] = 0.75, [3] = 0.5 }
+Weights.derivedPctileCompress = { [2] = 0.55, [3] = 0.5 }
 
 -- Dispersion between the reference curve and the rooms we score does NOT
 -- line up (2.48x observed against 1.97x pooled), and damping the
