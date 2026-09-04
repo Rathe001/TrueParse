@@ -194,8 +194,15 @@ foreach ($specKey in $specIDs.Keys) {
 # suffix appended to every characterRankings call
 $bracketList = New-Object System.Collections.ArrayList
 if ($Brackets -ne "") {
-    foreach ($token in ($Brackets -split ",")) {
-        $t = $token.Trim()
+    # NOT $token: this loop runs at script scope, and $token holds the OAuth
+    # bearer set at startup. Reusing the name here overwrote it with the last
+    # bracket string ("k2"), so every characterRankings request went out as
+    # "Bearer k2" and WCL answered 404 HTML - the whole Season 2 crawl failed
+    # this way (2026-09-04), and bracketed raid crawls only ever survived it
+    # by re-minting the token after cascading down to single-alias retries,
+    # which read as "cold ranking slices" slowness.
+    foreach ($brk in ($Brackets -split ",")) {
+        $t = $brk.Trim()
         if ($t -match "^(\d+)x(\d+)$") {
             [void]$bracketList.Add(@{ key = $t; args = (", difficulty: {0}, size: {1}" -f $Matches[1], $Matches[2]) })
         } elseif ($t -match "^[kK](\d+)$") {
