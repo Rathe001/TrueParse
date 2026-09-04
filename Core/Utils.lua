@@ -46,6 +46,34 @@ end
 
 -- Semantic version compare: 1 when a > b, -1 when a < b, 0 when equal.
 -- "1.2.10" beats "1.2.9" (numeric per segment, not string order).
+-- The keystone level a capture LOST, recovered from the rest of its run.
+-- A fight's level is read from C_ChallengeMode while the key is active, and
+-- a capture can run long after the pull: Josh's Merektha (2026-09-04) sat
+-- locked in the meter for 11 minutes and was read AFTER the key completed,
+-- so it filed as a bare "M+" beside three "+5" run-mates, and the engine
+-- scored it as a key of unknown level. Its run-mates carry the answer.
+-- Nearest pull by start time wins, so two keys of the same dungeon back to
+-- back in one run cannot lend each other the wrong level.
+-- Pure: history records in, a level or nil out. Never overrides a level the
+-- fight already has, and only a keyed fight (difficultyID 8) may ask.
+function TP.KeystoneFromRun(fights, fight)
+	if not fight or fight.keystoneLevel or not fight.runID or fight.difficultyID ~= 8 then
+		return nil
+	end
+	local best, bestGap
+	local anchor = fight.startedAt or fight.capturedAt or 0
+	for _, f in ipairs(fights or {}) do
+		if f ~= fight and f.runID == fight.runID
+			and type(f.keystoneLevel) == "number" and f.keystoneLevel > 0 then
+			local gap = math.abs((f.startedAt or f.capturedAt or 0) - anchor)
+			if not bestGap or gap < bestGap then
+				best, bestGap = f.keystoneLevel, gap
+			end
+		end
+	end
+	return best
+end
+
 function TP.CompareVersions(a, b)
 	local ai = string.gmatch(tostring(a or ""), "%d+")
 	local bi = string.gmatch(tostring(b or ""), "%d+")

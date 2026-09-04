@@ -94,6 +94,25 @@ local function readAttribute(sessionID, enumValue)
 	return session
 end
 
+-- The active key's level, or nil when no key is running (or the value is
+-- secret). Recorded at three moments, because it is only readable INSIDE
+-- the key: when a session first appears, at ENCOUNTER_END, and as a last
+-- resort at capture. Capture alone was not enough (Josh 2026-09-04): a
+-- Merektha session stayed locked in the meter for 11 minutes and was
+-- captured after the key had completed, when this reads 0 - the fight lost
+-- its level, showed a bare "M+" beside its "+5" run-mates, and the engine
+-- scored it as a key of unknown level.
+local function activeKeystone()
+	if not (C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo) then
+		return nil
+	end
+	local ok, level = pcall(C_ChallengeMode.GetActiveKeystoneInfo)
+	if ok and level and not IsSecret(level) and type(level) == "number" and level > 0 then
+		return level
+	end
+	return nil
+end
+
 -- A capture with no encounterID whose instance context reads "none" can't be
 -- PLACED: either the meter handed the session over from outside the instance,
 -- or the ENCOUNTER_END that carries zone/difficulty/encounterID never
@@ -622,12 +641,13 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		return true
 	end
 
-	if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
-		local ok, keystoneLevel = pcall(C_ChallengeMode.GetActiveKeystoneInfo)
-		if ok and keystoneLevel and not IsSecret(keystoneLevel) and keystoneLevel > 0 then
-			fight.keystoneLevel = keystoneLevel
-		end
-	end
+	-- Key level: a record made INSIDE the key wins (ENCOUNTER_END first, then
+	-- the session's first sighting); the live read only serves a capture
+	-- that has neither. A capture the meter held locked until after the key
+	-- completed used to read 0 here and lose the level (see activeKeystone).
+	fight.keystoneLevel = (outcomeCtx and outcomeCtx.keystoneLevel)
+		or (live and live.keystoneLevel)
+		or activeKeystone()
 
 	-- Enrichment must never block capture
 	TP.Trap("Readiness.StampFight", TP.Readiness.StampFight, TP.Readiness, fight)
@@ -647,6 +667,10 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 		end
 	end
 	self:StampRunID(fight)
+	-- ...and when every in-key read missed, the run-mates captured in time
+	-- still carry the level (runID is what ties them together, so this must
+	-- follow StampRunID)
+	fight.keystoneLevel = fight.keystoneLevel or TP.KeystoneFromRun(self.fights, fight)
 	self:StampPrevKill(fight)
 	table.insert(self.fights, 1, fight)
 	local cap = TP.Addon.db.profile.history.maxFights
@@ -763,6 +787,24 @@ function FightHistory:BackfillRunIDs()
 		end
 	end
 	char.runCounter = math.max(counter, char.runCounter or 0)
+end
+
+-- Captures that lost their key level before it was recorded in-key get it
+-- back from their run-mates, once, at load - the same repair the capture
+-- path now makes live. Josh's history already held one such fight when this
+-- landed (Merektha, 2026-09-04); this is what corrects it.
+function FightHistory:BackfillKeystones()
+	local changed = false
+	for _, f in ipairs(self.fights) do
+		local level = TP.KeystoneFromRun(self.fights, f)
+		if level then
+			f.keystoneLevel = level
+			changed = true
+		end
+	end
+	if changed then
+		self:Persist()
+	end
 end
 
 function FightHistory:Sweep()
@@ -966,6 +1008,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 				end
 			end
 			list[#list + 1] = { wipe = (success == 0) or false, at = time(),
+				keystoneLevel = activeKeystone(), -- read while the key is still active
 				encounterID = (not IsSecret(arg1)) and arg1 or nil,
 				difficultyID = (not IsSecret(diffID)) and diffID or nil,
 				zone = (not IsSecret(zone)) and zone or nil,
@@ -992,6 +1035,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 				instanceType = (not IsSecret(instanceType)) and instanceType or nil,
 				difficulty = (not IsSecret(difficultyName)) and difficultyName or nil,
 				difficultyID = (not IsSecret(difficultyID)) and difficultyID or nil,
+				keystoneLevel = activeKeystone(), -- a session always starts inside its key
 				roster = {},
 				at = time(), -- prune anchor (contexts persist across /reload)
 			}
@@ -1944,6 +1988,7 @@ function FightHistory:OnEnable()
 		end
 	end
 	self:BackfillRunIDs()
+	self:BackfillKeystones()
 	self:BackfillWipes()
 
 	if not TP.BlizzardMeter.available then

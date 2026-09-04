@@ -4698,6 +4698,33 @@ end)()
 	TP.HEALER_COVERAGE_ANCHORS, TP.HEALER_COVERAGE_UNIT = savedA, savedU
 end)()
 
+-- 18e. A keyed capture that lost its level (the meter held it locked until
+-- after the key completed - Merektha, 2026-09-04) takes it from the nearest
+-- run-mate; nothing that already has one, or was never keyed, may borrow
+;(function()
+	local run = {
+		{ name = "Avatar", runID = 27, difficultyID = 8, keystoneLevel = 5, startedAt = 1000 },
+		{ name = "Merektha", runID = 27, difficultyID = 8, startedAt = 400 },
+		{ name = "Galvazzt", runID = 27, difficultyID = 8, keystoneLevel = 5, startedAt = 700 },
+		{ name = "Second key", runID = 27, difficultyID = 8, keystoneLevel = 7, startedAt = 5000 },
+		{ name = "Heroic boss", runID = 28, difficultyID = 2, startedAt = 400 },
+		{ name = "Lonely key", runID = 29, difficultyID = 8, startedAt = 400 },
+	}
+	check(TP.KeystoneFromRun(run, run[2]) == 5, "lost key level recovered from a run-mate")
+	check(TP.KeystoneFromRun(run, run[1]) == nil, "a fight that has its level keeps it")
+	check(TP.KeystoneFromRun(run, run[5]) == nil, "a non-keyed difficulty never borrows a level")
+	check(TP.KeystoneFromRun(run, run[6]) == nil, "no run-mate with a level = nothing to recover")
+	check(TP.KeystoneFromRun(run, { runID = 27, difficultyID = 8, startedAt = 4900 }) == 7,
+		"nearest pull by start time decides when one run holds two keys")
+	-- and the fight-list chip that made the loss visible
+	local savedRetail = TP.Compat.IS_RETAIL
+	TP.Compat.IS_RETAIL = true
+	local _, bare = TP.DifficultyParts({ difficultyID = 8 })
+	local _, keyed = TP.DifficultyParts({ difficultyID = 8, keystoneLevel = 5 })
+	TP.Compat.IS_RETAIL = savedRetail
+	check(bare == "M+" and keyed == "+5", ("keystone chip: %s without a level, %s with one"):format(tostring(bare), tostring(keyed)))
+end)()
+
 print("")
 if failures == 0 then
 	print("ALL TESTS PASSED")

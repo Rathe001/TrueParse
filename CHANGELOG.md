@@ -2,14 +2,31 @@
 
 ## Unreleased
 
-**The new raid and Mythic+ season now have real Warcraft Logs curves.**
+**The new raid now has real Warcraft Logs curves. The Season 2 Mythic+ pool
+does not yet.**
 
 2.14.2 shipped The Venomous Abyss and the Season 2 dungeons scored on the
 derived (ilvl/benchmark) tier, and said the crawl would wait until a real
-population existed rather than build curves out of a few hundred parses. It
-does now — Normal, Heroic and LFR are all deeply ranked and the Mythic+ pool
-has had time to climb — so the crawlers are pointed at the new content and the
-next data refresh carries the curves.
+population existed rather than build curves out of a few hundred parses. The
+raid's population is there — Normal, Heroic and LFR are all deeply ranked — and
+those curves are in. The per-key Mythic+ curves still cover the **Season 1**
+pool only (Algeth'ar Academy, Magisters' Terrace, Maisara Caverns, Nexus-Point
+Xenas, Pit of Saron, Seat of the Triumvirate, Skyreach, Windrunner Spire), so a
+Season 2 key — Temple of Sethraliss, Altar of Fangs, Kings' Rest, Murder Row and
+the rest — is still scored on the derived tier. The monthly data refresh never
+included the per-key crawl; that crawl is run by hand, and has not been run for
+Season 2 yet.
+
+**A Mythic+ boss no longer loses its key level when the meter is slow to
+release it.** The level was read from the game at the moment TrueParse
+captured the fight, and a fight the damage meter kept locked for a few minutes
+could be captured after the key had already completed, when the game reports
+no active key. The fight then showed a bare "M+" chip beside its "+5"
+run-mates and was scored as a key of unknown level. The level is now recorded
+while the key is running (when the pull starts and again when the boss dies),
+a late capture takes it from the other bosses of the same run when even that
+is missing, and history already holding such a fight is repaired on the next
+load.
 
 **Mythic raid is deliberately left out for now.** Measured 24 August: of the
 raid's nine bosses, Mythic has a real population on one, a few hundred parses on
