@@ -752,6 +752,27 @@ do
 		local zeroB = fight({ capturedAt = 1785982191, totals = {} })
 		check(not dup({ zeroA }, zeroB), "two empty captures do not match each other")
 	end
+
+	-- A re-read NOBODY WITNESSED (Josh 2026-09-04): placeless, no verdict, no
+	-- live context. Real fights always carry one of the two; the copies the
+	-- meter hands back after a reset carry neither.
+	local unwitnessed = ok and TP.FightHistory and TP.FightHistory.IsUnwitnessed
+	check(type(unwitnessed) == "function", "the unwitnessed-re-read predicate is reachable for tests")
+	if type(unwitnessed) == "function" then
+		local ghost = { name = "Zul'jan", isBoss = true, zone = "Vaults of Atal'Utek",
+			instanceType = "none", difficultyID = 0 }
+		check(unwitnessed(ghost), "placeless boss with no verdict and no start time is a re-read")
+		check(not unwitnessed({ name = "Zul'jan", isBoss = true, instanceType = "none", startedAt = 1788533000 }),
+			"a fight we watched live (session context) is not a re-read")
+		check(not unwitnessed({ name = "Chimaerus", isBoss = true, instanceType = "none", hadVerdict = true }),
+			"an LFR bulk unlock carries its ENCOUNTER_END verdict and survives")
+		check(not unwitnessed({ name = "Zul'jan", isBoss = true, instanceType = "party", encounterID = 3001 }),
+			"a placed capture is never a re-read")
+		check(not unwitnessed({ name = "Dummy", isBoss = false, practice = true, instanceType = "none" }),
+			"practice is judged by its own rules, not this one")
+		check(not unwitnessed({ name = "Mock", isBoss = true, mock = true, instanceType = "none" }),
+			"a /tp mock fixture is deliberate and survives")
+	end
 end
 
 -- KILL/WIPE VERDICT. ENCOUNTER_END's success flag is a REPORT; a dead boss is

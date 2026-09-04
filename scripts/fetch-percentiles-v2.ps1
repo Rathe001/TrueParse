@@ -90,6 +90,16 @@ function Invoke-GQL($query, $quick) {
     # outwaits transient trouble and the hourly points window
     $waits = @(10, 60, 300, 600)
     if ($quick) { $waits = @(5) }
+    # IP THROTTLE is its own budget, in BOTH modes (CI 2026-09-02): WCL
+    # rate-limits the shared GitHub-runner IP ("Too many requests from this
+    # IP address", HTTP 429) independently of our points budget. Treating it
+    # as an ordinary failure made it WORSE - quick mode failed fast, the
+    # chunk split in half, every split doubled the request count, singles
+    # then "gave up" and left null slices, and the test gate refused the
+    # file after a three-hour crawl. A throttle is waited out, never split,
+    # and never spends a retry; re-minting the token does nothing for it.
+    $throttleWaits = @(60, 120, 300, 600, 900)
+    $throttled = 0
     while ($true) {
         $attempt++
         try {
@@ -110,6 +120,17 @@ function Invoke-GQL($query, $quick) {
                     if ($serverSays.Length -gt 300) { $serverSays = $serverSays.Substring(0, 300) }
                 }
             } catch {}
+            $status = 0
+            try { $status = [int]$_.Exception.Response.StatusCode } catch {}
+            if ($status -eq 429 -or $serverSays -match "Too many requests") {
+                $throttled++
+                if ($throttled -gt $throttleWaits.Count) { throw }
+                $tw = $throttleWaits[$throttled - 1]
+                Write-Warning "IP throttled ($throttled/$($throttleWaits.Count)); waiting ${tw}s: $serverSays"
+                Start-Sleep -Seconds $tw
+                $attempt--   # a throttle spends none of the failure budget
+                continue
+            }
             if ($attempt -eq 1) {
                 [System.IO.File]::WriteAllText("$PSScriptRoot\last-failed-query.local.txt", $query)
                 [System.IO.File]::WriteAllText("$PSScriptRoot\last-failed-body.local.txt", $body)

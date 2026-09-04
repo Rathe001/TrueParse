@@ -28,6 +28,27 @@ a late capture takes it from the other bosses of the same run when even that
 is missing, and history already holding such a fight is repaired on the next
 load.
 
+**Ghost rows from a damage-meter reset no longer appear in the fight list.**
+When the game's damage meter resets, TrueParse re-reads every session the
+meter still lists from wherever you happen to be standing. A fight it had
+already decided on but never stored (a follower dungeon, a delve, story mode)
+came back that way as a boss row with no zone, no difficulty and no start time,
+filed under whatever zone you were in at the time. Three Altar of Fangs bosses
+showed up under "Vaults of Atal'Utek" that way, two more under "Eastern
+Kingdoms". A boss capture that TrueParse neither watched live nor saw end
+inside an instance is now refused, and any such rows already in your history
+are removed the next time the addon loads. Real fights are unaffected: every
+one of them carries one of those two marks, including LFR fights that unlock
+after you leave.
+
+**The monthly data crawl waits out Warcraft Logs' per-IP throttle instead of
+making it worse.** The September refresh was rate-limited by IP on the shared
+CI runner. The crawler treated each refusal as a failed request, split the
+batch in half and retried, which doubled the request count each time, then
+gave up on individual slices and produced a file the test gate rejected after
+three hours. A throttle is now recognised for what it is and waited out with
+increasing pauses.
+
 **Mythic raid is deliberately left out for now.** Measured 24 August: of the
 raid's nine bosses, Mythic has a real population on one, a few hundred parses on
 a second, a handful on a third, and nothing at all on the remaining six. A curve

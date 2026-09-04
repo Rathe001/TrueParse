@@ -122,6 +122,27 @@ local function isPlaceless(f)
 	return not f.encounterID and (not f.instanceType or f.instanceType == "none")
 end
 
+-- A placeless boss capture NOBODY WITNESSED is a re-read, not a fight (Josh
+-- 2026-09-04: three Altar of Fangs bosses filed under "Vaults of Atal'Utek"
+-- and two more under "Eastern Kingdoms" - no zone, no difficulty, no start
+-- time, no verdict, each with no placed twin). DAMAGE_METER_RESET wipes the
+-- captured-session ledger and the live contexts, the next sweep re-reads
+-- every session the meter still lists from wherever the player now stands,
+-- and a session whose in-place decision was a SKIP (companion content,
+-- delves) leaves no placed twin to expose the copy - so the "placeless with
+-- no twin is a bulk unlock" rule kept them.
+-- Two facts separate every real fight from such a copy: a fight we watched
+-- live has a session context (startedAt), and a fight we did not watch (an
+-- LFR bulk unlock streaming in after the run) still fired ENCOUNTER_END
+-- inside the instance, and that verdict persists for six hours. A placeless
+-- capture with NEITHER was never seen by this addon as a fight. Measured on
+-- Josh's account: of 422 records, all 50 placeless/no-verdict captures
+-- lacked a start time, and no real fight did.
+local function isUnwitnessed(f)
+	return isPlaceless(f) and f.isBoss and not f.practice and not f.mock
+		and not f.hadVerdict and not f.startedAt
+end
+
 -- Is there already a properly-placed capture of this same fight? Same boss,
 -- same length within a couple of seconds (a re-read drifts a little), and
 -- either the same meter session or close enough in time to be the same play
@@ -234,6 +255,7 @@ local function practiceNpcIDFor(sessionID, name)
 end
 
 FightHistory.IsPlaceless = isPlaceless -- exposed for diagnostics
+FightHistory.IsUnwitnessed = isUnwitnessed -- exposed for tests
 FightHistory.DuplicatesEarlierCapture = duplicatesEarlierCapture -- and for tests
 
 -- Attempts a full capture. Returns false when the session is still locked.
@@ -616,6 +638,13 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- NPC bodyguards — the not-supported card promises these are never
 	-- captured, so keep that promise even for boss sessions.
 	if itype == "scenario" or TP.UNSUPPORTED_DIFFICULTY[fight.difficultyID or 0] then
+		self.snapshotted[sessionID] = true
+		return true
+	end
+
+	-- A re-read nobody witnessed (see isUnwitnessed): refuse it outright,
+	-- whether or not a twin exists to compare against.
+	if isUnwitnessed(fight) then
 		self.snapshotted[sessionID] = true
 		return true
 	end
@@ -1971,6 +2000,13 @@ function FightHistory:OnEnable()
 	for i = #self.fights, 1, -1 do
 		if isPlaceless(self.fights[i])
 			and duplicatesEarlierCapture(self.fights, self.fights[i]) then
+			table.remove(self.fights, i)
+		end
+	end
+	-- ...and the re-reads with no twin at all, which neither pass above can
+	-- see (the capture path refuses these now; see isUnwitnessed)
+	for i = #self.fights, 1, -1 do
+		if isUnwitnessed(self.fights[i]) then
 			table.remove(self.fights, i)
 		end
 	end
