@@ -1,6 +1,6 @@
 # TrueParse Changelog
 
-## Unreleased
+## 2.15.0
 
 **The new raid and the Season 2 Mythic+ pool now have real Warcraft Logs
 curves.**
