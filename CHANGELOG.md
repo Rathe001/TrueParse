@@ -2,20 +2,21 @@
 
 ## Unreleased
 
-**The new raid now has real Warcraft Logs curves. The Season 2 Mythic+ pool
-does not yet.**
+**The new raid and the Season 2 Mythic+ pool now have real Warcraft Logs
+curves.**
 
 2.14.2 shipped The Venomous Abyss and the Season 2 dungeons scored on the
 derived (ilvl/benchmark) tier, and said the crawl would wait until a real
-population existed rather than build curves out of a few hundred parses. The
-raid's population is there — Normal, Heroic and LFR are all deeply ranked — and
-those curves are in. The per-key Mythic+ curves still cover the **Season 1**
-pool only (Algeth'ar Academy, Magisters' Terrace, Maisara Caverns, Nexus-Point
-Xenas, Pit of Saron, Seat of the Triumvirate, Skyreach, Windrunner Spire), so a
-Season 2 key — Temple of Sethraliss, Altar of Fangs, Kings' Rest, Murder Row and
-the rest — is still scored on the derived tier. The monthly data refresh never
-included the per-key crawl; that crawl is run by hand, and has not been run for
-Season 2 yet.
+population existed rather than build curves out of a few hundred parses. Both
+are in now. The raid is deeply ranked on Normal, Heroic and LFR, and the
+Season 2 Mythic+ pool — Altar of Fangs, Den of Nalorakk, Kings' Rest, Murder
+Row, Ruby Life Pools, Temple of Sethraliss, The Blinding Vale and Voidscar
+Arena — carries per-keystone curves at the +5, +8, +11 and +14 bands. Your keys
+are scored directly against players who ran the same dungeon at the same
+keystone level, instead of the derived tier. The +2 band is included only where
+its ranked population cleared the 300-parse floor, which today is a single
+dungeon; a +2 elsewhere still falls back to the derived tier rather than borrow
+a mismatched curve.
 
 **A Mythic+ boss no longer loses its key level when the meter is slow to
 release it.** The level was read from the game at the moment TrueParse
