@@ -31,11 +31,11 @@ local _, TP = ...
 TP.TANK_DAMAGE_ANCHOR_UNIT = "mean-multiple"
 
 TP.TANK_DAMAGE_ANCHORS = {
-	default = { 0.66, 0.78, 0.95 }, -- DERIVED: median of the 6 crawled specs
-	[66] = { 0.6, 0.79, 0.96 }, -- Prot Paladin (n=61)
-	[73] = { 0.66, 0.78, 0.95 }, -- Prot Warrior (n=79)
-	[104] = { 0.67, 0.82, 0.95 }, -- Guardian Druid (n=70)
-	[250] = { 0.6, 0.72, 0.86 }, -- Blood DK (n=91)
-	[268] = { 0.67, 0.77, 0.96 }, -- Brewmaster (n=65)
-	[581] = { 0.6, 0.7, 0.84 }, -- Vengeance DH (n=44)
+	default = { 0.63, 0.73, 0.85 }, -- DERIVED: median of the 6 crawled specs
+	[66] = { 0.62, 0.73, 0.85 }, -- Prot Paladin (n=69)
+	[73] = { 0.67, 0.77, 0.92 }, -- Prot Warrior (n=56)
+	[104] = { 0.63, 0.76, 0.87 }, -- Guardian Druid (n=57)
+	[250] = { 0.53, 0.63, 0.73 }, -- Blood DK (n=148)
+	[268] = { 0.64, 0.72, 0.84 }, -- Brewmaster (n=54)
+	[581] = { 0.6, 0.71, 0.85 }, -- Vengeance DH (n=38)
 }
