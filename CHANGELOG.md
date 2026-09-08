@@ -1,5 +1,10 @@
 # TrueParse Changelog
 
+## 2.15.1
+
+Automated monthly Warcraft Logs data refresh (percentile curves and kill times).
+
+
 ## 2.15.0
 
 **The new raid and the Season 2 Mythic+ pool now have real Warcraft Logs
