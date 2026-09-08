@@ -1,0 +1,11 @@
+<Bindings>
+  <Binding name="TRUEPARSE_NOTES" header="TRUEPARSE" category="ADDONS">
+    TrueParse_ToggleNotes()
+  </Binding>
+  <Binding name="TRUEPARSE_NOTES_NEXT" category="ADDONS">
+    TrueParse_NotesStep(1)
+  </Binding>
+  <Binding name="TRUEPARSE_NOTES_PREV" category="ADDONS">
+    TrueParse_NotesStep(-1)
+  </Binding>
+</Bindings>

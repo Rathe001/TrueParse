@@ -85,6 +85,28 @@ local function db()
 	return TP.Addon.db.profile
 end
 
+-- Each view keeps its own width; the grip writes to whichever is showing.
+local NOTES_MIN_WIDTH = 320
+local function isNotesView()
+	return TP.Notes ~= nil and db().window.view == "notes"
+end
+local function viewWidth()
+	if isNotesView() then
+		return math.max(NOTES_MIN_WIDTH, db().window.notesWidth or 380)
+	end
+	return db().window.width
+end
+local function saveViewWidth(w)
+	if isNotesView() then
+		db().window.notesWidth = math.max(NOTES_MIN_WIDTH, w)
+	else
+		db().window.width = w
+	end
+end
+-- Notes view: how many body rows the wheel has scrolled past (the header
+-- row stays pinned). Reset whenever the notes state changes.
+local notesScroll = 0
+
 local function releaseAllRows()
 	for i = #activeRows, 1, -1 do
 		TP.Scorecard:Release(activeRows[i])
@@ -136,7 +158,8 @@ local function applyClickThrough(on)
 	window:EnableMouse(not on)
 	window:EnableMouseWheel(not on)
 	for _, f in ipairs({ window.headerButton, window.fightDrop, window.cog,
-		window.chat, window.footerButton, window.grip, window.modeReal, window.modeRaw }) do
+		window.chat, window.footerButton, window.grip, window.modeReal, window.modeRaw,
+		window.tabScores, window.tabNotes }) do
 		if f then
 			f:EnableMouse(not on)
 		end
@@ -180,7 +203,7 @@ local function createWindow()
 	-- REAL saved height from the start: a placeholder height let the
 	-- first layout derive (and persist) the screen-half pin from a
 	-- transient rect — the window walked on every reload
-	window:SetSize(db().window.width, db().window.height)
+	window:SetSize(viewWidth(), db().window.height)
 	window:SetClampedToScreen(true)
 	window:SetMovable(true)
 	window:EnableMouse(true)
@@ -219,8 +242,10 @@ local function createWindow()
 		window:StopMovingOrSizing()
 		normalizeAnchor()
 		local w = db().window
-		w.width = math.floor(window:GetWidth() + 0.5)
-		w.height = math.floor(window:GetHeight() + 0.5)
+		saveViewWidth(math.floor(window:GetWidth() + 0.5))
+		if not isNotesView() then -- notes height is the content's, not the user's
+			w.height = math.floor(window:GetHeight() + 0.5)
+		end
 		savePosition()
 		MeterWindow:Invalidate()
 	end)
@@ -234,8 +259,10 @@ local function createWindow()
 			return
 		end
 		local win = db().window
-		win.width = math.floor(w + 0.5)
-		win.height = math.floor(h + 0.5)
+		saveViewWidth(math.floor(w + 0.5))
+		if not isNotesView() then
+			win.height = math.floor(h + 0.5)
+		end
 		lastRenderedFight = nil
 		MeterWindow:Refresh(true)
 	end)
@@ -265,6 +292,9 @@ local function createWindow()
 		if db().window.collapsed or autoCollapsed then
 			return
 		end
+		if isNotesView() then
+			return -- the notes page is always full height; nothing to scroll
+		end
 		-- wheel up = toward the top of the list; upper clamp happens in
 		-- RenderScorecard where the visible count is known
 		local newOffset = math.max(0, scrollOffset - delta)
@@ -289,6 +319,39 @@ local function createWindow()
 	window.title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	window.title:SetPoint("LEFT", window.logo, "RIGHT", 5, 0)
 	window.title:SetText("")
+
+	-- Scores | Notes segment, right of the mark, where the mode tag sits.
+	-- Expanded only: collapsed, the title tag names the view instead. Retail
+	-- only: Mists has no Notes module and never sees the control (Josh
+	-- 2026-09-08, canvas round 4 option H).
+	if TP.Notes then
+		local function makeTab(label, view)
+			local b = CreateFrame("Button", nil, window, "BackdropTemplate")
+			b:SetHeight(16)
+			b:SetBackdrop({
+				bgFile = "Interface\\Buttons\\WHITE8X8",
+				edgeFile = "Interface\\Buttons\\WHITE8X8",
+				edgeSize = 1,
+			})
+			b.label = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+			local f = b.label:GetFont()
+			if f then b.label:SetFont(f, 10, "") end
+			b.label:SetPoint("CENTER", 0, 0)
+			b.label:SetText(label)
+			b:SetWidth(b.label:GetStringWidth() + 12)
+			b.view = view
+			b:SetScript("OnClick", function() MeterWindow:SetView(view) end)
+			return b
+		end
+		window.tabScores = makeTab("Scores", "scores")
+		window.tabScores:SetPoint("LEFT", window.logo, "RIGHT", 5, 0)
+		window.tabNotes = makeTab("Notes", "notes")
+		window.tabNotes:SetPoint("LEFT", window.tabScores, "RIGHT", -1, 0)
+		-- the mode tag hangs off the segment when it exists
+		window.title:ClearAllPoints()
+		window.title:SetPoint("LEFT", window.tabNotes, "RIGHT", 5, 0)
+		MeterWindow:UpdateViewTabs()
+	end
 
 	-- The fight picker looks like a real dropdown: bordered inset box with
 	-- the classic round arrow button, sized into the header
@@ -548,6 +611,12 @@ local function createWindow()
 	-- the chat icon too (Josh 2026-07-25: unclickable on retail — the
 	-- header's collapse button was swallowing it)
 	window.chat:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
+	-- the Scores | Notes segment too, or the collapse button under it eats
+	-- the click (Josh 2026-09-08: "it just expands/collapses the window")
+	if window.tabScores then
+		window.tabScores:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
+		window.tabNotes:SetFrameLevel(window.headerButton:GetFrameLevel() + 1)
+	end
 	window.fightDrop:RegisterForClicks("LeftButtonUp")
 	window.fightDrop:RegisterForDrag("LeftButton")
 	window.fightDrop:SetScript("OnDragStart", startDrag)
@@ -1365,9 +1434,14 @@ function MeterWindow:LayoutHeader()
 	local dropInset = (HEADER_HEIGHT - 16) / 2
 	local mid = -(dropInset + 8) -- vertical centre of the selector band
 
-	-- selector: from just past the mark, out to where the class bars end
+	-- selector: from just past the mark (and the Scores | Notes segment when
+	-- it is showing), out to where the class bars end
 	local tagW = window.title:GetStringWidth() or 0
-	local left = PADDING + LOGO_SIZE + 5 + (tagW > 0 and (tagW + 5) or 0)
+	local tabsW = 0
+	if window.tabScores and window.tabScores:IsShown() then
+		tabsW = window.tabScores:GetWidth() + window.tabNotes:GetWidth() - 1 + 5
+	end
+	local left = PADDING + LOGO_SIZE + 5 + tabsW + (tagW > 0 and (tagW + 5) or 0)
 	window.fightDrop:ClearAllPoints()
 	window.fightDrop:SetPoint("TOPLEFT", left, -dropInset)
 	window.fightDrop:SetPoint("TOPRIGHT", -(PADDING + COL_RESERVE), -dropInset)
@@ -1401,6 +1475,68 @@ function MeterWindow:LayoutHeader()
 	else
 		place(window.tierChip, COL.penalty)
 	end
+end
+
+-- Which view the window shows: "scores" (the scorecard) or "notes" (the
+-- dungeon notes). Setting it shows the window if it was hidden, so a
+-- keybind or /tp notes show lands on something visible.
+function MeterWindow:SetView(view)
+	db().window.view = (view == "notes") and "notes" or "scores"
+	notesScroll = 0
+	if window and not window:IsShown() then
+		self:Toggle()
+	end
+	if window and not isSizing then
+		-- each view keeps its own width; the scorecard's bounds come back
+		-- with its render, the notes' with theirs
+		window:SetWidth(viewWidth())
+	end
+	self:UpdateViewTabs()
+	self:Invalidate()
+end
+
+-- The notes state moved (new stretch, new boss): start from the top again.
+function MeterWindow:ResetNotesScroll()
+	notesScroll = 0
+end
+
+-- Show or hide the Scores | Notes segment. The mode tag hangs off the
+-- segment when it is showing and off the mark when it is not, otherwise a
+-- collapsed bar reads "(+)" floating where the hidden tabs would be.
+local function showViewTabs(shown)
+	if not window.tabScores then
+		return
+	end
+	window.tabScores:SetShown(shown)
+	window.tabNotes:SetShown(shown)
+	window.title:ClearAllPoints()
+	if shown then
+		window.title:SetPoint("LEFT", window.tabNotes, "RIGHT", 5, 0)
+	else
+		window.title:SetPoint("LEFT", window.logo, "RIGHT", 5, 0)
+	end
+end
+
+-- Paint the segment: the active tab takes the gold fill and the ground's
+-- ink, the other sits on the picker's inset colours.
+function MeterWindow:UpdateViewTabs()
+	if not (window and window.tabScores) then
+		return
+	end
+	local notes = db().window.view == "notes"
+	local function paint(b, active)
+		if active then
+			b:SetBackdropColor(1, 0.827, 0.43, 1)
+			b:SetBackdropBorderColor(1, 0.827, 0.43, 1)
+			b.label:SetTextColor(0.078, 0.067, 0.122)
+		else
+			b:SetBackdropColor(0.133, 0.114, 0.192, 0.9)
+			b:SetBackdropBorderColor(0.227, 0.200, 0.314, 0.95)
+			b.label:SetTextColor(0.64, 0.61, 0.72)
+		end
+	end
+	paint(window.tabScores, not notes)
+	paint(window.tabNotes, notes)
 end
 
 function MeterWindow:UpdateModeButtons()
@@ -2338,6 +2474,64 @@ local function waitingHere()
 	end
 end
 
+-- The Notes view: dungeon notes rendered into the row area by Notes\View.lua.
+-- Header keeps the mark, the segment, cog and chat; the fight picker, tier
+-- chip, subtitle and mode strip belong to Scores and hide. Height follows
+-- the content up to the saved height; the grip's ceiling is the content.
+local function renderNotes(self)
+	releaseAllRows()
+	lastRenderedFight = nil
+	window.title:SetText("")
+	showViewTabs(true)
+	MeterWindow:LayoutHeader()
+	window.fightDrop:Hide()
+	window.subtitle:SetText("")
+	MeterWindow:UpdateTierChip(nil)
+	window.cog:Show()
+	window.chat:Show()
+	if window.grip then
+		window.grip:Show()
+	end
+	if window.scrollUp then
+		window.scrollUp:Hide()
+		window.scrollDown:Hide()
+	end
+	setModeStripShown(false)
+	if window.footerButton then
+		window.footerButton:Show() -- click-collapse still works from the bottom edge
+	end
+	local rows = TP.Notes.Tracker.Rows()
+	-- this view's own width, never narrower than the notes can read at
+	local winW = viewWidth()
+	if not isSizing and math.abs(window:GetWidth() - winW) >= 0.5 then
+		window:SetWidth(winW)
+	end
+	local width = winW - PADDING * 2
+	if not rows then
+		TP.Notes.View:Hide()
+		window.emptyTitle:SetText("No dungeon notes here.")
+		window.emptyMsg:SetText("Notes appear inside a Season 2 dungeon: the boss you are pulling, the trash on this stretch, and the lines that are yours. /tp notes show <dungeon> previews one from anywhere.")
+		window.emptyTitle:Show()
+		window.emptyMsg:Show()
+		window:SetResizeBounds(NOTES_MIN_WIDTH, 110, 640, 1000)
+		applyWindowHeight(math.min(db().window.height, HEADER_HEIGHT + 96))
+		return
+	end
+	if window.emptyMsg then
+		window.emptyTitle:Hide()
+		window.emptyMsg:Hide()
+	end
+	-- The notes page is always its full height: no cap, no scrolling (Josh
+	-- 2026-09-08). The grip changes only the width here; the scorecard keeps
+	-- its own saved height untouched.
+	-- the dungeon band butts against the meter header, full width
+	local top = HEADER_HEIGHT
+	local used = TP.Notes.View:Render(window, rows, PADDING, -top, width)
+	local contentH = top + used + PADDING
+	window:SetResizeBounds(NOTES_MIN_WIDTH, contentH, 640, contentH)
+	applyWindowHeight(contentH)
+end
+
 local function refreshImpl(self, force)
 	if not window or not window:IsShown() then
 		return
@@ -2347,9 +2541,17 @@ local function refreshImpl(self, force)
 	-- repeats them and costs selector width. Collapsed, those radios are
 	-- hidden and the tag is the only thing that can say it.
 	local modeTag = (db().scoring.mode == "parse") and "RAW" or ""
+	local notesView = TP.Notes and db().window.view == "notes"
+	if notesView then
+		modeTag = "NOTES" -- collapsed, the tag names the view instead
+	end
 	if db().window.collapsed or autoCollapsed then
 		releaseAllRows()
 		lastRenderedFight = nil
+		if TP.Notes then
+			TP.Notes.View:Hide()
+		end
+		showViewTabs(false)
 		if window.grip then
 			window.grip:Hide()
 		end
@@ -2408,6 +2610,20 @@ local function refreshImpl(self, force)
 		applyWindowHeight(HEADER_HEIGHT)
 		return
 	end
+	if notesView then
+		return renderNotes(self)
+	end
+	if TP.Notes then
+		TP.Notes.View:Hide()
+		-- back on the scorecard's own width and free-height bounds
+		if not isSizing then
+			window:SetResizeBounds(180, 110, 640, 1000)
+			if math.abs(window:GetWidth() - db().window.width) >= 0.5 then
+				window:SetWidth(db().window.width)
+			end
+		end
+	end
+	showViewTabs(true)
 	window.title:SetText("") -- expanded: the footer radios carry the mode
 	MeterWindow:LayoutHeader()
 	window.fightDrop:Show()

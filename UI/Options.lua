@@ -52,6 +52,29 @@ local optionsTable = {
 				},
 			},
 		},
+		-- Dungeon notes (retail only): the Notes view of the meter window
+		notes = {
+			type = "group", inline = true, name = "Dungeon notes", order = 2,
+			hidden = function() return not TP.Notes end,
+			args = {
+				autoSwitch = {
+					type = "toggle", order = 1, name = "Switch to Notes in dungeons",
+					desc = "Flip the window to Notes when you enter a dungeon that has them, and back to Scores when a fight is captured. Off: the Scores | Notes segment in the header is the only switch.",
+					get = function() return profile().notes and profile().notes.autoSwitch end,
+					set = function(_, v)
+						profile().notes = profile().notes or {}
+						profile().notes.autoSwitch = v
+					end,
+				},
+				open = {
+					type = "execute", order = 2, name = "Open notes",
+					desc = "Show the window on the Notes view. Outside a dungeon, /tp notes show <dungeon> previews one.",
+					func = function()
+						if TP.MeterWindow.SetView then TP.MeterWindow:SetView("notes") end
+					end,
+				},
+			},
+		},
 		-- (Scoring section removed 2026-07-13: the window's own radios
 		-- switch the lens, ilvl normalization is simply how scoring works,
 		-- and the resizable window replaced the max-rows cap.)

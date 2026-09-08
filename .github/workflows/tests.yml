@@ -44,3 +44,8 @@ jobs:
       # done anything at all.
       - name: Load every file the way a client does
         run: lua5.4 tests/load.lua
+
+      # The Notes view: every spec against every dungeon, both affix weeks,
+      # rendered through the strict widget stub.
+      - name: Dungeon notes
+        run: lua5.4 tests/notes.lua

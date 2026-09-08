@@ -15,7 +15,18 @@ local defaults = {
 			width = 260, height = 290,
 			locked = false, shown = true, collapsed = false, autoCollapse = true,
 			clickThroughCombat = false,
+			-- "scores" = the scorecard, "notes" = the dungeon notes view
+			-- (retail only; the header segment switches them). The two views
+			-- keep their own widths: a 260px scorecard is fine, a 260px page
+			-- of notes is not (Josh 2026-09-08)
+			view = "scores",
+			notesWidth = 380,
 		},
+		-- Dungeon notes (Notes\*, retail only). autoSwitch: walking into a
+		-- dungeon with notes flips the window to Notes and a captured fight
+		-- flips it back (Josh 2026-09-08 chose the manual segment; this is
+		-- the opt-in for the hands-off behaviour)
+		notes = { autoSwitch = false },
 		-- shareable reports (2026-07-25): per-report channel + auto flag
 		-- (auto delivery is always local-only regardless of channel)
 		reports = { ["*"] = { channel = "INFO", auto = false } },
@@ -136,6 +147,9 @@ function Addon:OnEnable()
 	TP.ReportsUI:OnEnable()
 	TP.Options:OnEnable()
 	TP.Minimap:OnEnable()
+	if TP.Notes then -- mainline TOCs only
+		TP.Notes:OnEnable()
+	end
 	TP.MeterWindow:OnEnable()
 end
 
@@ -168,6 +182,13 @@ function Addon:HandleSlash(input)
 	elseif cmd == "debug" then
 		self.db.profile.debug = not self.db.profile.debug
 		self:Print("Debug " .. (self.db.profile.debug and "on." or "off."))
+	elseif cmd == "notes" then
+		-- the dungeon notes view; empty = switch between Scores and Notes
+		if not TP.Notes then
+			self:Print("Dungeon notes are retail only.")
+		elseif not TP.Notes:Command(rest) then
+			self:Print("/tp notes - switch Scores/Notes · show <dungeon> [n|h|m|k] [+9] [affixes] · boss <name> · as <role|class|spec> · next · prev · off · ladder [level] · debug · list")
+		end
 	elseif cmd == "mit" then
 		-- Mitigation tracking is self-reported and silent when it fails: a
 		-- wrong buff id or a spec that doesn't read as TANK both just produce
@@ -623,6 +644,7 @@ function Addon:HandleSlash(input)
 		self:Print("  /tp - toggle the scorecard window")
 		self:Print("  /tp config - options panel")
 		self:Print("  /tp mode - switch TrueParse/Raw scoring")
+		self:Print("  /tp notes - dungeon notes view · notes show <dungeon> - preview one")
 		self:Print("  /tp letters - letter grades instead of numbers")
 		self:Print("  /tp run - run report · /tp share - post last kill vs WCL · /tp guild - weekly standings")
 		self:Print("  /tp career - your stats · /tp trends - where they're heading")

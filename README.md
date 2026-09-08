@@ -102,7 +102,37 @@ scorecard, right-click for options (`/tp config`).
 `/tp mode` TrueParse/Raw · `/tp letters` letter grades · `/tp run` run
 report · `/tp share` post group summary · `/tp career` · `/tp trends` ·
 `/tp fights` history · `/tp score [n]` · `/tp buffs` pre-pull diagnostic ·
-`/tp ilvl` · `/tp coach` · `/tp announce` · `/tp mock` demo raid
+`/tp ilvl` · `/tp coach` · `/tp announce` · `/tp mock` demo raid ·
+`/tp notes` the dungeon notes view
+
+## Dungeon notes (retail)
+
+The Scores | Notes segment in the window header switches to a cheat sheet
+for the dungeon you are in: the boss you are pulling or the stretch of trash
+you are on, the key level and what each active affix does, and only the
+lines that are yours. Every boss has one to three numbered core lines that
+are the fight for everyone; the rest is filtered by your role (tank, healer,
+melee, ranged) and by what your class can actually do (which dispels, kick,
+purge, soothe, hard CC, lust), so a Warrior never sees a dispel line and a
+Priest's dispel line says Purify. The lust call sits on the boss or the pack
+it belongs to and follows the week. Objective lines cover the non-combat
+gates: snitches to interrogate, totems to click, a path to choose, a bird
+to talk to, and the class- or profession-gated buffs.
+
+Midnight hides enemy identity from addons inside instances, so nothing here
+reads a mob. The dungeon comes from the map through the Encounter Journal,
+the boss from `ENCOUNTER_START`, your position from bosses killed (page with
+`/tp notes next` and `prev` or the key bindings under AddOns > TrueParse),
+and the journal also hides boss notes whose ability does not exist at the
+current difficulty.
+
+`/tp notes show <dungeon> [n|h|m|k] [+9] [affix names]` previews any
+dungeon from anywhere, `/tp notes boss <name>` a boss, `/tp notes as tank`
+(or a class or spec name) another point of view, `/tp notes ladder` the
+keystone affix ladder, `/tp notes debug` how the current state was resolved.
+`/kn` is an alias. Data lives in `Notes\Season2.lua`; the per-spec tool table
+in `Notes\Classes.lua`. The design was worked out on a canvas first; the
+window's Notes rendering is `Notes\View.lua`.
 
 ## How scoring works (short version)
 

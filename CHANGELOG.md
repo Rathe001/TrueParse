@@ -1,5 +1,40 @@
 # TrueParse Changelog
 
+## 2.16.0
+
+**A Notes view: the dungeon cheat sheet, in the same window as the
+scorecard.**
+
+TrueParse scored the fight after it happened; now it also tells you the fight
+before it starts. A Scores | Notes segment sits in the header right of the
+mark. On Notes the window shows the dungeon you are in, your spec, the key
+level with one line per active affix and what it does, and then either the
+boss you are pulling or the stretch of trash you are on: the one to three
+numbered lines that are the fight for everyone, followed by only the lines
+that are yours. A tank sees the buster that needs a defensive and the kite;
+a healer sees the cooldown windows and the dispels; a Mage sees Remove Curse
+against Curse of Doom and never a poison line. The lust call lives on the
+boss or the pack it belongs to and follows the week: "on the first Creeper"
+under Tyrannical, "the opening pack" under Fortified. Non-combat gates get
+their own Objective lines, because "interrogate all four snitches before the
+door opens" is the kind of thing that stalls a group (Josh 2026-09-08).
+
+Midnight hides every enemy's identity from addons inside an instance, so the
+notes never ask which mob is in front of you. They key off the map (through
+the Encounter Journal), the difficulty, ENCOUNTER_START, and bosses killed,
+and the journal also gates each boss note by difficulty so Normal never
+shows Mythic mechanics. Season 2's eight dungeons are covered, written per
+role in class-neutral words and filtered by a per-spec capability table that
+reflects Midnight's removal of healer interrupts (Restoration Shaman kept
+its kick). Sources: Method and Icy Veins, reconciled.
+
+`/tp notes` switches views; `/tp notes show <dungeon> [n|h|m|k] [+9]
+[affixes]` previews one from anywhere, `/tp notes boss <name>` a boss, `/tp
+notes as tank` another role. `/kn` is an alias. Key bindings for the switch
+and for paging the trash stretch are under AddOns > TrueParse. An option
+flips the window to Notes on entering a dungeon and back to Scores when a
+fight is captured; off by default. Retail only.
+
 ## 2.15.0
 
 **The new raid and the Season 2 Mythic+ pool now have real Warcraft Logs
