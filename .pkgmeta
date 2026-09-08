@@ -6,6 +6,7 @@ ignore:
   - tests
   - promo
   - scripts
+  - research
   - README.md
   - .pkgmeta
   - .github
