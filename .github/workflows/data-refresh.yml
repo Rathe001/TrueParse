@@ -89,15 +89,35 @@ jobs:
         with:
           fetch-depth: 0
 
+      # CODE FROM MAIN, DATA FROM THE BRANCH. The shared monthly branch is
+      # created by the first slice and reused by every later one, so checking
+      # it out wholesale PINNED THE CRAWLER SCRIPTS to whatever main looked
+      # like when the cycle opened. Found 2026-09-08: the September branch
+      # forked from main on Aug 27, so the two crawler fixes of Sep 4 - the
+      # bracket loop clobbering the OAuth token, and IP throttling treated as
+      # an ordinary failure instead of waited out - never reached the Sep 4-7
+      # slices, which spent the rest of the cycle running the buggy crawler.
+      # Worse, the finalize slice ran the TEST GATE against that stale code
+      # while shipping main's, so the gate validated code that was never
+      # published. The branch exists only to accumulate Data/ (finalize takes
+      # nothing else from it), so take every other path from origin/main.
       - name: Check out / create the shared refresh branch
         run: |
           B="${{ steps.cfg.outputs.branch }}"
+          git fetch origin main
           git fetch origin "$B" || true
           if git rev-parse --verify "origin/$B" >/dev/null 2>&1; then
             git checkout -B "$B" "origin/$B"
+            git checkout origin/main -- .
+            git checkout "origin/$B" -- Data/
+            # leave the refreshed code in the worktree but stage none of it:
+            # the commit step stages Data/ alone, so a slice commit stays a
+            # data commit and still fast-forwards the branch
+            git reset -q HEAD -- .
           else
-            git checkout -B "$B"
+            git checkout -B "$B" origin/main
           fi
+          echo "Code: \`$(git rev-parse --short origin/main)\` (origin/main)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check for credentials
         id: creds
@@ -272,7 +292,11 @@ jobs:
           # tag we create here — so it never relies on the tag-push event.)
           git config user.name "trueparse-data-bot"
           git config user.email "actions@users.noreply.github.com"
-          git checkout main
+          # -f: the checkout step above leaves main's CODE in the worktree on
+          # top of the refresh branch, so a plain switch refuses ("local
+          # changes would be overwritten"). Discarding is the intent - the
+          # next line hard-resets to origin/main regardless.
+          git checkout -f main
           git reset --hard origin/main   # publish on top of the latest main
           git checkout "$B" -- Data/
           CUR=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' TrueParse.toc | head -1)
