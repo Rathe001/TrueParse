@@ -51,6 +51,11 @@ switch and for paging the trash stretch are under AddOns > TrueParse. An
 option flips the window to Notes on entering a dungeon and back to Scores
 when a fight is captured; off by default.
 
+## 2.15.1
+
+Automated monthly Warcraft Logs data refresh (percentile curves and kill times).
+
+
 ## 2.15.0
 
 **The new raid and the Season 2 Mythic+ pool now have real Warcraft Logs
