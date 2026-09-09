@@ -772,8 +772,8 @@ check(KN:Command("ladder"), "/tp notes ladder routes on Mists")
 check(printed[1] and printed[1]:find("Challenge Modes", 1, true), "and says there is no keystone ladder here")
 check(KN:Command("list") and KN:Command("as tank") and KN:Command("spec") and not KN:Command("bogus"), "Mists command routing")
 KN.Player.SetOverride("")
-check(KN.EMPTY_HINT ~= retailKN.EMPTY_HINT and KN.EMPTY_HINT:find("Pandaria", 1, true)
-	and retailKN.EMPTY_HINT:find("Season 2", 1, true), "the empty-state hint is per client")
+check(KN.EMPTY_HINT == "Enter a dungeon or raid to view notes." and retailKN.EMPTY_HINT == KN.EMPTY_HINT,
+	"the empty-state hint is one sentence on both clients")
 
 -- 22. A spec the API cannot answer yet is retried by the next reader, not
 --     frozen as "Unknown spec" for the session (the Classic timing gap).

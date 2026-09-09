@@ -1,5 +1,15 @@
 # TrueParse Changelog
 
+## 2.16.1
+
+Notes: the empty view says only "Enter a dungeon or raid to view notes."
+The ranked-run lines are stricter: a group utility button now has to be
+unusual for the boss, like a defensive, and Power Infusion, Innervate and
+Totemic Projection no longer count, since a 378-run sample showed them on
+every boss. Kystia's poison dispel names Envenom. Fresh ranked-run data
+from 378 keystone runs and 160 raid kills. New CurseForge cards for the
+Notes view.
+
 ## 2.16.0
 
 **A Notes view: the dungeon cheat sheet, in the same window as the

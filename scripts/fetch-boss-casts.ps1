@@ -146,12 +146,14 @@ $kindByName = @{
     "Renewing Blaze" = "defensive"
     # group utility: the buttons a spec brings for everyone (Josh 2026-09-09,
     # "poison cleansing totem, wind rush totem, etc.")
+    # (Power Infusion, Innervate and Totemic Projection were here and came
+    # back on every boss for every player - they are rotation, not a call)
     "Wind Rush Totem" = "utility"; "Earthgrab Totem" = "utility"; "Stoneskin Totem" = "utility"
-    "Ancestral Protection Totem" = "utility"; "Earthen Wall Totem" = "utility"; "Totemic Projection" = "utility"
+    "Ancestral Protection Totem" = "utility"; "Earthen Wall Totem" = "utility"
     "Stampeding Roar" = "utility"; "Blessing of Freedom" = "utility"; "Lay on Hands" = "utility"
     "Darkness" = "utility"; "Anti-Magic Zone" = "utility"; "Death Grip" = "utility"; "Gorefiend's Grasp" = "utility"
-    "Leap of Faith" = "utility"; "Power Infusion" = "utility"; "Vampiric Embrace" = "utility"; "Symbol of Hope" = "utility"
-    "Innervate" = "utility"; "Mass Entanglement" = "utility"; "Ring of Peace" = "utility"; "Zephyr" = "utility"
+    "Leap of Faith" = "utility"; "Vampiric Embrace" = "utility"; "Symbol of Hope" = "utility"
+    "Mass Entanglement" = "utility"; "Ring of Peace" = "utility"; "Zephyr" = "utility"
     "Rescue" = "utility"; "Time Spiral" = "utility"; "Mass Barrier" = "utility"; "Mass Invisibility" = "utility"
     "Intervene" = "utility"; "Shroud of Concealment" = "utility"; "Ursol's Vortex" = "utility"
     # healer / raid cooldowns (Data/HealerCDs.lua, retail)

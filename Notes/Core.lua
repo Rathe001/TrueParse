@@ -82,10 +82,9 @@ KN.RAID_DEFAULT = KN.IS_RETAIL and "m" or "h"
 KN.DIFF_LABEL = { l = "Raid Finder", n = "Normal", h = "Heroic", m = "Mythic",
 	k = KN.IS_RETAIL and "Keystone" or "Challenge" }
 
--- The empty-state hint in the meter window, per client.
-KN.EMPTY_HINT = KN.IS_RETAIL
-	and "Notes show inside a dungeon or raid: the boss you are pulling, this stretch of trash, and your lines. Season 2 is hand-written; elsewhere the Adventure Guide's role bullets fill in. /tp notes show <dungeon> previews one anywhere."
-	or "Notes show inside a Pandaria dungeon or raid: the boss you are pulling and your lines. /tp notes show <instance> previews one anywhere."
+-- The empty-state hint in the meter window. One sentence (Josh
+-- 2026-09-09): the panel explains itself once you are inside.
+KN.EMPTY_HINT = "Enter a dungeon or raid to view notes."
 
 -- Palette: TrueParse's violet neutrals (UI/MeterWindow.lua, Josh 2026-07-28
 -- design review) with the notes' own meaning colours on top. RGB so textures

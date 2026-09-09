@@ -338,11 +338,14 @@ each (33 checks, all green; `run.lua`, `validate.lua` and `load.lua` clean):
   exists; a lust on the way to the boss is a note on the stretch before
   it, in the trash section, unless a hand-written lust sits there for any
   week. Two rules keep it from noise (real
-  data, 2026-09-09): dispels, purges, soothes, stuns and group utility are
-  situational and show at the threshold; a kick, personal defensive or
-  healer cooldown shows only where the spec's share on this boss is unusual
-  for it (median across its other bosses below the threshold), and a kick
-  never once any line on the boss says kick or interrupt. `/tp notes
+  data, 2026-09-09): dispels, purges, soothes and stuns are situational
+  and show at the threshold; a kick, personal defensive, healer cooldown
+  or group utility button shows only where the spec's share on this boss
+  is unusual for it (median across its other bosses under a quarter - the
+  378-run crawl put Power Infusion and Stampeding Roar on every boss at a
+  looser test), and a kick never once any line on the boss says kick or
+  interrupt. Power Infusion, Innervate and Totemic Projection left the
+  whitelist for the same reason. `/tp notes
   check` prints ADDS (what the panel would add per spec, i.e. what a
   hand-written line could replace) and DOUBTFUL. First real report: 46
   adds over 26 bosses, e.g. Capacitor Totem / Shockwave on Kystia (the

@@ -229,11 +229,13 @@ local function specWord(caps)
 end
 
 -- Kinds that are situational by nature: most of a spec using one on a
--- boss says something about the boss. A kick, a personal defensive or a
--- healer cooldown is pressed on every boss, so those earn a line only
--- where this spec's usage here is unusual for it (see typicalShare), and a
--- kick not at all once any line on the boss names a kick or interrupt.
-local SITUATIONAL = { dispel = true, purge = true, soothe = true, stun = true, utility = true }
+-- boss says something about the boss. A kick, a personal defensive, a
+-- healer cooldown or a group utility button is pressed on every boss (the
+-- 378-run sample put Power Infusion and Stampeding Roar on all of them),
+-- so those earn a line only where this spec's usage here is unusual for
+-- it (see typicalShare), and a kick not at all once any line on the boss
+-- names a kick or interrupt.
+local SITUATIONAL = { dispel = true, purge = true, soothe = true, stun = true }
 
 -- The share of `sid` casting `name` on the OTHER bosses in the data, as a
 -- median; nil when this is the only boss the spec appears on.
@@ -314,8 +316,12 @@ local function dataRows(b, covered)
 				if kind == "kick" and kickSaid then
 					admit = false
 				else
+					-- unusual means most of the spec presses it HERE and few do
+					-- elsewhere; a tool used on half the bosses is a habit,
+					-- not a note (the 378-run sample: Death Grip, Stampeding
+					-- Roar on fifteen bosses each at the looser test)
 					local usual = typicalShare(sid, name, entry)
-					admit = usual == nil or usual < DATA_SHARE
+					admit = usual == nil or usual < DATA_SHARE / 2
 				end
 			end
 			if admit then

@@ -143,7 +143,7 @@ KN.RegisterDungeon({
 	name = "Murder Row",
 	bosses = {
 		{ name = "Kystia Manaheart",
-			uses = { stun = "Mirror Images" },
+			uses = { stun = "Mirror Images", dispel = "Envenom" },
 			core = {
 				"Kill Nibbles to 20%, not the shielded boss",
 				"Kick or CC the five Mirror Images",
