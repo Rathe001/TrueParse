@@ -85,6 +85,16 @@ Core\TankProbe.lua
 Core\Career.lua
 Core\Trends.lua
 UI\Tooltip.lua
+# Notes: the Mists set. Classes_Mists.lua replaces the retail capability
+# table; Mists.lua replaces Season2.lua (whose eight dungeons do not exist
+# here); there is no Affixes.lua because Challenge Modes have none.
+Notes\Core.lua
+Notes\Classes_Mists.lua
+Notes\Player.lua
+Notes\Journal.lua
+Notes\View.lua
+Notes\Tracker.lua
+Notes\Mists.lua
 UI\Scorecard.lua
 UI\BreakdownPanel.lua
 UI\RunSummary.lua

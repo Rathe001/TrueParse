@@ -7,10 +7,20 @@
 --
 -- Row descriptors (built by Notes\Tracker.lua):
 --   { type="header",  name=, diff=, level=, spec=, role=, affixes={ {icon=, rgb=, name=, short=} } }
---   { type="section", label=, name=|nil, text=|nil }   -- "TRASH" + text, "NEXT · BOSS 1 OF 4" + name
---   { type="core",    num=, text= }
---   { type="note",    text=, icon=, label=, rgb= }     -- label column + text
---   { type="mob",     name=, text=, icon=, label=, rgb= }  -- name column + text (tool inline)
+--   { type="section", label=, name=, pre=|nil }         -- [NEXT] Name ....... BOSS 1 OF 4
+--   { type="section", label=, text=, right=|nil }       -- TRASH to Kystia ....... 1 OF 4
+--   { type="core",    num=, text= }                     -- numeral in the narrow column
+--   { type="subhead", label=, icon=, text=|nil }        -- spec icon + name in small caps, no rule
+--   { type="yours",   text=, tag= }                     -- one sentence, indented like core text
+--   { type="task",    text=, icon= }                    -- objective callout across the row
+--   { type="note",    text=, icon=, label=, rgb= }      -- label column + text
+--   { type="mob",     name=, text=, icon=, label=, rgb= }  -- name column + tool chip + text
+--
+-- Canvas round 6 (Josh 2026-09-09, "option B, the ledger"): mob names in
+-- an 84px column with the tool as a bordered chip; objectives as a callout
+-- band; the boss heading with a small NEXT before the name; numerals and
+-- the lines that are yours share one 18px column, right-aligned, so every
+-- line of boss text starts at the same x.
 local _, TP = ...
 local KN = TP.Notes
 
@@ -18,7 +28,9 @@ local View = {}
 KN.View = View
 
 local RGB, FONT = KN.RGB, KN.FONT
-local LABEL_COL = 100   -- mob name / Objective / Lust / Cooldown column
+local LABEL_COL = 84    -- mob name column (100 was more than any name needs)
+local NUM_COL = 18      -- numeral / your-icon column under a boss
+local NUM_GAP = 6
 local COL_GAP = 8
 local ROW_PAD = 3       -- inside a list row, above and below the text
 local SECTION_GAP = 12  -- above a section heading that follows content
@@ -51,13 +63,32 @@ local function newText(parent, path, size, rgb)
 	return fs
 end
 
-local function inlineIcon(path, size)
-	return "|T" .. path .. ":" .. size .. ":" .. size .. ":0:0:64:64:5:59:5:59|t"
+-- A 1px hairline box around a frame, from four colour textures: the strict
+-- widget stub and every client draw these the same, unlike backdrops.
+local function hairlineBox(f, rgb, alpha)
+	f.edges = {}
+	for i, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+		local t = f:CreateTexture(nil, "BORDER")
+		t:SetColorTexture(rgb[1], rgb[2], rgb[3], alpha)
+		if side == "TOP" or side == "BOTTOM" then
+			t:SetHeight(1)
+			t:SetPoint(side .. "LEFT", 0, 0)
+			t:SetPoint(side .. "RIGHT", 0, 0)
+		else
+			t:SetWidth(1)
+			t:SetPoint("TOP" .. side, 0, 0)
+			t:SetPoint("BOTTOM" .. side, 0, 0)
+		end
+		f.edges[i] = t
+	end
 end
 
 local builders = {}
 
--- Dungeon band: name, difficulty or key pill, who you are; affix line.
+-- Dungeon band: name, difficulty or key pill; then the affix summary line
+-- (what this week does to bosses and trash), which is the only place the
+-- numbers live. `spec` and `role` still arrive in the descriptor for the
+-- tests and the debug line, and are not drawn.
 builders.header = {
 	create = function(parent)
 		local r = CreateFrame("Frame", nil, parent)
@@ -87,10 +118,14 @@ builders.header = {
 		textColor(r.pill.fs, RGB.bg)
 		r.pill:SetHeight(12)
 		r.pill:SetPoint("LEFT", r.name, "RIGHT", 8, 0)
-		r.who = newText(r, FONT.body, 11, RGB.dim)
-		r.who:SetWordWrap(false)
-		r.who:SetJustifyH("RIGHT")
-		r.who:SetPoint("TOPRIGHT", 0, -8)
+		-- No spec/role line (Josh 2026-09-09): the band is the dungeon, the
+		-- difficulty, and what this difficulty does to the enemies. Who you
+		-- are is answered by the lines themselves, and by /tp notes spec.
+		-- Enemy Forces sits where that line was, keystones only.
+		r.forces = newText(r, FONT.body, 11, RGB.dim)
+		r.forces:SetWordWrap(false)
+		r.forces:SetJustifyH("RIGHT")
+		r.forces:SetPoint("TOPRIGHT", 0, -8)
 		r.affix = newText(r, FONT.body, 11, RGB.accent)
 		r.affix:SetPoint("TOPLEFT", 0, -25)
 		return r
@@ -102,9 +137,15 @@ builders.header = {
 		r.pill.bg:SetColorTexture(dc[1], dc[2], dc[3], 1)
 		r.pill.fs:SetText(d.level and ("+" .. d.level) or (KN.DIFF_LABEL[d.diff] or ""):upper())
 		r.pill:SetWidth(r.pill.fs:GetStringWidth() + 10)
-		r.who:SetText((d.spec or "") .. " · " .. KN.Hex(RGB.accent) .. (d.role or "") .. "|r")
-		-- whatever the name and pill leave, so "DPS · Melee" is not clipped
-		r.who:SetWidth(math.max(60, width - r.name:GetWidth() - r.pill:GetWidth() - 20))
+		if d.forces then
+			-- the game rounds the same way on its own tracker
+			r.forces:SetText("Forces " .. KN.Hex(RGB.accent) .. string.format("%d%%", math.floor(d.forces + 0.5)) .. "|r")
+			r.forces:SetWidth(math.max(50, width - r.name:GetWidth() - r.pill:GetWidth() - 20))
+			r.forces:Show()
+		else
+			r.forces:SetText("")
+			r.forces:Hide()
+		end
 		local h = 25
 		if d.affixes and #d.affixes > 0 then
 			local parts = {}
@@ -113,7 +154,9 @@ builders.header = {
 				parts[#parts + 1] = icon .. KN.Hex(a.rgb or RGB.dim) .. a.name .. "|r " .. (a.short or "")
 			end
 			r.affix:SetWidth(width)
-			r.affix:SetText(table.concat(parts, "   "))
+			-- one affix per line (Josh 2026-09-09): three effects run
+			-- together read as one sentence
+			r.affix:SetText(table.concat(parts, "\n"))
 			r.affix:Show()
 			h = h + r.affix:GetStringHeight() + 2
 		else
@@ -124,20 +167,22 @@ builders.header = {
 	end,
 }
 
--- Small-caps label, then a boss name in the display face or a plain text,
--- with a hairline underneath.
+-- Two shapes on one hairline. A boss heading: a small NEXT (on a stretch)
+-- before the name in the display face, "BOSS 1 OF 4" small-caps at the
+-- right. A stretch heading: TRASH, the stretch text, "1 OF 4" at the right.
 builders.section = {
 	create = function(parent)
 		local r = CreateFrame("Frame", nil, parent)
-		r.label = newText(r, FONT.body, 10, RGB.dim)
-		r.label:SetWordWrap(false)
-		r.label:SetPoint("BOTTOMLEFT", 0, 4)
-		r.name = newText(r, FONT.head, 14, RGB.gold)
-		r.name:SetWordWrap(false)
-		r.name:SetPoint("BOTTOMLEFT", r.label, "BOTTOMRIGHT", 8, -1)
-		r.text = newText(r, FONT.body, 12, RGB.accent)
-		r.text:SetWordWrap(false)
-		r.text:SetPoint("BOTTOMLEFT", r.label, "BOTTOMRIGHT", 8, 0)
+		local function small(fs)
+			fs:SetWordWrap(false)
+			return fs
+		end
+		r.label = small(newText(r, FONT.body, 10, RGB.dim))
+		r.pre = small(newText(r, FONT.body, 10, RGB.dim))
+		r.right = small(newText(r, FONT.body, 10, RGB.dim))
+		r.right:SetJustifyH("RIGHT")
+		r.name = small(newText(r, FONT.head, 14, RGB.gold))
+		r.text = small(newText(r, FONT.body, 12, RGB.accent))
 		r.line = r:CreateTexture(nil, "ARTWORK")
 		r.line:SetHeight(1)
 		r.line:SetColorTexture(0.17, 0.15, 0.25, 1)
@@ -148,51 +193,165 @@ builders.section = {
 	set = function(r, d, width)
 		r.label:SetText((d.label or ""):upper())
 		r.label:SetWidth(r.label:GetStringWidth() + 2)
+		r.label:ClearAllPoints()
+		r.name:ClearAllPoints()
+		r.pre:ClearAllPoints()
+		r.right:ClearAllPoints()
 		if d.name then
-			-- a boss heading: the name in the display face on the left, the
-			-- small-caps "NEXT · BOSS 1 OF 4" right-aligned on the same line
-			-- (Josh 2026-09-08, third placement, the one that stuck)
-			r.name:ClearAllPoints()
-			r.name:SetPoint("BOTTOMLEFT", 0, 4)
+			local preW = 0
+			if d.pre then
+				r.pre:SetText(d.pre:upper())
+				r.pre:SetWidth(r.pre:GetStringWidth() + 2)
+				r.pre:SetPoint("BOTTOMLEFT", 0, 5)
+				r.pre:Show()
+				preW = r.pre:GetStringWidth() + 8
+				r.name:SetPoint("BOTTOMLEFT", preW, 4)
+			else
+				r.pre:Hide()
+				r.name:SetPoint("BOTTOMLEFT", 0, 4)
+			end
 			r.name:SetText(d.name)
-			r.label:ClearAllPoints()
 			r.label:SetPoint("BOTTOMRIGHT", 0, 5)
 			r.label:SetJustifyH("RIGHT")
-			r.name:SetWidth(math.max(40, width - r.label:GetStringWidth() - 10))
+			r.name:SetWidth(math.max(40, width - preW - r.label:GetStringWidth() - 10))
 			r.name:Show()
 			r.text:Hide()
+			r.right:Hide()
 			return 21
 		end
-		r.label:ClearAllPoints()
+		r.pre:Hide()
+		r.name:Hide()
 		r.label:SetPoint("BOTTOMLEFT", 0, 4)
 		r.label:SetJustifyH("LEFT")
-		r.name:Hide()
+		local rightW = 0
+		if d.right then
+			r.right:SetText(d.right:upper())
+			r.right:SetWidth(r.right:GetStringWidth() + 2)
+			r.right:SetPoint("BOTTOMRIGHT", 0, 4)
+			r.right:Show()
+			rightW = r.right:GetStringWidth() + 8
+		else
+			r.right:Hide()
+		end
 		r.text:SetText(d.text or "")
-		r.text:SetWidth(math.max(20, width - r.label:GetStringWidth() - 10))
+		r.text:SetPoint("BOTTOMLEFT", r.label, "BOTTOMRIGHT", 8, 0)
+		r.text:SetWidth(math.max(20, width - r.label:GetStringWidth() - rightW - 10))
 		r.text:Show()
 		return 19
 	end,
 }
 
--- Numbered core line: gold numeral in a 14px column, bright text.
+-- Numbered core line: gold numeral right-aligned in the narrow column,
+-- bright text after it.
 builders.core = {
 	create = function(parent)
 		local r = CreateFrame("Frame", nil, parent)
 		r.num = newText(r, FONT.head, 13, RGB.gold)
 		r.num:SetPoint("TOPLEFT", 4, 0)
-		r.num:SetWidth(14)
-		r.num:SetJustifyH("CENTER")
+		r.num:SetWidth(NUM_COL)
+		r.num:SetJustifyH("RIGHT")
 		r.fs = newText(r, FONT.body, 13, RGB.bright)
-		r.fs:SetPoint("TOPLEFT", 4 + 14 + COL_GAP, 0)
+		r.fs:SetPoint("TOPLEFT", 4 + NUM_COL + NUM_GAP, 0)
 		return r
 	end,
 	set = function(r, d, width)
 		r.num:SetText(tostring(d.num or ""))
-		r.fs:SetWidth(width - 4 - 14 - COL_GAP)
+		r.fs:SetWidth(width - 4 - NUM_COL - NUM_GAP - 4)
 		r.fs:SetText(d.text or "")
 		local h = r.fs:GetStringHeight()
 		if h < 15 then h = 15 end
 		return h + 1
+	end,
+}
+
+-- The tertiary heading over the lines that are yours: your spec's icon
+-- at the left, then its name in small caps, dim. No hairline, so it reads
+-- as part of the boss block rather than a section of its own (Josh
+-- 2026-09-09). A journal source is named beside it.
+local SUB_ICON = 12
+builders.subhead = {
+	create = function(parent)
+		local r = CreateFrame("Frame", nil, parent)
+		r.icon = r:CreateTexture(nil, "ARTWORK")
+		r.icon:SetSize(SUB_ICON, SUB_ICON)
+		r.icon:SetPoint("LEFT", 4, 0)
+		r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		r.label = newText(r, FONT.body, 10, RGB.dim)
+		r.label:SetWordWrap(false)
+		r.text = newText(r, FONT.body, 10, RGB.dim)
+		r.text:SetWordWrap(false)
+		return r
+	end,
+	set = function(r, d, width)
+		-- the icon sits in the numeral column and the name starts where the
+		-- line items' text starts, so the block shares one left edge (Josh
+		-- 2026-09-09)
+		local x = 4 + NUM_COL + NUM_GAP
+		if d.icon then
+			r.icon:SetTexture(d.icon)
+			r.icon:ClearAllPoints()
+			r.icon:SetPoint("LEFT", 4 + NUM_COL - SUB_ICON, 0)
+			r.icon:Show()
+		else
+			r.icon:Hide()
+		end
+		r.label:ClearAllPoints()
+		r.label:SetPoint("LEFT", x, 0)
+		r.label:SetText((d.label or ""):upper())
+		r.label:SetWidth(math.min(width - x, r.label:GetStringWidth() + 2))
+		r.text:ClearAllPoints()
+		r.text:SetPoint("LEFT", r.label, "RIGHT", 8, 0)
+		r.text:SetText(d.text and ("· " .. d.text) or "")
+		r.text:SetShown(d.text ~= nil)
+		return 16
+	end,
+}
+
+-- A line that is yours: a bullet in the numeral column, right-aligned
+-- like the numerals, then one sentence on the same left edge as the core
+-- lines' text, under the subheading that names your spec.
+builders.yours = {
+	create = function(parent)
+		local r = CreateFrame("Frame", nil, parent)
+		r.bullet = newText(r, FONT.body, 12, RGB.accent)
+		r.bullet:SetPoint("TOPLEFT", 4, -ROW_PAD)
+		r.bullet:SetWidth(NUM_COL)
+		r.bullet:SetJustifyH("RIGHT")
+		r.bullet:SetText("\226\128\162") -- a bullet, in UTF-8
+		r.fs = newText(r, FONT.body, 12, RGB.ink)
+		r.fs:SetPoint("TOPLEFT", 4 + NUM_COL + NUM_GAP, -ROW_PAD)
+		return r
+	end,
+	set = function(r, d, width)
+		r.fs:SetWidth(width - 4 - NUM_COL - NUM_GAP - 4)
+		r.fs:SetText(d.text or "")
+		return math.max(r.fs:GetStringHeight(), 12) + ROW_PAD * 2
+	end,
+}
+
+-- An objective: a callout across the row on a faint tint with a hairline
+-- box, the map icon and the text. Not a table row, because "Objective"
+-- in a label column said nothing the icon does not.
+builders.task = {
+	create = function(parent)
+		local r = CreateFrame("Frame", nil, parent)
+		r.bg = r:CreateTexture(nil, "BACKGROUND")
+		r.bg:SetColorTexture(RGB.accent[1], RGB.accent[2], RGB.accent[3], 0.07)
+		r.bg:SetAllPoints()
+		hairlineBox(r, RGB.accent, 0.14)
+		r.icon = r:CreateTexture(nil, "ARTWORK")
+		r.icon:SetSize(ICON, ICON)
+		r.icon:SetPoint("TOPLEFT", 8, -5)
+		r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		r.fs = newText(r, FONT.body, 12, RGB.bright)
+		r.fs:SetPoint("TOPLEFT", 8 + ICON + 8, -5)
+		return r
+	end,
+	set = function(r, d, width)
+		r.icon:SetTexture(d.icon or KN.ICONS.TASK)
+		r.fs:SetWidth(width - 8 - ICON - 8 - 8)
+		r.fs:SetText(d.text or "")
+		return math.max(r.fs:GetStringHeight(), ICON) + 10
 	end,
 }
 
@@ -244,14 +403,14 @@ builders.note = {
 	end,
 }
 
+-- A mob row: the name in the label column, then the text. The tool's verb
+-- is already folded into the text by the tracker ("Kick Healing Breeze,
+-- every cast"); an inline icon and word before it was one thing too many
+-- (Josh 2026-09-09).
 builders.mob = {
 	create = newListRow,
 	set = function(r, d, width)
-		local prefix
-		if d.icon and d.label then
-			prefix = inlineIcon(d.icon, 13) .. " " .. KN.Hex(d.rgb or RGB.dim) .. d.label .. "|r  "
-		end
-		return setListRow(r, d, width, d.name, RGB.accent, prefix or "")
+		return setListRow(r, d, width, d.name, RGB.accent, "")
 	end,
 }
 
@@ -295,8 +454,14 @@ function View:Render(parent, rows, x, y, width)
 				listIndex = 0
 			elseif d.type == "core" then
 				pad = (lastType == "section") and 5 or 3
+			elseif d.type == "subhead" then
+				pad = (lastType == "core") and 8 or 4
+			elseif d.type == "yours" then
+				pad = (lastType == "subhead") and 3 or 2
+			elseif d.type == "task" then
+				pad = (lastType == "section") and 6 or 4
 			elseif d.type == "note" or d.type == "mob" then
-				pad = (lastType == "section") and 4 or 0
+				pad = (lastType == "section" or lastType == "task") and 4 or 0
 				listIndex = listIndex + 1
 				d.shade = (listIndex % 2 == 1)
 			end

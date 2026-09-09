@@ -235,7 +235,10 @@ function Journal.Overview(rootSectionID)
 		if ok and type(info) == "table" then
 			local hdr = plain(info.headerType)
 			local desc = plain(info.description)
-			if hdr == 3 and desc and desc ~= "" then
+			-- a section the journal hides at the selected difficulty is not
+			-- advice for this run (a Mythic-only bullet on Normal)
+			local hidden = plain(info.filteredByDifficulty) and true or false
+			if hdr == 3 and desc and desc ~= "" and not hidden then
 				local bullets = {}
 				-- "$bullet;" is Blizzard's own marker inside the description
 				for piece in (tostring(desc) .. "$bullet;"):gmatch("(.-)%$bullet;") do
@@ -257,6 +260,58 @@ function Journal.Overview(rootSectionID)
 		end
 	end
 	return out
+end
+
+-- An instance def built from the Adventure Guide alone, for a place nothing
+-- in Notes\*.lua covers (Josh 2026-09-09: "use the dungeon journal for the
+-- remaining dungeons and raids that we never got data for"). Same shape
+-- KN.RegisterDungeon takes, so the tracker and the view need no special
+-- case beyond the `journal = true` flag:
+--
+--   bosses  the journal's list, in its order
+--   notes   one per role bullet, `role` = tank | healer | dps from the
+--           section's icon flag. The role-neutral Overview section is
+--           prose, not advice, and is left out; the research found no
+--           reliable way to derive core lines from it, so a journal boss
+--           has NO core lines. Bullets the journal filters at the selected
+--           difficulty are already dropped by Overview.
+--   trash   none. `linear` is unset, so a raid lists its bosses.
+--
+-- Never registered: KN.instances stays the hand-written corpus, and a
+-- hand-written def always wins (the tracker asks for this only after every
+-- other lookup fails). Cached per instance and difficulty for the session.
+local synth = {}
+function Journal.Synthesize(instanceID, difficultyID, kind)
+	if not instanceID then return nil end
+	local key = instanceID .. ":" .. tostring(difficultyID)
+	if synth[key] ~= nil then return synth[key] or nil end
+	local bosses = Journal.Bosses(instanceID, difficultyID)
+	-- not `X and pcall(...)`: `and` keeps only the first return, dropping
+	-- the name
+	local name
+	if EJ_GetInstanceInfo then
+		local okName, n = pcall(EJ_GetInstanceInfo, instanceID)
+		name = okName and plain(n) or nil
+	end
+	if not (bosses and #bosses > 0 and name) then
+		synth[key] = false
+		return nil
+	end
+	local def = { name = name, instanceID = instanceID, kind = kind or "dungeon", journal = true, bosses = {} }
+	for _, jb in ipairs(bosses) do
+		local notes = {}
+		if jb.journalEncounterID and EJ_SelectEncounter then pcall(EJ_SelectEncounter, jb.journalEncounterID) end
+		for _, block in ipairs(Journal.Overview(jb.rootSectionID)) do
+			if block.role then
+				for _, text in ipairs(block.bullets) do
+					notes[#notes + 1] = { role = block.role, text = text }
+				end
+			end
+		end
+		def.bosses[#def.bosses + 1] = { name = jb.name, notes = notes }
+	end
+	synth[key] = def
+	return def
 end
 
 -- Find a journal instance by name without being anywhere near it. The

@@ -16,13 +16,12 @@ local defaults = {
 			locked = false, shown = true, collapsed = false, autoCollapse = true,
 			clickThroughCombat = false,
 			-- "scores" = the scorecard, "notes" = the dungeon notes view
-			-- (retail only; the header segment switches them). The two views
-			-- keep their own widths: a 260px scorecard is fine, a 260px page
-			-- of notes is not (Josh 2026-09-08)
+			-- (the header segment switches them). Both share `width`
+			-- (Josh 2026-09-08: "link them to use the same width"); a
+			-- per-view notesWidth existed briefly and is ignored if saved.
 			view = "scores",
-			notesWidth = 380,
 		},
-		-- Dungeon notes (Notes\*, retail only). autoSwitch: walking into a
+		-- Dungeon notes (Notes\*, both clients). autoSwitch: walking into a
 		-- dungeon with notes flips the window to Notes and a captured fight
 		-- flips it back (Josh 2026-09-08 chose the manual segment; this is
 		-- the opt-in for the hands-off behaviour)
@@ -147,7 +146,7 @@ function Addon:OnEnable()
 	TP.ReportsUI:OnEnable()
 	TP.Options:OnEnable()
 	TP.Minimap:OnEnable()
-	if TP.Notes then -- mainline TOCs only
+	if TP.Notes then -- every TOC lists Notes\* now; the guard is for a stripped build
 		TP.Notes:OnEnable()
 	end
 	TP.MeterWindow:OnEnable()
@@ -185,9 +184,9 @@ function Addon:HandleSlash(input)
 	elseif cmd == "notes" then
 		-- the dungeon notes view; empty = switch between Scores and Notes
 		if not TP.Notes then
-			self:Print("Dungeon notes are retail only.")
+			self:Print("Dungeon notes are not loaded in this build.")
 		elseif not TP.Notes:Command(rest) then
-			self:Print("/tp notes - switch Scores/Notes · show <dungeon> [n|h|m|k] [+9] [affixes] · boss <name> · as <role|class|spec> · next · prev · off · ladder [level] · debug · list")
+			self:Print("/tp notes - switch Scores/Notes · show <instance> [l|n|h|m|k] [+9] [affixes] · boss <name> · as <role|class|spec> · next · prev · off · ladder [level] · check [instance] · spec · debug · list")
 		end
 	elseif cmd == "mit" then
 		-- Mitigation tracking is self-reported and silent when it fails: a

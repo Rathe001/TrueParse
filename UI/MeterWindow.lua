@@ -85,23 +85,20 @@ local function db()
 	return TP.Addon.db.profile
 end
 
--- Each view keeps its own width; the grip writes to whichever is showing.
-local NOTES_MIN_WIDTH = 320
+-- One width for both views (Josh 2026-09-08: "link them to use the same
+-- width"). Scores and Notes read and write window.width alike; the grip
+-- resizes whichever is showing and the other follows. The earlier
+-- per-view width (window.notesWidth, 380 default, 320 floor) is gone and
+-- any saved value is ignored.
+local NOTES_MIN_WIDTH = 180
 local function isNotesView()
 	return TP.Notes ~= nil and db().window.view == "notes"
 end
 local function viewWidth()
-	if isNotesView() then
-		return math.max(NOTES_MIN_WIDTH, db().window.notesWidth or 380)
-	end
 	return db().window.width
 end
 local function saveViewWidth(w)
-	if isNotesView() then
-		db().window.notesWidth = math.max(NOTES_MIN_WIDTH, w)
-	else
-		db().window.width = w
-	end
+	db().window.width = w
 end
 -- Notes view: how many body rows the wheel has scrolled past (the header
 -- row stays pinned). Reset whenever the notes state changes.
@@ -325,27 +322,41 @@ local function createWindow()
 	-- only: Mists has no Notes module and never sees the control (Josh
 	-- 2026-09-08, canvas round 4 option H).
 	if TP.Notes then
-		local function makeTab(label, view)
+		-- Two 20px glyph buttons instead of two words (Josh 2026-09-09,
+		-- canvas round 6, tab option 1): the words took ~90px of a 26px
+		-- header. Bars for Scores, lines for Notes, drawn from plain colour
+		-- textures so they stay crisp at any scale; paint() colours them.
+		local GLYPH = {
+			scores = { { 2, 4 }, { 5, 8 }, { 8, 6 } },        -- x, height: three bars
+			notes  = { { 2, 8 }, { 5, 8 }, { 8, 5 } },        -- y, width: three lines
+		}
+		local function makeTab(view)
 			local b = CreateFrame("Button", nil, window, "BackdropTemplate")
-			b:SetHeight(16)
+			b:SetSize(20, 16)
 			b:SetBackdrop({
 				bgFile = "Interface\\Buttons\\WHITE8X8",
 				edgeFile = "Interface\\Buttons\\WHITE8X8",
 				edgeSize = 1,
 			})
-			b.label = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-			local f = b.label:GetFont()
-			if f then b.label:SetFont(f, 10, "") end
-			b.label:SetPoint("CENTER", 0, 0)
-			b.label:SetText(label)
-			b:SetWidth(b.label:GetStringWidth() + 12)
+			b.marks = {}
+			for i, m in ipairs(GLYPH[view]) do
+				local t = b:CreateTexture(nil, "OVERLAY")
+				if view == "scores" then
+					t:SetSize(2, m[2])
+					t:SetPoint("BOTTOMLEFT", 3 + m[1], 3)
+				else
+					t:SetSize(m[2], 1)
+					t:SetPoint("TOPLEFT", 4, -(2 + m[1]))
+				end
+				b.marks[i] = t
+			end
 			b.view = view
 			b:SetScript("OnClick", function() MeterWindow:SetView(view) end)
 			return b
 		end
-		window.tabScores = makeTab("Scores", "scores")
+		window.tabScores = makeTab("scores")
 		window.tabScores:SetPoint("LEFT", window.logo, "RIGHT", 5, 0)
-		window.tabNotes = makeTab("Notes", "notes")
+		window.tabNotes = makeTab("notes")
 		window.tabNotes:SetPoint("LEFT", window.tabScores, "RIGHT", -1, 0)
 		-- the mode tag hangs off the segment when it exists
 		window.title:ClearAllPoints()
@@ -1525,15 +1536,17 @@ function MeterWindow:UpdateViewTabs()
 	end
 	local notes = db().window.view == "notes"
 	local function paint(b, active)
+		local r, g, bl
 		if active then
 			b:SetBackdropColor(1, 0.827, 0.43, 1)
 			b:SetBackdropBorderColor(1, 0.827, 0.43, 1)
-			b.label:SetTextColor(0.078, 0.067, 0.122)
+			r, g, bl = 0.078, 0.067, 0.122
 		else
 			b:SetBackdropColor(0.133, 0.114, 0.192, 0.9)
 			b:SetBackdropBorderColor(0.227, 0.200, 0.314, 0.95)
-			b.label:SetTextColor(0.64, 0.61, 0.72)
+			r, g, bl = 0.64, 0.61, 0.72
 		end
+		for _, t in ipairs(b.marks) do t:SetColorTexture(r, g, bl, 1) end
 	end
 	paint(window.tabScores, not notes)
 	paint(window.tabNotes, notes)
@@ -2509,12 +2522,15 @@ local function renderNotes(self)
 	local width = winW - PADDING * 2
 	if not rows then
 		TP.Notes.View:Hide()
-		window.emptyTitle:SetText("No dungeon notes here.")
-		window.emptyMsg:SetText("Notes appear inside a Season 2 dungeon: the boss you are pulling, the trash on this stretch, and the lines that are yours. /tp notes show <dungeon> previews one from anywhere.")
+		window.emptyTitle:SetText("No notes here.")
+		window.emptyMsg:SetText(TP.Notes.EMPTY_HINT) -- per client: Season 2 keys, or Pandaria
 		window.emptyTitle:Show()
 		window.emptyMsg:Show()
+		-- height from the text itself, plus a breath under the paragraph
+		-- (Josh 2026-09-09: the last line sat on the bottom edge)
+		local textH = 14 + window.emptyTitle:GetStringHeight() + 6 + window.emptyMsg:GetStringHeight() + 18
 		window:SetResizeBounds(NOTES_MIN_WIDTH, 110, 640, 1000)
-		applyWindowHeight(math.min(db().window.height, HEADER_HEIGHT + 96))
+		applyWindowHeight(HEADER_HEIGHT + math.max(96, textH))
 		return
 	end
 	if window.emptyMsg then

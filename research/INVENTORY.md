@@ -94,36 +94,50 @@ own crawled curve files.
 
 ---
 
-## MoP Classic — confirmed complete
+## MoP Classic — shipped 2026-09-08
 
-Notes does not exist on this client yet: `Notes\*` is absent from
-`TrueParse_Mists.toc`. Wiring it up is a prerequisite, and the view needs to
-handle instances with no affixes and no keystone level (MoP has Challenge
-Modes, not Mythic+).
+Notes exists on this client now. `TrueParse_Mists.toc` loads `Notes\Core`,
+`Classes_Mists`, `Player`, `Journal`, `View`, `Tracker` and `Mists` - not
+`Season2.lua` (eight retail dungeons that do not exist here), not the retail
+`Classes.lua`, and no `Affixes.lua` (Challenge Modes have none). Everything
+in `Notes/Mists.lua` is boss-only, dungeons included, because the corpus
+carries no trash for this client and decision 1 says trash is a keystone
+feature.
+
+**Lines the research held back stay held back.** Gekkan's Hex of Lethargy
+(curse uncorroborated), Thalnos' Evict Soul (dispel school unstated), Braun's
+Bloody Rage (soothability unknown), Council of Elders' unnamed curses,
+Durumu's Divine Shield trick, Lei Shen's lust window, Thok's silence. Each is
+one confirmed fact away from a line.
 
 ### Dungeons (9)
 
 | Instance | Level | Bosses | Status |
 |---|---|---|---|
-| Temple of the Jade Serpent | 80-90 (H90) | 4 | drafted (2 sources) |
-| Stormstout Brewery | 80-90 (H90) | 3 | drafted (2 sources) |
-| Mogu'shan Palace | 82-90 (H90) | 3 | drafted (2 sources) |
-| Shado-Pan Monastery | 82-90 (H90) | 4 | drafted (2 sources) |
-| Gate of the Setting Sun | 83-90 (H90) | 4 | drafted (2 sources) |
-| Siege of Niuzao Temple | 83-90 (H90) | 4 | drafted (2 sources) |
-| Scarlet Halls | 28-31 (H90) | 3 | drafted (2 sources) |
-| Scarlet Monastery | 30-33 (H90) | 3 | drafted (2 sources) |
-| Scholomance | 41-44 (H90) | 5 | drafted (2 sources) |
+| Temple of the Jade Serpent | 80-90 (H90) | 4 | shipped (2 sources) |
+| Stormstout Brewery | 80-90 (H90) | 3 | shipped (2 sources) |
+| Mogu'shan Palace | 82-90 (H90) | 3 | shipped (2 sources) |
+| Shado-Pan Monastery | 82-90 (H90) | 4 | shipped (2 sources) |
+| Gate of the Setting Sun | 83-90 (H90) | 4 | shipped (2 sources) |
+| Siege of Niuzao Temple | 83-90 (H90) | 4 | shipped (2 sources) |
+| Scarlet Halls | 28-31 (H90) | 3 | shipped (2 sources) |
+| Scarlet Monastery | 30-33 (H90) | 3 | shipped (2 sources) |
+| Scholomance | 41-44 (H90) | 5 | shipped (2 sources) |
 
 ### Raids (5, 43 bosses)
 
+The three single-source raids shipped as drafted: the research files had
+already reconciled them into the field shape, and the tier is three years
+cold. The second-source pass is still owed and is now a *verification* task
+against live Lua rather than a research one.
+
 | Instance | Bosses | Status |
 |---|---|---|
-| Mogu'shan Vaults | 6 | drafted (single-source) |
-| Heart of Fear | 6 | drafted (single-source) |
-| Terrace of Endless Spring | 4 | drafted (single-source) |
-| Throne of Thunder | 13 | drafted |
-| Siege of Orgrimmar | 14 | drafted |
+| Mogu'shan Vaults | 6 | shipped (single-source, second pass owed) |
+| Heart of Fear | 6 | shipped (single-source, second pass owed) |
+| Terrace of Endless Spring | 4 | shipped (single-source, second pass owed) |
+| Throne of Thunder | 13 | shipped (Twin Consorts name unconfirmed vs journal) |
+| Siege of Orgrimmar | 14 | shipped (names match the crawl) |
 
 Siege of Orgrimmar boss names are already confirmed from the crawled data:
 Immerseus, Fallen Protectors, Norushen, Sha of Pride, Galakras, Iron
@@ -301,11 +315,61 @@ each (33 checks, all green; `run.lua`, `validate.lua` and `load.lua` clean):
 - `KN.RegisterRaid` (`Notes/Core.lua`) registers a boss-only instance and
   **errors** on a `trash` table rather than dropping it silently.
   `RegisterDungeon` now stamps `kind = "dungeon"`.
-- `trashApplies()` (`Notes/Tracker.lua`) gates the trash section on keystone
-  difficulty. Below a key the next boss still previews, so nothing is lost.
+- `trashApplies()` (`Notes/Tracker.lua`) gates the trash section on Mythic
+  and above - Mythic 0 included since 2026-09-09 (same route, same snitch
+  gate, key or not). On Normal and Heroic the next boss still previews, so
+  nothing is lost. **TASK lines are exempt from the gate** (Josh 2026-09-09:
+  the objective mechanics are the same at every difficulty): they show on
+  every stretch at every difficulty, under an "Objectives" heading when the
+  mob lines are hidden.
+- **Ranked-run casts (2026-09-09):** `scripts/fetch-boss-casts.ps1` crawls
+  the Casts tables of ranked keystone runs (zone 55, per boss pull via
+  `dungeonPulls`) and raid kills (zone 53) for a UTILITY whitelist only,
+  plus first-lust timing from the events feed; emits `Data/BossCasts.lua`
+  and `Data/BossCasts_Raid.lua` (monthly slice `boss-casts`, day 8; finalize
+  moved to day 9). `Notes/Tracker.lua` adds a plain line - "Capacitor Totem
+  works well on Mirror Images", or "Capacitor Totem is worth using here"
+  when the boss declares no target - for a spell most of the reader's spec
+  casts (share >= 50%, median >= 1 a pull) when no hand-written line
+  covers that kind. The target is the boss's hand-written `uses` field per
+  kind (`uses = { stun = "Mirror Images" }`), shared by every spec with
+  that kind of tool; reading it out of the prose was tried and dropped.
+  "Most groups lust on this boss" goes on the boss when no lust line
+  exists; a lust on the way to the boss is a note on the stretch before
+  it, in the trash section, unless a hand-written lust sits there for any
+  week. Two rules keep it from noise (real
+  data, 2026-09-09): dispels, purges, soothes, stuns and group utility are
+  situational and show at the threshold; a kick, personal defensive or
+  healer cooldown shows only where the spec's share on this boss is unusual
+  for it (median across its other bosses below the threshold), and a kick
+  never once any line on the boss says kick or interrupt. `/tp notes
+  check` prints ADDS (what the panel would add per spec, i.e. what a
+  hand-written line could replace) and DOUBTFUL. First real report: 46
+  adds over 26 bosses, e.g. Capacitor Totem / Shockwave on Kystia (the
+  Mirror Images), Mass Dispel and Purify on Ikuzz, Soothe on the
+  Hoardmonger; DOUBTFUL flags the Tyrannical lust lines on Melidrussa and
+  the Council of Tribes, where no ranked Mage cast Time Warp on the boss. The crawl counts from the EVENTS feed, because a
+  Casts table clipped to a pull returns only each player's top five
+  abilities (found 2026-09-09). A `utility` kind covers group buttons like
+  Wind Rush Totem. Rotation spells are deliberately absent; SpellProfiles
+  has those.
+- **Canvas round 6 (2026-09-09) is built:** ledger layout (`Notes/View.lua`
+  row types `task` and `yours`, section `pre`/`right`), the lines that are
+  yours shown in the boss PREVIEW as well as the pull, under a heading that
+  names the spec, as plain text with a generic verb from the tag (`VERB` in
+  Tracker) rather than an icon or the spec's spell name (Josh, same day,
+  after seeing "Purify Spirit" in game), the affix summary replacing the
+  spec/role line in the band, Enemy Forces in the band during a key, and
+  glyph tabs in `UI/MeterWindow.lua`. The design canvas is
+  https://claude.ai/code/artifact/b019d78d-d808-4382-b3ea-fca2d79bf16d.
 - A raid with no active boss lists its bosses instead of naming one "next" —
   `killed` is only a count, so with parallel wings "next" would be a guess.
-  `Tracker.Step` is inert in a raid.
+  `Tracker.Step` is inert in a raid. **Refined 2026-09-08:** a raid that
+  declares `linear = true` (all five Mists raids) has one fixed order, so it
+  previews its next boss from the kill count and pages like a dungeon; the
+  list is only for raids with wings. Found the same day: `Tracker.Refresh`
+  accepted only instance type "party" and dropped every raid on the floor —
+  it takes "raid" too now, with a walk-in test.
 - `fear` and `massdispel` are capability keys (`Notes/Classes.lua`), with
   `FEAR` / `MASSDISP` tags, icons and colours, and entries in `TAG_NEED` so
   tag alternatives resolve. Priests carry both (**provisional** — verify per
@@ -319,10 +383,14 @@ corresponding notes can ship.
 
 ### Raids
 
-1. **Raid difficulty ids are missing.** `KN.DIFF_BY_ID` (`Notes/Core.lua`) maps
-   only 1, 2, 23, 8 and the two Timewalking ids. Raids report 17 = LFR,
-   14 = Normal, 15 = Heroic, 16 = Mythic. Until those exist, no raid note can
-   be gated by difficulty, and LFR needs a rank below `n` in `KN.DIFF_RANK`.
+1. ~~Raid difficulty ids are missing.~~ **RESOLVED 2026-09-08**, forced by
+   the Mists raids (Ra-den and a dozen `min = "h"` lines need Heroic to be
+   recognisable). `KN.DIFF_BY_ID` is now one table per client, chosen at
+   load: retail adds 17/14/15/16 = l/n/h/m; Mists maps 3/4 = n, 5/6 = h,
+   7 = l, 14 (Flex) = n, 8 = k (Challenge Mode). `KN.DIFF_RANK` gained
+   `l = 1` below `n`, and **a note with no `min` now ranks 0** so it still
+   shows in Raid Finder - `min = "n"` is how a line opts out of LFR. Retail
+   raid content can gate by difficulty from here on.
 2. ~~Trash legs assume a straight line.~~ **RESOLVED** by decision 1: raids
    carry no trash, so there are no legs to order and the parallel wings of The
    Venomous Abyss need nothing. `RegisterRaid` should simply not accept a
@@ -348,17 +416,25 @@ the way `tests/notes.lua` already tests kick/purge/poison — the existing audit
 loop fails any spec that sees a line for a tool it does not have, so adding the
 key to the audit is most of the work.
 
-### MoP Classic
+### MoP Classic — all three RESOLVED 2026-09-08
 
-6. **`Notes\*` is not in `TrueParse_Mists.toc` at all.** Wiring is step one.
-7. **The view assumes affixes and a keystone level.** MoP has Challenge Modes,
-   not Mythic+, so the header needs a no-affix, no-key shape. `tests/notes.lua`
-   already exercises the header's affix and level fields, so it will need a
-   Mists case.
-8. **`Notes/Classes.lua` is a retail capability table.** MoP specs have
-   different tools; the retail healer-interrupt removals do not apply there. A
-   separate Mists capability table is required, and `KN.CLASSES` is keyed by
-   spec id, which overlaps but does not match.
+6. ~~`Notes\*` is not in `TrueParse_Mists.toc` at all.~~ Seven files listed,
+   after `UI\Tooltip.lua` as on retail. `tests/notes.lua` now boots each
+   client from its own TOC's `Notes\` lines, so the file set and order are
+   what the test proves.
+7. ~~The view assumes affixes and a keystone level.~~ `KN.KEYSTONES` (false
+   on Mists) gates the keystone read, the header's level, and the preview's
+   invented level and affixes; `KN.DIFF_LABEL.k` reads "Challenge" there.
+   `/tp notes ladder` says there is no ladder rather than erroring, and the
+   window's empty-state hint is per client (`KN.EMPTY_HINT`).
+8. ~~`Notes/Classes.lua` is a retail capability table.~~ `Notes/Classes_Mists.lua`
+   is the Mists one: 34 specs, no Demon Hunter or Evoker, healers keep
+   their interrupts (except Priests - Silence is Shadow's), Fear Ward gives
+   every Priest `fear`, Tremor Totem is baseline, only Beast Mastery brings
+   lust, Shamans cleanse no poison. Spec ids are shared, so `KN.CLASSES`
+   stays keyed by id. **Provisional, same as the retail table:** checked
+   against the 5.4 spellbook from memory, not in game. The audit loop in
+   `tests/notes.lua` covers every spec against every Mists line.
 
 ## OUT OF SCOPE — legacy dungeons outside the Timewalking pools
 
@@ -458,6 +534,16 @@ journal for **every instance in the game**, and keep the hand-written corpus
 as the curated overlay where it beats that: capability routing, trash, lust,
 build and task lines, and sharper core lines.
 
+**IMPLEMENTED 2026-09-09 as a fallback, not a generator.**
+`Journal.Synthesize` (`Notes/Journal.lua`) builds a def from the journal
+for any instance the registry does not cover: bosses in journal order, one
+`role`-tagged note per overview bullet, difficulty-filtered bullets dropped,
+no core lines, no trash, never registered. The tracker asks for it only
+after every hand-written lookup fails, and the Yours heading credits the
+Adventure Guide. Nothing generates core lines, per the finding above, and
+nothing overlays journal bullets onto a hand-written boss. Covered by
+`tests/notes.lua` test 13.
+
 **It does NOT reopen the out-of-scope blocks.** Probed 2026-09-08: Molten
 Core's Ragnaros returns `root=0` and no `hdr=3` sections at all — the journal
 entry is empty. Legacy content has no overview bullets and no ability tree to
@@ -478,7 +564,7 @@ Probes are in the code and are diagnostic-only:
 |---|---|
 | Retail — Midnight | complete: 9 dungeons, 5 raids |
 | Retail — The War Within | complete: 10 dungeons, 3 raids |
-| MoP Classic | complete: 9 dungeons (2 sources), 5 raids |
+| MoP Classic | **shipped** in `Notes/Mists.lua`: 9 dungeons, 5 raids (3 single-source) |
 | Timewalking | complete: 59 dungeons, 4 raids |
 | Pre-TWW legacy raids | out of scope |
 | Legacy dungeons outside the pools | out of scope |

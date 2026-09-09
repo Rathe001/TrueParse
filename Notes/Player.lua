@@ -23,17 +23,73 @@ local state = {
 }
 Player.state = state
 
+-- Raw API returns from the last read, for /tp notes debug. Mists showed
+-- "Unknown spec Monk" for a whole session (Josh 2026-09-08) and the header
+-- cannot say whether the index, the id or the lookup was the part that
+-- failed; this can.
+state.raw = {}
+
 local function readSpec()
-	local _, class = UnitClass("player")
+	local raw = state.raw
+	wipe(raw)
+	local _, class, classID = UnitClass("player")
 	class = plain(class)
 	state.class = class
+	raw.classID = plain(classID)
 	local idx = GetSpecialization and plain(GetSpecialization())
+	raw.idx = idx
+	-- Mists (dual spec): the bare call answered nil inside Siege of
+	-- Orgrimmar while the roster's earlier call had answered (Josh
+	-- 2026-09-08, idx=nil roster=269). Ask again naming the active talent
+	-- group, which is the one argument the call takes.
+	if not idx and GetSpecialization and GetActiveSpecGroup then
+		local okG, group = pcall(GetActiveSpecGroup)
+		group = okG and plain(group) or nil
+		raw.group = group
+		if group then
+			local okS, i = pcall(GetSpecialization, false, false, group)
+			idx = okS and plain(i) or nil
+			raw.idxByGroup = idx
+		end
+	end
 	local specID, apiRole
+	local icon
+	-- a spec icon is a fileDataID (retail) or a texture path (older
+	-- clients); 0 and "" are the API's way of saying none
+	local function useIcon(v)
+		v = plain(v)
+		if type(v) == "number" and v > 0 then return v end
+		if type(v) == "string" and v ~= "" then return v end
+		return nil
+	end
 	if idx and GetSpecializationInfo then
-		local ok, id, _, _, _, role = pcall(GetSpecializationInfo, idx)
+		local ok, id, _, _, ic, role = pcall(GetSpecializationInfo, idx)
+		raw.infoOK, raw.id, raw.role = ok, ok and id or nil, ok and role or nil
+		if not ok then raw.err = tostring(id) end
 		if ok then
 			specID = plain(id)
 			apiRole = plain(role)
+			icon = useIcon(ic)
+		end
+	end
+	-- Fallbacks, tried only when the direct read gives nothing usable:
+	-- the per-class table (same data, different entry point), then the
+	-- roster's own read of the player, which the scoring already trusts on
+	-- both clients.
+	if not (specID and KN.CLASSES[specID]) and idx and raw.classID and GetSpecializationInfoForClassID then
+		local ok, id, _, _, ic, role = pcall(GetSpecializationInfoForClassID, raw.classID, idx)
+		raw.byClassID = ok and id or nil
+		if ok and plain(id) and KN.CLASSES[plain(id)] then
+			specID, apiRole = plain(id), plain(role) or apiRole
+			icon = icon or useIcon(ic)
+		end
+	end
+	state.icon = icon
+	if not (specID and KN.CLASSES[specID]) and TP.Roster and TP.Roster.players and UnitGUID then
+		local me = TP.Roster.players[UnitGUID("player")]
+		raw.roster = me and me.specID or nil
+		if me and me.specID and KN.CLASSES[me.specID] then
+			specID = me.specID
 		end
 	end
 	state.specID = specID
@@ -60,20 +116,42 @@ function Player.Refresh()
 	if not ok then KN.Print("spec read failed: " .. tostring(err)) end
 end
 
+-- The spec API can answer nil at load and at PLAYER_ENTERING_WORLD on a
+-- Classic client (Josh 2026-09-08, Mists: a Monk read as "Unknown spec
+-- Monk · Tank" for the whole session). A nil read is not an answer, so
+-- every reader retries it until one succeeds. Cheap: two API calls, and
+-- only while the spec is still unknown.
+local function ensure()
+	if state.specID == nil and UnitClass then Player.Refresh() end
+end
+
 function Player.Role()
+	ensure()
 	return (state.override and state.override.role) or state.role
 end
 
 function Player.Range()
+	ensure()
 	return (state.override and state.override.range) or state.range
 end
 
 function Player.Caps()
+	ensure()
 	return (state.override and state.override.caps) or state.caps or {}
 end
 
 function Player.Class()
+	ensure()
 	return (state.override and state.override.class) or state.class
+end
+
+-- The spec's own icon, read alongside the id. Nothing draws it since the
+-- lines that are yours went text-only (Josh 2026-09-09); kept because it
+-- comes free with the read and the debug line can show it.
+function Player.Icon()
+	ensure()
+	if state.override then return nil end
+	return state.icon
 end
 
 function Player.Can(need)
@@ -107,6 +185,11 @@ local CLASS_NAMES = {
 	DRUID = "Druid", DEMONHUNTER = "Demon Hunter", EVOKER = "Evoker",
 }
 local function cap(s) return s:sub(1, 1):upper() .. s:sub(2) end
+
+-- "Death Knight" for DEATHKNIGHT; nil for an unknown file name
+function Player.ClassName(class)
+	return CLASS_NAMES[class or ""]
+end
 local ROLE_WORD = { tank = "Tank", healer = "Healer", dps = "DPS" }
 
 -- "Restoration Shaman" (or "as Brewmaster Monk" when overridden)
@@ -162,9 +245,14 @@ function Player.DebugLine()
 	for _, k in ipairs({ "magic", "curse", "poison", "disease", "bleed", "purge", "soothe", "kick", "stun", "lust", "fear", "massdispel" }) do
 		if caps[k] then have[#have + 1] = k end
 	end
-	return string.format("class=%s specID=%s role=%s range=%s can=%s%s",
+	local r = state.raw or {}
+	return string.format("class=%s specID=%s role=%s range=%s can=%s%s"
+		.. " | raw: classID=%s idx=%s group=%s idxByGroup=%s infoOK=%s id=%s role=%s byClassID=%s roster=%s%s",
 		tostring(state.class), tostring(state.specID), Player.Role(), Player.Range(),
-		table.concat(have, ","), state.override and (" override=" .. tostring(state.override.label)) or "")
+		table.concat(have, ","), state.override and (" override=" .. tostring(state.override.label)) or "",
+		tostring(r.classID), tostring(r.idx), tostring(r.group), tostring(r.idxByGroup),
+		tostring(r.infoOK), tostring(r.id), tostring(r.role),
+		tostring(r.byClassID), tostring(r.roster), r.err and (" err=" .. r.err) or "")
 end
 
 -- Own frame: AceEvent allows one handler per event per object, and the
@@ -173,6 +261,9 @@ local ev = CreateFrame("Frame")
 ev:RegisterEvent("PLAYER_ENTERING_WORLD")
 ev:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 ev:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+-- fires once talent data has actually arrived, which on Classic clients can
+-- be after PLAYER_ENTERING_WORLD
+pcall(ev.RegisterEvent, ev, "PLAYER_TALENT_UPDATE")
 ev:SetScript("OnEvent", function(_, event, unit)
 	if event == "PLAYER_SPECIALIZATION_CHANGED" and unit and unit ~= "player" then return end
 	Player.Refresh()

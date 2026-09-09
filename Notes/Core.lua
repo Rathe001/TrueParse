@@ -17,13 +17,21 @@
 -- difficulty. Normal runs don't see Mythic mechanics, and nobody hand-tags
 -- the boss data.
 --
--- Retail only: listed in the mainline TOCs, absent from Mists.
+-- BOTH CLIENTS (2026-09-08). Retail loads Classes.lua, Season2.lua and
+-- Affixes.lua; MoP Classic loads Classes_Mists.lua and Mists.lua instead and
+-- has no affix file at all. The differences that matter are all keyed off
+-- KN.IS_RETAIL below: which difficulty ids mean what, whether a keystone
+-- level and affixes exist (Mists has Challenge Modes), and what "k" is
+-- called.
 local _, TP = ...
 
 local KN = {}
 TP.Notes = KN
 
 KN.IsSecret = TP.Compat.IsSecret
+KN.IS_RETAIL = TP.Compat.IS_RETAIL and true or false
+-- Keystones carry a level and affixes; a Challenge Mode carries neither.
+KN.KEYSTONES = KN.IS_RETAIL
 
 function KN.Print(msg)
 	if TP.Addon and TP.Addon.Print then
@@ -39,14 +47,45 @@ BINDING_NAME_TRUEPARSE_NOTES = "Switch between Scores and Notes"
 BINDING_NAME_TRUEPARSE_NOTES_NEXT = "Notes: next stretch of trash"
 BINDING_NAME_TRUEPARSE_NOTES_PREV = "Notes: previous stretch of trash"
 
--- Difficulty rank: notes carry `min` = "n" | "h" | "m" | "k" and are hidden
--- below it. Keystone counts as above Mythic so a "k" note is key-only.
-KN.DIFF_RANK = { n = 1, h = 2, m = 3, k = 4 }
-KN.DIFF_BY_ID = {
+-- Difficulty rank: notes carry `min` = "l" | "n" | "h" | "m" | "k" and are
+-- hidden below it. Keystone counts as above Mythic so a "k" note is key-only.
+-- "l" is Raid Finder, which sits BELOW Normal: a note gated `min = "n"` is
+-- hidden in LFR, and a note with no `min` shows everywhere (Tracker treats
+-- a missing `min` as rank 0, not as "n").
+KN.DIFF_RANK = { l = 1, n = 2, h = 3, m = 4, k = 5 }
+
+-- Difficulty ids COLLIDE across clients (see Core/Constants.lua): retail's
+-- 14/15/16/17 are the raid tiers, Mists' 3-6 are raid SIZES and 14 is Flex.
+-- One table per client, chosen once at load.
+--
+-- Retail dungeons 1/2/23 and keystone 8; Timewalking 24/33 is heroic-shaped;
+-- raids 17 LFR, 14 Normal, 15 Heroic, 16 Mythic.
+local DIFF_BY_ID_RETAIL = {
 	[1] = "n", [2] = "h", [23] = "m", [8] = "k",
-	[24] = "h", [33] = "h", -- timewalking: heroic-shaped
+	[24] = "h", [33] = "h",
+	[17] = "l", [14] = "n", [15] = "h", [16] = "m",
 }
-KN.DIFF_LABEL = { n = "Normal", h = "Heroic", m = "Mythic", k = "Keystone" }
+-- Mists dungeons 1/2 and Challenge Mode 8 (keystone-shaped: the top dungeon
+-- rank, no level, no affixes); raids 3/4 Normal, 5/6 Heroic, 7 Raid Finder,
+-- 14 Flexible (Normal-tuned), 9 the 40-player legacy size.
+local DIFF_BY_ID_MISTS = {
+	[1] = "n", [2] = "h", [8] = "k",
+	[3] = "n", [4] = "n", [5] = "h", [6] = "h", [7] = "l", [14] = "n", [9] = "n",
+}
+KN.DIFF_BY_ID = KN.IS_RETAIL and DIFF_BY_ID_RETAIL or DIFF_BY_ID_MISTS
+-- an id neither table knows: assume the top non-key dungeon rank, so a
+-- `min` line is more likely shown than hidden (a wrong hide costs more)
+KN.DIFF_DEFAULT = KN.IS_RETAIL and "m" or "h"
+-- what a raid previews at when no difficulty is given
+KN.RAID_DEFAULT = KN.IS_RETAIL and "m" or "h"
+
+KN.DIFF_LABEL = { l = "Raid Finder", n = "Normal", h = "Heroic", m = "Mythic",
+	k = KN.IS_RETAIL and "Keystone" or "Challenge" }
+
+-- The empty-state hint in the meter window, per client.
+KN.EMPTY_HINT = KN.IS_RETAIL
+	and "Notes show inside a dungeon or raid: the boss you are pulling, this stretch of trash, and your lines. Season 2 is hand-written; elsewhere the Adventure Guide's role bullets fill in. /tp notes show <dungeon> previews one anywhere."
+	or "Notes show inside a Pandaria dungeon or raid: the boss you are pulling and your lines. /tp notes show <instance> previews one anywhere."
 
 -- Palette: TrueParse's violet neutrals (UI/MeterWindow.lua, Josh 2026-07-28
 -- design review) with the notes' own meaning colours on top. RGB so textures
@@ -105,6 +144,12 @@ KN.TAGS = {
 	MASSDISP = { label = "Mass Dispel", rgb = KN.RGB.mass },
 	SOOTHE  = { label = "Soothe",   rgb = KN.RGB.purge },
 	STUN    = { label = "Stun",     rgb = KN.RGB.kick },
+	-- data-derived lines (Data/BossCasts*.lua): the crawl knows the spell
+	-- cast, not the school it removed, so a dispel from the data is
+	-- generic; a personal defensive has no hand-written tag of its own
+	DISPEL  = { label = "Dispel",   rgb = KN.RGB.magic },
+	DEF     = { label = "Defensive", rgb = KN.RGB.no },
+	UTIL    = { label = "Utility",  rgb = KN.RGB.teal },
 	CD      = { label = "Cooldown", rgb = KN.RGB.teal },
 	LUST    = { label = "Lust",     rgb = KN.RGB.amber },
 	TANK    = { label = "Tank",     rgb = KN.RGB.gold },
@@ -115,7 +160,7 @@ KN.TAGS = {
 	TASK    = { label = "Objective", rgb = KN.RGB.accent },
 }
 
-KN.DIFF_COLOR = { n = KN.RGB.grey, h = KN.RGB.blue, m = KN.RGB.purple, k = KN.RGB.gold }
+KN.DIFF_COLOR = { l = KN.RGB.dim, n = KN.RGB.grey, h = KN.RGB.blue, m = KN.RGB.purple, k = KN.RGB.gold }
 
 -- One icon per kind of line, from the game's own spell art.
 KN.ICONS = {
@@ -133,6 +178,9 @@ KN.ICONS = {
 	MASSDISP = "Interface\\Icons\\Spell_Arcane_MassDispel",
 	SOOTHE  = "Interface\\Icons\\Ability_Hunter_BeastSoothe",
 	STUN    = "Interface\\Icons\\Spell_Frost_Stun",
+	DISPEL  = "Interface\\Icons\\Spell_Holy_DispelMagic",
+	DEF     = "Interface\\Icons\\Ability_Warrior_ShieldWall",
+	UTIL    = "Interface\\Icons\\Ability_Shaman_WindwalkTotem",
 	TANK    = "Interface\\Icons\\Ability_Warrior_DefensiveStance",
 	BUILD   = "Interface\\Icons\\Ability_Marksmanship",
 	TASK    = "Interface\\Icons\\INV_Misc_Map_01",
@@ -247,6 +295,11 @@ end
 -- With no trash there are no legs to sequence, so a raid needs nothing
 -- special. The error is deliberate rather than a silent drop: a raid file
 -- that grew a trash table is a mistake worth failing loudly at load.
+--
+-- `linear = true` says the bosses come in exactly the listed order (every
+-- Mists raid does). Such a raid previews its next boss from the kill count
+-- and pages with next/prev, as a dungeon does; a raid without it lists its
+-- bosses instead, because with wings "next" would be a guess.
 function KN.RegisterRaid(def)
 	if def.trash then
 		error("Notes: raid '" .. tostring(def.name) .. "' must not define trash", 2)

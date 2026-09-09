@@ -13,6 +13,10 @@
 --                      (Tyrannical | Fortified | Devour ...), class = show
 --                      only to that class, ability (journal title, gates by
 --                      difficulty), min (n h m k)
+--               uses   what a kind of tool is FOR here, per kind (stun, kick,
+--                      dispel, purge, soothe, utility): the ranked-run data
+--                      then says "Capacitor Totem works well on Mirror
+--                      Images" for every spec with a stun
 --   trash     { name=, text=, tag=, role=, need=, affix=, class=, leg=, min= }
 --             leg 1 = before boss 1; no leg = every stretch. An entry with
 --             no `name` is a stretch-level line (the lust call, a talent
@@ -50,12 +54,12 @@ KN.RegisterDungeon({
 			} },
 		{ name = "Kokia Blazehoof",
 			core = {
-				"Kill the Blazebound Firestorm from Ritual of Blazebinding, kick Roaring Blaze, out of Burnout when it dies",
+				"Kill the Blazebound Firestorm from Ritual of Blazebinding, kick Roaring Blaze, leave Burnout when it dies",
 				"Sidestep Molten Boulder, it stuns",
 			},
 			notes = {
-				{ tag = "CD", role = "healer", text = "Inferno from the add, grows the longer it lives", ability = "Inferno" },
-				{ tag = "TANK", role = "tank", text = "Defensive for every Searing Blows; pick the Firestorm up", ability = "Searing Blows" },
+				{ tag = "CD", role = "healer", text = "Inferno from the add grows the longer it lives", ability = "Inferno" },
+				{ tag = "TANK", role = "tank", text = "Defensive for every Searing Blows; pick up the Firestorm", ability = "Searing Blows" },
 			} },
 		{ name = "Kyrakka and Erkhart Stormvein",
 			core = {
@@ -67,18 +71,18 @@ KN.RegisterDungeon({
 				{ tag = "LUST", need = "lust", text = "phase 2, when Erkhart mounts", ability = "Inferno Spit" },
 				{ tag = "MAGIC", need = "magic", text = "Stormslam off the tank before the next cast, it doubles nature damage", ability = "Stormslam" },
 				{ tag = "CD", role = "healer", text = "P2 Inferno Spit", ability = "Inferno Spit" },
-				{ tag = "TANK", role = "tank", text = "Stormslam stacks if it isn't dispelled: call for it", ability = "Stormslam" },
+				{ tag = "TANK", role = "tank", text = "Undispelled Stormslam stacks: call for the dispel", ability = "Stormslam" },
 			} },
 	},
 	trash = {
 		{ tag = "LUST", need = "lust", affix = "Fortified", text = "the first big pull", leg = 1 },
 		{ tag = "BUILD", class = "SHAMAN", min = "k", text = "no poison here: swap Poison Cleansing Totem out", leg = 1 },
-		{ name = "Chillweaver", tag = "PURGE", need = "purge", text = "Ice Shield keeps the pack alive", leg = 1 },
+		{ name = "Chillweaver", tag = "PURGE", need = "purge", text = "Purge Ice Shield, it keeps the pack alive", leg = 1 },
 		{ name = "Flamedancer", tag = "STUN", need = "stun", text = "Flame Dance can't be kicked: hard CC it", leg = 1 },
 		{ name = "Primal Thundercloud", tag = "PURGE", need = "purge", text = "Purge its shield" },
 		{ name = "Flamegullet", tag = "CD", role = "healer", text = "Enrages under 50%, party damage climbs fast", leg = 2 },
 		{ name = "Flamegullet", tag = "TANK", role = "tank", text = "Fire Maw: defensive, it leaves a DoT", leg = 2 },
-		{ name = "Thunderhead", tag = "MAGIC", need = "magic", text = "Rolling Thunder: dispel one player at a time, it spreads", leg = 3 },
+		{ name = "Thunderhead", tag = "MAGIC", need = "magic", text = "Dispel Rolling Thunder one player at a time, it spreads", leg = 3 },
 		{ name = "Thunderhead", tag = "TANK", role = "tank", text = "Thunder Jaw: defensive", leg = 3 },
 		{ name = "Defier Draghar", tag = "TANK", role = "tank", text = "Steel Barrage: defensive or external" },
 	},
@@ -95,19 +99,19 @@ KN.RegisterDungeon({
 			notes = {
 				{ tag = "POISON", need = "poison", text = "Toxic Spores on the soakers", ability = "Toxic Spores" },
 				{ tag = "CD", role = "healer", text = "Ravenous Bellow", ability = "Ravenous Bellow" },
-				{ tag = "TANK", role = "tank", text = "You can soak mushrooms too; the meat-pile Bellow knocks back", ability = "Spoiled Supplies" },
+				{ tag = "TANK", role = "tank", text = "Soak mushrooms too; the meat-pile Bellow knocks back", ability = "Spoiled Supplies" },
 			} },
 		{ name = "Sentinel of Winter",
 			core = {
 				"Stack to bait Raging Squall tornadoes into one spot, then rotate the room",
-				"Kill the Fractured Shivercores, kick Winter's Shroud, one player soaks each Rimeshatter",
+				"Kill the Fractured Shivercores, kick Winter's Shroud, one soaker per Rimeshatter",
 			},
 			notes = {
 				{ tag = "LUST", need = "lust", affix = "Fortified", text = "when the Shivercores spawn", ability = "Shattering Frostspike" },
 				{ tag = "MAGIC", need = "magic", text = "Glacial Torment off immediately", ability = "Glacial Torment" },
 				{ tag = "CD", role = "healer", text = "Frozen Tempest channel", ability = "Frozen Tempest" },
 				{ tag = "TANK", role = "tank", text = "Drag the boss to each Shivercore so it dies to cleave", ability = "Shattering Frostspike" },
-				{ role = "ranged", text = "Rimeshatter soaks usually fall to ranged", ability = "Rimeshatter" },
+				{ role = "ranged", text = "Ranged take the Rimeshatter soaks", ability = "Rimeshatter" },
 			} },
 		{ name = "Nalorakk",
 			core = {
@@ -118,20 +122,20 @@ KN.RegisterDungeon({
 			notes = {
 				{ tag = "LUST", need = "lust", affix = "Tyrannical", text = "on pull" },
 				{ tag = "CD", role = "healer", text = "Three Onslaught hits, major on the third", ability = "Overwhelming Onslaught" },
-				{ tag = "TANK", role = "tank", text = "Forceful Slam is yours to soak right after Onslaught", ability = "Forceful Slam" },
+				{ tag = "TANK", role = "tank", text = "Soak Forceful Slam right after Onslaught", ability = "Forceful Slam" },
 			} },
 	},
 	trash = {
-		{ tag = "TASK", text = "Gather six offerings (berries in bushes, fishing spots, apple barrels) to summon the Hoardmonger", leg = 1 },
-		{ tag = "TASK", text = "Optional: Warding Incense (bear form, or Alchemy 25) is +5% versatility for 10 min", leg = 1 },
-		{ tag = "TASK", text = "Optional: Snowworn Provisions halfway through the Harsh Winds gauntlet, right side (Night Elf, Troll, or bear form) halves knockbacks for 15 min", leg = 2 },
-		{ name = "Earthwhisper Tender", tag = { "KICK", "PURGE" }, need = { "kick", "purge" }, text = "Healing Breeze, every cast" },
+		{ tag = "TASK", progress = "Offering", text = "Gather offerings (berries, fishing spots, apple barrels) to summon the boss", leg = 1 },
+		{ tag = "TASK", text = "Optional: Warding Incense (bear form or Alchemy 25), +5% versatility for 10 min", leg = 1 },
+		{ tag = "TASK", text = "Optional: Snowworn Provisions mid-gauntlet, right side (Night Elf, Troll or bear form), halves knockbacks for 15 min", leg = 2 },
+		{ name = "Earthwhisper Tender", tag = { "KICK", "PURGE" }, need = { "kick", "purge" }, text = "Kick or purge Healing Breeze, every cast" },
 		{ name = "Spirit of Hunger", text = "Kill the Starvation Effigy totem it drops" },
-		{ name = "Mauler / Mystic", tag = "KICK", need = "kick", text = "Arc Lightning, never let one through" },
+		{ name = "Mauler / Mystic", tag = "KICK", need = "kick", text = "Kick Arc Lightning, never let one through" },
 		{ name = "Loa Speaker Nanea", text = "Kill the Volatile Totems", leg = 3 },
-		{ name = "Troll casters", tag = "CURSE", need = "curse", text = "Their curses are yours", leg = 3 },
-		{ name = "Bonded Beasttamer", tag = "SOOTHE", need = "soothe", text = "Bestial Wrath enrage" },
-		{ name = "Territorial Matriarch", tag = "SOOTHE", need = "soothe", text = "Mother's Wrath enrage" },
+		{ name = "Troll casters", tag = "CURSE", need = "curse", text = "Dispel their curses", leg = 3 },
+		{ name = "Bonded Beasttamer", tag = "SOOTHE", need = "soothe", text = "Soothe Bestial Wrath" },
+		{ name = "Territorial Matriarch", tag = "SOOTHE", need = "soothe", text = "Soothe Mother's Wrath" },
 	},
 })
 
@@ -139,6 +143,7 @@ KN.RegisterDungeon({
 	name = "Murder Row",
 	bosses = {
 		{ name = "Kystia Manaheart",
+			uses = { stun = "Mirror Images" },
 			core = {
 				"Kill Nibbles to 20%, not the shielded boss",
 				"Kick or CC the five Mirror Images",
@@ -166,11 +171,12 @@ KN.RegisterDungeon({
 				"Loose spread for Infernal Crush",
 			},
 			notes = {
-				{ tag = "CD", role = "healer", text = "Infernal Crush, it lands on top of Demonic Rage", ability = "Infernal Crush" },
+				{ tag = "CD", role = "healer", text = "Infernal Crush lands on top of Demonic Rage", ability = "Infernal Crush" },
 				{ tag = "TANK", role = "tank", text = "Legion Strike: defensive; hold him at the edge facing out", ability = "Legion Strike" },
-				{ role = "ranged", text = "If you get the Axe, drop it next to the boss so melee cleave it", ability = "Axe Toss" },
+				{ role = "ranged", text = "Drop the Axe next to the boss so melee cleave it", ability = "Axe Toss" },
 			} },
 		{ name = "Lithiel Cinderfury",
+			uses = { stun = "the Wild Imps" },
 			core = {
 				"Kick rotation on Chaos Bolt",
 				"Kill the Furious Vilefiend on spawn; CC the Wild Imps in Fingers of Gul'dan",
@@ -183,12 +189,12 @@ KN.RegisterDungeon({
 			} },
 	},
 	trash = {
-		{ tag = "TASK", text = "Interrogate all four Silvermoon Snitches in the first area; Kystia's door stays shut until you do", leg = 1 },
-		{ tag = "TASK", text = "The bar: all five of you talk to Selenar Sunshy, then work your job to five stars. Five Star Review is +10% damage and healing for 5 min", leg = 2 },
+		{ tag = "TASK", progress = "Snitch", text = "Interrogate Silvermoon Snitches to unlock the boss", leg = 1 },
+		{ tag = "TASK", text = "The bar: everyone talks to Selenar Sunshy and works their job to five stars, +10% damage and healing for 5 min", leg = 2 },
 		{ tag = "BUILD", class = "SHAMAN", min = "k", text = "Improved Purify Spirit for Curse of Doom", leg = 1 },
 		{ name = "Massive Felwyrm", text = "Explodes on death, kill it away from the group", leg = 1 },
 		{ name = "Shivan Punisher", tag = "CD", role = "healer", text = "Enrages at 50%", leg = 3 },
-		{ name = "Corrupted Warlock", tag = { "KICK", "CURSE" }, need = { "kick", "curse" }, text = "Curse of Doom: kick it, or dispel the moment it lands" },
+		{ name = "Corrupted Warlock", tag = { "KICK", "CURSE" }, need = { "kick", "curse" }, text = "Kick Curse of Doom, or dispel it the moment it lands" },
 	},
 })
 
@@ -206,14 +212,14 @@ KN.RegisterDungeon({
 			} },
 		{ name = "Atroxus",
 			core = {
-				"Monstrous Roar spawns a Toxic Creeper: kill it now, its Toxic Aura is a wipe",
+				"Monstrous Roar spawns a Toxic Creeper: kill it at once, its Toxic Aura is a wipe",
 				"Out of the Poison Pools, sidestep Noxious Breath",
 			},
 			notes = {
 				{ tag = "LUST", need = "lust", affix = "Tyrannical", text = "on the first Creeper", ability = "Toxic Creeper" },
 				{ tag = "CD", role = "healer", text = "Every Creeper", ability = "Toxic Creeper" },
-				{ tag = "POISON", need = "poison", text = "Mind-Numbing Poison, it feeds Hulking Claw on the tank", ability = "Mind-Numbing Poison" },
-				{ tag = "TANK", role = "tank", text = "The Creeper fixates you and every hit stacks Sickening Bite: kite it, and defensive Hulking Claw", ability = "Hulking Claw" },
+				{ tag = "POISON", need = "poison", text = "Mind-Numbing Poison feeds Hulking Claw on the tank", ability = "Mind-Numbing Poison" },
+				{ tag = "TANK", role = "tank", text = "The Creeper fixates you and every hit stacks Sickening Bite: kite it; defensive for Hulking Claw", ability = "Hulking Claw" },
 			} },
 		{ name = "Charonus",
 			core = {
@@ -224,18 +230,18 @@ KN.RegisterDungeon({
 			notes = {
 				{ tag = "CD", role = "healer", text = "Orb carriers, slow ones first, while the stars pulse", ability = "Gravitic Orb" },
 				{ tag = "TANK", role = "tank", text = "Dark Waves frontal: defensive; hold him in the middle of the three stars", ability = "Dark Waves" },
-				{ role = "dps", text = "Stand near a star before Gravitic Orbs go out, the run is shorter", ability = "Gravitic Orb" },
+				{ role = "dps", text = "Stand near a star before Gravitic Orbs go out to shorten the run", ability = "Gravitic Orb" },
 			} },
 	},
 	trash = {
-		{ tag = "TASK", text = "Pick a path. Left: Aegyra, fewer kicks, Proof of Endurance buff. Right: Raj'kess, more Enthralled Shamans, Proof of Mastery. Both last 30 min", leg = 1 },
-		{ tag = "TASK", text = "Kill all three Devouring Brutalizers to open Charonus's arena", leg = 3 },
+		{ tag = "TASK", text = "Pick a path: left is Aegyra, fewer kicks, Proof of Endurance; right is Raj'kess, more shamans, Proof of Mastery. Buffs last 30 min", leg = 1 },
+		{ tag = "TASK", progress = "Brutalizer", text = "Kill the Devouring Brutalizers to open the arena", leg = 3 },
 		{ tag = "LUST", need = "lust", affix = "Fortified", text = "the opening pack", leg = 1 },
 		{ name = "Devouring Brutalizer", text = "Devours low-health mobs to grow: don't leave things at 10%" },
 		{ name = "Harrower (left)", text = "Sky Strike is a stack-to-split, not a spread", leg = 2 },
 		{ name = "Enthralled Shaman", text = "Kill the Magma Totem on spawn" },
-		{ name = "Kilivore Screamer", tag = "KICK", need = "kick", text = "Demoralizing Shout" },
-		{ name = "Agitated Voidscythe", tag = "POISON", need = "poison", text = "Corrosive Essence" },
+		{ name = "Kilivore Screamer", tag = "KICK", need = "kick", text = "Kick Demoralizing Shout" },
+		{ name = "Agitated Voidscythe", tag = "POISON", need = "poison", text = "Dispel Corrosive Essence" },
 	},
 })
 
@@ -268,10 +274,10 @@ KN.RegisterDungeon({
 				"Bear at 70%: tank bleeds · Haranir at 40%: 8s ability cycle",
 			},
 			notes = {
-				{ role = "healer", text = "Grievous Thrash clears when the target is healed to full", ability = "Grievous Thrash" },
+				{ role = "healer", text = "Healing the target to full clears Grievous Thrash", ability = "Grievous Thrash" },
 				{ tag = "CD", role = "healer", text = "Lightfire explosions", ability = "Lightfire" },
-				{ tag = "TANK", role = "tank", text = "Bear form hits harder (Mangling Claws) and Grievous Thrash stacks until you're full", ability = "Grievous Thrash" },
-				{ role = "melee", text = "Spread for Pulverizing Strikes, it's a cone on several of you", ability = "Pulverizing Strikes" },
+				{ tag = "TANK", role = "tank", text = "Bear form hits harder (Mangling Claws); Grievous Thrash stacks until you are full", ability = "Grievous Thrash" },
+				{ role = "melee", text = "Spread for Pulverizing Strikes, a cone on several of you", ability = "Pulverizing Strikes" },
 			} },
 		{ name = "Ziekket",
 			core = {
@@ -281,16 +287,16 @@ KN.RegisterDungeon({
 			},
 			notes = {
 				{ tag = "LUST", need = "lust", affix = "Fortified", text = "the first add phase", ability = "Awaken the Lightbloom" },
-				{ tag = "CD", role = "healer", text = "Oozing Xylem rot, peaks in the add phase; watch high Essence stacks", ability = "Oozing Xylem" },
+				{ tag = "CD", role = "healer", text = "Oozing Xylem rot peaks in the add phase; watch high Essence stacks", ability = "Oozing Xylem" },
 				{ tag = "TANK", role = "tank", text = "Thornspike: defensive; group the lashers", ability = "Thornspike" },
 			} },
 	},
 	trash = {
-		{ tag = "TASK", text = "Optional: left path, the Light-Starved Blossom (Paladin, Priest, or Herbalism 25) is 20% speed and 5% haste for 2 min; right path, Hunters and Druids can free the Baby Grovecrawler to fight for a minute", leg = 1 },
-		{ tag = "TASK", text = "After Ikuzz, talk to the bird to fly down to Ruia", leg = 3 },
+		{ tag = "TASK", text = "Optional: left path, Light-Starved Blossom (Paladin, Priest or Herbalism 25) for 20% speed and 5% haste, 2 min; right path, Hunters and Druids free the Baby Grovecrawler", leg = 1 },
+		{ tag = "TASK", text = "After Ikuzz, talk to the bird to fly down", leg = 3 },
 		{ name = "Sporeblight Belcher", text = "Explodes on death", leg = 2 },
-		{ name = "Potatoad Matriarch", tag = "POISON", need = "poison", text = "Toxic Spew hits everyone", leg = 3 },
-		{ name = "Radiant Spellsower", tag = "KICK", need = "kick", text = "Light Bolt Volley wakes the dormant adds" },
+		{ name = "Potatoad Matriarch", tag = "POISON", need = "poison", text = "Dispel Toxic Spew, it hits everyone", leg = 3 },
+		{ name = "Radiant Spellsower", tag = "KICK", need = "kick", text = "Kick Light Bolt Volley, it wakes the dormant adds" },
 	},
 })
 
@@ -308,6 +314,7 @@ KN.RegisterDungeon({
 				{ tag = "TANK", role = "tank", text = "Overload: defensive every cast", ability = "Overload" },
 			} },
 		{ name = "Merektha",
+			uses = { stun = "the snakes" },
 			core = {
 				"A Knot of Snakes: dispel it if you can, else stack in melee and cleave the snakes",
 				"Burrow: kick Poison Spit on the adds and kill them first; don't get knocked into Lingering Storm",
@@ -325,15 +332,16 @@ KN.RegisterDungeon({
 				"Kite him out of the Induction fields",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "on pull, it is an energy race" },
+				{ tag = "LUST", need = "lust", text = "on pull, an energy race" },
 				{ tag = "CD", role = "healer", text = "Soakers stack Galvanized; top everyone before each Induction", ability = "Galvanized" },
 				{ tag = "TANK", role = "tank", text = "Place him so the DPS can reach the spires; you don't soak", ability = "Lightning Spire" },
 				{ role = "dps", text = "The spires are yours: rotate soakers, Galvanized stacks", ability = "Lightning Spire" },
 			} },
 		{ name = "Avatar of Sethraliss",
+			uses = { stun = "the Tormentor wave" },
 			core = {
 				"Corrupted Guardian, then grab every Corrupted Lifeforce orb within 6s",
-				"Essence Defiler first when it's up: it stops healing on the Avatar",
+				"Essence Defiler first when it is up: it blocks healing on the Avatar",
 				"CC and cleave the Tormentor wave, each one heals him",
 			},
 			notes = {
@@ -344,12 +352,12 @@ KN.RegisterDungeon({
 			} },
 	},
 	trash = {
-		{ tag = "TASK", text = "Loose Spark gauntlet: walk the spiral between the sparks; killing the Spark Channelers thins them", leg = 3 },
-		{ tag = "TASK", text = "Second gauntlet, same rules; then energize both Eyes of Sethraliss: click one, stand in the ticking damage until the bar fills, kill what spawns, repeat. The skull door opens to the Avatar", leg = 4 },
+		{ tag = "TASK", text = "Spark gauntlet: walk the spiral between the sparks; killing Spark Channelers thins them", leg = 3 },
+		{ tag = "TASK", text = "Second gauntlet, then energize both Eyes: click one, stand in the damage until the bar fills, kill what spawns, repeat. The skull door opens to the boss", leg = 4 },
 		{ tag = "BUILD", class = "SHAMAN", min = "k", text = "Poison Cleansing Totem, and Improved Purify Spirit for Addle Mind", leg = 1 },
-		{ name = "Imbued Stormcaller", tag = "MAGIC", need = "magic", text = "Imbued Conduction stuns when it expires: dispel every one" },
-		{ name = "Poisonous Viper", tag = "POISON", need = "poison", text = "Cytotoxin" },
-		{ name = "Faithless Subjugator", tag = { "KICK", "CURSE" }, need = { "kick", "curse" }, text = "Addle Mind: kick it, or dispel it" },
+		{ name = "Imbued Stormcaller", tag = "MAGIC", need = "magic", text = "Dispel every Imbued Conduction, it stuns when it expires" },
+		{ name = "Poisonous Viper", tag = "POISON", need = "poison", text = "Dispel Cytotoxin" },
+		{ name = "Faithless Subjugator", tag = { "KICK", "CURSE" }, need = { "kick", "curse" }, text = "Kick Addle Mind, or dispel it" },
 	},
 })
 
@@ -401,12 +409,12 @@ KN.RegisterDungeon({
 	trash = {
 		{ tag = "BUILD", class = "SHAMAN", min = "k", text = "Improved Purify Spirit for Hex; Poison Cleansing Totem for Serpent Strike", leg = 1 },
 		{ tag = "LUST", need = "lust", affix = "Fortified", text = "the double pack in the Hall of Kings", leg = 2 },
-		{ name = "Risen Hexer", tag = { "KICK", "MAGIC" }, need = { "kick", "magic" }, text = "Hex Volley hits the whole party; Shadowfrost Bolt is a dispel", leg = 1 },
-		{ name = "Phantom Hex Priest", tag = "CURSE", need = "curse", text = "Hex", leg = 2 },
-		{ name = "Queen Patlaa", tag = "POISON", need = "poison", text = "Serpent Strike", leg = 2 },
+		{ name = "Risen Hexer", tag = { "KICK", "MAGIC" }, need = { "kick", "magic" }, text = "Kick Hex Volley, it hits the whole party; dispel Shadowfrost Bolt", leg = 1 },
+		{ name = "Phantom Hex Priest", tag = "CURSE", need = "curse", text = "Dispel Hex", leg = 2 },
+		{ name = "Queen Patlaa", tag = "POISON", need = "poison", text = "Dispel Serpent Strike", leg = 2 },
 		{ name = "Spectral Shaman", text = "Kill its Healing Tide Totem on spawn" },
-		{ name = "Seneschal M'bara", tag = { "KICK", "PURGE" }, need = { "kick", "purge" }, text = "Unholy Mending; purge what lands" },
-		{ name = "Half-Finished Mummy", tag = "KICK", need = "kick", text = "Wretched Discharge, every cast" },
+		{ name = "Seneschal M'bara", tag = { "KICK", "PURGE" }, need = { "kick", "purge" }, text = "Kick Unholy Mending; purge what lands" },
+		{ name = "Half-Finished Mummy", tag = "KICK", need = "kick", text = "Kick Wretched Discharge, every cast" },
 		{ name = "Ghostly Brute", text = "Seismic Upheaval: move the moment it starts" },
 	},
 })
@@ -425,6 +433,7 @@ KN.RegisterDungeon({
 				{ tag = "TANK", role = "tank", text = "Hydrastrike: defensive; move him off Fresh Meat corpses", ability = "Hydrastrike" },
 			} },
 		{ name = "The Writhing Coil",
+			uses = { stun = "the Uncoiled Writhes" },
 			core = {
 				"Kick all three Toxic Barrage casts",
 				"Death Rattle: tethered players run to snap the Vine Grip",
@@ -447,16 +456,16 @@ KN.RegisterDungeon({
 			} },
 	},
 	trash = {
-		{ tag = "TASK", text = "Destroy the six Caustic Mist Totems around the start to open the way to Rav'i", leg = 1 },
-		{ tag = "TASK", text = "Destroy the four Infusion Totems in the mist wall, then kill the Ascendant Serpent to reach Zul'jan", leg = 3 },
-		{ tag = "TASK", text = "Optional: the Unfinished Mixture near Zul'jan (Cooking or Alchemy 25) gives Mutating Elixir for the rest of the run", leg = 3 },
+		{ tag = "TASK", progress = "Caustic", text = "Destroy the Caustic Mist Totems at the start to open the way", leg = 1 },
+		{ tag = "TASK", progress = "Infusion", text = "Destroy the Infusion Totems in the mist wall, then kill the Ascendant Serpent", leg = 3 },
+		{ tag = "TASK", text = "Optional: Unfinished Mixture near Zul'jan (Cooking or Alchemy 25) gives Mutating Elixir for the run", leg = 3 },
 		{ tag = "LUST", need = "lust", affix = "Fortified", text = "the Ritual Chieftain pack", leg = 1 },
 		{ tag = "BUILD", class = "SHAMAN", min = "k", text = "Poison Cleansing Totem for Envenom and Mass Envenom", leg = 1 },
-		{ name = "Ritual Chieftain", tag = "KICK", text = "Blood Sacrifice puts a heal absorb on everyone", leg = 1 },
-		{ name = "Ula'tek's Chosen", tag = { "KICK", "POISON" }, need = { "kick", "poison" }, text = "Mass Envenom, every cast; dispel what lands" },
-		{ name = "High Evolutionist", tag = { "STUN", "POISON" }, need = { "stun", "poison" }, text = "Evolve can't be kicked: hard CC it or it becomes Mass Envenom; Envenom is a dispel" },
+		{ name = "Ritual Chieftain", tag = "KICK", text = "Kick Blood Sacrifice, it puts a heal absorb on everyone", leg = 1 },
+		{ name = "Ula'tek's Chosen", tag = { "KICK", "POISON" }, need = { "kick", "poison" }, text = "Kick Mass Envenom, every cast; dispel what lands" },
+		{ name = "High Evolutionist", tag = { "STUN", "POISON" }, need = { "stun", "poison" }, text = "Hard CC Evolve, it can't be kicked and becomes Mass Envenom; dispel Envenom" },
 		{ name = "Living Venom", text = "Explodes on death: stagger the kills" },
 		{ name = "Twinfang Harrower", tag = "TANK", role = "tank", text = "Duostrike: defensive" },
-		{ name = "Ravenous Descendant", tag = "SOOTHE", need = "soothe", text = "Ravenous enrage" },
+		{ name = "Ravenous Descendant", tag = "SOOTHE", need = "soothe", text = "Soothe Ravenous" },
 	},
 })

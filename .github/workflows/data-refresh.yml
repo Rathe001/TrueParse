@@ -34,7 +34,8 @@ on:
     - cron: "40 9 5 * *" # day 5: MoP SoO 25-man percentiles
     - cron: "40 9 6 * *" # day 6: MoP kill times
     - cron: "40 9 7 * *" # day 7: tank mitigation baselines (retail + MoP)
-    - cron: "40 9 8 * *" # day 8: finalize (test gate -> PR / release)
+    - cron: "40 9 8 * *" # day 8: boss utility casts + lust timing (retail M+ and raid)
+    - cron: "40 9 9 * *" # day 9: finalize (test gate -> PR / release)
   workflow_dispatch:
     inputs:
       slice:
@@ -42,7 +43,7 @@ on:
         required: true
         default: finalize
         type: choice
-        options: [retail-pct, retail-rest, mop-pct-10, mop-pct-25, mop-kt, tank-mit, finalize]
+        options: [retail-pct, retail-rest, mop-pct-10, mop-pct-25, mop-kt, tank-mit, boss-casts, finalize]
 
 # never let two slices (and their single-active WCL token) run at once; queue
 # a new run behind an in-flight one rather than cancelling it
@@ -78,7 +79,8 @@ jobs:
             "40 9 5 * *") S=mop-pct-25 ;;
             "40 9 6 * *") S=mop-kt ;;
             "40 9 7 * *") S=tank-mit ;;
-            "40 9 8 * *") S=finalize ;;
+            "40 9 8 * *") S=boss-casts ;;
+            "40 9 9 * *") S=finalize ;;
             *) S="${{ github.event.inputs.slice }}" ;;
           esac
           echo "slice=$S" >> "$GITHUB_OUTPUT"
@@ -221,6 +223,22 @@ jobs:
         run: |
           ./scripts/fetch-tank-mitigation.ps1 -GameBase "https://www.warcraftlogs.com" -ZoneId 53 -Brackets "4,3" -MitIds retail -OutFile "$PWD/Data/TankAnchors.lua" -OutDamageFile "$PWD/Data/TankDamage.lua"
           ./scripts/fetch-tank-mitigation.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Brackets "3x10,3x25" -MitIds mists -OutFile "$PWD/Data/TankAnchors_Mists.lua" -OutDamageFile "$PWD/Data/TankDamage_Mists.lua"
+
+      # Per-boss UTILITY casts per spec (kicks, dispels, purges, soothes,
+      # stuns, lust, defensives, healer cooldowns) and lust timing, from
+      # ranked keystone runs (zone 55) and the current raid tier (zone 53).
+      # Feeds the Notes view: a "ranked runs cast X here" line where no
+      # hand-written one exists, and /tp notes check. Two crawls, one
+      # window, sequential (single-active token). Josh 2026-09-09.
+      - name: Boss utility casts + lust timing (retail M+ and raid)
+        if: steps.creds.outputs.hascreds == 'true' && steps.cfg.outputs.slice == 'boss-casts'
+        shell: pwsh
+        run: |
+          # 400 keystone runs (50 per dungeon) so every spec clears the
+          # five-player floor on every boss; ~1600 requests, sleeps through
+          # two or three hourly point resets (Josh 2026-09-09)
+          ./scripts/fetch-boss-casts.ps1 -GameBase "https://www.warcraftlogs.com" -ZoneId 55 -Kind dungeon -MaxTables 400 -OutFile "$PWD/Data/BossCasts.lua"
+          ./scripts/fetch-boss-casts.ps1 -GameBase "https://www.warcraftlogs.com" -ZoneId 53 -Kind raid -Brackets "4,3" -MaxTables 160 -OutFile "$PWD/Data/BossCasts_Raid.lua"
 
       # ---- gate: any refreshed data must pass the full headless suite ----
       - name: Install Lua
