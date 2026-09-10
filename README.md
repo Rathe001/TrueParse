@@ -132,8 +132,9 @@ Ranked Warcraft Logs runs add a third source. `Data\BossCasts.lua` and
 `Data\BossCasts_Raid.lua` (from `scripts\fetch-boss-casts.ps1`, refreshed
 monthly) record, per boss and spec, which utility spells most players cast
 and where the first lust lands. A tool most of your spec uses on a boss
-that no hand-written line covers becomes a line such as "Most Restoration
-Shamans use Poison Cleansing Totem here"; `/tp notes check [instance]`
+that no hand-written line covers becomes a line such as "Capacitor Totem
+works well on Mirror Images", named after the boss's own notes; a tool with
+nothing on the boss to name adds no line. `/tp notes check [instance]`
 lists where the hand-written lines and the data disagree.
 
 `/tp notes show <instance> [l|n|h|m|k] [+9] [affix names]` previews any

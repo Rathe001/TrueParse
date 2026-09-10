@@ -102,6 +102,11 @@ local TAG_NEED = {
 	MAGIC = "magic", CURSE = "curse", POISON = "poison", DISEASE = "disease",
 	FEAR = "fear", MASSDISP = "massdispel",
 }
+-- which hand-written tags already say what a data kind would say
+local TAG_KIND = { KICK = "kick", PURGE = "purge", SOOTHE = "soothe", STUN = "stun", LUST = "lust",
+	CD = "healercd", TANK = "defensive", DEF = "defensive", DISPEL = "dispel",
+	MAGIC = "dispel", CURSE = "dispel", POISON = "dispel", DISEASE = "dispel", BLEED = "dispel",
+	MASSDISP = "dispel", FEAR = "dispel" }
 local function pickTag(n)
 	if not n.tag then return nil end
 	local list = type(n.tag) == "table" and n.tag or { n.tag }
@@ -168,6 +173,35 @@ local function noteHidden(n, jb)
 	return false
 end
 
+-- How narrowly a note picks its reader: a role line was written for the
+-- reader's seat, a class line for their kit, a need line for anyone with
+-- the tool.
+local function specificity(n)
+	return (n.role and 4 or 0) + (n.class and 2 or 0) + (n.need and 1 or 0)
+end
+
+-- The notes this reader sees on a boss, one per enemy ability: a tank with
+-- a poison dispel would otherwise read "Dispel Envenom" and "Envenom:
+-- defensive, get it dispelled" back to back (Josh 2026-09-09); the line
+-- written for their seat is the one that stays. A lust call is a timing,
+-- not an answer to the ability, so it never folds.
+local function visibleNotes(b, jb)
+	local out, at = {}, {}
+	for _, x in ipairs(b.notes or {}) do
+		if not noteHidden(x, jb) then
+			local key = x.ability and pickTag(x) ~= "LUST" and x.ability
+			local i = key and at[key]
+			if i then
+				if specificity(x) > specificity(out[i]) then out[i] = x end
+			else
+				out[#out + 1] = x
+				if key then at[key] = #out end
+			end
+		end
+	end
+	return out
+end
+
 local function addCoreRows(rows, b, jb)
 	if not b.core then return 0 end
 	if b.coreMin and not diffOK(b.coreMin) then return 0 end
@@ -189,11 +223,6 @@ end
 
 local KIND_TAG = { kick = "KICK", dispel = "DISPEL", purge = "PURGE", soothe = "SOOTHE", stun = "STUN",
 	lust = "LUST", defensive = "DEF", healercd = "CD", utility = "UTIL" }
--- which hand-written tags already say what a data kind would say
-local TAG_KIND = { KICK = "kick", PURGE = "purge", SOOTHE = "soothe", STUN = "stun", LUST = "lust",
-	CD = "healercd", TANK = "defensive", DEF = "defensive", DISPEL = "dispel",
-	MAGIC = "dispel", CURSE = "dispel", POISON = "dispel", DISEASE = "dispel", BLEED = "dispel",
-	MASSDISP = "dispel", FEAR = "dispel" }
 -- a line earns its place when at least half the spec casts it and the
 -- median player casts it at least once a pull
 local DATA_SHARE, DATA_CPF = 0.5, 1
@@ -276,14 +305,38 @@ end
 
 -- What a tool of this kind is FOR on this boss, so the line can say
 -- "Capacitor Totem works well on Mirror Images" rather than that the tool
--- gets used (Josh 2026-09-09). The boss declares it, per kind:
+-- gets used (Josh 2026-09-09). Two sources, the boss's own declaration
+-- first:
 --   uses = { stun = "Mirror Images", soothe = "Bestial Wrath" }
--- and every spec with that kind of tool gets the same phrase around its
--- own spell. Reading the target out of the boss's prose was tried and
--- produced "works well on and cleave the Tormentor wave"; a hand-written
--- field is the honest source. nil when the boss declares nothing.
+-- then the `ability` of any note on the boss whose tag is of this kind,
+-- whether or not the reader sees that note: the tank line "Defensive for
+-- Envenom" tells a Retribution reader what their Divine Shield answers.
+-- Reading the target out of the boss's prose was tried and produced
+-- "works well on and cleave the Tormentor wave"; the spell-name field is
+-- the honest source. nil when neither names one, and then there is no
+-- line: "Divine Shield is worth using here" says nothing (Josh
+-- 2026-09-09).
 local function useTarget(b, kind)
-	return b.uses and b.uses[kind] or nil
+	local declared = b.uses and b.uses[kind]
+	if declared then return declared end
+	for _, x in ipairs(b.notes or {}) do
+		if x.ability then
+			local list = type(x.tag) == "table" and x.tag or { x.tag }
+			for _, tag in ipairs(list) do
+				if TAG_KIND[tag] == kind then return x.ability end
+			end
+		end
+	end
+	return nil
+end
+
+-- The sentence for a spell of this kind against its target.
+local USE_TEXT = {
+	stun = "%s works well on %s", soothe = "%s works well on %s",
+	dispel = "%s clears %s", purge = "%s strips %s", kick = "%s on %s",
+}
+local function useText(kind, name, target)
+	return (USE_TEXT[kind] or "%s for %s"):format(name, target)
 end
 
 -- Rows the data adds for the reader on this boss (Josh 2026-09-09: "just
@@ -324,17 +377,9 @@ local function dataRows(b, covered)
 					admit = usual == nil or usual < DATA_SHARE / 2
 				end
 			end
-			if admit then
-				local target = useTarget(b, kind)
-				local text
-				if target then
-					text = ("%s works well on %s"):format(name, target)
-				elseif kind == "kick" then
-					text = "There are casts worth kicking here" -- which spell is implied
-				else
-					text = ("%s is worth using here"):format(name)
-				end
-				out[#out + 1] = tagged({}, tag, text)
+			local target = admit and useTarget(b, kind)
+			if target then
+				out[#out + 1] = tagged({}, tag, useText(kind, name, target))
 			end
 		end
 	end
@@ -376,12 +421,10 @@ local function addBossRows(rows, b, idx, jb, pulling)
 	rows[#rows + 1] = { type = "section", label = where, name = b.name, pre = (not pulling) and "Next" or nil }
 	local cores = addCoreRows(rows, b, jb)
 	local mine, covered = {}, {}
-	for _, x in ipairs(b.notes or {}) do
-		if not noteHidden(x, jb) then
-			local r = yoursRow(x)
-			mine[#mine + 1] = r
-			if r.tag and TAG_KIND[r.tag] then covered[TAG_KIND[r.tag]] = true end
-		end
+	for _, x in ipairs(visibleNotes(b, jb)) do
+		local r = yoursRow(x)
+		mine[#mine + 1] = r
+		if r.tag and TAG_KIND[r.tag] then covered[TAG_KIND[r.tag]] = true end
 	end
 	-- what most of this spec does here that no line above mentions, as
 	-- plain lines among the others: they are notes, not a report
@@ -751,6 +794,62 @@ local function resolveDungeon(instanceType)
 	return def, instanceID
 end
 
+-- Whether this instance has one fixed boss order, so an index into
+-- def.bosses is a position on the way through it.
+local function ordered(def)
+	return def and (def.kind ~= "raid" or def.linear) and true or false
+end
+
+-- How many bosses the saved-instance lock says are already dead here, for
+-- an instance with a fixed order: the number of leading bosses the lock
+-- marks defeated. Joining a raid in progress (Josh 2026-09-10: on
+-- Galakras, the panel said Immerseus) or reloading mid-run leaves `killed`
+-- at zero otherwise, since only kills seen this session count. The lock
+-- is per player and per difficulty (a 10 Player and a 10 Player (Heroic)
+-- lock sit side by side in Raid Info), so the one for the difficulty we
+-- stand in wins. Its boss names are the lock's own ("Fallen Protectors",
+-- not "The Fallen Protectors"), matched the loose way findDataBoss does.
+-- nil until the game has saved you; UPDATE_INSTANCE_INFO re-reads it.
+local function savedKills(def)
+	if not ordered(def) then return nil end
+	local ok, n = pcall(GetNumSavedInstances)
+	if not ok or not n or n == 0 then return nil end
+	local here = plain((GetInstanceInfo()))
+	if not here then return nil end
+	local best, bestDiff
+	for i = 1, n do
+		local name, _, _, difficulty, locked, _, _, _, _, _, encounters = GetSavedInstanceInfo(i)
+		name = plain(name)
+		if name and name:lower() == here:lower() and plain(locked) and (plain(encounters) or 0) > 0 then
+			local sameDiff = plain(difficulty) == state.difficultyID
+			if not best or (sameDiff and not bestDiff) then
+				best, bestDiff = i, sameDiff
+			end
+		end
+	end
+	if not best then return nil end
+	local dead = {}
+	local _, _, _, _, _, _, _, _, _, _, encounters = GetSavedInstanceInfo(best)
+	for j = 1, plain(encounters) or 0 do
+		local bossName, _, isKilled = GetSavedInstanceEncounterInfo(best, j)
+		bossName = plain(bossName)
+		if bossName and plain(isKilled) then dead[#dead + 1] = bossName:lower() end
+	end
+	local function isDead(b)
+		local bn = b.name:lower()
+		for _, dn in ipairs(dead) do
+			if dn == bn or bn:find(dn, 1, true) or dn:find(bn, 1, true) then return true end
+		end
+		return false
+	end
+	local killed = 0
+	for _, b in ipairs(def.bosses) do
+		if not isDead(b) then break end
+		killed = killed + 1
+	end
+	return killed > 0 and killed or nil
+end
+
 local retries = 0
 function Tracker.Refresh(reason)
 	wipe(dbg)
@@ -784,6 +883,8 @@ function Tracker.Refresh(reason)
 		state.killed = 0
 		state.manualLeg = nil
 		state.boss = nil
+		-- the lock data arrives on UPDATE_INSTANCE_INFO, which re-reads
+		if def then pcall(RequestRaidInfo) end
 	end
 	if def and instanceID then
 		state.bosses = KN.Journal.Bosses(instanceID, state.difficultyID)
@@ -796,6 +897,10 @@ function Tracker.Refresh(reason)
 	end
 	readAffixes()
 	readForces()
+	if def and not state.manualLeg then
+		local k = savedKills(def)
+		if k and k > state.killed then state.killed = k end
+	end
 	state.leg = state.manualLeg or (state.killed + 1)
 	-- Option I's behaviour as an opt-in: walking into a dungeon we have
 	-- notes for flips the window to Notes (and a captured fight flips it
@@ -814,10 +919,19 @@ function Tracker.OnEncounterStart(encounterID, encounterName)
 	encounterID = plain(encounterID)
 	encounterName = plain(encounterName)
 	local name = encounterName or (encounterID and KN.LearnedBosses()[encounterID])
-	state.boss = findDataBoss(name)
+	local boss, idx = findDataBoss(name)
+	state.boss = boss
 	state.journalBoss = findJournalBoss(name)
 	if not state.boss and name then
 		state.boss = { name = name, notes = {} }
+	end
+	-- The pull is ground truth for where the group is: a raid joined in
+	-- progress, or a reload, has `killed` at zero and would otherwise
+	-- name boss 1 "next" after a wipe on boss 5 (Josh 2026-09-10).
+	if idx and ordered(state.dungeon) then
+		state.killed = idx - 1
+		state.manualLeg = nil
+		state.leg = idx
 	end
 	Tracker.Render()
 end
@@ -1042,11 +1156,9 @@ function Tracker.CheckLines(query)
 						if row then
 							KN.Player.state.override = { label = row.name, caps = row, role = row.role, range = row.range, class = row.class }
 							local seen = {}
-							for _, x in ipairs(b.notes or {}) do
-								if not noteHidden(x, nil) then
-									local r = yoursRow(x)
-									if r.tag and TAG_KIND[r.tag] then seen[TAG_KIND[r.tag]] = true end
-								end
+							for _, x in ipairs(visibleNotes(b, nil)) do
+								local r = yoursRow(x)
+								if r.tag and TAG_KIND[r.tag] then seen[TAG_KIND[r.tag]] = true end
 							end
 							for _, r in ipairs(dataRows(b, seen)) do
 								if r.tag ~= "LUST" then
@@ -1183,7 +1295,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2, a3, a4, a5)
 end)
 
 function Tracker.OnEnable()
-	for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "CHALLENGE_MODE_START",
+	for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "CHALLENGE_MODE_START", "UPDATE_INSTANCE_INFO",
 		"ENCOUNTER_START", "ENCOUNTER_END", "SCENARIO_CRITERIA_UPDATE", "CRITERIA_UPDATE", "UPDATE_UI_WIDGET" }) do
 		pcall(ev.RegisterEvent, ev, e)
 	end

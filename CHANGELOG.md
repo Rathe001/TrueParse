@@ -1,5 +1,22 @@
 # TrueParse Changelog
 
+## 2.16.2
+
+Notes: the ranked-run data now ships. Data\BossCasts.lua and
+Data\BossCasts_Raid.lua were in no TOC, so the lines they add never
+rendered in game. A data line always names what the tool answers: "Cleanse
+Toxins clears Envenom", "Divine Protection for Envenom", "Capacitor Totem
+works well on Mirror Images". The target comes from the boss's uses field or
+from the ability on any of its notes of that kind, and a tool with nothing
+to name adds no line; "Divine Shield is worth using here" is gone. A reader
+with two lines on one ability and one kind of action, like a Protection
+Paladin's poison line and tank line on Envenom, sees only the line written
+for their seat. Zaen Bladesorrow's Envenom lines read in order. A new
+set of ten CurseForge cards, one per feature, built from mocks of today's
+windows. A raid joined in progress no longer previews boss 1: the
+saved-instance lock seeds the bosses already down, and a pull anchors the
+position, so a wipe keeps that boss as next and a kill advances from it.
+
 ## 2.16.1
 
 Notes: the empty view says only "Enter a dungeon or raid to view notes."

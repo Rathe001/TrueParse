@@ -328,12 +328,19 @@ each (33 checks, all green; `run.lua`, `validate.lua` and `load.lua` clean):
   plus first-lust timing from the events feed; emits `Data/BossCasts.lua`
   and `Data/BossCasts_Raid.lua` (monthly slice `boss-casts`, day 8; finalize
   moved to day 9). `Notes/Tracker.lua` adds a plain line - "Capacitor Totem
-  works well on Mirror Images", or "Capacitor Totem is worth using here"
-  when the boss declares no target - for a spell most of the reader's spec
-  casts (share >= 50%, median >= 1 a pull) when no hand-written line
-  covers that kind. The target is the boss's hand-written `uses` field per
-  kind (`uses = { stun = "Mirror Images" }`), shared by every spec with
-  that kind of tool; reading it out of the prose was tried and dropped.
+  works well on Mirror Images", "Cleanse Toxins clears Envenom", "Divine
+  Protection for Envenom" - for a spell most of the reader's spec casts
+  (share >= 50%, median >= 1 a pull) when no hand-written line covers that
+  kind. The target is the boss's hand-written `uses` field per kind
+  (`uses = { stun = "Mirror Images" }`), else the `ability` of any note on
+  the boss whose tag is of that kind, whether or not the reader sees it;
+  with neither there is no line, since "Divine Shield is worth using here"
+  says nothing (2026-09-09). Reading the target out of the prose was tried
+  and dropped. A reader with two lines on one ability and one kind of
+  action (a Protection Paladin's poison line and tank line, both Envenom)
+  sees only the line written for their seat: role beats class beats need.
+  `Data/BossCasts*.lua` were in no TOC until 2.16.2, so no data line ever
+  rendered in game before it.
   "Most groups lust on this boss" goes on the boss when no lust line
   exists; a lust on the way to the boss is a note on the stretch before
   it, in the trash section, unless a hand-written lust sits there for any

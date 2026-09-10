@@ -6,8 +6,13 @@ left, a real in-game panel on the right, one caption along the bottom.
 
 The panel is a screenshot (or a crop of one, via --crop, in source
 pixels). It is scaled by --scale with nearest-neighbour so the game's
-pixel text stays crisp, then centred on the right half. Fonts are the
-Windows Arial family, matching the earlier cards in promo/.
+pixel text stays crisp, then centred on the right half. A panel with an
+alpha channel (a mock rendered on a transparent page, see the Notes
+cards) is instead fitted into a --fit W,H box with Lanczos, keeps its own
+borders, and casts its shadow from its alpha. --wide moves the wordmark
+and tagline up and lets the panel span the width below them, for a
+scene of two panels side by side. Fonts are the Windows Arial family,
+matching the earlier cards in promo/.
 """
 import argparse
 from PIL import Image, ImageDraw, ImageFont
@@ -82,6 +87,8 @@ def main():
     ap.add_argument("--caption", required=True, help="'Title -- rest' puts the title in bold")
     ap.add_argument("--crop", default=None, help="L,T,R,B in source pixels")
     ap.add_argument("--scale", type=float, default=1.6)
+    ap.add_argument("--fit", default=None, help="W,H box for an alpha panel (default 780,1040)")
+    ap.add_argument("--wide", action="store_true", help="wordmark top-left, panel across the full width")
     a = ap.parse_args()
 
     card = Image.new("RGB", (W, H), BG)
@@ -90,7 +97,7 @@ def main():
 
     # wordmark: "True" in white, "Parse" in gold
     fm = font("arialbd.ttf", 84)
-    x0, y0 = 370, 500
+    x0, y0 = (120, 110) if a.wide else (370, 500)
     d.text((x0, y0), "True", font=fm, fill=WHITE)
     d.text((x0 + d.textlength("True", font=fm), y0), "Parse", font=fm, fill=GOLD)
 
@@ -99,29 +106,46 @@ def main():
     for i, chunk in enumerate(a.tagline.split("*")):
         if chunk:
             parts.append((chunk, INK if (i % 2 == 1) else DIM, i % 2 == 1))
-    rich(d, x0, y0 + 120, parts, font("arial.ttf", 34), spacing=14, maxw=640)
+    rich(d, x0, y0 + 120, parts, font("arial.ttf", 34), spacing=14, maxw=1400 if a.wide else 640)
 
     # panel
-    panel = Image.open(a.panel).convert("RGB")
+    panel = Image.open(a.panel)
+    alpha = panel.mode == "RGBA"
+    panel = panel.convert("RGBA" if alpha else "RGB")
     if a.crop:
         l, t, r, b = [int(v) for v in a.crop.split(",")]
         panel = panel.crop((l, t, r, b))
     pw, ph = panel.size
-    panel = panel.resize((int(pw * a.scale), int(ph * a.scale)), Image.NEAREST)
+    if alpha:
+        fw, fh = [int(v) for v in (a.fit or ("1760,820" if a.wide else "780,1040")).split(",")]
+        k = min(fw / pw, fh / ph, 1.5)
+        panel = panel.resize((round(pw * k), round(ph * k)), Image.LANCZOS)
+    else:
+        panel = panel.resize((int(pw * a.scale), int(ph * a.scale)), Image.NEAREST)
     pw, ph = panel.size
-    px = 1120 + (760 - pw) // 2
-    py = (H - ph) // 2
+    if a.wide:
+        px = (W - pw) // 2
+        py = 330 + (H - 62 - 40 - 330 - ph) // 2
+    else:
+        px = 1120 + (760 - pw) // 2
+        py = (H - ph) // 2
     # a soft drop shadow: a dark rectangle blurred into the ground, offset
     # down a little, then a 1px hairline in the panel's own border colour
     from PIL import ImageFilter
     pad = 90
     shade = Image.new("L", (pw + pad * 2, ph + pad * 2), 0)
-    ImageDraw.Draw(shade).rectangle((pad, pad + 14, pad + pw, pad + ph + 14), fill=170)
+    if alpha:
+        shade.paste(panel.split()[3].point(lambda v: v * 170 // 255), (pad, pad + 14))
+    else:
+        ImageDraw.Draw(shade).rectangle((pad, pad + 14, pad + pw, pad + ph + 14), fill=170)
     shade = shade.filter(ImageFilter.GaussianBlur(28))
     dark = Image.new("RGB", shade.size, (6, 6, 10))
     card.paste(dark, (px - pad, py - pad), shade)
-    card.paste(panel, (px, py))
-    d.rectangle((px - 1, py - 1, px + pw, py + ph), outline=(56, 49, 76))
+    if alpha:
+        card.paste(panel, (px, py), panel)
+    else:
+        card.paste(panel, (px, py))
+        d.rectangle((px - 1, py - 1, px + pw, py + ph), outline=(56, 49, 76))
 
     # caption: "Title -- rest"
     fc, fcb = font("arial.ttf", 30), font("arialbd.ttf", 30)

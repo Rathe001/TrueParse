@@ -161,8 +161,8 @@ KN.RegisterDungeon({
 			},
 			notes = {
 				{ tag = "CD", role = "healer", text = "Killing Spree, worse with Fel-Infused Freight stacked", ability = "Killing Spree" },
-				{ tag = "POISON", need = "poison", text = "Envenom, then Heartstop Poison on the tank", ability = "Envenom" },
-				{ tag = "TANK", role = "tank", text = "Envenom then Heartstop Poison: defensive, ask for the poison dispel", ability = "Envenom" },
+				{ tag = "POISON", need = "poison", text = "Envenom off the tank before Heartstop Poison lands", ability = "Envenom" },
+				{ tag = "TANK", role = "tank", text = "Defensive for Envenom then Heartstop Poison; get Envenom off you fast", ability = "Envenom" },
 			} },
 		{ name = "Xathuux the Annihilator",
 			core = {

@@ -384,7 +384,7 @@ do
 			-- a second boss, so a defensive's usual share is knowable; most
 			-- groups lust on the way to it, which is a stretch note
 			["Zaen Bladesorrow"] = { n = 20, lust = { n = 8, on = 1, before = 7 }, specs = {
-				[70] = { n = 8, s = { { "Divine Shield", "defensive", 1, 0.9 } } },
+				[70] = { n = 8, s = { { "Divine Shield", "defensive", 1, 0.9 }, { "Divine Protection", "defensive", 1, 0.9 } } },
 				[262] = { n = 6, s = { { "Astral Shift", "defensive", 1, 0.9 } } },
 			} },
 		},
@@ -402,6 +402,19 @@ do
 	check(not has(rr, function(r) return r.tag == "DEF" end),
 		"a defensive the spec pops on every boss is not a line for this one")
 	check(not has(rr, function(r) return r.text and r.text:find("Blessing of Freedom", 1, true) end), "a spell cast by one in five is not")
+	KN.Tracker.Preview("Murder", "k"); KN.Tracker.PreviewBoss("Zaen")
+	rr = KN.Tracker.Rows()
+	check(has(rr, function(r) return r.tag == "DEF" and r.text == "Divine Protection for Envenom" end),
+		"a defensive unusual here names the ability the boss's tank line answers, though the reader never sees that line")
+	check(not has(rr, function(r) return r.text and r.text:find("Divine Shield", 1, true) end),
+		"a defensive the spec pops on the other boss too still is not a line")
+	become(66) -- Protection with a poison dispel: the tank line and the poison line share Envenom
+	KN.Tracker.Preview("Murder", "k"); KN.Tracker.PreviewBoss("Zaen")
+	rr = KN.Tracker.Rows()
+	local envenom = 0
+	for _, r in ipairs(rr) do if r.type == "yours" and r.text:find("Envenom", 1, true) then envenom = envenom + 1 end end
+	check(envenom == 1 and has(rr, function(r) return r.tag == "TANK" end),
+		"two lines on one ability and one kind of action fold into the line written for the reader's seat")
 	become(262) -- Elemental: Ascendance is a DPS cooldown sharing a healer cooldown's name
 	KN.Tracker.Preview("Murder", "k"); KN.Tracker.PreviewBoss("Kystia")
 	check(not has(KN.Tracker.Rows(), function(r) return r.text and r.text:find("Ascendance", 1, true) end),
@@ -431,8 +444,10 @@ do
 	wipe(printed)
 	check(KN:Command("check murder"), "/tp notes check routes")
 	local joined = table.concat(printed, "\n")
-	check(joined:find("ADDS     Murder Row / Kystia Manaheart: Dispel Magic is worth using here", 1, true) ~= nil,
-		"check reports the line the data would add for a spec; with no target known it names the tool alone")
+	check(joined:find("ADDS     Murder Row / Zaen Bladesorrow: Divine Protection for Envenom", 1, true) ~= nil,
+		"check reports the line the data would add for a spec")
+	check(not joined:find("Dispel Magic", 1, true),
+		"a tool with nothing on the boss naming what it answers adds no line")
 	check(not joined:find("Silence", 1, true), "check does not report a kick the boss's core line covers")
 	check(joined:find("2 bosses with data", 1, true) ~= nil and KN.Player.state.override == nil,
 		"check summarises and restores the override")
@@ -828,9 +843,51 @@ KN.Tracker.OnEncounterStart(1602, "Immerseus")
 check(hasSection(KN.Tracker.Rows(), "Boss 1 of 14"), "ENCOUNTER_START opens the boss view")
 KN.Tracker.OnEncounterEnd(1602, 1)
 check(hasSection(KN.Tracker.Rows(), "Next · Boss 2 of 14"), "a kill advances to the next boss")
+-- Joining a raid in progress (Josh 2026-09-10: on Galakras, the panel said
+-- Immerseus): the pull is ground truth for the position, a wipe keeps the
+-- pulled boss as next, and a kill advances from it, not from boss 1.
+KN.Tracker.OnEncounterStart(1622, "Galakras")
+check(hasSection(KN.Tracker.Rows(), "Boss 5 of 14"), "a pull on boss 5 opens boss 5")
+KN.Tracker.OnEncounterEnd(1622, 0)
+check(hasSection(KN.Tracker.Rows(), "Next · Boss 5 of 14")
+	and has(KN.Tracker.Rows(), function(r) return r.type == "section" and r.name == "Galakras" end),
+	"a wipe keeps the pulled boss as next")
+KN.Tracker.OnEncounterStart(1622, "Galakras")
+KN.Tracker.OnEncounterEnd(1622, 1)
+check(hasSection(KN.Tracker.Rows(), "Next · Boss 6 of 14"), "and the kill advances from there")
 _G.GetInstanceInfo = realGII
 KN.Tracker.Refresh("test walk-out")
 check(KN.Tracker.state.dungeon == nil, "leaving clears the instance")
+-- Walking in with a lock that already holds kills previews the first boss
+-- the lock does not mark defeated, before any pull. Two locks share the
+-- name (10 Player, and 10 Player (Heroic) with four down); the one for the
+-- difficulty we stand in wins, and its names are the lock's own.
+local savedRaid = { GetNumSavedInstances = _G.GetNumSavedInstances, GetSavedInstanceInfo = _G.GetSavedInstanceInfo,
+	GetSavedInstanceEncounterInfo = _G.GetSavedInstanceEncounterInfo }
+_G.GetNumSavedInstances = function() return 2 end
+_G.GetSavedInstanceInfo = function(i)
+	if i == 1 then return "Siege of Orgrimmar", 7, 0, 4, true, false, 0, true, 10, "10 Player", 14, 14 end
+	return "Siege of Orgrimmar", 9, 0, 5, true, false, 0, true, 10, "10 Player (Heroic)", 14, 4
+end
+_G.GetSavedInstanceEncounterInfo = function(i, j)
+	local names = { "Immerseus", "Fallen Protectors", "Norushen", "Sha of Pride", "Galakras", "Iron Juggernaut",
+		"Kor'kron Dark Shaman", "General Nazgrim", "Malkorok", "Spoils of Pandaria", "Thok the Bloodthirsty",
+		"Siegecrafter Blackfuse", "Paragons of the Klaxxi", "Garrosh Hellscream" }
+	return names[j], 0, i == 1 or j <= 4
+end
+_G.GetInstanceInfo = function() return "Siege of Orgrimmar", "raid", 5, "10 Player (Heroic)", 10 end
+KN.Tracker.Refresh("test walk-in saved")
+check(hasSection(KN.Tracker.Rows(), "Next · Boss 5 of 14")
+	and has(KN.Tracker.Rows(), function(r) return r.type == "section" and r.name == "Galakras" end),
+	"the heroic lock seeds the kills: boss 5 previews on the way in, not the normal lock's clear")
+KN.Tracker.Step(-1)
+check(hasSection(KN.Tracker.Rows(), "Next · Boss 4 of 14"), "paging back still works from the seeded position")
+KN.Tracker.Refresh("UPDATE_INSTANCE_INFO")
+check(hasSection(KN.Tracker.Rows(), "Next · Boss 4 of 14"), "and a lock re-read does not undo the paging")
+_G.GetInstanceInfo = realGII
+KN.Tracker.Refresh("test walk-out")
+for k, v in pairs(savedRaid) do _G[k] = v end
+check(KN.Tracker.state.dungeon == nil, "leaving clears the instance again")
 
 -- 23. Mists rows render through the strict widget stub.
 become(270)
