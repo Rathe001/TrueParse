@@ -705,7 +705,7 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 	-- follow StampRunID)
 	fight.keystoneLevel = fight.keystoneLevel or TP.KeystoneFromRun(self.fights, fight)
 	self:StampPrevKill(fight)
-	table.insert(self.fights, 1, fight)
+	self:InsertFight(fight)
 	local cap = TP.Addon.db.profile.history.maxFights
 	for i = #self.fights, cap + 1, -1 do
 		table.remove(self.fights, i)
@@ -1789,7 +1789,7 @@ function FightHistory:AddFromSegment(seg)
 	end
 	self:StampRunID(fight)
 	self:StampPrevKill(fight)
-	table.insert(self.fights, 1, fight)
+	self:InsertFight(fight)
 	local cap = TP.Addon.db.profile.history.maxFights
 	for i = #self.fights, cap + 1, -1 do
 		table.remove(self.fights, i)
@@ -1917,6 +1917,28 @@ end
 -- Late ENCOUNTER_END verdict (Segments): the segment can close before the
 -- boss resets when everyone dies and releases — flag the matching recent
 -- capture as a wipe after the fact.
+-- History is newest first BY START TIME, not by capture order. On retail
+-- a fight is captured when its meter session unlocks, and a wipe's
+-- session can unlock after the kill that followed it: inserted on top it
+-- read as the newest attempt, and "Current" showed a wipe for a key that
+-- had just been completed (Josh 2026-09-11, Voidscar Arena). A record
+-- with no start time still goes on top; one arriving late slots in
+-- above the first record that started before it.
+function FightHistory:InsertFight(fight)
+	local at = fight.startedAt
+	local idx = 1
+	if at then
+		idx = #self.fights + 1
+		for i, f in ipairs(self.fights) do
+			if not f.startedAt or f.startedAt <= at then
+				idx = i
+				break
+			end
+		end
+	end
+	table.insert(self.fights, idx, fight)
+end
+
 function FightHistory:AmendWipe(encounterID)
 	local now = time()
 	for i = 1, math.min(#self.fights, 5) do

@@ -40,6 +40,11 @@ raw enemy count with a percent sign, and the tracker took it at its
 word. It reads the count over the requirement whenever the string is
 not a sane percentage, and /tp notes debug prints the raw fields.
 
+A completed key read "wipe" as its last attempt: on retail a fight is
+captured when its meter session unlocks, and the wipe before the kill
+unlocked after it, so it landed on top of the history. Captures now
+file by start time, so the kill stays newest and Current follows it.
+
 Smaller audit fixes. The "Unused raid CDs" count no longer stops at
 three. A raid night's dominant damage is a Giant Slayer on the run
 card, not a Lawnmower. The wipe button recognises the Raider's golems

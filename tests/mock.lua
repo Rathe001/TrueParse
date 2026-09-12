@@ -711,6 +711,28 @@ do
 		f, t = pick(0, 301, 61, 240)
 		check(t == 240, "61s of dead air is treated as a run-back")
 	end
+	-- History order is by START time, newest first. A retail session can
+	-- unlock late: the wipe before a kill captured AFTER it sat on top and
+	-- "Current" showed a wipe for a completed key (Josh 2026-09-11).
+	local FH = ok and TP.FightHistory
+	if FH and FH.InsertFight then
+		FH.fights = {}
+		local kill = { name = "Charonus", startedAt = 2000, wipe = false }
+		local wipe = { name = "Charonus", startedAt = 1000, wipe = true }
+		local older = { name = "Atroxus", startedAt = 500 }
+		FH:InsertFight(older)
+		FH:InsertFight(kill)
+		FH:InsertFight(wipe) -- captured last, started in between
+		check(FH.fights[1] == kill and FH.fights[2] == wipe and FH.fights[3] == older,
+			"a late-captured wipe files below the kill that followed it")
+		local untimed = { name = "Mystery" }
+		FH:InsertFight(untimed)
+		check(FH.fights[1] == untimed, "a record with no start time still goes on top")
+		local newest = { name = "Taz'Rah", startedAt = 3000 }
+		FH:InsertFight(newest)
+		check(FH.fights[1] == newest, "the newest start goes on top of everything")
+		FH.fights = {}
+	end
 
 	-- PLACELESS-vs-PLACELESS re-reads (Josh 2026-08-08). His Spiritflayer
 	-- Jin'ma sat in history three times - 08-04, 08-05, 08-07, every copy
