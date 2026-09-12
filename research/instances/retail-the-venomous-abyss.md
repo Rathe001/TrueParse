@@ -1,12 +1,13 @@
 # The Venomous Abyss — retail (Midnight 12.1)
 
 - **Journal name:** The Venomous Abyss
-- **Type:** raid, 8 bosses + 1 optional lair boss (9 encounters — which is why
-  WCL zone 53 reports 9 and every guide site says "all 8 bosses")
+- **Type:** raid, 8 bosses. WCL zone 53 reports a 9th encounter, Nymrissa
+  Wavecaller, who is a separate one-boss raid: see
+  `retail-the-tidebound-grotto.md`
 - **Sources:** Method *The Venomous Abyss* per-boss Heroic guides and
   MythicTrap *Venomous Abyss* per-boss guides, both read 2026-09-08.
   Reconciled.
-- **Status:** drafted — 8 of 9 bosses reconciled; Nymrissa Wavecaller is single-sourced
+- **Status:** shipped in 2.16.5
 
 ## Encounter order
 
@@ -17,7 +18,6 @@
 3. **The Twin Fangs** — opens once both wings are down
 4. **The Coiled Altar**
 5. **Ula'tek** — end boss
-- **Nymrissa Wavecaller** — optional lair boss, Tidebound Grotto
 
 ## Schema gap this raid exposes
 
@@ -195,20 +195,10 @@ Fury Unleashed on the final platform.
 
 ---
 
-## 9. Nymrissa Wavecaller — SINGLE SOURCE, do not ship yet
+## Nymrissa Wavecaller
 
-Optional lair boss in Tidebound Grotto. Only MythicTrap was reachable; the
-Method page 404s on the slug pattern the other eight bosses use. Recorded so
-the research is not lost, but **no line here has been reconciled** and none
-should be written into Lua until a second source is found.
-
-Single phase, 6-minute enrage (Unending Tides).
-
-- Alluring Bubble — murloc adds walk to a central bubble; kill them before they arrive
-- Swirling Whirlpools — find the one gap; when a pool reaches the bubble it pops for raid damage and a knockback
-- Chilling Frost — DoT that drops frost orbs; run them over to soak, each stacks a 15% slow
-- Abyssal Rain — pulsing raid damage into a DoT (healer throughput)
-- Iceblade Flurry — tankbuster, heavy DoT, +20% vulnerability to the next one
+Not part of this raid: she is alone in The Tidebound Grotto, registered as
+its own one-boss raid. Research in `retail-the-tidebound-grotto.md`.
 
 ---
 
@@ -267,7 +257,6 @@ a breakpoint. Only Nek'zali gave a stack number at all.
   the intermission Dig In, MythicTrap the Howling Maelstrom winds) but neither
   actually calls a lust there. It is the obvious window; not written without a
   source that says so.
-- **Nymrissa Wavecaller** needs a second source before anything ships.
 - **Wing order.** The two wings can be cleared in either order, so trash legs
   cannot be a simple 1..n sequence the way a dungeon's are. The Notes tracker
   keys trash to "the stretch between boss N and N+1" — that model does not fit

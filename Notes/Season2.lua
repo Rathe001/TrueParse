@@ -478,8 +478,8 @@ KN.RegisterDungeon({
 -- lists the bosses and switches to one when its encounter starts. Sources:
 -- Method and MythicTrap per-boss guides, 2026-09-08, reconciled in
 -- research/instances/retail-the-venomous-abyss.md; lines the two disagree
--- on are left out. Nymrissa Wavecaller, the optional lair boss, is
--- single-sourced and waits for a second source. Bosses in journal order.
+-- on are left out. Nymrissa Wavecaller is not here: she is alone in The
+-- Tidebound Grotto, registered below. Bosses in journal order.
 ---------------------------------------------------------------------------
 KN.RegisterRaid({
 	name = "The Venomous Abyss",
@@ -600,6 +600,36 @@ KN.RegisterRaid({
 				{ tag = "CD", role = "healer", text = "the Necrotic Vapors rot, and every platform break, the second one in phase 3 hardest", ability = "Necrotic Vapors" },
 				{ text = "Dodge Caustic Waves by moving against the telegraphed wing pull", ability = "Caustic Waves" },
 				{ text = "Stack for the Spectral Coils soaks: the more bodies, the less it hurts", ability = "Spectral Coils" },
+			} },
+	},
+})
+
+---------------------------------------------------------------------------
+-- Nymrissa Wavecaller's lair, a one-boss raid under the Wreck of Gral's
+-- Belly. WCL files her under the Venomous Abyss zone, but the game puts her
+-- in her own instance, so she registers on her own: listed in the Abyss she
+-- would never be found. Sources: Method (Mythic) and MythicTrap (Heroic),
+-- 2026-09-12, reconciled in research/instances/retail-the-tidebound-grotto.md.
+-- Water Jet and the Frostscale are Mythic only; the journal hides them below.
+---------------------------------------------------------------------------
+KN.RegisterRaid({
+	name = "The Tidebound Grotto",
+	linear = true,
+	bosses = {
+		{ name = "Nymrissa Wavecaller",
+			-- no lust line: neither source calls one
+			core = {
+				"Kill the murlocs before they reach the Alluring Bubble",
+				"Swirling Whirlpools: stack in the one gap before they surge to the bubble",
+				"Soak every Frost Orb from Chilling Frost, or it shatters on the raid",
+			},
+			notes = {
+				{ tag = "TANK", role = "tank", text = "Iceblade Flurry: defensive for each one, it raises the damage of the next", ability = "Iceblade Flurry" },
+				{ tag = "TANK", role = "tank", text = "Water Jet: swap before its stacks get dangerous, and aim it at the icy patches", ability = "Water Jet" },
+				{ tag = "CD", role = "healer", text = "Abyssal Rain, and every Pop! when a whirlpool breaks the bubble", ability = "Abyssal Rain" },
+				{ text = "Kill any Bubblefin Berserker on sight: it pulses raid damage until it dies", ability = "Pulsing Tides" },
+				{ text = "Kill the Bubblefin Frostscale first: its Waterfog Shield protects the murlocs around it", ability = "Waterfog Shield" },
+				{ text = "Stand where Pop! cannot knock you into the water, or the sharks eat you", ability = "Pop!" },
 			} },
 	},
 })

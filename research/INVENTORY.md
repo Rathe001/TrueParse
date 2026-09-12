@@ -73,7 +73,8 @@ own crawled curve files.
 
 | Instance | Bosses | Status |
 |---|---|---|
-| The Venomous Abyss (12.1) | 9 | drafted (8 reconciled, Nymrissa single-source) |
+| The Venomous Abyss (12.1) | 8 | shipped (2.16.5) |
+| The Tidebound Grotto (12.1) | 1 | drafted in Lua, not shipped |
 | The Voidspire | 6 | drafted |
 | The Dreamrift | 1 | drafted |
 | March on Quel'Danas | 2 | drafted (single-source, needs a second) |
@@ -81,9 +82,10 @@ own crawled curve files.
 
 - **The Venomous Abyss** — Nek'zali the Soulcoiler; then two wings (Entombed
   Sentinels → Vashnik the Malignant, and The Lost Explorers → Sszorak); then
-  The Twin Fangs, The Coiled Altar, Ula'tek. Plus **Nymrissa Wavecaller**, an
-  optional lair boss in Tidebound Grotto — that is the 9th encounter WCL
-  reports while every guide says "8 bosses".
+  The Twin Fangs, The Coiled Altar, Ula'tek.
+- **The Tidebound Grotto** — Nymrissa Wavecaller, a one-boss lair raid. WCL
+  folds her into the Abyss zone as its 9th encounter; the game gives her her
+  own instance, so the addon registers her on her own.
 - **The Voidspire** — Imperator Averzian, Vorasius, Fallen-King Salhadaar,
   Vaelgor and Ezzorak, Lightblinded Vanguard, Crown of the Cosmos.
 - **The Dreamrift** — Chimaerus, the Undreamt God. Single boss, in Harandar.

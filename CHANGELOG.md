@@ -1,5 +1,12 @@
 # TrueParse Changelog
 
+## 2.16.6
+
+Nymrissa Wavecaller has written notes. She is alone in The Tidebound
+Grotto, so the Grotto is its own one-boss raid rather than a ninth boss
+of The Venomous Abyss. Her three group lines and role notes come from
+two guides, reconciled; Water Jet and the Frostscale show on Mythic only.
+
 ## 2.16.5
 
 The Venomous Abyss has written notes. A Story or Raid Finder run used to

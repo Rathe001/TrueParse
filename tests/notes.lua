@@ -365,6 +365,35 @@ do
 		"a healer sees the raid cooldown line as a sentence")
 end
 
+-- 10b'. Nymrissa Wavecaller is her own one-boss raid (Josh 2026-09-12): she
+--       is alone in The Tidebound Grotto, so the Abyss never lists her.
+do
+	local tg = KN.Find("The Tidebound Grotto")
+	check(tg and tg.kind == "raid" and tg.linear and #tg.bosses == 1
+			and tg.bosses[1].name == "Nymrissa Wavecaller",
+		"The Tidebound Grotto is a raid of one boss, Nymrissa Wavecaller")
+	check(KN.Find("Tidebound Grotto") == tg, "the name without The still finds the Grotto")
+	local inAbyss = false
+	for _, b in ipairs(KN.Find("The Venomous Abyss").bosses) do
+		if b.name == "Nymrissa Wavecaller" then inAbyss = true end
+	end
+	check(not inAbyss, "The Venomous Abyss does not list Nymrissa")
+	local dashFree = true
+	for _, t in ipairs(tg.bosses[1].core) do if t:find("\226\128\148", 1, true) then dashFree = false end end
+	for _, n in ipairs(tg.bosses[1].notes) do if n.text:find("\226\128\148", 1, true) then dashFree = false end end
+	check(#tg.bosses[1].core == 3, "Nymrissa carries exactly three group lines")
+	check(dashFree, "no Tidebound Grotto line carries an em dash")
+	become(264)
+	KN.Tracker.Preview("The Tidebound Grotto", "h"); KN.Tracker.PreviewBoss("Nymrissa Wavecaller")
+	local trows = KN.Tracker.Rows()
+	check(has(trows, function(r) return r.type == "core"
+			and r.text == "Kill the murlocs before they reach the Alluring Bubble" end),
+		"the Grotto shows Nymrissa's group strategy")
+	check(has(trows, function(r) return r.type == "yours"
+			and r.text == "Cooldown for Abyssal Rain, and every Pop! when a whirlpool breaks the bubble" end),
+		"a healer sees Nymrissa's cooldown line as a sentence")
+end
+
 -- 10c. Targeting a boss before the pull shows its notes (Josh 2026-09-12: at
 --      Ula'tek, still a boss list). Exact names only, and never mid-pull.
 do
