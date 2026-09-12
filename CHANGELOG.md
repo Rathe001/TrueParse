@@ -2,10 +2,11 @@
 
 ## 2.16.3
 
-The group score gives a point back for each raid buff nobody in the comp
-can bring, up to three: a group with no Mage is graded a little short on
-throughput against ranked kills, and that is the comp's doing, not a
-player's. The group card shows it as "Comp lacks buffs" with the buffs
+In a raid, the group score gives a point back for each raid buff nobody
+in the comp can bring, up to three: a raid with no Mage is graded a
+little short on throughput against ranked kills, and that is the comp's
+doing, not a player's. Five-man groups get nothing here, since five
+players can never hold every provider. The group card shows it as "Comp lacks buffs" with the buffs
 named on hover; player scores are untouched. On Mists a hunter's pet
 counts as a provider for Stats, Stamina and Spell Power, so a comp with a
 hunter is not short there. The meter row, the group card and the debrief

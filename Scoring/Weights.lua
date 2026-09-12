@@ -594,10 +594,14 @@ Weights.mplusLowKeyLift = 1.0
 -- which nearly always have the full set; nobody is at fault, so the
 -- group gets the point back rather than a player losing one (Josh
 -- 2026-09-11: "a point for buffs that are missing in the current group
--- comp").
+-- comp"). Raids only: a five-man can never field every provider, so
+-- the comparison against a full-set ranked kill is not the comp's
+-- doing there (Josh 2026-09-11: "shouldn't show in groups, because it
+-- is impossible to have them all").
 Weights.group = {
 	missingCompBuff = 1,
 	missingCompBuffMax = 3,
+	compBuffMinPlayers = 6,
 }
 
 Weights.penalties = {

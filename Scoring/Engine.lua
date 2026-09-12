@@ -2014,6 +2014,15 @@ function Engine.GroupAdjustments(fight)
 	if not fight or fight.practice then
 		return adj
 	end
+	-- raids only: five players can never hold every provider, so a
+	-- missing buff there is not something the comp could have fixed
+	local n = 0
+	for _ in pairs(fight.players or {}) do
+		n = n + 1
+	end
+	if n < (G.compBuffMinPlayers or 6) then
+		return adj
+	end
 	local missing = Engine.CompBuffsMissing(fight)
 	if #missing > 0 and (G.missingCompBuff or 0) > 0 then
 		adj.compBuffs = math.min(#missing * G.missingCompBuff, G.missingCompBuffMax or math.huge)

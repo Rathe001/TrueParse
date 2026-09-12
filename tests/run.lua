@@ -912,14 +912,26 @@ do
 			petProviders = { HUNTER = true }, auras = {} },
 		{ key = "skyfury", label = "Skyfury", providers = { SHAMAN = true }, auras = {} },
 	}
+	-- six players: the bonus is raid-only (Josh 2026-09-11, "impossible to
+	-- have them all" in a five-man), so the fixture is a small raid
 	local compFight = {
 		name = "Comp Check", duration = 60,
 		players = {
 			p = mkPlayer("p", "Priest", "PRIEST", "HEALER", { healing = 500000 }),
 			d1 = mkPlayer("d1", "Hunter", "HUNTER", "DAMAGER", { damage = 1000000 }),
 			d2 = mkPlayer("d2", "Rogue", "ROGUE", "DAMAGER", { damage = 900000 }),
+			d3 = mkPlayer("d3", "RogueB", "ROGUE", "DAMAGER", { damage = 850000 }),
+			d4 = mkPlayer("d4", "RogueC", "ROGUE", "DAMAGER", { damage = 800000 }),
+			d5 = mkPlayer("d5", "RogueD", "ROGUE", "DAMAGER", { damage = 750000 }),
 		},
 	}
+	local fiveMan = { name = "Five Man", duration = 60, players = {} }
+	for _, k in ipairs({ "p", "d1", "d2", "d3", "d4" }) do
+		fiveMan.players[k] = compFight.players[k]
+	end
+	check(#TP.Scoring.Engine.CompBuffsMissing(fiveMan) > 0
+		and next(TP.Scoring.Engine.GroupAdjustments(fiveMan)) == nil,
+		"a five-man lacks buffs by construction: no comp points there")
 	local missing = TP.Scoring.Engine.CompBuffsMissing(compFight)
 	check(#missing == 2 and missing[1] == "Arcane Intellect" and missing[2] == "Skyfury",
 		("the comp lacks Intellect and Skyfury; a hunter's pet covers Stats (%s)"):format(table.concat(missing, ", ")))
