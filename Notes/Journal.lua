@@ -110,12 +110,24 @@ function Journal.Bosses(instanceID, difficultyID)
 			pcall(EJ_SelectEncounter, journalEncounterID)
 			abilities = readSections(rootSectionID)
 		end
+		-- the units the encounter puts on the field ("Hex Lord Malacrass" for The
+		-- Coiled Altar): targeting one previews its boss before the pull
+		local creatures = {}
+		if journalEncounterID and EJ_GetCreatureInfo then
+			for c = 1, 9 do
+				local okC, _, cname = pcall(EJ_GetCreatureInfo, c, journalEncounterID)
+				cname = okC and plain(cname) or nil
+				if not cname then break end
+				creatures[#creatures + 1] = cname
+			end
+		end
 		bosses[#bosses + 1] = {
 			name = name,
 			dungeonEncounterID = plain(dungeonEncounterID),
 			journalEncounterID = journalEncounterID,
 			rootSectionID = rootSectionID,
 			abilities = abilities,
+			creatures = creatures,
 		}
 	end
 	cache[key] = bosses

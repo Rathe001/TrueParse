@@ -339,6 +339,61 @@ become(257)
 KN.Tracker.Preview("Test Raid", "h"); KN.Tracker.PreviewBoss("Shielded One")
 check(not hasIcon(KN.Tracker.Rows(), KN.ICONS.FEAR), "a Priest does NOT see the fear line (no Fear Ward)")
 
+-- 10b. The season's raid ships its researched notes (Josh 2026-09-12: a Story
+--      run showed only the Adventure Guide's healer bullets and no strategy).
+--      Eight bosses in journal order, three group lines each.
+do
+	local vr = KN.Find("The Venomous Abyss")
+	check(vr and vr.kind == "raid" and not vr.linear and #vr.bosses == 8,
+		("The Venomous Abyss is a raid of eight bosses with wings (%s)"):format(tostring(vr and #vr.bosses)))
+	local threeEach, dashFree = true, true
+	for _, b in ipairs(vr and vr.bosses or {}) do
+		if #b.core ~= 3 then threeEach = false end
+		for _, t in ipairs(b.core) do if t:find("\226\128\148", 1, true) then dashFree = false end end
+		for _, n in ipairs(b.notes or {}) do if n.text:find("\226\128\148", 1, true) then dashFree = false end end
+	end
+	check(threeEach, "every Venomous Abyss boss carries exactly three group lines")
+	check(dashFree, "no Venomous Abyss line carries an em dash")
+	become(264)
+	KN.Tracker.Preview("The Venomous Abyss", "n"); KN.Tracker.PreviewBoss("The Coiled Altar")
+	local vrows = KN.Tracker.Rows()
+	check(has(vrows, function(r) return r.type == "core"
+			and r.text == "Stay stacked behind the boss: the tank aims Sever into the orb and ghost clusters" end),
+		"The Coiled Altar shows the group strategy")
+	check(has(vrows, function(r) return r.type == "yours"
+			and r.text == "Cooldown for the Dreadful Presence rot, and every phase push" end),
+		"a healer sees the raid cooldown line as a sentence")
+end
+
+-- 10c. Targeting a boss before the pull shows its notes (Josh 2026-09-12: at
+--      Ula'tek, still a boss list). Exact names only, and never mid-pull.
+do
+	local saved = { UnitName = _G.UnitName, UnitExists = _G.UnitExists, UnitIsDead = _G.UnitIsDead }
+	local targetName
+	_G.UnitName = function(u) if u == "target" then return targetName end end
+	_G.UnitExists = function(u) return u == "target" and targetName ~= nil end
+	_G.UnitIsDead = function() return false end
+	become(264)
+	KN.Tracker.Preview("The Venomous Abyss", "n")
+	KN.Tracker.state.preview = false -- standing in the raid, not browsing it
+	targetName = "Hex Lord Malacrass"
+	KN.Tracker.OnUnitSighted("target")
+	check(has(KN.Tracker.Rows(), function(r) return r.type == "core"
+			and r.text:find("^Stay stacked behind the boss") end),
+		"targeting Hex Lord Malacrass before the pull shows The Coiled Altar")
+	targetName = "Ula'tek's Chosen"
+	KN.Tracker.OnUnitSighted("target")
+	check(KN.Tracker.state.boss and KN.Tracker.state.boss.name == "The Coiled Altar",
+		"a trash name that merely contains a boss name changes nothing")
+	KN.Tracker.OnEncounterStart(nil, "Ula'tek")
+	targetName = "Hex Lord Malacrass"
+	KN.Tracker.OnUnitSighted("target")
+	check(KN.Tracker.state.boss and KN.Tracker.state.boss.name == "Ula'tek",
+		"a pull in progress keeps its own boss")
+	KN.Tracker.OnEncounterEnd(nil, 1)
+	_G.UnitName, _G.UnitExists, _G.UnitIsDead = saved.UnitName, saved.UnitExists, saved.UnitIsDead
+end
+
 -- 11. The registry is keyed by journal instanceID, because names collide.
 local before = #KN.instances
 check(not pcall(KN.RegisterDungeon, { name = "Voidscar Arena", bosses = {} }),

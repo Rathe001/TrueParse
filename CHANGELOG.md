@@ -1,5 +1,16 @@
 # TrueParse Changelog
 
+## 2.16.5
+
+The Venomous Abyss has written notes. A Story or Raid Finder run used to
+show only your role's bullets from the Adventure Guide; each of the eight
+bosses now carries three group lines and its role notes, researched from
+two guides and reconciled. Nymrissa Wavecaller waits for a second source.
+
+Targeting a boss, or its boss frame appearing, shows its notes before the
+pull, in raids and dungeons alike. Council fights answer to any of their
+units, so targeting Hex Lord Malacrass brings up The Coiled Altar.
+
 ## 2.16.4
 
 Every wipe on Mists shows where the boss stood. The percent was only

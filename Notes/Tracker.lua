@@ -590,7 +590,7 @@ function Tracker.Rows()
 	addHeader(rows)
 	if state.boss then
 		local _, idx = findDataBoss(state.boss.name)
-		addBossRows(rows, state.boss, idx, state.journalBoss, true)
+		addBossRows(rows, state.boss, idx, state.journalBoss, not state.sighted)
 	else
 		addTrashRows(rows)
 	end
@@ -897,6 +897,7 @@ function Tracker.Refresh(reason)
 	-- dungeon notes here" while standing inside it (Josh 2026-09-08).
 	if instanceType ~= "party" and instanceType ~= "raid" then
 		state.inDungeon = false
+		state.sighted, state.encounterActive = nil, false
 		-- an instance that never resolved left the counter at its cap, so
 		-- the NEXT instance got no retries against journal lag
 		retries = 0
@@ -921,6 +922,7 @@ function Tracker.Refresh(reason)
 		state.killed = 0
 		state.manualLeg = nil
 		state.boss = nil
+		state.sighted, state.encounterActive = nil, false
 		-- the lock data arrives on UPDATE_INSTANCE_INFO, which re-reads
 		if def then pcall(RequestRaidInfo) end
 	end
@@ -959,10 +961,54 @@ function Tracker.Refresh(reason)
 	Tracker.Render()
 end
 
+-- A boss you can see before the pull. Exact names only, against the boss
+-- names, the data's `units` (council fights: you target Hex Lord Malacrass,
+-- not The Coiled Altar) and the Adventure Guide's creature list. Substring
+-- matching, which findDataBoss uses for encounter names, would turn
+-- "Ula'tek's Chosen" trash into Ula'tek.
+local function bossForUnit(name)
+	local d = state.dungeon
+	local key = name and KN.Normalize(name)
+	if not (d and key and key ~= "") then return nil end
+	local function same(x) return x ~= nil and KN.Normalize(x) == key end
+	for _, b in ipairs(d.bosses or {}) do
+		local hit = same(b.name)
+		for _, u in ipairs(b.units or {}) do hit = hit or same(u) end
+		if hit then return b, findJournalBoss(b.name) end
+	end
+	for _, jb in ipairs(state.bosses or {}) do
+		local hit = same(jb.name)
+		for _, c in ipairs(jb.creatures or {}) do hit = hit or same(c) end
+		if hit then
+			local jkey = KN.Normalize(jb.name)
+			for _, b in ipairs(d.bosses or {}) do
+				if KN.Normalize(b.name) == jkey then return b, jb end
+			end
+			return { name = jb.name, notes = {} }, jb
+		end
+	end
+	return nil
+end
+
+-- Targeting a boss, or its boss frame appearing, shows its notes before the
+-- pull (Josh 2026-09-12: stood at Ula'tek looking at a boss list). A pull in
+-- progress keeps its own boss, and a dead unit changes nothing.
+function Tracker.OnUnitSighted(unit)
+	if not state.dungeon or state.preview or state.encounterActive then return end
+	if not (unit and UnitExists and plain(UnitExists(unit))) then return end
+	if UnitIsDead and plain(UnitIsDead(unit)) then return end
+	local b, jb = bossForUnit(plain(UnitName(unit)))
+	if b and b ~= state.boss then
+		state.boss, state.journalBoss, state.sighted = b, jb, true
+		Tracker.Render()
+	end
+end
+
 function Tracker.OnEncounterStart(encounterID, encounterName)
 	if not state.dungeon then return end
 	encounterID = plain(encounterID)
 	encounterName = plain(encounterName)
+	state.encounterActive, state.sighted = true, nil
 	local name = encounterName or (encounterID and KN.LearnedBosses()[encounterID])
 	local boss, idx = findDataBoss(name)
 	state.boss = boss
@@ -984,6 +1030,7 @@ end
 function Tracker.OnEncounterEnd(encounterID, success)
 	if not state.dungeon then return end
 	success = plain(success)
+	state.encounterActive, state.sighted = false, nil
 	if success == 1 then
 		state.killed = state.killed + 1
 		if state.manualLeg then
@@ -1311,6 +1358,12 @@ local ev = CreateFrame("Frame")
 ev:SetScript("OnEvent", function(_, event, a1, a2, a3, a4, a5)
 	if event == "ENCOUNTER_START" then
 		Tracker.OnEncounterStart(a1, a2)
+	elseif event == "PLAYER_TARGET_CHANGED" then
+		Tracker.OnUnitSighted("target")
+	elseif event == "INSTANCE_ENCOUNTER_ENGAGE_UNIT" then
+		for i = 1, 5 do
+			Tracker.OnUnitSighted("boss" .. i)
+		end
 	elseif event == "ENCOUNTER_END" then
 		Tracker.OnEncounterEnd(a1, a5)
 	elseif event == "SCENARIO_CRITERIA_UPDATE" or event == "CRITERIA_UPDATE" or event == "UPDATE_UI_WIDGET" then
@@ -1341,7 +1394,7 @@ end)
 
 function Tracker.OnEnable()
 	for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "CHALLENGE_MODE_START", "UPDATE_INSTANCE_INFO",
-		"ENCOUNTER_START", "ENCOUNTER_END", "SCENARIO_CRITERIA_UPDATE", "CRITERIA_UPDATE", "UPDATE_UI_WIDGET" }) do
+		"ENCOUNTER_START", "ENCOUNTER_END", "SCENARIO_CRITERIA_UPDATE", "CRITERIA_UPDATE", "UPDATE_UI_WIDGET", "PLAYER_TARGET_CHANGED", "INSTANCE_ENCOUNTER_ENGAGE_UNIT" }) do
 		pcall(ev.RegisterEvent, ev, e)
 	end
 	-- a captured fight flips an auto-switched window back to Scores
@@ -1365,7 +1418,7 @@ function Tracker.OnEnable()
 							state.manualLeg = idx + 1
 						end
 						state.leg = state.manualLeg or (state.killed + 1)
-						state.boss, state.journalBoss = nil, nil
+						state.boss, state.journalBoss, state.sighted = nil, nil, nil
 						Tracker.Render()
 					end
 				end

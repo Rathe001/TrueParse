@@ -1,4 +1,4 @@
--- Midnight Season 2 dungeon pool. Written once, per ROLE, in class-neutral
+-- Midnight Season 2 dungeon pool, and the season's raid at the end. Written once, per ROLE, in class-neutral
 -- words; the addon filters every line to the reader's role and tools.
 --
 -- Shape:
@@ -17,6 +17,8 @@
 --                      dispel, purge, soothe, utility): the ranked-run data
 --                      then says "Capacitor Totem works well on Mirror
 --                      Images" for every spec with a stun
+--               units  (raids) the names you target for a boss whose
+--                      encounter is named for something else: a council
 --   trash     { name=, text=, tag=, role=, need=, affix=, class=, leg=, min= }
 --             leg 1 = before boss 1; no leg = every stretch. An entry with
 --             no `name` is a stretch-level line (the lust call, a talent
@@ -467,5 +469,137 @@ KN.RegisterDungeon({
 		{ name = "Living Venom", text = "Explodes on death: stagger the kills" },
 		{ name = "Twinfang Harrower", tag = "TANK", role = "tank", text = "Duostrike: defensive" },
 		{ name = "Ravenous Descendant", tag = "SOOTHE", need = "soothe", text = "Soothe Ravenous" },
+	},
+})
+
+---------------------------------------------------------------------------
+-- The season's raid (boss-only: RegisterRaid refuses a trash table). Its two
+-- wings clear in either order, so it does not declare `linear`: the view
+-- lists the bosses and switches to one when its encounter starts. Sources:
+-- Method and MythicTrap per-boss guides, 2026-09-08, reconciled in
+-- research/instances/retail-the-venomous-abyss.md; lines the two disagree
+-- on are left out. Nymrissa Wavecaller, the optional lair boss, is
+-- single-sourced and waits for a second source. Bosses in journal order.
+---------------------------------------------------------------------------
+KN.RegisterRaid({
+	name = "The Venomous Abyss",
+	bosses = {
+		{ name = "Nek'zali the Soulcoiler",
+			core = {
+				"Break the shields on the Restless Amani and kill them before they reach the Well",
+				"Essence Rend: get dispelled at the edge; the puddle stays where it drops",
+				"At 50% burn the corpses with Hungering Pyre, then kill both Echoes of Jawae",
+			},
+			notes = {
+				{ tag = "LUST", need = "lust", text = "in phase 2, before the energy caps", ability = "Uncoiling" },
+				{ tag = "MAGIC", need = "magic", text = "Essence Rend, and only at the edge", ability = "Essence Rend" },
+				{ tag = "TANK", role = "tank", text = "Hollowing Strikes: swap around 5-6 stacks and let it expire; stay 30 yards out for Possession Barrage", ability = "Hollowing Strikes" },
+				{ tag = "CD", role = "healer", text = "Soulcoil Ignition, and the Uncoiling rot all through phase 2", ability = "Soulcoil Ignition" },
+				{ text = "Stand behind the boss for Possession Barrage", ability = "Possession Barrage" },
+			} },
+		{ name = "Entombed Sentinels",
+			units = { "Breath of Ula'tek", "Blood of Ula'tek" },
+			core = {
+				"Keep the two golems 40 yards apart or they take 99% less damage",
+				"Unstable Miasma: everyone soaks it, it splits",
+				"Intermission: pair up so your two stack counts add to exactly 4",
+			},
+			notes = {
+				{ tag = "LUST", need = "lust", text = "on the pull, there is no burn phase" },
+				{ tag = "MAGIC", need = "magic", text = "Blighted Blood, once they are at the edge", ability = "Blighted Blood" },
+				{ tag = "TANK", role = "tank", text = "Swap after each Empowering Slam and each Bloodvenom Injection, not just at the intermission: repeated hits keep ramping", ability = "Empowering Slam" },
+				{ tag = "CD", role = "healer", text = "Venom Coagulation, and the Unstable Miasma soak", ability = "Venom Coagulation" },
+				{ text = "Run over the Toxic Droplets before they go off", ability = "Toxic Droplets" },
+			} },
+		{ name = "The Lost Explorers",
+			units = { "Gebbo", "Nama", "Iku" },
+			core = {
+				"United Defense: never let all three sit within 30 yards, or they take 99% less damage",
+				"Break the boxes and feed the Disgusting Fish to stop Final Ascension",
+				"Frostfire Volley: clear fire in the frost patch and frost in the fire patch, or the raid explodes",
+			},
+			notes = {
+				{ tag = "LUST", need = "lust", text = "on the pull" },
+				{ tag = "KICK", need = "kick", text = "Iku's Icebound Flames", ability = "Icebound Flames" },
+				{ tag = "MAGIC", need = "magic", text = "Icebound Flames if the cast lands", ability = "Icebound Flames" },
+				{ tag = "TANK", role = "tank", text = "Swap on both: Iku's Shredding Shards is +50% magic taken, Nama's Steady Strikes stacks physical", ability = "Shredding Shards" },
+				{ tag = "CD", role = "healer", text = "the Malevolent Presence rot, and the Fishy Feedback after every fish", ability = "Malevolent Presence" },
+				{ text = "Nama's Mighty Thud: three soak groups, one per circle", ability = "Mighty Thud" },
+				{ text = "Gebbo's bomb goes to the arena edge; bounce the shockwave on a mushroom", ability = "Explosive Surprise" },
+			} },
+		{ name = "Vashnik the Malignant",
+			-- Method: this fight has no interrupts and no purges
+			core = {
+				"Every add dies before it reaches the centre pool",
+				"Plague Froth: spread out and dodge the waves",
+				"Toxic Vapor climbs with every Imbibe: that is the clock",
+			},
+			notes = {
+				{ tag = "LUST", need = "lust", text = "on the pull" },
+				{ tag = "TANK", role = "tank", text = "Dripping Fangs: swap every cast, it doubles physical damage taken", ability = "Dripping Fangs" },
+				{ tag = "CD", role = "healer", text = "the infections: Siphoning groups up, Stygian spreads, Exploding gets staggered dispels", ability = "Toxic Vapor" },
+				{ text = "Cover every Malignant Catalyst bile", ability = "Malignant Catalyst" },
+			} },
+		{ name = "Sszorak",
+			-- no lust line: both sources flag a damage-amp window, neither calls one
+			core = {
+				"Apex Predator is a five-cast combo: Ravage points away, Mutilate points at the soak group, dodge the Tempest tornadoes",
+				"Raging Crosswinds: pair with the player whose arrow points the opposite way and cancel the knock",
+				"Drop the Viscous Cysts opposite the active wind tunnels, then ride the winds into them",
+			},
+			notes = {
+				{ tag = "TANK", role = "tank", text = "Ravage: swap between casts and point it away from the raid; watch Corroding Venom stacks", ability = "Ravage" },
+				{ tag = "CD", role = "healer", text = "Ula'tek's Presence rot, and the Mutilate spike", ability = "Mutilate" },
+				{ text = "Mutilate needs five or more soakers: alternate two groups", ability = "Mutilate" },
+				{ text = "Stay out of the Caustic Claws pools, they raise your damage taken", ability = "Caustic Claws" },
+			} },
+		{ name = "The Twin Fangs",
+			units = { "Vexhul", "Ithraz" },
+			core = {
+				"Eternal Venom is permanent and lethal at 10 stacks; Ravenous Feast is the only thing that sheds one",
+				"Soak every Caustic Globule, one player each, or the whole raid takes a stack",
+				"Kill both serpents together, or the survivor ramps with Uncoiled Wrath",
+			},
+			notes = {
+				{ tag = "LUST", need = "lust", text = "on the pull" },
+				{ tag = "TANK", role = "tank", text = "Stone Breaker: soak all three, then taunt swap; each soak is 33% vulnerability for 90 seconds", ability = "Stone Breaker" },
+				{ tag = "TANK", role = "tank", text = "Swap Vexhul after each Caustic Deluge: Envenomed is +10% per stack for 90 seconds, so you trade serpents rather than swap on the spot", ability = "Caustic Deluge" },
+				{ tag = "CD", role = "healer", text = "the Toxic Fumes rot all fight, and both tank soaks", ability = "Toxic Fumes" },
+				{ text = "Ravenous Feast: three soak groups, nobody soaks twice, one stack off each", ability = "Ravenous Feast" },
+				{ text = "Dodge the Corrosive Spit lines from the Venomous Emergence serpents", ability = "Corrosive Spit" },
+				{ text = "Submerge: rotate against the Vile Flood beam and dodge the Sanguine Storm circles", ability = "Vile Flood" },
+			} },
+		{ name = "The Coiled Altar",
+			units = { "Zul'jan", "Hex Lord Malacrass", "Malacrass" },
+			core = {
+				"Stay stacked behind the boss: the tank aims Sever into the orb and ghost clusters",
+				"Break the shield to stop Eternal Nightfall, or it wipes the raid",
+				"Phase 3: kill both evenly or Soulbound berserks the survivor",
+			},
+			notes = {
+				{ tag = "LUST", need = "lust", text = "during the intermission, while Soulbinding has Zul'jan at double damage taken", ability = "Soulbinding" },
+				{ tag = "KICK", need = "kick", text = "Wail of Terror on the Spiritcackles late, and kill them before they hit 100 energy and go immune", ability = "Wail of Terror" },
+				{ tag = "POISON", need = "poison", text = "Venomfang", ability = "Venomfang" },
+				{ tag = "MAGIC", need = "magic", text = "the healing absorb Eternal Nightfall leaves", ability = "Eternal Nightfall" },
+				{ tag = "TANK", role = "tank", text = "Swap after every Sever, Soul Sever or Blighted Sever: each one massively increases the next", ability = "Sever" },
+				{ tag = "CD", role = "healer", text = "the Dreadful Presence rot, and every phase push", ability = "Dreadful Presence" },
+				{ text = "Guillotine needs five or more in the soak", ability = "Guillotine" },
+				{ text = "Phase 2: AoE the mind-controlled free, and look at the Manifestations to freeze them", ability = "Dreadmarch" },
+				{ text = "Collect the Soul Fragments within 15 seconds", ability = "Gloombomb" },
+			} },
+		{ name = "Ula'tek",
+			core = {
+				"Keep the venom off the Malignant Shells: an egg that gets hit hatches a Blightscale Viper",
+				"The tank stays in melee of both Ula'tek and the Tail, or the raid eats Rattler Slam",
+				"Serpent's Bite: three assigned soak groups, then spread for the Volatile Purge",
+			},
+			notes = {
+				{ tag = "LUST", need = "lust", text = "on the first Rage of the Shackled, while the Heart takes double damage", ability = "Rage of the Shackled" },
+				{ tag = "KICK", need = "kick", text = "Vicious Echoes from the Shriekers, every cast", ability = "Vicious Echoes" },
+				{ tag = "TANK", role = "tank", text = "Mother's Wrath: defensive; step out of Mephitic Thrash and straight back in", ability = "Mother's Wrath" },
+				{ tag = "CD", role = "healer", text = "the Necrotic Vapors rot, and every platform break, the second one in phase 3 hardest", ability = "Necrotic Vapors" },
+				{ text = "Dodge Caustic Waves by moving against the telegraphed wing pull", ability = "Caustic Waves" },
+				{ text = "Stack for the Spectral Coils soaks: the more bodies, the less it hurts", ability = "Spectral Coils" },
+			} },
 	},
 })
