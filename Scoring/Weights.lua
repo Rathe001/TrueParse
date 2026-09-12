@@ -608,12 +608,11 @@ Weights.mplusLowKeyLift = 1.0
 --            measured Normal 1.06 and Heroic 0.95 on 12 rows each against
 --            19 real +2 to +4 rows, all inside the noise, so 1.0 until the
 --            captures say otherwise. Mythic 0 has no captures yet.
---            Against this season's key curves (the 2026-09-04 crawl, not in
---            the tree while the refresh regression stands) Heroic fits
---            1.23 on 36 rows from 11 players against 75 key rows from 12,
---            the first estimate with real support. It moves the median
---            Heroic damager by about one percentile, so it waits for that
---            data to return rather than shipping on a guess.
+--            Against this season's key curves (the 2026-09-04 crawl) Heroic
+--            fits 1.23 on 36 rows from 11 players against 75 key rows from
+--            12, the first estimate with real support. Different players on
+--            each side, and it moves the median Heroic damager by about one
+--            percentile, so 1.0 stays until a paired fit says otherwise.
 --   stepPct  output growth per key level, for a dungeon whose lowest band
 --            sits above +2 (Season 2 starts at +5 in seven of eight):
 --            9.4% per level between +2 and +5 across 157 spec curves.

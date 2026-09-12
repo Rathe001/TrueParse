@@ -33,6 +33,12 @@ crawled band sits higher, the rate is converted down to +2 first. The tier
 strip and the tooltip say "+2 keys", so the number is never mistaken for a
 parse.
 
+This season's Mythic+ curves and the current raid's curves are back. The
+September 8 data refresh put last season's key and dungeon curves and the
+August raid curves back over newer crawls, so since 2.15.1 current keys
+scored without their own curves and the Venomous Abyss bosses had none. The
+refresh now publishes only the files it actually re-crawled.
+
 ## 2.16.3
 
 In a raid, the group score gives a point back for each raid buff nobody

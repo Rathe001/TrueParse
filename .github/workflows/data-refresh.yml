@@ -287,7 +287,11 @@ jobs:
           rm -f scripts/wcl-v2-client.local.txt
           B="${{ steps.cfg.outputs.branch }}"
           git fetch origin main
-          if git diff --quiet origin/main -- Data/; then
+          # The cycle's own work is what the branch changed since it forked
+          # from main. Comparing the branch's whole Data/ against main also
+          # counted every file MAIN had updated since then (see below).
+          BASE=$(git merge-base origin/main "$B")
+          if git diff --quiet "$BASE" "$B" -- Data/; then
             echo "No data changed this cycle; nothing to finalize." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -316,7 +320,13 @@ jobs:
           # next line hard-resets to origin/main regardless.
           git checkout -f main
           git reset --hard origin/main   # publish on top of the latest main
-          git checkout "$B" -- Data/
+          # ONLY the files this cycle refreshed. Taking the branch's whole
+          # Data/ also took its stale copy of every file main had updated
+          # since the branch forked: on 2026-09-08 that reverted the Sep 2
+          # Venomous Abyss raid curves and the Sep 4 Season 2 key curves, and
+          # v2.15.1 shipped the old ones. BASE is set above.
+          git diff --name-only --diff-filter=ACMR "$BASE" "$B" -- Data/ | xargs -r git checkout "$B" --
+          git diff --name-only --diff-filter=D "$BASE" "$B" -- Data/ | xargs -r git rm -q --
           CUR=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' TrueParse.toc | head -1)
           MAJOR=${CUR%%.*}; REST=${CUR#*.}; MINOR=${REST%%.*}; PATCH=${REST##*.}
           NEW="$MAJOR.$MINOR.$((PATCH + 1))"
