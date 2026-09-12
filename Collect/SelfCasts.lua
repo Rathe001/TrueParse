@@ -118,19 +118,16 @@ end
 -- addon-running tanks reported every other self-report field but no
 -- mitigation at all, which is exactly what this failure looks like.
 local function specRole()
-	if not (GetSpecialization and GetSpecializationInfo) then
-		return nil
-	end
-	local spec = GetSpecialization()
+	local spec = TP.Compat.GetSpecialization()
 	if not spec then
 		return nil
 	end
-	local specID = select(1, GetSpecializationInfo(spec))
+	local specID = select(1, TP.Compat.GetSpecializationInfo(spec))
 	local known = specID and TP.SPEC_ROLES and TP.SPEC_ROLES[specID]
 	if known then
 		return known
 	end
-	return select(5, GetSpecializationInfo(spec)) -- fallback for an unlisted spec
+	return select(5, TP.Compat.GetSpecializationInfo(spec)) -- fallback for an unlisted spec
 end
 
 local function isTankSpec()
@@ -145,12 +142,11 @@ end
 
 local function buildWatchList()
 	watchedSpells, ownCasts = nil, nil
-	if not (TP.Compat.IS_RETAIL and TP.SpellProfiles
-		and GetSpecialization and GetSpecializationInfo) then
+	if not (TP.Compat.IS_RETAIL and TP.SpellProfiles) then
 		return
 	end
-	local spec = GetSpecialization()
-	local specID = spec and GetSpecializationInfo(spec)
+	local spec = TP.Compat.GetSpecialization()
+	local specID = spec and TP.Compat.GetSpecializationInfo(spec)
 	local prof = specID and TP.SpellProfiles[specID]
 	if not (prof and prof.spells) then
 		return
@@ -194,11 +190,11 @@ local function isAugEvoker()
 		return false
 	end
 	local _, class = UnitClass("player")
-	if class ~= "EVOKER" or not (GetSpecialization and GetSpecializationInfo) then
+	if class ~= "EVOKER" then
 		return false
 	end
-	local spec = GetSpecialization()
-	return (spec and GetSpecializationInfo(spec)) == AUG_SPEC_ID
+	local spec = TP.Compat.GetSpecialization()
+	return (spec and TP.Compat.GetSpecializationInfo(spec)) == AUG_SPEC_ID
 end
 
 local function stopUptimeTicker()
@@ -229,7 +225,7 @@ end
 
 local function countConsumables()
 	if not (C_UnitAuras and C_UnitAuras.GetAuraDataByIndex) then
-		return 0
+		return nil -- no aura API is "unknown", never a measured zero
 	end
 	local count, seen, readable = 0, 0, 0
 	for i = 1, 60 do
@@ -352,6 +348,13 @@ local function finalizeFight()
 	stopUptimeTicker()
 	stopMitTicker()
 	stopPhase2Tickers()
+	-- ENCOUNTER_END never arrives for a boss left mid-pull (a release
+	-- and a walk out, a disconnect), and a stuck flag let every later
+	-- trash pull's grace window ignore its cap until the next boss ended.
+	-- Out of combat, no encounter is open (audit 2026-09-11).
+	if not UnitAffectingCombat("player") then
+		encounterOpen = false
+	end
 	if not combatStart then
 		return
 	end

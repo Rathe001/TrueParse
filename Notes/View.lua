@@ -389,7 +389,18 @@ local function setListRow(r, d, width, labelText, labelRGB, textPrefix)
 	end
 	r.label:SetText(labelText or "")
 	textColor(r.label, labelRGB or RGB.accent)
-	r.fs:SetWidth(width - 4 - LABEL_COL - COL_GAP - 4)
+	-- a row with neither label nor icon ("nothing noted for this
+	-- stretch") reads flush left instead of leaving an empty label
+	-- column (audit 2026-09-11)
+	local flush = not labelText and not (d.icon and not textPrefix)
+	r.fs:ClearAllPoints()
+	if flush then
+		r.fs:SetPoint("TOPLEFT", 4, -ROW_PAD)
+		r.fs:SetWidth(width - 8)
+	else
+		r.fs:SetPoint("TOPLEFT", 4 + LABEL_COL + COL_GAP, -ROW_PAD)
+		r.fs:SetWidth(width - 4 - LABEL_COL - COL_GAP - 4)
+	end
 	r.fs:SetText((textPrefix or "") .. (d.text or ""))
 	r.shade:SetShown(d.shade and true or false)
 	local h = math.max(r.fs:GetStringHeight(), r.label:GetStringHeight(), ICON)

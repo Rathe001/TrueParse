@@ -53,7 +53,11 @@ local function sample()
 end
 
 local eventFrame = CreateFrame("Frame")
-eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+-- the sampler is a CLEU-era feature: retail never starts it, so it
+-- never registers there either
+if TP.Compat.HAS_CLEU then
+	eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+end
 eventFrame:SetScript("OnEvent", function()
 	if TP.Compat.IS_RETAIL or ticker then
 		return

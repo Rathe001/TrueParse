@@ -59,11 +59,14 @@ KN.DIFF_RANK = { l = 1, n = 2, h = 3, m = 4, k = 5 }
 -- One table per client, chosen once at load.
 --
 -- Retail dungeons 1/2/23 and keystone 8; Timewalking 24/33 is heroic-shaped;
--- raids 17 LFR, 14 Normal, 15 Heroic, 16 Mythic.
+-- raids 17 LFR, 14 Normal, 15 Heroic, 16 Mythic. Follower Dungeons (205)
+-- are Normal-tuned, Story Raids (220) and LFR Timewalking (151) sit at
+-- LFR; unmapped they fell to DIFF_DEFAULT ("m") and showed every Mythic
+-- line and the Trash section (audit 2026-09-11).
 local DIFF_BY_ID_RETAIL = {
 	[1] = "n", [2] = "h", [23] = "m", [8] = "k",
-	[24] = "h", [33] = "h",
-	[17] = "l", [14] = "n", [15] = "h", [16] = "m",
+	[24] = "h", [33] = "h", [205] = "n",
+	[17] = "l", [14] = "n", [15] = "h", [16] = "m", [220] = "l", [151] = "l",
 }
 -- Mists dungeons 1/2 and Challenge Mode 8 (keystone-shaped: the top dungeon
 -- rank, no level, no affixes); raids 3/4 Normal, 5/6 Heroic, 7 Raid Finder,

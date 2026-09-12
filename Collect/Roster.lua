@@ -66,17 +66,18 @@ function Roster:Rebuild()
 					guid = guid,
 					name = name or UNKNOWN,
 					class = class or "PRIEST",
-					role = TP.Compat.GetRole(unit),
 					unit = unit,
 					specID = cached and cached.specID or nil,
 					ilvl = cached and cached.ilvl or nil,
 				}
+				-- a NONE group role (non-matchmade groups) defers to the
+				-- cached spec; roleAssigned records which one answered so a
+				-- fight record can prefer a later inspection over the fallback
+				info.role, info.roleAssigned = TP.Compat.GetRole(unit, info.specID)
 				if unit == "player" then
-					if GetSpecialization and GetSpecializationInfo then
-						local specIndex = GetSpecialization()
-						if specIndex then
-							info.specID = GetSpecializationInfo(specIndex)
-						end
+					local specIndex = TP.Compat.GetSpecialization()
+					if specIndex then
+						info.specID = TP.Compat.GetSpecializationInfo(specIndex) or info.specID
 					end
 					if GetAverageItemLevel then
 						local _, equipped = GetAverageItemLevel()
@@ -144,6 +145,11 @@ function Roster:OnInspectReady(guid)
 	if info and UnitExists(info.unit) and UnitGUID(info.unit) == guid then
 		local ilvl = C_PaperDollInfo and C_PaperDollInfo.GetInspectItemLevel
 			and C_PaperDollInfo.GetInspectItemLevel(info.unit)
+		-- secret first, compare second: the `> 0` below throws on a
+		-- secret before any later guard can run (audit 2026-09-11)
+		if TP.Compat.IsSecret(ilvl) then
+			ilvl = nil
+		end
 		if not (ilvl and ilvl > 0) then
 			-- Classic clients return nothing here: average the inspected
 			-- unit's equipped item levels ourselves
@@ -155,6 +161,9 @@ function Roster:OnInspectReady(guid)
 						local getLevel = (C_Item and C_Item.GetDetailedItemLevelInfo)
 							or GetDetailedItemLevelInfo
 						local itemLevel = getLevel and getLevel(link)
+						if TP.Compat.IsSecret(itemLevel) then
+							itemLevel = nil
+						end
 						if itemLevel and itemLevel > 0 then
 							total = total + itemLevel
 							count = count + 1
@@ -166,11 +175,18 @@ function Roster:OnInspectReady(guid)
 				ilvl = total / count
 			end
 		end
-		if ilvl and ilvl > 0 and not TP.Compat.IsSecret(ilvl) then
+		if ilvl and ilvl > 0 then
 			info.ilvl = math.floor(ilvl + 0.5)
 		end
-		local specID = GetInspectSpecialization and GetInspectSpecialization(info.unit)
-		if specID and specID > 0 and not TP.Compat.IsSecret(specID) then
+		-- the global was deprecated in 11.2; prefer the namespaced form
+		-- and keep the global for Mists
+		local getSpec = (C_SpecializationInfo and C_SpecializationInfo.GetInspectSpecialization)
+			or GetInspectSpecialization
+		local specID = getSpec and getSpec(info.unit)
+		if TP.Compat.IsSecret(specID) then
+			specID = nil
+		end
+		if specID and specID > 0 then
 			info.specID = specID
 		end
 		self.cache[guid] = { specID = info.specID, ilvl = info.ilvl }

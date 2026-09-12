@@ -209,12 +209,18 @@ do
 	local r, gr, b = G.ColorForScore(80)
 	check(r and gr and b, "score color returns rgb")
 	check(select(1, G.ColorForScore(0)) == 0.40, "under 25 is WCL grey")
-	check(select(1, G.ColorForScore(24.9)) == 0.40, "24.9 still grey")
+	-- the colour brackets the DISPLAYED number: 24.4 prints "24" and stays
+	-- grey, 24.6 prints "25" and is green like the label says (audit
+	-- 2026-09-11: label and colour used to round differently)
+	check(select(1, G.ColorForScore(24.4)) == 0.40, "24.4 still grey")
+	check(select(2, G.ColorForScore(24.6)) == 1.00, "24.6 shows as 25 and is green")
+	check(G.ScoreLabel(24.6) == "25" and G.ScoreLabel(24.4) == "24", "the label rounds the same way")
 	local cr, cg = G.ColorForScore(25)
 	check(cg == 1.00 and cr == 0.12, "25 crosses into WCL green")
 	local br, bg = G.ColorForScore(50)
 	check(br == 0.00 and bg == 0.44, "50 crosses into WCL blue")
-	check(select(1, G.ColorForScore(74.9)) == 0.00, "74.9 still blue")
+	check(select(1, G.ColorForScore(74.4)) == 0.00, "74.4 still blue")
+	check(select(1, G.ColorForScore(74.6)) == 0.64, "74.6 shows as 75 and is purple")
 	check(select(1, G.ColorForScore(75)) == 0.64, "75 crosses into WCL purple")
 	check(select(1, G.ColorForScore(95)) == 1.00, "95 crosses into WCL orange")
 	check(select(1, G.ColorForScore(99.2)) == 0.89, "99+ is WCL pink")
@@ -320,6 +326,25 @@ check(byName.Heal.breakdown.interrupts.applicable == false, "healer interrupt me
 check(byName.Heal.breakdown.healing.applicable == true, "healer healing metric applicable")
 check(byName.DpsB.breakdown.dispels.applicable == false, "rogue not scored on dispels (no cleanse)")
 check(byName.Heal.breakdown.dispels.applicable == true, "priest scored on dispels")
+-- the dispel share is spread over the players who could cleanse, like the
+-- kick share, not over the whole roster: over five players a single cleanse
+-- of the fight's four read a perfect 100 (audit 2026-09-11)
+do
+	local shareFight = { name = "Cleanse Share", duration = 60, totals = { dispelTypes = { Magic = true } },
+		players = {
+			h1 = mkPlayer("h1", "HealA", "PRIEST", "HEALER", { healing = 700000, dispels = 3 }),
+			h2 = mkPlayer("h2", "HealB", "PRIEST", "HEALER", { healing = 650000, dispels = 1 }),
+		} }
+	for i = 1, 8 do
+		shareFight.players["w" .. i] = mkPlayer("w" .. i, "War" .. i, "WARRIOR", "DAMAGER", { damage = 1000000 })
+	end
+	local one
+	for _, r in ipairs(TP.Scoring.Engine.ScoreFight(shareFight)) do
+		if r.name == "HealB" then one = r.breakdown.dispels end
+	end
+	check(one and one.applicable == true and one.normalized < 100,
+		("one of four cleanses, two cleansers: not a perfect score (%.0f)"):format(one and one.normalized or -1))
+end
 
 -- 3b. A partial cleanser on a fight whose debuff types are UNKNOWN. A Ret
 -- Paladin removes Poison and Disease; charging them a share of dispels that
@@ -875,6 +900,94 @@ check(deathByName.EarlyDeath.penaltyDetail.deaths > 9,
 check(deathByName.LateDeath.penaltyDetail.deaths < 4,
 	("death at the end costs a fraction (%.2f)"):format(deathByName.LateDeath.penaltyDetail.deaths))
 check(deathByName.UnknownDeath.penaltyDetail.deaths == 10, "unknown timing keeps full penalty")
+
+-- 11c. A buff no class in the comp can bring: the group gets the point
+-- back on its own score, the player scores untouched (Josh 2026-09-11).
+do
+	local savedCats = TP.GROUP_BUFFS
+	TP.GROUP_BUFFS = {
+		{ key = "fortitude", label = "Power Word: Fortitude", providers = { PRIEST = true }, auras = {} },
+		{ key = "intellect", label = "Arcane Intellect", providers = { MAGE = true }, auras = {} },
+		{ key = "stats", label = "Stats (Kings/Wild/Legacy)", providers = { DRUID = true },
+			petProviders = { HUNTER = true }, auras = {} },
+		{ key = "skyfury", label = "Skyfury", providers = { SHAMAN = true }, auras = {} },
+	}
+	local compFight = {
+		name = "Comp Check", duration = 60,
+		players = {
+			p = mkPlayer("p", "Priest", "PRIEST", "HEALER", { healing = 500000 }),
+			d1 = mkPlayer("d1", "Hunter", "HUNTER", "DAMAGER", { damage = 1000000 }),
+			d2 = mkPlayer("d2", "Rogue", "ROGUE", "DAMAGER", { damage = 900000 }),
+		},
+	}
+	local missing = TP.Scoring.Engine.CompBuffsMissing(compFight)
+	check(#missing == 2 and missing[1] == "Arcane Intellect" and missing[2] == "Skyfury",
+		("the comp lacks Intellect and Skyfury; a hunter's pet covers Stats (%s)"):format(table.concat(missing, ", ")))
+	local compResults = TP.Scoring.Engine.ScoreFight(compFight, { normalizeIlvl = false })
+	local avg = 0
+	for _, r in ipairs(compResults) do avg = avg + r.score end
+	avg = avg / #compResults
+	local gs = TP.Scoring.Engine.GroupScore(compResults, compFight)
+	check(math.abs(gs - (avg + 2)) < 0.01, ("two missing buffs add two points to the group score (%.1f vs avg %.1f)"):format(gs, avg))
+	local bullet
+	for _, b in ipairs(TP.Scoring.Bullets.ForGroup(compResults, compFight)) do
+		if b.key == "compBuffs" then bullet = b end
+	end
+	check(bullet and bullet.text == "Nobody here brings Arcane Intellect, Skyfury (+2)",
+		("the group line names the buffs and the points (%s)"):format(tostring(bullet and bullet.text)))
+	local chip
+	for _, r in ipairs(TP.Scoring.Signals.GroupRows(compResults, compFight)) do
+		if r.key == "compBuffs" then chip = r end
+	end
+	check(chip and chip.kind == "glyph" and chip.points == 2 and chip.good == true and chip.label == "Comp lacks buffs",
+		"the group card shows it as a chip with the points")
+	-- the cap: four missing on a three-man comp of hunters still adds at most three
+	compFight.players.p = mkPlayer("p", "Hunter2", "HUNTER", "HEALER", { healing = 500000 })
+	TP.GROUP_BUFFS[3].petProviders = nil
+	local capped = TP.Scoring.Engine.GroupScore(TP.Scoring.Engine.ScoreFight(compFight, { normalizeIlvl = false }), compFight)
+	check(#TP.Scoring.Engine.CompBuffsMissing(compFight) == 4 and capped <= avg + 3.01,
+		"the comp bonus caps at three points")
+	-- a full comp adds nothing and shows nothing
+	compFight.players.m = mkPlayer("m", "Mage", "MAGE", "DAMAGER", { damage = 1000000 })
+	compFight.players.s = mkPlayer("s", "Shaman", "SHAMAN", "DAMAGER", { damage = 1000000 })
+	compFight.players.dr = mkPlayer("dr", "Druid", "DRUID", "DAMAGER", { damage = 1000000 })
+	compFight.players.p = mkPlayer("p", "Priest", "PRIEST", "HEALER", { healing = 500000 })
+	local fullResults = TP.Scoring.Engine.ScoreFight(compFight, { normalizeIlvl = false })
+	local fullAvg = 0
+	for _, r in ipairs(fullResults) do fullAvg = fullAvg + r.score end
+	fullAvg = fullAvg / #fullResults
+	check(math.abs(TP.Scoring.Engine.GroupScore(fullResults, compFight) - fullAvg) < 0.01
+		and next(TP.Scoring.Engine.GroupAdjustments(compFight)) == nil, "a full comp adds nothing")
+	-- audit 2026-09-11: the four holes in the first cut
+	local soloDummy = { name = "Training Dummy", duration = 90, practice = true,
+		players = { d = mkPlayer("d", "Rogue", "ROGUE", "DAMAGER", { damage = 900000 }) } }
+	check(next(TP.Scoring.Engine.GroupAdjustments(soloDummy)) == nil,
+		"a practice session has no comp to grade: no group points")
+	local unreadable = { name = "Secret Roster", duration = 60,
+		players = {
+			a = mkPlayer("a", "Hunter", "HUNTER", "DAMAGER", { damage = 1000000 }),
+			b = mkPlayer("b", "Unknown", nil, "DAMAGER", { damage = 900000 }),
+		} }
+	unreadable.players.b.class = nil
+	check(#TP.Scoring.Engine.CompBuffsMissing(unreadable) == 0,
+		"a player whose class could not be read might be the provider: nothing is called missing")
+	local top = { { score = 99, parse = nil }, { score = 99 } }
+	check(TP.Scoring.Engine.GroupScore(top, compFight) == 99,
+		"a 99 average plus comp points stays 99 - 100 does not exist on this scale either")
+	local rawResults = TP.Scoring.Engine.ScoreFight(compFight, { normalizeIlvl = false, mode = "parse" })
+	local rawAvg = 0
+	for _, r in ipairs(rawResults) do rawAvg = rawAvg + r.score end
+	rawAvg = rawAvg / #rawResults
+	compFight.players.m, compFight.players.s, compFight.players.dr = nil, nil, nil
+	rawResults = TP.Scoring.Engine.ScoreFight(compFight, { normalizeIlvl = false, mode = "parse" })
+	rawAvg = 0
+	for _, r in ipairs(rawResults) do rawAvg = rawAvg + r.score end
+	rawAvg = rawAvg / #rawResults
+	check(#TP.Scoring.Engine.CompBuffsMissing(compFight) > 0
+		and math.abs(TP.Scoring.Engine.GroupScore(rawResults, compFight) - rawAvg) < 0.01,
+		"the Raw lens is the WCL parse alone: no comp points in the group score")
+	TP.GROUP_BUFFS = savedCats
+end
 
 -- 12. Buff-coverage penalty: providers answer for uncovered group members
 local buffFight = {
@@ -1786,6 +1899,26 @@ end
 				tostring(p and p.derived)))
 		check(p and p.breakdown.damage.derived == 2,
 			"the breakdown entry carries the practice tier for the UI")
+		-- A DUNGEON dummy carries its anchor's difficultyID (8 on retail,
+		-- 237 on Mists). Read as a dungeon, it went down the low-key
+		-- branch, dropped the anchor for the pooled raid reference and
+		-- never reached the practice branch (audit 2026-09-11).
+		local savedAnchors, savedFor = TP.PRACTICE_ANCHORS, TP.PracticeAnchorFor
+		TP.PRACTICE_ANCHORS = { raid = TP.PRACTICE_ANCHOR,
+			dungeon = { name = "Pool Boss", difficultyID = 8 } }
+		TP.PracticeAnchorFor = function(npcID)
+			return npcID == 4242 and TP.PRACTICE_ANCHORS.dungeon or TP.PRACTICE_ANCHORS.raid
+		end
+		local d = deeps(mk({ name = "Dungeoneer's Training Dummy", practice = true,
+			practiceNpcID = 4242, difficulty = nil, difficultyID = 8,
+			zone = "Silvermoon City", instanceType = "none" }))
+		check(d and d.derived == 2 and d.breakdown.damage.derived == 2,
+			("a dungeon-anchored dummy is practice, tier 2, not a low key (%s)"):format(
+				tostring(d and d.derived)))
+		check(d and d.breakdown.damage.pctile and p and p.breakdown.damage.pctile
+			and math.abs(d.breakdown.damage.pctile - p.breakdown.damage.pctile) < 0.01,
+			"it scores against the anchor's own curve, the same as the raid dummy did")
+		TP.PRACTICE_ANCHORS, TP.PracticeAnchorFor = savedAnchors, savedFor
 		TP.PRACTICE_ANCHOR = savedAnchor
 		TP.Percentiles.encounters["Pool Boss"] = nil
 		Engine.InvalidateNameIndex(TP.Percentiles)
@@ -3043,11 +3176,14 @@ end)()
 			cdRow = r
 		end
 	end
-	check(cdRow and cdRow.count == "3",
-		("raidCds glyph carries the count, not the names (%s)"):format(tostring(cdRow and cdRow.count)))
+	-- four sat unused; the row used to say "3" because it counted the
+	-- commas in a name list already cut to three (audit 2026-09-11)
+	check(cdRow and cdRow.count == "4",
+		("raidCds glyph carries the full count, not the names (%s)"):format(tostring(cdRow and cdRow.count)))
 	check(cdRow and cdRow.tooltip and cdRow.tooltip.lines[1]
-		and cdRow.tooltip.lines[1][1]:find("Avert Harm, Devotion Aura, Rallying Cry", 1, true) ~= nil,
-		"raidCds tooltip names the unused cooldowns")
+		and cdRow.tooltip.lines[1][1]:find("Avert Harm, Devotion Aura, Rallying Cry and 1 more", 1, true) ~= nil,
+		("raidCds tooltip names the unused cooldowns and counts the rest (%s)"):format(
+			tostring(cdRow and cdRow.tooltip and cdRow.tooltip.lines[1] and cdRow.tooltip.lines[1][1])))
 	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
 	TP.Percentiles = savedP
 end)()

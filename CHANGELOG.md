@@ -1,5 +1,66 @@
 # TrueParse Changelog
 
+## 2.16.3
+
+The group score gives a point back for each raid buff nobody in the comp
+can bring, up to three: a group with no Mage is graded a little short on
+throughput against ranked kills, and that is the comp's doing, not a
+player's. The group card shows it as "Comp lacks buffs" with the buffs
+named on hover; player scores are untouched. On Mists a hunter's pet
+counts as a provider for Stats, Stamina and Spell Power, so a comp with a
+hunter is not short there. The meter row, the group card and the debrief
+now read one shared group score. A dummy session earns no comp points, a
+roster whose classes could not be read names nothing missing, the Raw
+lens shows the parse alone, and the group score stops at 99 like a
+player's.
+
+Audit fixes. On retail the "No flask/food" penalty was still charged on
+every other TrueParse in the group: the self-report went out as a
+measured zero when the count was unmeasurable. It now rides as
+"unknown" and stays neutral everywhere. On Mists, healer cooldown
+timing was judged on the wrong clock whenever the fight window was
+trimmed. A Dungeoneer's dummy now scores against the dungeon anchor it
+was always meant to, instead of being read as a low key. A dispel share
+is spread over the players who could cleanse, the way kicks are. The
+score's colour and its number round the same way. Reports sent from a
+matchmade group reach instance chat; a dummy session as the newest
+capture no longer blanks /tp run and /tp share, and manual reports
+never pick a dummy. The Notes view stays up during a pull instead of
+folding away, a fight amended to a wipe refreshes its hover card, a
+pinned fight's run column follows new captures, and the fight picker
+takes no keyboard in combat. Follower Dungeons and Story Raids show
+their own difficulty's notes; the third Demon Hunter spec has its own
+row; a key rejoined mid-run resumes at the right boss. The training
+dummy toggle shows on retail too. The specialization API is read
+through its current namespace with the old globals as the Mists
+fallback. CurseForge installs get their AddOns-list icon back.
+
+The Notes header read "522% forces" in a key: the client now hands the
+raw enemy count with a percent sign, and the tracker took it at its
+word. It reads the count over the requirement whenever the string is
+not a sane percentage, and /tp notes debug prints the raw fields.
+
+Smaller audit fixes. The "Unused raid CDs" count no longer stops at
+three. A raid night's dominant damage is a Giant Slayer on the run
+card, not a Lawnmower. The wipe button recognises the Raider's golems
+as practice, click-through covers the tier chip and applies after a
+mid-combat reload, a fifth death gets its dot, and the kill-speed tip
+shows its verdict. A boss left mid-pull no longer leaves the self-cast
+grace window uncapped, a shield eaten on a pet no longer counts for its
+owner, and the threat pull window starts at the first damage dealt
+rather than at the encounter's RP intro. In Notes, "/kn boss" with no
+name does nothing, the cast-share median is cached per boss, an
+unlabelled note reads flush left, the Adventure Guide tier read is
+guarded, and the Ritual Chieftain kick line is for kickers.
+
+Housekeeping. Personal-best and trend lookups notice a resumed capture
+replacing its predecessor, the retail retry poll stands down after a
+day pending, an absent aura API reads as unknown rather than zero, the
+mock night honours the history cap, the meter source hands out fresh
+empty sessions, Trap passes every return value through, the wipe report
+reads the best prior pull once, and a future bleed note is shown only
+to those who can dispel it.
+
 ## 2.16.2
 
 Notes: the ranked-run data now ships. Data\BossCasts.lua and

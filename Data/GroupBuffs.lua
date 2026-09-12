@@ -25,12 +25,14 @@ else
 	TP.GROUP_BUFFS = {
 		{ key = "stats", label = "Stats (Kings/Wild/Legacy)",
 			providers = { DRUID = true, PALADIN = true, MONK = true },
+			petProviders = { HUNTER = true }, -- a pet can carry it, so the comp is not short
 			auras = { [1126] = true, [20217] = true, [115921] = true,
 				[117666] = true, -- Legacy of the Emperor, raid-wide applied aura
 				[90363] = true }, -- Embrace of the Shale Spider (hunter pet)
 		},
 		{ key = "stamina", label = "Stamina (Fort/Commanding/Intent)",
 			providers = { PRIEST = true, WARRIOR = true, WARLOCK = true },
+			petProviders = { HUNTER = true },
 			-- Dark Intent (109773) grants BOTH spell power and stamina in
 			-- MoP (wowhead-verified); Blood Pact (6307) does NOT exist in
 			-- MoP Classic (404s on wowhead) and was a dead entry here.
@@ -42,6 +44,7 @@ else
 			auras = { [57330] = true, [19506] = true, [6673] = true } },
 		{ key = "spellpower", label = "Spell Power (Intent/Brilliance/Wrath)",
 			providers = { WARLOCK = true, MAGE = true, SHAMAN = true },
+			petProviders = { HUNTER = true },
 			auras = { [109773] = true, [1459] = true,
 				[61316] = true,   -- Dalaran Brilliance
 				[77747] = true,   -- Burning Wrath (shaman)

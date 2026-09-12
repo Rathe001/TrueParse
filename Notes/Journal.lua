@@ -323,7 +323,13 @@ function Journal.FindInstance(query)
 		return nil
 	end
 	local q = tostring(query):lower()
-	local restore = EJ_GetCurrentTier and select(1, pcall(EJ_GetCurrentTier)) and EJ_GetCurrentTier() or nil
+	-- the pcall's RESULT is the tier; the old line discarded it and
+	-- called again unprotected (audit 2026-09-11)
+	local restore
+	if EJ_GetCurrentTier then
+		local okT, tier = pcall(EJ_GetCurrentTier)
+		restore = okT and tier or nil
+	end
 	local foundID, foundName, matches = nil, nil, {}
 
 	local okTiers, tiers = pcall(EJ_GetNumTiers)

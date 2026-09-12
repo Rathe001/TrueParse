@@ -441,7 +441,7 @@ function Signals.ForResult(result, fight, player)
 	shown.kicks = shown.interrupts
 	for _, def in ipairs(REMAINDER) do
 		local v = ad[def.key] or 0
-		if v ~= 0 and not shown[def.key] and (not def.healerOnly or role == "HEALER") then
+		if v ~= 0 and not shown[def.key] then
 			local label = v > 0 and def.up or v < 0 and def.down
 			if label then
 				verdict(def.key, def.icon, label, v)
@@ -546,7 +546,11 @@ function Signals.GroupRows(results, fight)
 			lines[#lines + 1] = { "Owned, never pressed. Assign one button per big moment.", 0.8, 0.8, 0.8, true }
 			rows[#rows + 1] = { key = "raidCds", kind = "glyph", icon = ICONS.cdTimingHealer,
 				label = "Unused raid CDs", good = false,
-				count = names and tostring(select(2, names:gsub(",", ",")) + 1) or nil,
+				-- the bullet carries the real count; the comma tally is the
+				-- fallback for a bullet built elsewhere (it undercounted
+				-- past three, since the name list is cut there)
+				count = (bl.count and tostring(bl.count))
+					or (names and tostring(select(2, names:gsub(",", ",")) + 1)) or nil,
 				tooltip = { title = "Raid cooldown assignment", lines = lines } }
 		elseif bl.key == "speedTrend" then
 			local fasterS = text:match("(%d+)s faster")
@@ -566,7 +570,6 @@ function Signals.GroupRows(results, fight)
 				count = tail and (tail .. "s") or nil, tooltip = bl.tooltip }
 		elseif bl.key == "deaths" then
 			local died = text:match("^(%d+) player")
-				or (text:find("^1 player died") and "1")
 			if text:find("Nobody died") then
 				rows[#rows + 1] = { key = "deaths", kind = "glyph", icon = ICONS.deaths,
 					label = "Nobody died", good = true, tooltip = bl.tooltip }
@@ -592,6 +595,7 @@ function Signals.GroupRows(results, fight)
 				aggroLoss = { icon = ICONS.avoidable, label = "Lost aggro" },
 				pull = { icon = ICONS.avoidable, label = "Pulled early" },
 				buffs = { icon = ICONS.buffUptime, label = "Buff missing" },
+				compBuffs = { icon = ICONS.buffUptime, label = "Comp lacks buffs" },
 			}
 			local c = CHIP[bl.key]
 			local lines = { { stripPts(text), 1, 1, 1, true } }

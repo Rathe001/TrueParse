@@ -496,6 +496,26 @@ do
 		GetCriteriaInfo = function() return "Enemy Forces", 0, false, 62, 100, 0, 0, "62.5%", 1, 0, 0, false, true end }
 	KN.Tracker.Refresh("forces old api")
 	check(KN.Tracker.Rows()[1].forces == 62.5, "the older list-style criteria API reads too")
+	-- Josh's key, 2026-09-11: "522% forces". The string carried the raw
+	-- kill count with a percent sign; the count over the requirement is
+	-- the real fraction. A sane string still wins (the 62.5 above).
+	_G.C_ScenarioInfo = { GetScenarioStepInfo = function() return { numCriteria = 1 } end,
+		GetCriteriaInfo = function()
+			return { description = "Enemy Forces", quantityString = "522%", quantity = 522,
+				totalQuantity = 1000, isWeightedProgress = true }
+		end }
+	KN.Tracker.Refresh("forces raw count")
+	local f522 = KN.Tracker.Rows()[1].forces
+	check(f522 and math.abs(f522 - 52.2) < 0.01,
+		("a count dressed as a percentage reads as the fraction (%s)"):format(tostring(f522)))
+	_G.C_ScenarioInfo = { GetScenarioStepInfo = function() return { numCriteria = 1 } end,
+		GetCriteriaInfo = function()
+			return { description = "Enemy Forces", quantityString = "", quantity = 30,
+				totalQuantity = 100, isWeightedProgress = true }
+		end }
+	KN.Tracker.Refresh("forces no string")
+	check(KN.Tracker.Rows()[1].forces == 30, "no string at all: the numbers alone read")
+	_G.C_ScenarioInfo = nil
 	KN.Tracker.Preview("Murder", "k")
 	check(KN.Tracker.Rows()[1].forces == nil, "a preview shows no forces")
 	_G.GetInstanceInfo, _G.C_Map, _G.C_Scenario, _G.C_UIWidgetManager = saved.GetInstanceInfo, saved.C_Map, nil, nil

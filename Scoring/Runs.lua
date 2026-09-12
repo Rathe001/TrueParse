@@ -48,6 +48,11 @@ function Runs.Aggregate(fights, name)
 		run.difficulty = fight.difficulty or run.difficulty
 		run.difficultyID = fight.difficultyID or run.difficultyID
 		run.keystoneLevel = fight.keystoneLevel or run.keystoneLevel
+		-- how many boss fights the run held: run-level awards read it
+		-- (a raid night's top damage is a Giant Slayer, not a Lawnmower)
+		if fight.isBoss and not fight.practice then
+			run.bossFights = (run.bossFights or 0) + 1
+		end
 		for key, value in pairs(fight.totals or {}) do
 			-- totals now carry non-numeric entries (dispelTypes and
 			-- raidCdsUsed are tables): summing them crashed the run card
@@ -64,7 +69,7 @@ function Runs.Aggregate(fights, name)
 				end
 			end
 		end
-		for guid, p in pairs(fight.players) do
+		for guid, p in pairs(fight.players or {}) do
 			local rp = run.players[guid]
 			if not rp then
 				rp = {

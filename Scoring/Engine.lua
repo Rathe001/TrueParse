@@ -1220,10 +1220,14 @@ local function normalizeMetric(p, role, key, ctx)
 			ctx.totals.dispelTypes, role) then
 			return 0, false -- can't cleanse what this fight presented
 		end
-		if ctx.totals.dispels <= 0 then
+		if ctx.totals.dispels <= 0 or (ctx.dispelCapable or 0) <= 0 then
 			return 0, false -- nothing dispellable happened
 		end
-		local fairShare = ctx.totals.dispels / ctx.playerCount
+		-- the share is spread over the players who COULD cleanse what this
+		-- fight presented, the way kicks are spread over kickCapable: over
+		-- the whole roster, one cleanse in a 25-man read 100 (audit
+		-- 2026-09-11)
+		local fairShare = ctx.totals.dispels / ctx.dispelCapable
 		local smoothed = math.min(100, 100 * (value + 0.5) / (fairShare + 0.5))
 		if value <= 0 then
 			smoothed = math.min(smoothed, 55)
@@ -1637,7 +1641,9 @@ local function normalizeMetric(p, role, key, ctx)
 				-- those would be extending a fit to content it was never taken
 				-- from. MoP heroic dungeons very likely have the same mismatch,
 				-- but there is no capture of one to fit against, so they wait.
-				local fiveMan = (not TP.Compat.IS_RETAIL)
+				-- (a practice record carries its ANCHOR's difficulty, not a
+				-- five-man's; the dummy never had four teammates to split with)
+				local fiveMan = (not TP.Compat.IS_RETAIL) and not ctx.practice
 					and ctx.difficultyID and MOP_FIVE_MAN_DIFFICULTIES[ctx.difficultyID]
 				if fiveMan then
 					local byRole = W.mopFiveManReference and W.mopFiveManReference[role]
@@ -1963,6 +1969,87 @@ function Engine.EncounterToughness(fight)
 	return atOrBelow / total, total
 end
 
+-- Raid-buff categories nobody in this group can provide: no listed class
+-- and, where a pet can carry it (MoP hunters), no pet class either. The
+-- list of labels, in table order, or an empty list.
+function Engine.CompBuffsMissing(fight)
+	local out = {}
+	local cats = TP.GROUP_BUFFS
+	if not (cats and fight and fight.players) then
+		return out
+	end
+	-- A player whose class we could not read (retail secrets the meter's
+	-- classFilename mid-combat) might be the provider. Absence of
+	-- evidence is neutral everywhere else in this file, so it is here:
+	-- an unreadable roster names nothing missing rather than everything.
+	for _, p in pairs(fight.players) do
+		if not p.class then
+			return out
+		end
+	end
+	for _, category in ipairs(cats) do
+		local present = false
+		for _, p in pairs(fight.players) do
+			local class = p.class
+			if category.providers[class]
+				or (category.petProviders and category.petProviders[class]) then
+				present = true
+				break
+			end
+		end
+		if not present then
+			out[#out + 1] = category.label
+		end
+	end
+	return out
+end
+
+-- Points that belong to the group as a whole, keyed like a player's
+-- adjustments: { compBuffs = +n }. Only what applies is present.
+function Engine.GroupAdjustments(fight)
+	local G = TP.Scoring.Weights.group or {}
+	local adj = {}
+	-- a dummy session has no comp to grade (every other group signal
+	-- steps aside for practice the same way)
+	if not fight or fight.practice then
+		return adj
+	end
+	local missing = Engine.CompBuffsMissing(fight)
+	if #missing > 0 and (G.missingCompBuff or 0) > 0 then
+		adj.compBuffs = math.min(#missing * G.missingCompBuff, G.missingCompBuffMax or math.huge)
+	end
+	return adj
+end
+
+-- The group's score: the average of the player scores plus the group's
+-- own adjustments, clamped to the scale. Every surface that shows a
+-- group score reads it here so the meter row, the group card and the
+-- debrief agree. nil with no scored players.
+function Engine.GroupScore(results, fight)
+	local sum, n = 0, 0
+	for _, r in ipairs(results or {}) do
+		if r.score then
+			sum = sum + r.score
+			n = n + 1
+		end
+	end
+	if n == 0 then
+		return nil
+	end
+	local score = sum / n
+	-- Raw is "your actual WCL parse, nothing else": no comp points, and
+	-- the panel hides the chip that would explain them in that lens
+	local raw = results[1] and results[1].parse
+	if not raw then
+		for _, v in pairs(Engine.GroupAdjustments(fight)) do
+			score = score + v
+		end
+	end
+	-- the same scale as a player row: 100 does not exist (ScoreFight
+	-- clamps at 99 too), so a 99 average plus comp points stays 99
+	return math.max(0, math.min(99, score))
+end
+
 -- fight: a FightHistory record. opts.normalizeIlvl (default true) grades
 -- throughput relative to gear. Returns an array sorted by score desc:
 -- { guid, name, class, role, score, base, penalty, breakdown }, where
@@ -1986,6 +2073,7 @@ function Engine.ScoreFight(fight, opts)
 		practice = fight.practice or nil, -- a dummy rehearsal, not a fight
 		cohorts = {},
 		kickCapable = 0,
+		dispelCapable = 0,
 		normalizeIlvl = opts.normalizeIlvl ~= false,
 		parseMode = (opts.mode == "parse"),
 		percentiles = resolvePercentiles(fight), -- raw pct in parse; transformed in True
@@ -2026,10 +2114,19 @@ function Engine.ScoreFight(fight, opts)
 			-- all-bosses pool and scored ilvl-119-scaled players p3 while
 			-- Raw went group-relative and said p99. Dungeon fights use
 			-- THIS dungeon's curves or none — both lenses then agree.
-			local isDungeon = fight.instanceType == "party"
+			-- A practice session is never a dungeon fight, whatever its
+			-- difficultyID says: FightHistory stamps the ANCHOR's difficulty
+			-- on it so curve resolution lands on the right bracket, and a
+			-- Dungeoneer's dummy therefore carries 8 (retail) or 237
+			-- (Mists). Read as a dungeon, that sent it down the low-key /
+			-- off-difficulty branch below, threw the anchor curves away for
+			-- the pooled raid reference and (Mists) applied the five-man
+			-- divisor, so the practice branch never fired for it (audit
+			-- 2026-09-11).
+			local isDungeon = not fight.practice and (fight.instanceType == "party"
 				or fight.keystoneLevel ~= nil
 				or (fight.difficultyID and DUNGEON_DIFF_IDS[fight.difficultyID])
-				or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or false
+				or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""]) or false
 			-- backstop (Josh 2026-07-25): a fight with NO matched curves
 			-- and NO recognizable bracket has no business on the ladder —
 			-- a bulk-unlocked TW dungeon lost its instance context, read
@@ -2126,7 +2223,10 @@ function Engine.ScoreFight(fight, opts)
 						refIlvl = percentileRefIlvl(P),
 						offDifficulty = W.derivedOffDifficulty or 1,
 						practice = true,
-						label = TP.PRACTICE_ANCHOR and TP.PRACTICE_ANCHOR.name or nil,
+						-- name the anchor this dummy actually scored against
+						-- (a Dungeoneer's dummy reads the dungeon anchor)
+						label = (TP.PracticeAnchorFor and TP.PracticeAnchorFor(fight.practiceNpcID)
+							or TP.PRACTICE_ANCHOR or {}).name,
 					}
 				end
 			elseif fight.duration and fight.duration > 0 then
@@ -2189,6 +2289,9 @@ function Engine.ScoreFight(fight, opts)
 		table.insert(ctx.cohorts[role], p)
 		if Cap.CanInterrupt(p.class, role) then
 			ctx.kickCapable = ctx.kickCapable + 1
+		end
+		if Cap.CanDispel(p.class, p.specID, ctx.totals.dispelTypes, role) then
+			ctx.dispelCapable = ctx.dispelCapable + 1
 		end
 	end
 

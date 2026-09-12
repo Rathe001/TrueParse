@@ -310,8 +310,12 @@ function FightHistory:TrySnapshot(sessionID, descriptor)
 						-- tanks/healers graded as DPS until EffectiveRole
 						-- recovered it at scoring — now the stored record is
 						-- correct too, so reports/coach/awards agree)
-						local role = (rosterInfo and rosterInfo.role)
-							or (specID and TP.SPEC_ROLES and TP.SPEC_ROLES[specID]) or nil
+						-- an ASSIGNED group role wins; a roster fallback (NONE in
+						-- a non-matchmade group) yields to the spec, which an
+						-- inspection may have filled in after the roster read
+						local bySpec = specID and TP.SPEC_ROLES and TP.SPEC_ROLES[specID]
+						local role = (rosterInfo and rosterInfo.roleAssigned and rosterInfo.role)
+							or bySpec or (rosterInfo and rosterInfo.role) or nil
 						p = {
 							guid = guid,
 							name = (not IsSecret(src.name)) and src.name or UNKNOWN,
@@ -882,7 +886,12 @@ function FightHistory:Sweep()
 		self.pendingSince = nil
 	end
 
-	if anyPending then
+	-- A session that never unlocks is never blacklisted (see TrySnapshot),
+	-- but the 5s poll for it should not run for the rest of the evening:
+	-- after a day pending, the events (session updates, the meter reset)
+	-- still drive Sweep and the ticker stands down (audit 2026-09-11).
+	local stale = self.pendingSince and (time() - self.pendingSince) > 86400
+	if anyPending and not stale then
 		if not retryTicker then
 			retryTicker = C_Timer.NewTicker(5, function()
 				FightHistory:Sweep()
@@ -942,7 +951,10 @@ function FightHistory:PersonalBest(fight, guid)
 	if not (fight.isBoss and fight.name and guid) or not TP.CountsInAggregates(fight) then
 		return nil
 	end
+	-- the newest record's identity rides the key too: a resumed capture
+	-- replaces its predecessor without changing the count (audit 2026-09-11)
 	local key = fight.name .. "|" .. tostring(fight.difficultyID) .. "|" .. guid .. "|" .. #self.fights
+		.. "|" .. tostring(self.fights[1])
 	local hit = pbCache[key]
 	if hit ~= nil then
 		return hit or nil
@@ -979,6 +991,7 @@ function FightHistory:ScoreHistory(fight, guid, maxN)
 		return nil
 	end
 	local key = "H|" .. fight.name .. "|" .. tostring(fight.difficultyID) .. "|" .. guid .. "|" .. #self.fights
+		.. "|" .. tostring(self.fights[1])
 	local hit = shCache[key]
 	if hit ~= nil then
 		return hit or nil
@@ -1174,6 +1187,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
 					ctx.roster[guid] = e
 				end
 				e.role = info.role or e.role
+				e.roleAssigned = info.roleAssigned
 				e.specID = info.specID or e.specID
 				e.ilvl = info.ilvl or e.ilvl
 			end
@@ -1320,6 +1334,15 @@ function FightHistory:AddFromSegment(seg)
 							-- were missed here until audit 2026-07-24: band
 							-- tooltips read the wrong seconds after a trim)
 							sp.top = shift(sp.top)
+							-- the spell-only split (which Spikes.Compute
+							-- PREFERS for group windows) was missed the same
+							-- way when it was added: group spike windows then
+							-- sat `first` seconds late against the shifted
+							-- casts and spans (audit 2026-09-11)
+							if sp.takenSpell then
+								sp.takenSpell = shift(sp.takenSpell) or {}
+							end
+							sp.topSpell = shift(sp.topSpell)
 							if sp.since then
 								sp.since = sp.since - first
 							end

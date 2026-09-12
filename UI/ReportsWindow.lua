@@ -71,9 +71,19 @@ end
 -- visit. Auto-runs pass the freshly captured fight instead.
 local function contextFor(def, fight)
 	local ctx = {}
+	-- a dummy session is never a report's subject: the auto path already
+	-- skips practice, and a manual Run with nothing pinned used to fall
+	-- back to the newest dummy because practice rides the boss pipeline
+	-- (isBoss) and Scoring/Reports has no practice gate (audit 2026-09-11)
+	local function real(f)
+		return f and not f.practice
+	end
 	local sel = fight or selectedFight()
+	if not real(sel) then
+		sel = nil
+	end
 	if def.key == "run" then
-		local anchor = sel or latestFight()
+		local anchor = sel or latestFight(real)
 		ctx.runFights = anchor and fightsOfRun(anchor.runID)
 		ctx.zone = anchor and anchor.zone
 		if ctx.runFights and #ctx.runFights > 0 then
@@ -82,7 +92,13 @@ local function contextFor(def, fight)
 			-- out of the button/event handler (Josh 2026-07-26 audit)
 			local okA, run = pcall(TP.Scoring.Runs.Aggregate, ctx.runFights, ctx.zone or "Run")
 			if okA and run then
-				local ok, results = pcall(TP.Scoring.Engine.ScoreFight, run, { normalizeIlvl = false })
+				-- the run record itself rides along: the group score reads
+				-- its comp (Engine.GroupAdjustments) and without it the run
+				-- report and the fight report used different formulas
+				ctx.run = run
+				-- same gear setting as the meter's run row, so the report's
+				-- number is the card's number
+				local ok, results = pcall(TP.Scoring.Engine.ScoreFight, run, TP.GetScoringOptions())
 				ctx.results = ok and results or nil
 			end
 		end
@@ -92,10 +108,10 @@ local function contextFor(def, fight)
 		-- the fight's own outcome picks the wipe or kill story
 		ctx.fight = (sel and sel.isBoss and sel)
 			or latestFight(function(f)
-				return f.isBoss
+				return f.isBoss and real(f)
 			end)
 	else
-		ctx.fight = sel or latestFight()
+		ctx.fight = sel or latestFight(real)
 	end
 	if ctx.fight then
 		ctx.runFights = fightsOfRun(ctx.fight.runID)
@@ -124,6 +140,13 @@ local function deliver(lines, channel)
 		info(("Not in a %s - report shown here instead."):format(CHANNEL_LABELS[channel]:lower()))
 		deliver(lines, "INFO")
 		return
+	end
+	-- a matchmade group has no home party or raid: IsInGroup()/IsInRaid()
+	-- still say yes there, but PARTY/RAID sends fail and the report went
+	-- nowhere. Same resolution RunSummary's groupChannel uses.
+	if (channel == "PARTY" or channel == "RAID")
+		and LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+		channel = "INSTANCE_CHAT"
 	end
 	for i, line in ipairs(lines) do
 		-- the first line carries the signature so readers know which

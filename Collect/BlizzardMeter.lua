@@ -16,14 +16,18 @@ TP.BlizzardMeter = Meter
 -- modern engine) without live session data, so API presence alone is a trap.
 Meter.available = TP.Compat.IS_RETAIL and (C_DamageMeter ~= nil)
 
-local EMPTY = { combatSources = {}, totalAmount = 0, maxAmount = 0, durationSeconds = 0 }
+-- a fresh table per call: a shared sentinel handed to callers is one
+-- sort or field write away from poisoning every later read
+local function empty()
+	return { combatSources = {}, totalAmount = 0, maxAmount = 0, durationSeconds = 0 }
+end
 
 -- Session for one attribute (Enum.DamageMeterType.*). Display priority:
 -- live fight -> most recent finished fight -> overall. Returns the session
 -- plus a scope tag for labeling.
 function Meter:GetSession(meterType)
 	if not self.available then
-		return EMPTY, "none"
+		return empty(), "none"
 	end
 	local session = C_DamageMeter.GetCombatSessionFromType(Enum.DamageMeterSessionType.Current, meterType)
 	if session and #session.combatSources > 0 then
@@ -38,7 +42,7 @@ function Meter:GetSession(meterType)
 		end
 	end
 	session = C_DamageMeter.GetCombatSessionFromType(Enum.DamageMeterSessionType.Overall, meterType)
-	return session or EMPTY, "overall"
+	return session or empty(), "overall"
 end
 
 -- True while the session's values are secrets (mid-combat in restricted

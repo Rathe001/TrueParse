@@ -223,7 +223,10 @@ function Awards.Compute(fight)
 		-- every time. You cannot dominate a field of one.
 		if bestGuid and best > 0 and second > 0
 			and best >= second * DOMINANT_DAMAGE_RATIO then
-			grant(bestGuid, fight.isBoss and "giantSlayer" or "lawnmower")
+			-- a run aggregate is not a boss record, but a run that held
+			-- boss fights is boss content: Giant Slayer, not "a trash pull"
+			local bossy = fight.isBoss or (fight.isRun and (fight.bossFights or 0) > 0)
+			grant(bestGuid, bossy and "giantSlayer" or "lawnmower")
 		end
 	end
 

@@ -130,7 +130,11 @@ local function sample()
 	if not seg then
 		return
 	end
-	local elapsed = GetTime() - seg.startTime
+	-- the pull clock starts at the first damage anyone dealt, not at
+	-- ENCOUNTER_START: an RP intro (Norushen's ~27s) otherwise used up
+	-- the pull window before the pull happened, and a body-pull was
+	-- judged as a rip (audit 2026-09-11)
+	local elapsed = GetTime() - (seg.startTime + (seg.group.firstDamage or 0))
 
 	-- No living tank: aggro is nobody's job right now (all-DPS groups,
 	-- tank death mid-wipe). Attribute nothing this tick — but keep the
@@ -162,7 +166,8 @@ local function sample()
 	-- a tank-initiated pull (first tank damage within the opening
 	-- seconds — slow projectile, body pull) is never a DPS "pull",
 	-- even if a pre-cast landed first and briefly held the mob
-	local tankInitiated = seg.group.tankFirstDamage and seg.group.tankFirstDamage <= 1.5
+	local tankInitiated = seg.group.tankFirstDamage
+		and (seg.group.tankFirstDamage - (seg.group.firstDamage or 0)) <= 1.5
 
 	local nonTankHasAggro = false
 	for guid, info in pairs(TP.Roster.players) do

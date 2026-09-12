@@ -24,9 +24,21 @@ end
 -- one per group+instance+difficulty visit — zone alone mixed LFR wings
 -- with last week's guild raid in the same instance). Post-raid review from
 -- a city still sees the run; inside a DIFFERENT instance it doesn't.
+-- The newest capture that belongs to a run at all. A practice session
+-- carries no runID, and taking fights[1] blindly made a dummy session
+-- after the raid answer "no fights captured" for /tp run and /tp share
+-- (audit 2026-09-11).
+local function newestRunFight()
+	for _, f in ipairs(TP.FightHistory.fights) do
+		if f.runID then
+			return f
+		end
+	end
+end
+
 local function collectRunFights()
-	local newest = TP.FightHistory.fights[1]
-	if not newest or not newest.runID then
+	local newest = newestRunFight()
+	if not newest then
 		return nil
 	end
 	if currentInstance and currentInstance.name ~= newest.zone then
@@ -34,10 +46,11 @@ local function collectRunFights()
 	end
 	local fights = {}
 	for _, fight in ipairs(TP.FightHistory.fights) do -- newest first
-		if fight.runID ~= newest.runID then
-			break
+		if fight.runID == newest.runID then
+			fights[#fights + 1] = fight
+		elseif fight.runID then
+			break -- an older run; practice records in between are skipped
 		end
-		fights[#fights + 1] = fight
 	end
 	return fights, newest.zone
 end
@@ -289,14 +302,14 @@ end
 -- and analysis stay in the LOCAL report; pugs get the flex.
 function RunSummary:Share()
 	local kill
-	local newest = TP.FightHistory.fights[1]
+	local newest = newestRunFight()
 	for _, f in ipairs(TP.FightHistory.fights) do
-		if newest and f.runID ~= newest.runID then
+		if newest and f.runID and f.runID ~= newest.runID then
 			break
 		end
 		-- practice rides the boss pipeline but is not a kill anyone wants
-		-- broadcast; it also carries no runID, so nil ~= nil would not have
-		-- stopped this walk on its own
+		-- broadcast; it also carries no runID, so it is walked past here
+		-- rather than ending the walk
 		if f.isBoss and not f.wipe and TP.CountsInAggregates(f) then
 			kill = f
 			break
@@ -307,11 +320,8 @@ function RunSummary:Share()
 		return
 	end
 	local results = TP.Scoring.Engine.ScoreFight(kill, TP.GetScoringOptions())
-	local sum = 0
-	for _, r in ipairs(results) do
-		sum = sum + r.score
-	end
-	local groupScore = #results > 0 and (sum / #results) or 0
+	-- the same group score the card and the meter row show
+	local groupScore = TP.Scoring.Engine.GroupScore(results, kill) or 0
 	local d = kill.duration or 0
 	local line
 	local pct, _, _, bounded = TP.Scoring.Engine.KillSpeedPercentile(kill)

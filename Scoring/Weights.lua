@@ -587,6 +587,19 @@ Weights.mplusDirectKey = 10
 -- between 2.5 and 3.0 — which is why the low-key path pools; see Engine.)
 Weights.mplusLowKeyLift = 1.0
 
+-- Group-level adjustments: points that belong to the whole group rather
+-- than to any player, added to the average of the player scores by
+-- Engine.GroupScore. A raid buff no class present can bring (no Mage, so
+-- no Arcane Intellect) costs everyone throughput against ranked kills,
+-- which nearly always have the full set; nobody is at fault, so the
+-- group gets the point back rather than a player losing one (Josh
+-- 2026-09-11: "a point for buffs that are missing in the current group
+-- comp").
+Weights.group = {
+	missingCompBuff = 1,
+	missingCompBuffMax = 3,
+}
+
 Weights.penalties = {
 	-- Avoidable damage: penalize taking MORE than your equal share of the
 	-- group's avoidable damage. Eating ~40% above your share = full cap.

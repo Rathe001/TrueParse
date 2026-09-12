@@ -53,8 +53,11 @@ tracker.subevents.SPELL_ABSORBED = function(seg, srcGUID, dstGUID, srcFlags, dst
 	end
 	-- the VICTIM's view feeds the tanking stat (Josh 2026-07-24): how
 	-- much damage shields ate for them, and how much of that was their
-	-- own shield (self-sufficiency, not healer credit)
-	local vic = TP.Roster:ResolveGUID(dstGUID)
+	-- own shield (self-sufficiency, not healer credit). Players only,
+	-- the same rule Metrics/Taken applies: a shield eaten on a pet used
+	-- to count for the owner while the pet's unshielded damage did not
+	-- (audit 2026-09-11)
+	local vic = dstGUID
 	local vacc = vic and seg.players[vic]
 	if vacc then
 		vacc.absorbs.taken = (vacc.absorbs.taken or 0) + amount

@@ -291,7 +291,10 @@ function Segments:OnEncounterStart(encounterID, encounterName)
 				-- reads 0, and a REAL zero is a kill, not a sample.
 				seg.bossMxPeak = math.max(seg.bossMxPeak or 0, mxSum)
 				if mxSum >= seg.bossMxPeak * 0.5 and hpSum > 0 then
-					local pct = hpSum / mxSum * 100
+					-- a whole percent: every reader prints it (%d in the
+					-- reports truncated 12.9 to 12 while the fight list
+					-- rounded to 13, and %d on a float throws under 5.4)
+					local pct = math.floor(hpSum / mxSum * 100 + 0.5)
 					local prev = seg.bossPctLast
 					if prev and pct > prev + 5 then
 						-- the pool jumped back UP: a phase refill (follow

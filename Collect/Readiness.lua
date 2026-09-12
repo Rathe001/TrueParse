@@ -162,6 +162,11 @@ frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 frame:SetScript("OnEvent", freeze)
 
 function Readiness:OnEnable()
-	C_Timer.NewTicker(SCAN_PERIOD, scan)
+	-- NewTicker hands the callback its own ticker handle: passed straight
+	-- through, scan(ticker) read it as `force` and rescanned mid-combat
+	-- every period on Classic (audit 2026-09-11)
+	C_Timer.NewTicker(SCAN_PERIOD, function()
+		scan()
+	end)
 	scan()
 end

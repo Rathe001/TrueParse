@@ -164,10 +164,16 @@ function Sync:BroadcastFightReport(duration, defensives, consumables, readyAtDea
 	if not channel then
 		return
 	end
+	-- UNMEASURABLE is not ZERO on the wire either: SelfCasts reports nil
+	-- when own auras are secret (retail), and `or 0` here turned that
+	-- into a measured zero on every peer's card - the "No flask/food -2"
+	-- report survived its own fix everywhere but the reporter's screen.
+	-- -1 rides like readyAtDeath; old parsers reject the negative field
+	-- and drop the report, which leaves the player neutral there too.
 	self:SendCommMessage(PREFIX, ("F:%d:%s:%d:%d:%d:%d:%d:%d"):format(
 		WIRE_VERSION, UnitGUID("player"), math.floor(duration + 0.5),
-		defensives or 0, consumables or 0, readyAtDeath or -1, buffUptime or -1,
-		activity or -1),
+		defensives or 0, consumables == nil and -1 or consumables,
+		readyAtDeath or -1, buffUptime or -1, activity or -1),
 		channel)
 end
 
@@ -321,9 +327,14 @@ function Sync:AttachReports(fight)
 		end
 		-- gate the match on consumables: defensives may already be filled
 		-- by CLEU on Classic, but consumables/readiness only come from
-		-- self-reports on both clients
+		-- self-reports on both clients. The consumables gate alone never
+		-- closed on retail (own auras are secret, so the count stays nil)
+		-- and every ReattachRecent re-entered the match for the local
+		-- player: two pulls of similar length let pull A eat pull B's
+		-- self-report. The flag closes it the moment a report attaches.
 		local list = self.reports[guid]
-		if list and p.metrics and p.metrics.consumables == nil then
+		if list and p.metrics and not p.selfReportAttached
+			and p.metrics.consumables == nil then
 			local bestIdx, bestDiff
 			local tolerance = math.max(8, (fight.duration or 0) * 0.2)
 			for i, report in ipairs(list) do
@@ -340,6 +351,7 @@ function Sync:AttachReports(fight)
 			end
 			if bestIdx then
 				local report = list[bestIdx]
+				p.selfReportAttached = true
 				if p.metrics.defensives == nil then
 					p.metrics.defensives = report.defensives
 				end
@@ -761,7 +773,7 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 	end
 
 	local fVersion, fGuid, duration, defensives, consumables, readyAtDeath, buffUptime, activity =
-		message:match("^F:(%d+):([^:]+):(%d+):(%d+):(%d+):(%-?%d+):(%-?%d+):(%-?%d+)$")
+		message:match("^F:(%d+):([^:]+):(%d+):(%d+):(%-?%d+):(%-?%d+):(%-?%d+):(%-?%d+)$")
 	if not fVersion then
 		-- 7-field format (no activity)
 		fVersion, fGuid, duration, defensives, consumables, readyAtDeath, buffUptime =
@@ -793,12 +805,15 @@ function Sync:OnCommReceived(prefix, message, _, sender)
 	else
 		self.users[fGuid] = { version = tonumber(fVersion), seen = time() }
 	end
-		-- sanity-bound self-reported numbers
+		-- sanity-bound self-reported numbers; a negative consumables count
+		-- means the sender could not measure (secret auras), so keep nil
+		-- and the engine stays neutral instead of charging "no flask"
 		local ready = tonumber(readyAtDeath)
+		local cons = tonumber(consumables)
 		self:RecordFightReport(fGuid,
 			tonumber(duration) or 0,
 			math.min(tonumber(defensives) or 0, 50),
-			math.min(tonumber(consumables) or 0, 5),
+			cons and cons >= 0 and math.min(cons, 5) or nil,
 			ready and math.min(ready, 9) or nil,
 			tonumber(buffUptime),
 			tonumber(activity))

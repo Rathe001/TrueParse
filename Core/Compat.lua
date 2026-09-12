@@ -18,16 +18,52 @@ Compat.HAS_CLEU = not Compat.IS_RETAIL
 -- widgets; issecretvalue() detects them. Older clients have no secrets.
 Compat.IsSecret = issecretvalue or function() return false end
 
--- Role from the group role assignment; NONE happens in non-matchmade groups,
--- where we fall back to DAMAGER until spec inspection lands (later phase).
-function Compat.GetRole(unit)
+-- The specialization API. 11.2 deprecated the globals in favour of
+-- C_SpecializationInfo and marked them for removal; every caller guarded
+-- on the global's existence, so the day it goes every retail capture
+-- would silently lose its spec and grade against pooled role curves
+-- (audit 2026-09-11). Resolved per call, not at load: the headless tests
+-- swap the globals mid-run, and Mists still ships only the globals.
+-- Each wrapper returns nothing when neither form exists.
+local function specAPI(name)
+	return function(...)
+		local f = (C_SpecializationInfo and C_SpecializationInfo[name]) or _G[name]
+		if f then
+			return f(...)
+		end
+	end
+end
+Compat.GetSpecialization = specAPI("GetSpecialization")
+Compat.GetSpecializationInfo = specAPI("GetSpecializationInfo")
+Compat.GetSpecializationInfoByID = specAPI("GetSpecializationInfoByID")
+Compat.GetSpecializationInfoForClassID = specAPI("GetSpecializationInfoForClassID")
+Compat.GetNumSpecializationsForClassID = specAPI("GetNumSpecializationsForClassID")
+Compat.GetActiveSpecGroup = specAPI("GetActiveSpecGroup")
+Compat.GetInspectSpecialization = specAPI("GetInspectSpecialization")
+
+-- Whether any specialization API exists at all (Classic Era has none)
+function Compat.HasSpecAPI()
+	return (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfoForClassID)
+		or GetSpecializationInfoForClassID
+end
+
+-- Role from the group role assignment. NONE happens in non-matchmade
+-- groups; there the spec (inspected, cached across rebuilds) decides,
+-- and only a player with no known spec falls back to DAMAGER. Returns
+-- role, assigned - `assigned` says the group role itself answered, so
+-- a later inspection can still overrule the fallback.
+function Compat.GetRole(unit, specID)
 	local role = UnitGroupRolesAssigned and UnitGroupRolesAssigned(unit)
 	-- guard the compare against a secret value like every other live-API
 	-- read in this file (Josh 2026-07-26 audit): consistent, cheap
 	if role and not Compat.IsSecret(role) and role ~= "NONE" then
-		return role
+		return role, true
 	end
-	return TP.ROLE.DAMAGER
+	local bySpec = specID and TP.SPEC_ROLES and TP.SPEC_ROLES[specID]
+	if bySpec then
+		return bySpec, false
+	end
+	return TP.ROLE.DAMAGER, false
 end
 
 -- Fills `out` with the unit tokens of everyone in the group (including the
@@ -52,13 +88,13 @@ end
 -- identity (matching Data/Benchmarks.lua keys) without inspection.
 function Compat.BuildSpecIconMap()
 	local map = {}
-	if not (GetNumClasses and GetSpecializationInfoForClassID) then
+	if not (GetNumClasses and Compat.HasSpecAPI()) then
 		return map -- Classic clients
 	end
 	for classID = 1, GetNumClasses() do
-		local numSpecs = GetNumSpecializationsForClassID and GetNumSpecializationsForClassID(classID) or 0
+		local numSpecs = Compat.GetNumSpecializationsForClassID(classID) or 0
 		for i = 1, numSpecs do
-			local specID, _, _, icon, role = GetSpecializationInfoForClassID(classID, i)
+			local specID, _, _, icon, role = Compat.GetSpecializationInfoForClassID(classID, i)
 			if specID and icon then
 				map[icon] = { specID = specID, role = role }
 			end

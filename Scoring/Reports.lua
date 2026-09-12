@@ -69,15 +69,9 @@ end
 
 -- ===== fact extraction (data only; words come later) =====
 
-local function groupScore(results)
-	local sum, n = 0, 0
-	for _, r in ipairs(results or {}) do
-		if r.score then
-			sum = sum + r.score
-			n = n + 1
-		end
-	end
-	return n > 0 and math.floor(sum / n + 0.5) or nil
+local function groupScore(results, fight)
+	local s = TP.Scoring.Engine.GroupScore(results, fight)
+	return s and math.floor(s + 0.5) or nil
 end
 
 -- every death in a fight as { t, avoidable, readyDefensives }, oldest
@@ -294,7 +288,7 @@ end
 -- content says "score".
 local function groupSentence(ctx, seed, compact)
 	local f = ctx.fight
-	local gs = ctx.groupScore or groupScore(ctx.results)
+	local gs = ctx.groupScore or groupScore(ctx.results, f)
 	local dps
 	local t = f and f.totals or {}
 	if (t.damage or 0) > 0 and (f.duration or 0) > 0 and TP.FormatNumber then
@@ -426,7 +420,7 @@ local function buildKill(ctx)
 	end
 	local seed = seedFor(f, ctx.zone)
 	local deaths = deathList(f)
-	local pulls = pullCount(ctx)
+	local pulls, bestPct = pullCount(ctx)
 	local speed = killSpeedPct(f)
 	local s = {}
 
@@ -469,7 +463,6 @@ local function buildKill(ctx)
 	end
 
 	if pulls > 1 then
-		local _, bestPct = pullCount(ctx)
 		s[#s + 1] = ("It took %s%s."):format(plural(pulls, "pull"),
 			bestPct and (", the best prior attempt reaching %d%%"):format(bestPct) or "")
 	end
@@ -635,7 +628,7 @@ local function buildRun(ctx)
 		end
 	end
 	local zone = ctx.zone or fights[1].zone or "The run"
-	local gs = ctx.groupScore or groupScore(ctx.results)
+	local gs = ctx.groupScore or groupScore(ctx.results, ctx.run)
 	-- "parse" only when WCL data backed the run (Josh 2026-07-25);
 	-- unranked content names the scale so outsiders can read it
 	local scoreClause = ""

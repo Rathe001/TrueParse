@@ -100,10 +100,18 @@ end
 -- `context` is a short stable label ("AttachReports"), not a message - it is
 -- the dedup key, so a failure firing every pull records once with a count
 -- rather than flooding the store.
+local unpack = unpack or table.unpack
+local function pack(...)
+	return { n = select("#", ...), ... }
+end
+
 function TP.Trap(context, fn, ...)
-	local a, b, c, d = pcall(fn, ...)
+	-- every return value passes through on success; the fixed four used
+	-- to drop a fifth silently (audit 2026-09-11)
+	local r = pack(pcall(fn, ...))
+	local a, b, c, d = r[1], r[2], r[3], r[4]
 	if a then
-		return a, b, c, d
+		return unpack(r, 1, r.n)
 	end
 	local store = TP.Errors
 	if not store then

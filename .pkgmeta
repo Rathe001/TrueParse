@@ -11,7 +11,8 @@ ignore:
   - .pkgmeta
   - .github
   - .release-notes.md
-  - Logo.png
+  # Logo.png stays: every .toc points IconTexture at it, so ignoring it
+  # shipped CurseForge installs with no AddOns-list icon (audit 2026-09-11)
 
 # .release-notes.md holds ONLY the latest version's section, extracted from
 # CHANGELOG.md by the release workflow before packaging - otherwise the

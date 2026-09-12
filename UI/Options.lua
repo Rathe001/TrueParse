@@ -78,17 +78,21 @@ local optionsTable = {
 		-- (Scoring section removed 2026-07-13: the window's own radios
 		-- switch the lens, ilvl normalization is simply how scoring works,
 		-- and the resizable window replaced the max-rows cap.)
-		-- Classic-only settings. The group HIDES on retail rather than
-		-- rendering an empty box (the coach line was the last retail entry
-		-- and it retired 2026-07-28).
+		-- The dummy toggle shows on both clients: the retail capture path
+		-- reads it too (Collect/FightHistory TrySnapshot), so hiding it
+		-- there left retail users unable to turn practice cards off
+		-- (audit 2026-09-11). The wipe button stays Classic-only.
 		chat = {
 			type = "group", inline = true, name = "Fights", order = 3,
-			hidden = function() return TP.Compat.IS_RETAIL end,
 			args = {
 				practiceDummies = {
 					type = "toggle", order = 2.7, name = "Score training dummies",
-					desc = "Raider's-dummy sessions of a minute or more get a practice card, scored against Iron Juggernaut's ranked parses (the tier's stand-and-hit fight). Never touches career stats. Target the dummy when you start.",
-					hidden = function() return TP.Compat.IS_RETAIL end,
+					desc = function()
+						local A = TP.PRACTICE_ANCHORS or {}
+						local raid = A.raid and A.raid.name or "the tier's stand-and-hit boss"
+						local dungeon = A.dungeon and A.dungeon.name or "the season's most single-target dungeon"
+						return ("Training-dummy sessions of a minute or more get a practice card. A Raider's dummy is scored against %s's ranked parses, a dungeon dummy against %s. Never touches career stats. Target the dummy when you start."):format(raid, dungeon)
+					end,
 					get = function() return profile().practiceDummies end,
 					set = function(_, v) profile().practiceDummies = v end,
 				},

@@ -110,7 +110,7 @@ local function checkBenchmarkAge()
 	end
 	local ageDays = (time() - time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 })) / 86400
 	if ageDays >= 60 then
-		Addon:Print(("Spec benchmarks are %d days old; grades may drift from current class tuning. Regenerate with scripts\\fetch-benchmarks.ps1 (see README)."):format(ageDays))
+		Addon:Print(("Spec benchmarks are %d days old; grades may drift from current class tuning. Regenerate with scripts\\fetch-benchmarks.ps1 (see README)."):format(math.floor(ageDays)))
 	end
 end
 
@@ -327,7 +327,7 @@ function Addon:HandleSlash(input)
 					players = players + 1
 				end
 				self:Print(("  %d. %s — %d:%02d, %d players, dmg %s, heal %s, kicks %d"):format(
-					i, f.name, math.floor(f.duration / 60), f.duration % 60, players,
+					i, f.name, math.floor(f.duration / 60), math.floor(f.duration % 60), players,
 					TP.FormatNumber(f.totals.damage or 0), TP.FormatNumber(f.totals.healing or 0),
 					f.totals.interrupts or 0))
 			end
@@ -597,8 +597,8 @@ function Addon:HandleSlash(input)
 		self:Print(("TrueParse in your group: %d of %d"):format(n, #rows))
 		for _, r in ipairs(rows) do
 			local specName
-			if r.spec and GetSpecializationInfoByID then
-				local ok, _, nm = pcall(GetSpecializationInfoByID, r.spec)
+			if r.spec then
+				local ok, _, nm = pcall(TP.Compat.GetSpecializationInfoByID, r.spec)
 				specName = ok and nm or nil
 			end
 			self:Print(("  %-14s %-7s %-18s %s"):format(
@@ -628,7 +628,7 @@ function Addon:HandleSlash(input)
 			local results = TP.Scoring.Engine.ScoreFight(fight, TP.GetDisplayScoringOptions())
 			self:Print(("%s scores — %s (%d:%02d):"):format(
 				self.db.profile.scoring.mode == "parse" and "Raw" or "True",
-				fight.name, math.floor(fight.duration / 60), fight.duration % 60))
+				fight.name, math.floor(fight.duration / 60), math.floor(fight.duration % 60)))
 			for i, r in ipairs(results) do
 				local penaltyText = r.penalty > 0 and (" |cffff4444(-%.0f)|r"):format(r.penalty) or ""
 				self:Print(("  %d. %s %s [%s]%s"):format(

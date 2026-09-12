@@ -130,11 +130,15 @@ spec(104, "DRUID", "Guardian",    "tank",   "melee",  { curse = true, poison = t
 spec(105, "DRUID", "Restoration", "healer", "ranged", { magic = true, curse = true, poison = true, soothe = true, stun = true,
 	labels = { magic = "Nature's Cure", curse = "Nature's Cure", poison = "Nature's Cure" } })
 
--- DEMON HUNTER: Consume Magic purges, Disrupt, Chaos Nova (Havoc)
+-- DEMON HUNTER: Consume Magic purges, Disrupt, Chaos Nova (class tree)
 spec(577, "DEMONHUNTER", "Havoc",     "dps",  "melee", { purge = true, kick = true, stun = true })
 spec(581, "DEMONHUNTER", "Vengeance", "tank", "melee", { purge = true, kick = true })
--- Midnight's third DH spec is not in this table yet; the fallback below
--- reads its role from the API and assumes melee.
+-- Midnight's third spec (1480, Core/Constants.lua knows its role). Without
+-- a row it fell to KN.CLASS_FALLBACK, which pairs(C) fills in hash order,
+-- so it read as Havoc or Vengeance at random (audit 2026-09-11). Tools
+-- are the class-wide set; verify the name in game with
+-- /dump GetSpecializationInfoByID(1480) if it ever renders wrong.
+spec(1480, "DEMONHUNTER", "Devourer", "dps",  "melee", { purge = true, kick = true, stun = true })
 
 -- EVOKER: Cauterizing Flame (curse, poison, disease, bleed), Naturalize
 -- (Preservation magic), Overawe soothes, Fury of the Aspects

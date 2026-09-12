@@ -62,6 +62,11 @@ local function addDamage(seg, srcGUID, dstGUID, dstFlags, amount, overkill)
 		end
 		local t = math.floor(GetTime() - seg.startTime)
 		gb[t] = (gb[t] or 0) + amount
+		-- when ANYONE first dealt damage: the pull clock for threat's
+		-- pull window, so a boss's RP intro does not consume it
+		if not g.firstDamage then
+			g.firstDamage = GetTime() - seg.startTime
+		end
 		-- when the TANK first dealt damage: threat's pull detection uses
 		-- this to tell a tank-initiated pull (slow projectile still in
 		-- the air while a DPS pre-cast lands) from a real DPS pull. One

@@ -461,7 +461,7 @@ KN.RegisterDungeon({
 		{ tag = "TASK", text = "Optional: Unfinished Mixture near Zul'jan (Cooking or Alchemy 25) gives Mutating Elixir for the run", leg = 3 },
 		{ tag = "LUST", need = "lust", affix = "Fortified", text = "the Ritual Chieftain pack", leg = 1 },
 		{ tag = "BUILD", class = "SHAMAN", min = "k", text = "Poison Cleansing Totem for Envenom and Mass Envenom", leg = 1 },
-		{ name = "Ritual Chieftain", tag = "KICK", text = "Kick Blood Sacrifice, it puts a heal absorb on everyone", leg = 1 },
+		{ name = "Ritual Chieftain", tag = "KICK", need = "kick", text = "Kick Blood Sacrifice, it puts a heal absorb on everyone", leg = 1 },
 		{ name = "Ula'tek's Chosen", tag = { "KICK", "POISON" }, need = { "kick", "poison" }, text = "Kick Mass Envenom, every cast; dispel what lands" },
 		{ name = "High Evolutionist", tag = { "STUN", "POISON" }, need = { "stun", "poison" }, text = "Hard CC Evolve, it can't be kicked and becomes Mass Envenom; dispel Envenom" },
 		{ name = "Living Venom", text = "Explodes on death: stagger the kills" },

@@ -679,9 +679,15 @@ function Bullets.ForGroup(results, fight)
 			if #unused > 0 then
 				table.sort(unused)
 				local names = table.concat(unused, ", ", 1, math.min(3, #unused))
+				if #unused > 3 then
+					names = names .. (" and %d more"):format(#unused - 3)
+				end
 				local bad = covered / windows < 0.5
 				out[#out + 1] = { kind = "info", key = "raidCds",
 					symbol = bad and "-" or MIDDOT, color = bad and BAD or MID,
+					-- the full count rides the bullet: the group card's glyph
+					-- used to count commas in a list already cut to three
+					count = #unused,
 					text = ("%d of %d heavy-damage moments had no cooldown - %s sat unused"):format(
 						windows - covered, windows, names),
 					tooltip = { title = "Raid cooldown assignment",
@@ -779,6 +785,23 @@ function Bullets.ForGroup(results, fight)
 	if buffsMissing then
 		out[#out + 1] = { kind = "penalty", key = "buffs", symbol = "-", color = BAD,
 			text = "Raid buffs missing at the pull" .. avgAdj("buffs", true) }
+	end
+	-- A buff no class here can bring is the comp's doing, not a player's:
+	-- the group gets the point back (Engine.GroupAdjustments adds it to
+	-- the group score; this line is where the card shows it)
+	local gadj = TP.Scoring.Engine.GroupAdjustments(fight)
+	if gadj.compBuffs then
+		local missing = TP.Scoring.Engine.CompBuffsMissing(fight)
+		local short = {}
+		for _, label in ipairs(missing) do
+			short[#short + 1] = (label:gsub("%s*%(.-%)", ""))
+		end
+		out[#out + 1] = { kind = "bonus", key = "compBuffs", symbol = "+", color = GOOD,
+			text = ("Nobody here brings %s (+%d)"):format(table.concat(short, ", "), gadj.compBuffs),
+			tooltip = { title = "Buffs the comp lacks",
+				lines = {
+					{ "Ranked kills nearly always have the full set, so the group is graded a little short without it. Nobody is at fault; the group gets the points back.", 1, 1, 1, true },
+				} } }
 	end
 
 	return Bullets.SortBestFirst(out)

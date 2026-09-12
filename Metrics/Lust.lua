@@ -74,7 +74,11 @@ tracker.subevents.SPELL_CAST_SUCCESS = function(seg, srcGUID, dstGUID, srcFlags,
 		-- can claim them (ring of 4: nobody pre-lusts more CDs)
 		local l = acc.lust
 		l.recent = l.recent or {}
-		l.recent[#l.recent % 4 + 1] = GetTime()
+		-- a real ring: `#recent % 4 + 1` stuck at slot 1 once the table
+		-- held four, so the fifth cast onward only ever overwrote the
+		-- first (audit 2026-09-11)
+		l.recentAt = (l.recentAt or 0) % 4 + 1
+		l.recent[l.recentAt] = GetTime()
 	end
 end
 

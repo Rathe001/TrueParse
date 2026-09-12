@@ -118,10 +118,28 @@ tracker.subevents.SPELL_AURA_APPLIED = function(seg, srcGUID, dstGUID, srcFlags,
 		and not (g.debuffTypes and g.debuffTypes[a1]) then
 		local info = TP.Roster.players[TP.Roster:ResolveGUID(dstGUID) or ""]
 		if info and info.unit then
+			-- C_UnitAuras like every other aura read in the addon; the
+			-- legacy UnitDebuff global sat inside this pcall, so its
+			-- removal would have stopped the type learning silently and
+			-- with it who is eligible for dispel scoring (audit
+			-- 2026-09-11). The global stays as the fallback.
 			pcall(function()
+				local byIndex = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
 				for i = 1, 40 do
-					local name, _, _, dtype, _, _, _, _, _, sid = UnitDebuff(info.unit, i)
-					if not name then
+					local dtype, sid
+					if byIndex then
+						local aura = byIndex(info.unit, i, "HARMFUL")
+						if not aura then
+							break
+						end
+						dtype, sid = aura.dispelName, aura.spellId
+					elseif UnitDebuff then
+						local name, _, _, d, _, _, _, _, _, s = UnitDebuff(info.unit, i)
+						if not name then
+							break
+						end
+						dtype, sid = d, s
+					else
 						break
 					end
 					if sid == a1 and dtype then

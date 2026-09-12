@@ -1257,8 +1257,8 @@ function Panel:ShowFor(fight, result)
 	local pRec = fight.players and fight.players[result.guid]
 	local specID = pRec and pRec.specID
 	local specIcon, specName
-	if specID and GetSpecializationInfoByID then
-		local ok, _, sName, _, sIcon = pcall(GetSpecializationInfoByID, specID)
+	if specID then
+		local ok, _, sName, _, sIcon = pcall(TP.Compat.GetSpecializationInfoByID, specID)
 		if ok then
 			specName, specIcon = sName, sIcon
 		end
@@ -1652,7 +1652,10 @@ function Panel:ShowFor(fight, result)
 			y = y - 14
 			local n = #pshape
 			frame.pShapeCols = frame.pShapeCols or {}
-			for i = #frame.pShapeCols + 1, n + 4 do
+			-- one texture per column plus one per own death: a fixed
+			-- four spare dropped the fifth death's dot (audit 2026-09-11)
+			local ownDeaths = player.deathTimes or (player.deathTime and { player.deathTime } or {})
+			for i = #frame.pShapeCols + 1, n + math.max(4, #ownDeaths) do
 				local t = frame:CreateTexture(nil, "OVERLAY")
 				t:SetTexture("Interface\\Buttons\\WHITE8X8")
 				frame.pShapeCols[i] = t
@@ -1965,11 +1968,7 @@ function Panel:ShowForGroup(fight, results)
 	frame.bigScore:SetText("")
 	-- same compact header the player card uses
 	frame.role:SetText(("%d players"):format(#results))
-	local groupSum = 0
-	for _, r in ipairs(results) do
-		groupSum = groupSum + r.score
-	end
-	local groupScore = groupSum / #results
+	local groupScore = TP.Scoring.Engine.GroupScore(results, fight) or 0
 	-- same mockup header as the player card: hero score beside the name,
 	-- one dim subheader line
 	frame.bigScore:SetText(TP.Scoring.Grades.ColoredScore(groupScore))
@@ -2075,7 +2074,9 @@ function Panel:ShowForGroup(fight, results)
 			sigs[#sigs + 1] = { key = "killSpeed", kind = "bar", icon = GICONS.speed,
 				label = "Kill speed", value = speedPct,
 				speedMeta = {
-					b = { value = fight.duration or 0, normalized = speedPct, pctile = speedPct },
+					-- applicable: the tip's verdict headline requires it, and
+					-- a real ranked percentile has one (audit 2026-09-11)
+					b = { value = fight.duration or 0, normalized = speedPct, pctile = speedPct, applicable = true },
 					key = "Kill speed",
 					duration = fight.duration,
 					valueText = speedMedian

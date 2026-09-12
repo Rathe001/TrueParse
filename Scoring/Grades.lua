@@ -48,9 +48,17 @@ local function letterIndex(score, unclamped)
 end
 Grades.LetterIndex = letterIndex
 
--- WCL parse brackets, straight off the score. Unchanged.
+-- The number the reader sees. Scores are unrounded floats out of the
+-- engine; the label and the colour must round the SAME way or 98.6
+-- prints "99" in orange (audit 2026-09-11).
+local function shown(score)
+	return math.floor((score or 0) + 0.5)
+end
+Grades.Shown = shown
+
+-- WCL parse brackets, off the DISPLAYED score.
 function Grades.ColorForScore(score)
-	score = score or 0
+	score = shown(score)
 	if score >= 100 then
 		return 0.90, 0.80, 0.50 -- gold
 	elseif score >= 99 then
@@ -82,7 +90,7 @@ function Grades.ScoreLabel(score, unclamped)
 	if db and db.profile.letterGrades then
 		return Grades.LetterFor(score, unclamped)
 	end
-	return ("%.0f"):format(score or 0)
+	return tostring(shown(score))
 end
 
 -- A clamped-to-0 score whose UNCLAMPED total went negative: parsed

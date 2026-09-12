@@ -428,6 +428,11 @@ function MockFight:Inject()
 		-- inserted at index 1 each time = newest ends on top
 		table.insert(FH.fights, 1, f)
 	end
+	-- the same cap every real capture path honours
+	local cap = TP.Addon.db.profile.history.maxFights
+	for i = #FH.fights, cap + 1, -1 do
+		table.remove(FH.fights, i)
+	end
 	FH:Persist()
 	TP.MeterWindow:Refresh(true)
 	TP.Addon:Print(retail

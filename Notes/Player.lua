@@ -36,18 +36,19 @@ local function readSpec()
 	class = plain(class)
 	state.class = class
 	raw.classID = plain(classID)
-	local idx = GetSpecialization and plain(GetSpecialization())
+	local Compat = TP.Compat
+	local idx = plain(Compat.GetSpecialization())
 	raw.idx = idx
 	-- Mists (dual spec): the bare call answered nil inside Siege of
 	-- Orgrimmar while the roster's earlier call had answered (Josh
 	-- 2026-09-08, idx=nil roster=269). Ask again naming the active talent
 	-- group, which is the one argument the call takes.
-	if not idx and GetSpecialization and GetActiveSpecGroup then
-		local okG, group = pcall(GetActiveSpecGroup)
+	if not idx then
+		local okG, group = pcall(Compat.GetActiveSpecGroup)
 		group = okG and plain(group) or nil
 		raw.group = group
 		if group then
-			local okS, i = pcall(GetSpecialization, false, false, group)
+			local okS, i = pcall(Compat.GetSpecialization, false, false, group)
 			idx = okS and plain(i) or nil
 			raw.idxByGroup = idx
 		end
@@ -62,8 +63,8 @@ local function readSpec()
 		if type(v) == "string" and v ~= "" then return v end
 		return nil
 	end
-	if idx and GetSpecializationInfo then
-		local ok, id, _, _, ic, role = pcall(GetSpecializationInfo, idx)
+	if idx then
+		local ok, id, _, _, ic, role = pcall(Compat.GetSpecializationInfo, idx)
 		raw.infoOK, raw.id, raw.role = ok, ok and id or nil, ok and role or nil
 		if not ok then raw.err = tostring(id) end
 		if ok then
@@ -76,8 +77,8 @@ local function readSpec()
 	-- the per-class table (same data, different entry point), then the
 	-- roster's own read of the player, which the scoring already trusts on
 	-- both clients.
-	if not (specID and KN.CLASSES[specID]) and idx and raw.classID and GetSpecializationInfoForClassID then
-		local ok, id, _, _, ic, role = pcall(GetSpecializationInfoForClassID, raw.classID, idx)
+	if not (specID and KN.CLASSES[specID]) and idx and raw.classID then
+		local ok, id, _, _, ic, role = pcall(Compat.GetSpecializationInfoForClassID, raw.classID, idx)
 		raw.byClassID = ok and id or nil
 		if ok and plain(id) and KN.CLASSES[plain(id)] then
 			specID, apiRole = plain(id), plain(role) or apiRole

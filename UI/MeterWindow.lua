@@ -156,7 +156,7 @@ local function applyClickThrough(on)
 	window:EnableMouseWheel(not on)
 	for _, f in ipairs({ window.headerButton, window.fightDrop, window.cog,
 		window.chat, window.footerButton, window.grip, window.modeReal, window.modeRaw,
-		window.tabScores, window.tabNotes }) do
+		window.tabScores, window.tabNotes, window.tierChip }) do
 		if f then
 			f:EnableMouse(not on)
 		end
@@ -181,6 +181,15 @@ local function stopDrag()
 		savePosition()
 	end
 end
+
+-- Per-fight caches, all keyed by the history record and all cleared by
+-- MeterWindow:Invalidate. They used to live next to their readers and
+-- Invalidate could not reach them, so a fight amended after capture
+-- (FightHistory:AmendWipe flips `wipe` up to ten minutes later) kept a
+-- "kill" hover card and a stale collapsed summary (audit 2026-09-11).
+local cardCache = setmetatable({}, { __mode = "k" })
+local rawAvailCache = setmetatable({}, { __mode = "k" })
+local collapsedCache = {}
 
 local function createWindow()
 	window = CreateFrame("Frame", "TrueParseWindow", UIParent, "BackdropTemplate")
@@ -735,8 +744,7 @@ local function createWindow()
 	-- Hovering a pull shows the whole group's card for it (Josh 2026-08-05:
 	-- "a quick review of the raid scores"). Scoring a fight is not free and a
 	-- mouse crossing a 25-row list would rescore on every row, so each card is
-	-- built once and kept - history records never change after capture.
-	local cardCache = {}
+	-- built once and kept until Invalidate (an amended outcome rebuilds it).
 	local function fightCard(f)
 		local hit = cardCache[f]
 		if hit then
@@ -1195,20 +1203,33 @@ local function createWindow()
 			-- a real dropdown does that a bare frame does not. Keyboard input
 			-- PROPAGATES, so capturing Escape here never swallows a keystroke
 			-- meant for chat or a bind.
-			picker:EnableKeyboard(true)
+			-- SetPropagateKeyboardInput is PROTECTED in combat (10.0+):
+			-- calling it from a keystroke mid-fight raises
+			-- ADDON_ACTION_BLOCKED. Skip the call there; the picker then
+			-- simply lets every key through and Escape closes it via the
+			-- outside-click path or the header button.
+			local function propagate(self, on)
+				if self.SetPropagateKeyboardInput and not InCombatLockdown() then
+					self:SetPropagateKeyboardInput(on)
+				end
+			end
 			picker:SetScript("OnKeyDown", function(self, key)
 				if key == "ESCAPE" then
-					if self.SetPropagateKeyboardInput then
-						self:SetPropagateKeyboardInput(false)
-					end
+					propagate(self, false)
 					self:Hide()
-				elseif self.SetPropagateKeyboardInput then
-					self:SetPropagateKeyboardInput(true)
+				else
+					propagate(self, true)
 				end
 			end)
 			picker:SetScript("OnShow", function(self)
-				if self.SetPropagateKeyboardInput then
-					self:SetPropagateKeyboardInput(true)
+				-- a keyboard-enabled frame that cannot be told to propagate
+				-- would eat every key (movement included), so in combat the
+				-- picker takes no keyboard at all
+				if InCombatLockdown() then
+					self:EnableKeyboard(false)
+				else
+					self:EnableKeyboard(true)
+					propagate(self, true)
 				end
 			end)
 			-- CLOSING ON AN OUTSIDE CLICK, WITHOUT EATING IT. This started as a
@@ -1618,6 +1639,9 @@ function MeterWindow:Invalidate()
 	lastRenderedFight = nil
 	wipe(displayCache)
 	wipe(runScoreCache)
+	wipe(cardCache)
+	wipe(rawAvailCache)
+	wipe(collapsedCache)
 	self:Refresh(true)
 end
 
@@ -1672,8 +1696,10 @@ function MeterWindow:UpdateWipeButton()
 	-- training dummies count as boss-ish and drop the group requirement:
 	-- the button is rehearsable exactly where everything else is (the
 	-- press is harmless there — a non-wipe voids the call anyway)
+	-- the same test capture uses: the substring missed the Raider's
+	-- golems, the exact rehearsal case (audit 2026-09-11)
 	local practice = seg and not seg.encounterID
-		and (seg.name or ""):find("Training Dummy", 1, true) ~= nil
+		and TP.IsPracticeTarget and TP.IsPracticeTarget(seg.name) or false
 	local show = db().wipeButton
 		and not TP.Compat.IS_RETAIL
 		and seg ~= nil
@@ -1728,6 +1754,11 @@ function MeterWindow:OnEnable()
 		end
 		MeterWindow:UpdateWipeButton()
 	end)
+	-- a /reload mid-combat never sees PLAYER_REGEN_DISABLED: apply the
+	-- combat state we are already in (audit 2026-09-11)
+	if InCombatLockdown() and db().window.clickThroughCombat then
+		applyClickThrough(true)
+	end
 	TP.Addon:RegisterMessage("TrueParse_WIPE_CALLED", function()
 		MeterWindow:UpdateWipeButton()
 	end)
@@ -1736,7 +1767,11 @@ function MeterWindow:OnEnable()
 		-- No live view on any client — when a fight starts, give the
 		-- screen back
 		MeterWindow:UpdateWipeButton()
-		if TP.Segments.current and db().window.autoCollapse then
+		-- the Notes view is the one thing wanted DURING a pull: it stays
+		-- up, and only the scorecard gives the screen back (audit
+		-- 2026-09-11: notes folded away on every trash pull)
+		local notesUp = TP.Notes and db().window.view == "notes"
+		if TP.Segments.current and db().window.autoCollapse and not notesUp then
 			autoCollapsed = true
 			TP.BreakdownPanel:HideAll()
 		elseif not TP.Segments.current then
@@ -1750,6 +1785,11 @@ function MeterWindow:OnEnable()
 	end)
 	TP.Addon:RegisterMessage("TrueParse_FIGHT_CAPTURED", function()
 		autoCollapsed = false
+		-- a pinned fight's run column and group run score read the run
+		-- aggregate, which this capture just changed; the cheap render
+		-- path would otherwise keep the old numbers (audit 2026-09-11)
+		lastRenderedFight = nil
+		wipe(runScoreCache)
 		-- "Current" picks up the new capture on its own; an explicit pin
 		-- holds. A pin whose fight aged out of history falls back to Current.
 		if pinnedFight then
@@ -1866,7 +1906,7 @@ end
 
 -- Raw availability is fight-static (curve coverage doesn't change after
 -- capture): cache it so re-renders don't pay a probe ScoreFight each time
-local rawAvailCache = setmetatable({}, { __mode = "k" })
+-- (rawAvailCache is declared with the other caches at the top of the file)
 
 local function rawAvailableFor(fight, parseResults)
 	local hit = rawAvailCache[fight]
@@ -1933,8 +1973,8 @@ end
 local ICON_CROP = 0.07
 local function setSpecIcon(icon, player, class)
 	local fileID = player and player.specIconID
-	if not fileID and player and player.specID and GetSpecializationInfoByID then
-		local ok, _, _, _, specIcon = pcall(GetSpecializationInfoByID, player.specID)
+	if not fileID and player and player.specID then
+		local ok, _, _, _, specIcon = pcall(TP.Compat.GetSpecializationInfoByID, player.specID)
 		if ok then
 			fileID = specIcon
 		end
@@ -2313,11 +2353,7 @@ function MeterWindow:RenderScorecard(fight)
 			row.groupDivider:SetHeight(1)
 		end
 		row.groupDivider:Show()
-		local sum = 0
-		for _, r in ipairs(results) do
-			sum = sum + r.score
-		end
-		local groupScore = sum / #results
+		local groupScore = TP.Scoring.Engine.GroupScore(results, fight) or 0
 		local sr, sg, sb = TP.Scoring.Grades.ColorForScore(groupScore)
 		local label = (#results > 5) and "Raid" or "Group"
 		row.name:SetAlpha(1)
@@ -2428,7 +2464,7 @@ end
 -- Collapsed, the title bar still leads with the numbers that matter: your
 -- score and the group's. They go FIRST so truncation eats the fight name.
 -- Cached per fight+options: this runs on the 0.5s refresh timer.
-local collapsedCache = {}
+-- (collapsedCache is declared with the other caches at the top of the file)
 local function collapsedSummary(fight)
 	local opts = TP.GetDisplayScoringOptions()
 	local key = tostring(opts.mode) .. ":" .. tostring(opts.normalizeIlvl)

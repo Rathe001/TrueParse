@@ -33,6 +33,10 @@ local function plain(v)
 	return v
 end
 
+-- Facts for the /tp notes debug dump, wiped by each Refresh and filled by
+-- the reads below it (readForces included, so it lives up here)
+local dbg = {}
+
 -- No `min` means every difficulty, Raid Finder included; `min = "n"` is the
 -- way to say "not in LFR".
 local function diffOK(min)
@@ -53,7 +57,9 @@ local function affixOK(key)
 end
 
 local function findDataBoss(name)
-	if not (state.dungeon and name) then return nil end
+	-- an empty query matches every name (find("") is always 1), so
+	-- "/kn boss" with nothing after it opened boss one (audit 2026-09-11)
+	if not (state.dungeon and name and name:match("%S")) then return nil end
 	local lname = name:lower()
 	for i, b in ipairs(state.dungeon.bosses) do
 		local bn = b.name:lower()
@@ -65,7 +71,7 @@ local function findDataBoss(name)
 end
 
 local function findJournalBoss(name)
-	if not (state.bosses and name) then return nil end
+	if not (state.bosses and name and name:match("%S")) then return nil end
 	local lname = name:lower()
 	for _, jb in ipairs(state.bosses) do
 		local jn = jb.name:lower()
@@ -99,7 +105,7 @@ end
 
 local TAG_NEED = {
 	KICK = "kick", PURGE = "purge", STUN = "stun", SOOTHE = "soothe", LUST = "lust",
-	MAGIC = "magic", CURSE = "curse", POISON = "poison", DISEASE = "disease",
+	MAGIC = "magic", CURSE = "curse", POISON = "poison", DISEASE = "disease", BLEED = "bleed",
 	FEAR = "fear", MASSDISP = "massdispel",
 }
 -- which hand-written tags already say what a data kind would say
@@ -270,7 +276,9 @@ local SITUATIONAL = { dispel = true, purge = true, soothe = true, stun = true }
 -- median; nil when this is the only boss the spec appears on.
 local typical = {}
 local function typicalShare(sid, name, here)
-	local key = sid .. "|" .. name
+	-- keyed by the boss that asked too: the median leaves `here` out, so
+	-- one boss's answer was being reused for every other (audit 2026-09-11)
+	local key = sid .. "|" .. name .. "|" .. tostring(here)
 	if typical[key] == nil then
 		local shares = {}
 		for _, bosses in pairs(TP.BossCasts or {}) do
@@ -641,6 +649,7 @@ end
 local function readForces()
 	state.forces = nil
 	state.criteria = nil
+	state.criteriaDone = nil
 	-- the step: C_ScenarioInfo.GetScenarioStepInfo (a table) on current
 	-- clients, C_Scenario.GetStepInfo (a list) on older ones. The count
 	-- went missing in game with only the older call (Josh 2026-09-09).
@@ -655,25 +664,50 @@ local function readForces()
 	end
 	if not n or n < 1 then return end
 	local list = {}
+	local done = 0
 	for i = 1, n do
-		local info, description, quantityString, weighted
+		local info, description, quantityString, weighted, completed, quantity, total
 		if C_ScenarioInfo and C_ScenarioInfo.GetCriteriaInfo then
 			local ok, t = pcall(C_ScenarioInfo.GetCriteriaInfo, i)
 			if ok and type(t) == "table" then info = t end
 		end
 		if info then
-			description, quantityString, weighted = plain(info.description), plain(info.quantityString), plain(info.isWeightedProgress)
+			description, quantityString, weighted, completed = plain(info.description), plain(info.quantityString), plain(info.isWeightedProgress), plain(info.completed)
+			quantity, total = plain(info.quantity), plain(info.totalQuantity)
 		elseif C_Scenario and C_Scenario.GetCriteriaInfo then
-			local ok, desc, _, _, _, _, _, _, qs, _, _, _, _, w = pcall(C_Scenario.GetCriteriaInfo, i)
-			if ok then description, quantityString, weighted = plain(desc), plain(qs), plain(w) end
+			local ok, desc, _, comp, q, tq, _, _, qs, _, _, _, _, w = pcall(C_Scenario.GetCriteriaInfo, i)
+			if ok then
+				description, quantityString, weighted, completed = plain(desc), plain(qs), plain(w), plain(comp)
+				quantity, total = plain(q), plain(tq)
+			end
 		end
-		if type(quantityString) == "string" then
-			if weighted then
-				if KN.KEYSTONES and state.diff == "k" then
-					local pct = tonumber(quantityString:match("(%d+%.?%d*)%%"))
-					if pct then state.forces = pct end
+		-- in a key the non-weighted criteria are the boss kills; the
+		-- completed count seeds the leg after a reload or a late join
+		if not weighted and completed == true then
+			done = done + 1
+		end
+		if weighted then
+			if KN.KEYSTONES and state.diff == "k" then
+				-- quantityString is what the client's own tracker shows
+				-- ("52.2%") and was the only source. A key on 2026-09-11
+				-- read "522% forces": the raw kill count dressed as a
+				-- percentage. A string over 100 cannot be a percentage, so
+				-- then (and when the string is missing) the fraction
+				-- quantity/totalQuantity decides, whichever unit those two
+				-- are in - percent over 100, or count over the requirement.
+				local fromString = type(quantityString) == "string"
+					and tonumber(quantityString:match("(%d+%.?%d*)%%")) or nil
+				local q, t = tonumber(quantity), tonumber(total)
+				local ratio = (q and t and t > 0) and (q / t * 100) or nil
+				local pct = fromString
+				if not pct or pct > 100 then
+					pct = ratio or pct
 				end
-			elseif description then
+				dbg.forcesRaw = tostring(quantity) .. "/" .. tostring(total) .. " '" .. tostring(quantityString) .. "'"
+				if pct then state.forces = math.min(100, pct) end
+			end
+		elseif type(quantityString) == "string" then
+			if description then
 				list[#list + 1] = { description = tostring(description), quantity = quantityString }
 			end
 		end
@@ -727,6 +761,7 @@ local function readForces()
 		end
 	end
 	if #list > 0 then state.criteria = list end
+	if done > 0 then state.criteriaDone = done end
 end
 
 -- "0/4" for the criterion a task names, or nil when no criterion matches
@@ -760,7 +795,7 @@ local function lookup(name, instanceID)
 	return def
 end
 
-local dbg = {}
+-- (dbg is declared near the top of the file)
 local function resolveDungeon(instanceType)
 	local instanceID, name = KN.Journal.CurrentInstance()
 	dbg.journalInstanceID = instanceID
@@ -862,6 +897,9 @@ function Tracker.Refresh(reason)
 	-- dungeon notes here" while standing inside it (Josh 2026-09-08).
 	if instanceType ~= "party" and instanceType ~= "raid" then
 		state.inDungeon = false
+		-- an instance that never resolved left the counter at its cap, so
+		-- the NEXT instance got no retries against journal lag
+		retries = 0
 		if state.preview then return end
 		state.dungeon = nil
 		state.boss = nil
@@ -900,6 +938,13 @@ function Tracker.Refresh(reason)
 	if def and not state.manualLeg then
 		local k = savedKills(def)
 		if k and k > state.killed then state.killed = k end
+		-- a key has no lockout, so a /reload or a mid-run join previewed
+		-- boss 1 until the next pull. The scenario's completed boss
+		-- criteria (readForces counts them) say how far the key is.
+		local done = state.criteriaDone
+		if KN.KEYSTONES and state.diff == "k" and done and done > state.killed then
+			state.killed = done
+		end
 	end
 	state.leg = state.manualLeg or (state.killed + 1)
 	-- Option I's behaviour as an opt-in: walking into a dungeon we have
@@ -1202,7 +1247,7 @@ function Tracker.DebugLines()
 	local names = {}
 	for _, a in ipairs(state.affixes or {}) do names[#names + 1] = a.name .. "(" .. tostring(a.icon) .. ")" end
 	out[#out + 1] = "key=" .. v(state.keyLevel) .. " affixes=" .. table.concat(names, ", ")
-	out[#out + 1] = "forces=" .. v(state.forces)
+	out[#out + 1] = "forces=" .. v(state.forces) .. " raw=" .. v(dbg.forcesRaw)
 		.. " (stepInfo=" .. tostring(C_ScenarioInfo and C_ScenarioInfo.GetScenarioStepInfo ~= nil)
 		.. " legacyStep=" .. tostring(C_Scenario and C_Scenario.GetStepInfo ~= nil)
 		.. " widgets=" .. tostring(C_UIWidgetManager and C_UIWidgetManager.GetAllWidgetsBySetID ~= nil) .. ")"
