@@ -1,5 +1,31 @@
 # TrueParse Changelog
 
+## 2.16.4
+
+Every wipe on Mists shows where the boss stood. The percent was only
+stamped when the wipe verdict arrived with the record; a pull where the
+raid was all dead before the boss reset, or where ENCOUNTER_END landed
+minutes later, was marked a wipe without it. The last sample now rides
+the record and either late verdict promotes it.
+
+The fight picker stays on the screen: dropped from a meter parked at
+the right edge, it used to run past it. A breakdown card opened while
+the picker is up now covers it cleanly instead of interleaving with
+its rows.
+
+Celestial dungeons (no encounter events): a pull whose boss frame lit
+up a beat before you entered combat was never flagged as a boss and
+its wipe was dropped; the segment now checks the boss frame when it
+opens. The notes advance on a captured boss kill, so they no longer
+sit on a boss that already died. With debug on, a pull that is not
+captured says why.
+
+On Mists, dying and releasing mid-boss no longer splits the fight in
+two: out of range of everyone, every party member read "not fighting"
+and the segment closed, so Rattlegore came back as a 0:17 slice and a
+0:40 remainder. A boss fight now lasts as long as its boss frames do,
+and while you are a ghost an ally you cannot see counts as fighting.
+
 ## 2.16.3
 
 In a raid, the group score gives a point back for each raid buff nobody

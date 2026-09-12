@@ -1123,6 +1123,10 @@ local function createWindow()
 		end
 		if not picker then
 			picker = CreateFrame("Frame", "TrueParseFightPicker", UIParent, "BackdropTemplate")
+			-- like the window itself: anchored to a meter parked at the
+			-- screen's right edge, the panel's 230px minimum ran off it
+			-- (Josh 2026-09-12). The client pushes a clamped frame back on.
+			picker:SetClampedToScreen(true)
 			picker:SetBackdrop({
 				bgFile = "Interface\\Buttons\\WHITE8X8",
 				edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -1131,7 +1135,12 @@ local function createWindow()
 			})
 			picker:SetBackdropColor(0.043, 0.047, 0.063, 0.98)
 			picker:SetBackdropBorderColor(0.220, 0.192, 0.298, 0.95)
-			picker:SetFrameStrata("DIALOG")
+			-- HIGH, not DIALOG: the breakdown card lives in DIALOG and the
+			-- picker's rows sit ten levels above the picker, so a raised
+			-- card landed BETWEEN them and the two interleaved (Josh
+			-- 2026-09-12). One strata down, the card always covers the
+			-- menu, and the menu's own hover card (TOOLTIP) still covers both.
+			picker:SetFrameStrata("HIGH")
 			picker:EnableMouse(true)
 			picker:EnableMouseWheel(true)
 

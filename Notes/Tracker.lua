@@ -1349,7 +1349,26 @@ function Tracker.OnEnable()
 	if AceEvent and AceEvent.Embed then
 		AceEvent:Embed(Tracker)
 		if Tracker.RegisterMessage then
-			Tracker:RegisterMessage("TrueParse_FIGHT_CAPTURED", function()
+			Tracker:RegisterMessage("TrueParse_FIGHT_CAPTURED", function(_, fight)
+				-- A captured boss KILL advances the leg. ENCOUNTER_END does
+				-- this for encounter-event content, but Celestial dungeons
+				-- have no encounter events at all (boss-frame captures), so
+				-- the notes sat on Gekkan after he died (Josh 2026-09-12).
+				-- The index is a floor, never an increment, so both paths
+				-- firing for one kill agree.
+				if type(fight) == "table" and fight.isBoss and not fight.wipe and not fight.practice
+					and state.dungeon and not state.preview then
+					local _, idx = findDataBoss(fight.name)
+					if idx and idx > state.killed then
+						state.killed = idx
+						if state.manualLeg then
+							state.manualLeg = idx + 1
+						end
+						state.leg = state.manualLeg or (state.killed + 1)
+						state.boss, state.journalBoss = nil, nil
+						Tracker.Render()
+					end
+				end
 				local p = KN.Profile()
 				if p and p.notes and p.notes.autoSwitch and KN.ViewIsNotes()
 					and TP.MeterWindow and TP.MeterWindow.SetView then

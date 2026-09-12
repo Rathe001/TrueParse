@@ -733,6 +733,21 @@ do
 		check(FH.fights[1] == newest, "the newest start goes on top of everything")
 		FH.fights = {}
 	end
+	-- A late ENCOUNTER_END verdict keeps the percent sampled at capture:
+	-- two Malkorok wipes read plain "wipe" beside a "33% left" one because
+	-- only the capture-time verdict stamped bossPct (Josh 2026-09-12).
+	if FH and FH.AmendWipe then
+		local savedPersist = FH.Persist
+		FH.Persist = function() end
+		local late = { name = "Malkorok", encounterID = 1575, capturedAt = os.time(),
+			bossPctAtEnd = 33, bossPhaseAtEnd = 1 }
+		FH.fights = { late }
+		FH:AmendWipe(1575)
+		check(late.wipe == true and late.bossPct == 33 and late.bossPhase == 1,
+			("a wipe amended after capture carries the sampled percent (%s)"):format(tostring(late.bossPct)))
+		FH.fights = {}
+		FH.Persist = savedPersist
+	end
 
 	-- PLACELESS-vs-PLACELESS re-reads (Josh 2026-08-08). His Spiritflayer
 	-- Jin'ma sat in history three times - 08-04, 08-05, 08-07, every copy

@@ -1235,6 +1235,8 @@ function FightHistory:AddFromSegment(seg)
 		-- boss-frame fallback (Celestial dungeons, 2026-07-24): engaged
 		-- boss frames make a boss fight even without ENCOUNTER events
 		if not practice and not seg.bossEngaged then
+			TP.Addon:Debug(("Not captured: %s (%.0fs) - no encounter and no boss frame"):format(
+				seg.name or "?", seg.duration or 0))
 			return
 		end
 	end
@@ -1694,7 +1696,10 @@ function FightHistory:AddFromSegment(seg)
 		end
 	end
 	if totals.damage <= 0 or (seg.duration or 0) < 10 then
-		return -- trivial segment or a pull-reset blip: don't pollute history
+		-- trivial segment or a pull-reset blip: don't pollute history
+		TP.Addon:Debug(("Not captured: %s (%.0fs, dmg %s) - too short or no damage"):format(
+			seg.name or "?", seg.duration or 0, TP.FormatNumber(totals.damage)))
+		return
 	end
 
 	local fight = {
@@ -1726,6 +1731,14 @@ function FightHistory:AddFromSegment(seg)
 		-- which phase that percentage belongs to; nil/1 = the boss never
 		-- refilled, so the raw percentage IS the progress
 		bossPhase = wiped and seg.bossPhase or nil,
+		-- The verdict often arrives AFTER the record: the raid is all dead
+		-- (the heuristic below) or ENCOUNTER_END lands minutes later
+		-- (AmendWipe), and both used to mark the wipe with no percent
+		-- (Josh 2026-09-12: two Malkorok wipes read plain "wipe" beside a
+		-- "33% left" one). Keep the last sample so either path can
+		-- promote it; never for a pull the boss died in.
+		bossPctAtEnd = (not wiped and not seg.bossKilled) and seg.bossPctLast or nil,
+		bossPhaseAtEnd = (not wiped and not seg.bossKilled) and seg.bossPhase or nil,
 		duration = seg.duration or 0,
 		rawDuration = seg.rawDuration, -- untrimmed window (report matching)
 		capturedAt = time(),
@@ -1777,6 +1790,10 @@ function FightHistory:AddFromSegment(seg)
 			end
 		end
 		fight.wipe = (anyone and allDied) or nil
+		if fight.wipe then
+			fight.bossPct = fight.bossPct or fight.bossPctAtEnd
+			fight.bossPhase = fight.bossPhase or fight.bossPhaseAtEnd
+		end
 	end
 	self:StampRunID(fight)
 	self:StampPrevKill(fight)
@@ -1938,6 +1955,9 @@ function FightHistory:AmendWipe(encounterID)
 			and not f.hadVerdict
 			and (now - (f.capturedAt or 0)) < 600 then
 			f.wipe = true
+			-- the percent sampled at capture belongs to this verdict
+			f.bossPct = f.bossPct or f.bossPctAtEnd
+			f.bossPhase = f.bossPhase or f.bossPhaseAtEnd
 			self:Persist()
 			if TP.MeterWindow and TP.MeterWindow.Invalidate then
 				TP.MeterWindow:Invalidate()

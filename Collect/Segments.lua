@@ -114,6 +114,14 @@ function Segments:StartFight(name)
 	end
 	self.current = seg
 	self.revision = self.revision + 1
+	-- Boss frames that lit up BEFORE this segment opened: the engage
+	-- event fired into "no segment" and returned, so a Celestial pull
+	-- whose tank engaged a beat before the player entered combat was
+	-- never flagged as a boss and its wipe was dropped as trash (Josh
+	-- 2026-09-12, a Gekkan wipe missing from the history). Ask again now.
+	if UnitExists("boss1") then
+		self:OnEngageUnit()
+	end
 	TP.Addon:SendMessage("TrueParse_SEGMENT_CHANGED")
 	TP.Addon:Debug("Fight started:", name)
 end
@@ -164,15 +172,62 @@ end
 
 -- PLAYER_REGEN_ENABLED only means *you* left combat; the group may still be
 -- fighting (e.g. you died). Poll until the whole roster is out of combat.
+-- A boss fight whose frames are still up is still going, whatever the
+-- roster's combat flags say. A dead player who releases is out of range of
+-- everyone, so every party unit reads "not fighting" and the segment closed
+-- mid-boss: Rattlegore came back as a 0:17 slice and a 0:40 remainder
+-- (Josh 2026-09-12). The frames outlast that: they drop when the boss dies
+-- or resets, which is exactly when the fight is over.
+local function bossFramesLive(seg)
+	-- Mists only: retail secrets these reads mid-combat, and its bosses
+	-- end through ENCOUNTER_END rather than this poll
+	if not TP.Compat.HAS_CLEU or not (seg.encounterID or seg.bossEngaged) then
+		return false
+	end
+	for i = 1, 5 do
+		local u = "boss" .. i
+		if UnitExists(u) and not UnitIsDeadOrGhost(u) then
+			return true
+		end
+	end
+	return false
+end
+
+-- While WE are a ghost, an alive party member we cannot see is unknown,
+-- not idle: their combat flag only reads while they are in range. Bounded
+-- so a player who never runs back cannot hold a segment open all night.
+local UNSEEN_GRACE = 600
+local function unseenAllyWhileDead()
+	if not TP.Compat.HAS_CLEU or not UnitIsDeadOrGhost("player") then
+		return false
+	end
+	local n = GetNumSubgroupMembers()
+	for i = 1, n do
+		local u = "party" .. i
+		if UnitExists(u) and not UnitIsDeadOrGhost(u) and UnitIsVisible and not UnitIsVisible(u) then
+			return true
+		end
+	end
+	return false
+end
+
 function Segments:ScheduleEndCheck()
 	self:CancelEndCheck()
+	local since = GetTime()
 	self.endTimer = TP.Addon:ScheduleRepeatingTimer(function()
-		if not Segments.current then
+		local seg = Segments.current
+		if not seg then
 			Segments:CancelEndCheck()
 			return
 		end
 		if TP.Compat.GroupInCombat() then
 			return -- someone still fighting; keep waiting
+		end
+		if bossFramesLive(seg) then
+			return -- the boss is still up: the fight is not over
+		end
+		if unseenAllyWhileDead() and (GetTime() - since) < UNSEEN_GRACE then
+			return -- we released; the living are fighting out of our sight
 		end
 		Segments:CancelEndCheck()
 		Segments:EndFight()
