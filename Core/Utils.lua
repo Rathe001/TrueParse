@@ -21,6 +21,16 @@ function TP.FormatNumber(n)
 	return format("%.0f", n)
 end
 
+-- 754 -> "12:34": a duration in seconds as m:ss, both parts floored.
+-- nil, a non-number or a negative reads "0:00" rather than crashing or
+-- printing "-1:55".
+function TP.FormatMMSS(seconds)
+	if type(seconds) ~= "number" or seconds < 0 then
+		return "0:00"
+	end
+	return format("%d:%02d", math.floor(seconds / 60), math.floor(seconds % 60))
+end
+
 -- "Beautzibub-Undermine" -> "Beautzibub". Cross-realm groups make the realm
 -- suffix the single biggest waste of row width, and it tells you nothing you
 -- act on (Josh 2026-07-28). DISPLAY ONLY: the stored name keeps its realm,
@@ -43,9 +53,6 @@ function TP.ClassColor(class)
 	return 0.6, 0.6, 0.6
 end
 
-
--- Semantic version compare: 1 when a > b, -1 when a < b, 0 when equal.
--- "1.2.10" beats "1.2.9" (numeric per segment, not string order).
 -- The keystone level a capture LOST, recovered from the rest of its run.
 -- A fight's level is read from C_ChallengeMode while the key is active, and
 -- a capture can run long after the pull: Josh's Merektha (2026-09-04) sat
@@ -74,6 +81,8 @@ function TP.KeystoneFromRun(fights, fight)
 	return best
 end
 
+-- Semantic version compare: 1 when a > b, -1 when a < b, 0 when equal.
+-- "1.2.10" beats "1.2.9" (numeric per segment, not string order).
 function TP.CompareVersions(a, b)
 	local ai = string.gmatch(tostring(a or ""), "%d+")
 	local bi = string.gmatch(tostring(b or ""), "%d+")

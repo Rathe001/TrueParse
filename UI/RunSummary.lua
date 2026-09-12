@@ -64,66 +64,6 @@ local function groupChannel()
 	return "PARTY"
 end
 
--- One informative, non-spammy line: the WHOLE-group story, not just an
--- average of the parts (2026-07-13). Kill speed vs the group's own
--- parses is the lead when they disagree — that gap IS the group-level
--- finding. Plain text (chat can't color); stays under the 255-char
--- chat limit by construction.
-local function composeSummary(run, fights, results, groupScore)
-	-- run-level facts the results array can't see
-	local kickOpps, kicksLanded, deaths = 0, 0, 0
-	local killSum, killN = 0, 0
-	for _, f in ipairs(fights) do
-		local t = f.totals or {}
-		kickOpps = kickOpps + (t.kickOpportunities or 0)
-		kicksLanded = kicksLanded + (t.kicksLanded or 0)
-		deaths = deaths + (t.deaths or 0)
-		local pct, _, _, bounded = TP.Scoring.Engine.KillSpeedPercentile(f)
-		-- bounded kills (slower than WCL's served fastest 1000) give only a
-		-- ceiling, not a rankable percentile — keep them out of the
-		-- execution-gap average so it isn't skewed by a guess
-		if pct and not bounded then
-			killSum = killSum + pct
-			killN = killN + 1
-		end
-	end
-	local a = TP.Scoring.Insights.GroupAnalysis(results,
-		{ kickOpps = kickOpps, kicksLanded = kicksLanded, deaths = deaths },
-		killN > 0 and killSum / killN or nil)
-
-	local msg = ("TrueParse: %s — group %d/100 over %d fights."):format(
-		run.name or "run", groupScore, #fights)
-	if a.executionGap and a.executionGap >= 15 then
-		msg = msg .. (" Kills came faster than the parses say — execution carried (speed p%d vs output p%d)."):format(
-			a.killPct + 0.5, a.outputPct + 0.5)
-	elseif a.executionGap and a.executionGap <= -15 then
-		msg = msg .. (" Big parses, slow kills (output p%d, speed p%d) — time on target, not throughput."):format(
-			a.outputPct + 0.5, a.killPct + 0.5)
-	elseif a.killPct then
-		msg = msg .. (" Kill speed: faster than %d%% of ranked groups."):format(a.killPct + 0.5)
-	end
-	-- one SPECIFIC pointer beats "work on: healing" (which scolded the
-	-- healer for the group's off-heal averages, 2026-07-14)
-	local tips = TP.Scoring.Insights.RunAdvice(fights)
-	local tip = tips[1]
-	-- the terse kick stat yields when the pointer already tells the kick
-	-- story with more detail ("Kicks: 4 of 14" next to "10 casts got
-	-- through (4 of 14 kicked)" said it twice)
-	if a.kickOpps and a.kickOpps >= 3
-		and not (tip and tip:find("interruptible casts got through")) then
-		msg = msg .. (" Kicks: %d of %d."):format(a.kicksLanded, a.kickOpps)
-	end
-	if deaths == 0 and #fights > 0 then
-		msg = msg .. " Deathless."
-	elseif deaths > #results then
-		msg = msg .. (" %d deaths."):format(deaths)
-	end
-	if tip and #msg + #tip + 1 <= 250 then
-		msg = msg .. " " .. tip
-	end
-	return msg
-end
-
 -- Current run as an aggregate fight record, for the scorecard's Run row.
 -- Cached until the fight streak changes (this runs on render).
 local runCache = {}
@@ -162,10 +102,10 @@ function RunSummary:RunFor(fight)
 	return runForCache.run, #fights, fights
 end
 
--- announce=true (auto triggers only) additionally posts to group chat per
--- the /tp announce (MVP line) and announce-summary settings. Manual /tp run
--- never announces; /tp share posts the summary on demand.
-function RunSummary:Report(announce)
+-- The local run report for /tp run. Group-chat output lives in the
+-- Reports panel (channels, confirmations, the no-names house rule);
+-- /tp share posts the brag line on demand.
+function RunSummary:Report()
 	local fights, anchor = collectRunFights()
 	if not fights or #fights == 0 then
 		TP.Addon:Print("No fights captured in this instance yet.")
@@ -202,9 +142,8 @@ function RunSummary:Report(announce)
 	end)
 	local groupScore = n > 0 and (total / n) or 0
 
-	TP.Addon:Print(("Run report — %s (%d fights, %d:%02d) · group score %s · True scores, whole run"):format(
-		anchor or "Run", #fights,
-		math.floor(run.duration / 60), run.duration % 60,
+	TP.Addon:Print(("Run report — %s (%d fights, %s) · group score %s · True scores, whole run"):format(
+		anchor or "Run", #fights, TP.FormatMMSS(run.duration),
 		TP.Scoring.Grades.ColoredScore(groupScore)))
 
 	local awards = TP.Scoring.Awards.Compute(run)
@@ -243,58 +182,6 @@ function RunSummary:Report(announce)
 		end
 		TP.Addon:Print(line)
 	end
-
-	-- (the announce path retired 2026-07-25: the Reports panel owns
-	-- every group-chat output now — channels, confirmations, and the
-	-- no-names house rule; `announce` is ignored)
-end
-
--- Retail post prompt: a small click-through so the send happens on a
--- hardware event (the only path Midnight allows). Auto-dismisses.
-local prompt
-function RunSummary:PromptPost(lines)
-	if not prompt then
-		prompt = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-		prompt:SetBackdrop({
-			bgFile = "Interface\\Buttons\\WHITE8X8",
-			edgeFile = "Interface\\Buttons\\WHITE8X8",
-			edgeSize = 1,
-		})
-		prompt:SetBackdropColor(0.04, 0.04, 0.05, 1)
-		prompt:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.9)
-		prompt:SetSize(260, 54)
-		prompt:SetPoint("TOP", UIParent, "TOP", 0, -140)
-		prompt:SetFrameStrata("DIALOG")
-		prompt.text = prompt:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		prompt.text:SetPoint("TOP", 0, -8)
-		prompt.text:SetText("Post the TrueParse run summary to group chat?")
-		local function makeBtn(label, x)
-			local b = CreateFrame("Button", nil, prompt, "UIPanelButtonTemplate")
-			b:SetSize(90, 20)
-			b:SetPoint("BOTTOM", x, 7)
-			b:SetText(label)
-			return b
-		end
-		prompt.post = makeBtn("Post", -50)
-		prompt.dismiss = makeBtn("Dismiss", 50)
-		prompt.dismiss:SetScript("OnClick", function()
-			prompt:Hide()
-		end)
-		prompt.post:SetScript("OnClick", function()
-			-- the click IS the hardware event; sending here is allowed
-			for _, line in ipairs(prompt.lines or {}) do
-				SendChatMessage(line, groupChannel())
-			end
-			prompt:Hide()
-		end)
-	end
-	prompt.lines = lines
-	prompt:Show()
-	C_Timer.After(45, function()
-		if prompt and prompt.lines == lines then
-			prompt:Hide()
-		end
-	end)
 end
 
 -- Share to group (2026-07-14 redesign): a brag line, not coaching — the
@@ -322,89 +209,22 @@ function RunSummary:Share()
 	local results = TP.Scoring.Engine.ScoreFight(kill, TP.GetScoringOptions())
 	-- the same group score the card and the meter row show
 	local groupScore = TP.Scoring.Engine.GroupScore(results, kill) or 0
-	local d = kill.duration or 0
+	local d = TP.FormatMMSS(kill.duration or 0)
 	local line
 	local pct, _, _, bounded = TP.Scoring.Engine.KillSpeedPercentile(kill)
 	-- only cite a percentile when it's a real ranking, not a ceiling: a
 	-- bounded kill (outside WCL's served fastest 1000) can't be bragged
 	if pct and not bounded then
-		line = ("TrueParse: %s down in %d:%02d — faster than %d%% of ranked kills on Warcraft Logs. Group score %d/100."):format(
-			kill.name or "Boss", math.floor(d / 60), d % 60, math.floor(pct + 0.5), math.floor(groupScore + 0.5))
+		line = ("TrueParse: %s down in %s — faster than %d%% of ranked kills on Warcraft Logs. Group score %d/100."):format(
+			kill.name or "Boss", d, math.floor(pct + 0.5), math.floor(groupScore + 0.5))
 	else
-		line = ("TrueParse: %s down in %d:%02d. Group score %d/100."):format(
-			kill.name or "Boss", math.floor(d / 60), d % 60, math.floor(groupScore + 0.5))
+		line = ("TrueParse: %s down in %s. Group score %d/100."):format(
+			kill.name or "Boss", d, math.floor(groupScore + 0.5))
 	end
 	if IsInGroup() then
 		SendChatMessage(line, groupChannel())
 	else
 		TP.Addon:Print((line:gsub("^TrueParse: ", "")))
-	end
-end
-
--- Post-wipe debrief (2026-07-14): the moment a group actually asks
--- "what happened?" — local only, built from the wipe's own record.
-function RunSummary:WipeDebrief(fight)
-	local d = fight.duration or 0
-	local deaths, afterAvoidable = 0, 0
-	for _, p in pairs(fight.players or {}) do
-		local n = (p.metrics and p.metrics.deaths) or 0
-		deaths = deaths + n
-		-- a post-call death's recap is someone standing in bad ON PURPOSE
-		-- to reset — don't indict the behavior the call excuses
-		local forgiven = fight.calledWipeAt and p.deathTime
-			and p.deathTime >= fight.calledWipeAt
-		if n > 0 and p.deathRecap and not forgiven then
-			for _, hit in ipairs(p.deathRecap) do
-				if hit.avoidable then
-					afterAvoidable = afterAvoidable + 1
-					break
-				end
-			end
-		end
-	end
-	local head = ("Wipe — %s at %d:%02d."):format(fight.name or "?", math.floor(d / 60), d % 60)
-	-- the progression story: pull number and best-pull % this run
-	if fight.bossPct then
-		-- deepest by PHASE then percentage (TP.PullDepth): a boss whose health
-		-- refills reports per-phase health, so raw percentages do not rank
-		local pull, best, bestDepth = 0, nil, nil
-		local mine = TP.PullDepth(fight)
-		for _, f in ipairs(TP.FightHistory.fights) do
-			if f.name == fight.name and f.wipe and f.runID == fight.runID then
-				pull = pull + 1
-				local d = TP.PullDepth(f)
-				if d and (not bestDepth or d > bestDepth) then
-					bestDepth, best = d, f.bossPct
-				end
-			end
-		end
-		local at = TP.PullProgress(fight)
-		if bestDepth and mine and bestDepth > mine + 0.5 then
-			head = head .. (" Pull %d - boss at %s (best %.0f%%)."):format(pull, at, best)
-		else
-			head = head .. (" Pull %d - boss at %s%s."):format(pull, at,
-				pull > 1 and ", a new best" or "")
-		end
-	end
-	if fight.calledWipeAt then
-		local tail = math.max(0, math.floor(d - fight.calledWipeAt + 0.5))
-		if fight.wipeCalledBy then
-			head = head .. (" %s called it at %d:%02d, wrapped %ds later — nothing after the call counted."):format(
-				fight.wipeCalledBy, math.floor(fight.calledWipeAt / 60), math.floor(fight.calledWipeAt) % 60, tail)
-		else
-			head = head .. (" Looked called around %d:%02d, wrapped %ds later — nothing after the call counted."):format(
-				math.floor(fight.calledWipeAt / 60), math.floor(fight.calledWipeAt) % 60, tail)
-		end
-	end
-	if deaths > 0 then
-		head = head .. (afterAvoidable > 0
-			and (" %d deaths, %d right after avoidable damage (hover the death bullets for recaps)."):format(deaths, afterAvoidable)
-			or (" %d deaths."):format(deaths))
-	end
-	TP.Addon:Print(head)
-	local tips = TP.Scoring.Insights.RunAdvice({ fight })
-	for i = 1, math.min(2, #tips) do
-		TP.Addon:Print("  \194\183 " .. tips[i])
 	end
 end
 

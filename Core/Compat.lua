@@ -1,5 +1,8 @@
--- Single choke point for client API divergence. When Classic support lands,
--- only this file should need version branches; callers stay untouched.
+-- Single choke point for client API divergence between retail (Midnight,
+-- TrueParse_Mainline.toc) and Mists Classic (TrueParse_Mists.toc): version
+-- branches live here so callers stay untouched. The one exception is
+-- Core/Constants.lua, which loads before this file and keeps its own
+-- IS_MAINLINE check for the constants that differ per client.
 local _, TP = ...
 
 local Compat = {}
@@ -81,6 +84,27 @@ function Compat.GroupUnits(out)
 		end
 	end
 	return out
+end
+
+-- True while anyone in the group (the player included) is in combat.
+-- PLAYER_REGEN_ENABLED only means *you* left combat - the group may still
+-- be fighting (you died, you're out of range) - so fight-end pollers in
+-- Segments, FightHistory and SelfCasts all ask this instead. Reads the
+-- live unit tokens rather than the Roster snapshot, so a member the
+-- roster skipped (secret GUID mid-rebuild) still holds the fight open. A
+-- secret combat flag counts as "not fighting": treating it as fighting
+-- could hold a fight open forever.
+local combatScratch = {}
+function Compat.GroupInCombat()
+	for _, unit in ipairs(Compat.GroupUnits(combatScratch)) do
+		if UnitExists(unit) then
+			local fighting = UnitAffectingCombat(unit)
+			if not Compat.IsSecret(fighting) and fighting then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 -- specIcon fileID -> { specID, role } for every spec. Combat sources carry

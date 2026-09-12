@@ -14,11 +14,12 @@
 -- earned it on threat rather than been handed it by a fixate, and the tank
 -- must not still be holding something themselves.
 --
--- RETAIL (Midnight): EXPERIMENT 3 — group threat is expected to be
--- secret-locked mid-combat like every other hostile read; the probe below
--- (gated on /tp probe, like the cast probes) measures what
--- UnitThreatSituation / UnitDetailedThreatSituation actually return in a
--- real dungeon before anything is built on them. VERDICT: pending.
+-- RETAIL (Midnight): UnitThreatSituation turned out to be readable
+-- mid-combat (experiment 3, verdict 2026-07-12, noted again at the retail
+-- sampler below), so the same discipline tracking runs there. The
+-- difference is attachment: retail combat data unlocks in bulk after the
+-- fight, so samples accumulate in standalone windows and attach to fights
+-- by duration fingerprint instead of writing into the live segment.
 local _, TP = ...
 
 local tankScratch = {} -- reused per sampler tick; never escapes

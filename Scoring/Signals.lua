@@ -137,7 +137,7 @@ end
 -- 2026-07-26 - the tank's primary metric, WCL-relative not arbitrary). The
 -- tip leads with that headline, then shows the rest of the survival story
 -- as context (soak/avoid/block aren't scored, just shown).
-local function mitigationRow(m, b, specID)
+local function mitigationRow(m, b)
 	if not (b and b.applicable) then
 		return nil -- metric not in play at all (non-tank, or no anchors)
 	end
@@ -280,7 +280,7 @@ function Signals.ForResult(result, fight, player)
 	-- 2b) the Mitigation gauge (active-mitigation uptime percentile vs the
 	-- spec's WCL field): the tank's primary metric, closes the gauge zone
 	if role == "TANK" then
-		local trow = mitigationRow(m, result.breakdown.mitigation, player and player.specID)
+		local trow = mitigationRow(m, result.breakdown.mitigation)
 		if trow then
 			out[#out + 1] = trow
 		end

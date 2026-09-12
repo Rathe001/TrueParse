@@ -8,7 +8,6 @@ local MeterWindow = {}
 TP.MeterWindow = MeterWindow
 
 local HEADER_HEIGHT = 26
-local COLHEAD_HEIGHT = 0 -- header labels removed: tooltips explain the columns
 local COL_RESERVE = 66 -- right-side score columns the class bar never enters
 local MODE_HEIGHT = 16 -- bottom strip: Mode: (*)Real ( )Raw
 -- sized to fit "III" with even padding all round, then centred in the
@@ -69,7 +68,6 @@ local TIERS = {
 		what = "Nothing on Warcraft Logs covers this fight.",
 		how = "Averaged across everything we do have, scaled to your gear. Don't quote this number." },
 }
-local lastTier = 1
 local SCORECARD_ROW_HEIGHT = 18 -- Details-proportioned rows: icon = row height
 
 local window
@@ -100,10 +98,6 @@ end
 local function saveViewWidth(w)
 	db().window.width = w
 end
--- Notes view: how many body rows the wheel has scrolled past (the header
--- row stays pinned). Reset whenever the notes state changes.
-local notesScroll = 0
-
 local function releaseAllRows()
 	for i = #activeRows, 1, -1 do
 		TP.Scorecard:Release(activeRows[i])
@@ -327,9 +321,9 @@ local function createWindow()
 	window.title:SetText("")
 
 	-- Scores | Notes segment, right of the mark, where the mode tag sits.
-	-- Expanded only: collapsed, the title tag names the view instead. Retail
-	-- only: Mists has no Notes module and never sees the control (Josh
-	-- 2026-09-08, canvas round 4 option H).
+	-- Expanded only: collapsed, the title tag names the view instead. Only
+	-- built when the Notes module loaded (Josh 2026-09-08, canvas round 4
+	-- option H).
 	if TP.Notes then
 		-- Two 20px glyph buttons instead of two words (Josh 2026-09-09,
 		-- canvas round 6, tab option 1): the words took ~90px of a 26px
@@ -419,7 +413,6 @@ local function createWindow()
 	end)
 
 	window.fightDrop:SetHeight(16)
-	local dropInset = (HEADER_HEIGHT - 16) / 2 -- even air above and below
 	MeterWindow:LayoutHeader() -- owns the selector's, chip's, chat's and
 	-- cog's points; re-run at the end of createWindow once they all exist
 
@@ -670,36 +663,6 @@ local function createWindow()
 		end
 		return mark
 	end
-	local bestPulls = {}
-
-	local function fightLabel(fight)
-		local name = (fight.name or "Fight"):gsub("^%(!%)%s*", "")
-		local d = fight.duration or 0
-		-- difficulty rides the ROW, not just the run header: the header
-		-- scrolls away, and a night of mixed lockouts rendered three
-		-- identical "Siege of Orgrimmar" titles (Josh 2026-08-05)
-		local chip = TP.DifficultyChip(fight)
-		local tag = ""
-		if fight.wipe then
-			tag = fight.bossPct
-				and (" |cffe64d4d%s|r"):format(TP.PullProgress(fight))
-				or " |cffe64d4dwipe|r"
-			-- the furthest attempt on this boss, at a glance. A WORD, not a
-			-- glyph: WoW's default face has patchy symbol coverage and an
-			-- unrenderable marker shows the player a hollow box.
-			if bestPulls[fight] then
-				tag = tag .. " |cffffd36ebest|r"
-			end
-		elseif fight.practice then
-			tag = " |cff66ccffpractice|r"
-		else
-			-- a kill used to be the ABSENCE of a tag; naming it lets the eye
-			-- find it in a wall of attempts
-			tag = " |cff7ec98akill|r"
-		end
-		return ("%s%s · %d:%02d%s"):format(chip and (chip .. " ") or "",
-			name, math.floor(d / 60), d % 60, tag)
-	end
 	local function selectFight(f)
 		pinnedFight = f -- nil = back to Current
 		scrollOffset = 0
@@ -767,8 +730,8 @@ local function createWindow()
 		local outcome = f.wipe and (TP.PullProgress(f) or "wipe")
 			or (f.practice and "practice" or "kill")
 		local lines = { {
-			("%s%d:%02d · %s"):format(header and (header .. " · ") or "",
-				math.floor(d / 60), math.floor(d % 60), outcome),
+			("%s%s · %s"):format(header and (header .. " · ") or "",
+				TP.FormatMMSS(d), outcome),
 			0.62, 0.64, 0.70,
 		} }
 
@@ -1042,7 +1005,7 @@ local function createWindow()
 			row.name:SetTextColor(0.91, 0.90, 0.87)
 		end
 		local d = f.duration or 0
-		row.time:SetText(("%d:%02d"):format(math.floor(d / 60), math.floor(d % 60)))
+		row.time:SetText(TP.FormatMMSS(d))
 		-- The DURATION stays neutral and only the outcome carries colour, as
 		-- in the mockup. Colouring both made every wipe row a wall of red and
 		-- lost the one word the eye is actually looking for.
@@ -1278,58 +1241,14 @@ local function createWindow()
 		return true
 	end
 
-	-- Kept for any client without the modern menu API, and as the reference
-	-- for what the picker used to be.
-	local function openFightMenu(anchor)
-		local fights = TP.FightHistory.fights
-		if #fights == 0 or not (MenuUtil and MenuUtil.CreateContextMenu) then
-			return false
-		end
-		MenuUtil.CreateContextMenu(anchor, function(_, root)
-			-- a night of dungeon-hopping otherwise renders one screen-tall
-			-- column; cap the height and let the wheel do the rest
-			if root.SetScrollMode then
-				root:SetScrollMode(320)
-			end
-			root:CreateRadio("Current · follows new fights",
-				function() return pinnedFight == nil end,
-				function() selectFight(nil) end)
-			-- ONE heading per instance visit, even when the difficulty changes
-			-- mid-night (Josh 2026-08-05: "raids can change difficulty from
-			-- fight to fight ... a single Siege of Orgrimmar heading, with a
-			-- mix of 10N and 10H tags"). runID deliberately SPLITS on
-			-- difficulty, because run averages must not blend 10N with 10H -
-			-- so the menu groups on its own, coarser rule and leaves runID
-			-- alone. Difficulty now rides each row instead of the title.
-			local shown = math.min(#fights, 25)
-			bestPulls = markBestPulls(fights, shown)
-			local prev
-			for i = 1, shown do
-				local f = fights[i]
-				-- the list runs newest-first, so an hour of daylight between
-				-- neighbours is the boundary between two nights
-				if not prev or (f.zone or "?") ~= (prev.zone or "?")
-					or math.abs((prev.capturedAt or 0) - (f.capturedAt or 0)) > 3600 then
-					root:CreateTitle(f.zone or "Unknown")
-				end
-				prev = f
-				root:CreateRadio(fightLabel(f),
-					function() return pinnedFight == f end,
-					function() selectFight(f) end)
-			end
-		end)
-		return true
-	end
 	window.fightDrop:SetScript("OnClick", function(self)
-		-- our own panel first; the Blizzard menu and click-cycling remain as
-		-- fallbacks so a failure here degrades instead of breaking the picker
+		-- our own panel first; click-cycling remains as the fallback so a
+		-- failure here degrades instead of breaking the picker
 		local ok, opened = TP.Trap("fightPicker", openFightPicker, self)
 		if ok and opened then
 			return
 		end
-		if not openFightMenu(self) then
-			MeterWindow:StepFight(1) -- no menu API: old cycling behavior
-		end
+		MeterWindow:StepFight(1) -- old cycling behavior
 	end)
 
 	-- Mode strip along the bottom edge: Real = the full contribution score,
@@ -1514,22 +1433,23 @@ end
 -- keybind or /tp notes show lands on something visible.
 function MeterWindow:SetView(view)
 	db().window.view = (view == "notes") and "notes" or "scores"
-	notesScroll = 0
 	if window and not window:IsShown() then
 		self:Toggle()
 	end
 	if window and not isSizing then
-		-- each view keeps its own width; the scorecard's bounds come back
-		-- with its render, the notes' with theirs
+		-- one shared width for both views (see viewWidth); each view's
+		-- resize bounds come back with its own render
 		window:SetWidth(viewWidth())
 	end
 	self:UpdateViewTabs()
 	self:Invalidate()
 end
 
--- The notes state moved (new stretch, new boss): start from the top again.
+-- Notes/Tracker calls this when the notes state moves (new stretch, new
+-- boss). The notes view no longer scrolls (renderNotes: no cap, no
+-- scrolling), so there is nothing to reset; kept so the caller's guard
+-- keeps finding it.
 function MeterWindow:ResetNotesScroll()
-	notesScroll = 0
 end
 
 -- Show or hide the Scores | Notes segment. The mode tag hangs off the
@@ -1587,7 +1507,6 @@ end
 -- nothing is scored on screen (empty/waiting state) and the chip hides
 -- rather than describing a fight that isn't there.
 function MeterWindow:UpdateTierChip(tier, how, what)
-	lastTier = tier
 	if not (window and window.tierChip) then
 		return
 	end
@@ -1855,20 +1774,22 @@ end
 -- 2026-07-25: it read as just another player row)
 local GROUP_GAP = 5
 
-local function contentSlots(rowHeight, withColHead)
+-- Scorecard rows that fit the user-sized window (header, the gap above
+-- the pinned Group row, the mode strip and the padding come off first).
+local function contentSlots(rowHeight)
 	-- bottom reserve is just the mode strip plus a hair of air: doubling
 	-- the padding left a dead band under the pinned Raid row
-	local chrome = HEADER_HEIGHT + (withColHead and COLHEAD_HEIGHT or 0)
-		+ MODE_HEIGHT + PADDING + (withColHead and GROUP_GAP or 0)
+	local chrome = HEADER_HEIGHT + MODE_HEIGHT + PADDING + GROUP_GAP
 	return math.max(1, math.floor((db().window.height - chrome) / (rowHeight + 1)))
 end
 
-local function setWindowHeight(withColHead, maxHeight)
+-- scorecard = true for the rows view, false for the empty/waiting state
+local function setWindowHeight(scorecard, maxHeight)
 	setModeStripShown(true)
 	-- presence-mark legend only makes sense on the scorecard; it shares
 	-- the bottom line with the radios, so no extra height
 	if window.footnote then
-		window.footnote:SetShown(withColHead and true or false)
+		window.footnote:SetShown(scorecard and true or false)
 	end
 	-- the saved height is the user's intent; the DISPLAYED height never
 	-- exceeds the content (no empty space below the last row). A bigger
@@ -1995,9 +1916,8 @@ local function setSpecIcon(icon, player, class)
 end
 
 local lastRawAvailable = true
--- Tier of the fight currently on the card. Remembered separately from
--- lastTier (which is whatever the STRIP is showing) because the cheap
--- re-render path below returns early: without this, zoning to a
+-- Tier of the fight currently on the card, remembered here because the
+-- cheap re-render path below returns early: without this, zoning to a
 -- nothing-recorded state blanked the strip, and coming back to the SAME
 -- fight took the early return and never re-lit it (Josh 2026-07-28).
 local lastFightTier = 1
@@ -2051,8 +1971,7 @@ end
 function MeterWindow:RenderScorecard(fight)
 	local isRawSetting = TP.Addon.db.profile.scoring.mode == "parse"
 	local function subtitleText(rawAvail)
-		local duration = fight.duration or 0
-		local label = ("%s · %d:%02d"):format(fight.name or "Fight", math.floor(duration / 60), duration % 60)
+		local label = ("%s · %s"):format(fight.name or "Fight", TP.FormatMMSS(fight.duration or 0))
 		if pinnedFight then
 			local fights = TP.FightHistory.fights
 			for i = 1, #fights do
@@ -2188,7 +2107,7 @@ function MeterWindow:RenderScorecard(fight)
 
 	-- fit rows to the user-sized window; the wheel scrolls the remainder
 	-- (footer keeps a pinned slot at the bottom)
-	local slots = contentSlots(rowHeight, true)
+	local slots = contentSlots(rowHeight)
 	local playerSlots = math.max(1, slots - (hasFooter and 1 or 0))
 	local visible = math.min(shown, playerSlots)
 	scrollOffset = math.max(0, math.min(scrollOffset, shown - visible))
@@ -2210,7 +2129,7 @@ function MeterWindow:RenderScorecard(fight)
 		row:EnableMouse(not clickThrough)
 		row:SetSize(width, rowHeight)
 		row:ClearAllPoints()
-		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + COLHEAD_HEIGHT + (i - 1) * (rowHeight + 1)))
+		row:SetPoint("TOPLEFT", PADDING, -(HEADER_HEIGHT + (i - 1) * (rowHeight + 1)))
 
 		local gcr, gcg, gcb
 		if TP.Scoring.Grades.IsShamed(r) then
@@ -2334,7 +2253,7 @@ function MeterWindow:RenderScorecard(fight)
 		row:SetSize(width, rowHeight)
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", PADDING,
-			-(HEADER_HEIGHT + COLHEAD_HEIGHT + (index - 1) * (rowHeight + 1) + GROUP_GAP))
+			-(HEADER_HEIGHT + (index - 1) * (rowHeight + 1) + GROUP_GAP))
 		-- the divider rides the row frame, so it hides with it; player
 		-- renders of a recycled footer row hide it explicitly
 		if not row.groupDivider then
@@ -2418,14 +2337,14 @@ function MeterWindow:RenderScorecard(fight)
 	-- rows exist in that direction
 	if window.scrollUp then
 		window.scrollUp:ClearAllPoints()
-		window.scrollUp:SetPoint("TOP", 0, -(HEADER_HEIGHT + COLHEAD_HEIGHT - 3))
+		window.scrollUp:SetPoint("TOP", 0, -(HEADER_HEIGHT - 3))
 		window.scrollUp:SetShown(scrollOffset > 0)
 		local hiddenBelow = shown - (scrollOffset + visible)
 		window.scrollDown:ClearAllPoints()
 		-- hug the bottom of the whole row area (the pinned Group row
 		-- included) the same way the up arrow hugs the top
 		window.scrollDown:SetPoint("TOP", 0,
-			-(HEADER_HEIGHT + COLHEAD_HEIGHT + totalRows * (rowHeight + 1)
+			-(HEADER_HEIGHT + totalRows * (rowHeight + 1)
 				+ (hasFooter and GROUP_GAP or 0) - 4))
 		window.scrollDown:SetShown(hiddenBelow > 0)
 	end
@@ -2434,7 +2353,7 @@ function MeterWindow:RenderScorecard(fight)
 	-- empty space below the last row. FULL content, not the visible
 	-- subset — deriving the ceiling from what currently fits made the
 	-- ceiling follow every shrink down (couldn't resize back up).
-	local contentH = HEADER_HEIGHT + COLHEAD_HEIGHT
+	local contentH = HEADER_HEIGHT
 		+ (shown + (hasFooter and 1 or 0)) * (rowHeight + 1)
 		+ (hasFooter and GROUP_GAP or 0)
 		+ MODE_HEIGHT + PADDING
@@ -2490,8 +2409,7 @@ local function collapsedSummary(fight)
 		end
 		collapsedCache.prefix = table.concat(parts, " · ")
 	end
-	local tail = ("%s · %d:%02d"):format(fight.name or "Fight",
-		math.floor((fight.duration or 0) / 60), (fight.duration or 0) % 60)
+	local tail = ("%s · %s"):format(fight.name or "Fight", TP.FormatMMSS(fight.duration or 0))
 	if collapsedCache.prefix ~= "" then
 		return collapsedCache.prefix .. " · " .. tail
 	end
@@ -2550,7 +2468,8 @@ local function renderNotes(self)
 		window.footerButton:Show() -- click-collapse still works from the bottom edge
 	end
 	local rows = TP.Notes.Tracker.Rows()
-	-- this view's own width, never narrower than the notes can read at
+	-- the width both views share (viewWidth), never narrower than the
+	-- notes can read at
 	local winW = viewWidth()
 	if not isSizing and math.abs(window:GetWidth() - winW) >= 0.5 then
 		window:SetWidth(winW)
@@ -2559,7 +2478,7 @@ local function renderNotes(self)
 	if not rows then
 		TP.Notes.View:Hide()
 		window.emptyTitle:SetText("No notes here.")
-		window.emptyMsg:SetText(TP.Notes.EMPTY_HINT) -- per client: Season 2 keys, or Pandaria
+		window.emptyMsg:SetText(TP.Notes.EMPTY_HINT)
 		window.emptyTitle:Show()
 		window.emptyMsg:Show()
 		-- height from the text itself, plus a breath under the paragraph
@@ -2584,7 +2503,7 @@ local function renderNotes(self)
 	applyWindowHeight(contentH)
 end
 
-local function refreshImpl(self, force)
+local function refreshImpl(self)
 	if not window or not window:IsShown() then
 		return
 	end
@@ -2667,7 +2586,7 @@ local function refreshImpl(self, force)
 	end
 	if TP.Notes then
 		TP.Notes.View:Hide()
-		-- back on the scorecard's own width and free-height bounds
+		-- back on the scorecard's free-height bounds (the width is shared)
 		if not isSizing then
 			window:SetResizeBounds(180, 110, 640, 1000)
 			if math.abs(window:GetWidth() - db().window.width) >= 0.5 then
@@ -2745,10 +2664,12 @@ local function refreshImpl(self, force)
 end
 
 -- Errors on the 0.5s refresh path die silently without an error addon and
--- leave a blank window; surface the first one in chat instead.
+-- leave a blank window; surface the first one in chat instead. Callers
+-- pass a `force` flag from older signatures; every refresh is a full
+-- refresh now, so it is accepted and ignored.
 local refreshErrorShown = false
 function MeterWindow:Refresh(force)
-	local ok, err = pcall(refreshImpl, self, force)
+	local ok, err = pcall(refreshImpl, self)
 	if not ok and not refreshErrorShown then
 		refreshErrorShown = true
 		print("|cffe05a4fTrueParse render error (please report):|r " .. tostring(err))

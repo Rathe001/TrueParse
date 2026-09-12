@@ -1046,208 +1046,11 @@ check((prepBy.One.adjustDetail.prepared or 0) == -1, "one consumable short costs
 check((prepBy.None.adjustDetail.prepared or 0) == -2, "no flask/food costs -2")
 check(prepBy.Unk.adjustDetail.prepared == nil, "unreported consumables stay neutral")
 
--- 13. Group insights: strengths/weaknesses derived from results
--- healing weakness needs 2+ HEALERS agreeing (role-primary counting,
--- 2026-07-14: off-heal averages scolded the healer)
-local insightResults = {
-	{ role = "HEALER", breakdown = { damage = { applicable = true, normalized = 90 }, interrupts = { applicable = true, normalized = 85 },
-			healing = { applicable = true, normalized = 40 } },
-		penaltyDetail = { deaths = 10 } },
-	{ role = "DAMAGER", breakdown = { damage = { applicable = true, normalized = 80 }, interrupts = { applicable = true, normalized = 95 },
-			-- damageTaken must never surface as a group strength (solo metric)
-			damageTaken = { applicable = true, normalized = 100 } },
-		penaltyDetail = { deaths = 10, avoidable = 5 } },
-	{ role = "HEALER", breakdown = { damage = { applicable = true, normalized = 70 }, healing = { applicable = true, normalized = 30 } },
-		penaltyDetail = { deaths = 10, avoidable = 3, buffs = 2 } },
-}
-local insights = TP.Scoring.Insights.ForResults(insightResults)
-check(insights.strength == "interrupts", ("group strength is interrupts (%s)"):format(tostring(insights.strength)))
-check(insights.weakness == "healing", ("two healers under the bar still flag healing (%s)"):format(tostring(insights.weakness)))
-check(insights.deaths == 3, "counts players who died")
-check(insights.avoidableHitters == 2, "counts avoidable-damage eaters")
-check(insights.buffsMissing == true, "flags missing raid buffs")
-
--- 14. Bullets: plain-language score explanation, sorted by weight
-local bulletResult = {
-	breakdown = {
-		damage = { applicable = true, normalized = 85, contribution = 46.8, effectiveWeight = 0.55, value = 5000000 },
-		healing = { applicable = true, normalized = 20, contribution = 2.0, effectiveWeight = 0.10, value = 50000 },
-		-- count metrics need a real adjustment to earn a line now
-		-- (impact-only card, audit 2026-07-16)
-		interrupts = { applicable = true, normalized = 60, contribution = 15.0, effectiveWeight = 0.25, value = 1, adjust = -2 },
-		dispels = { applicable = false },
-	},
-	penaltyDetail = { deaths = 6.5 },
-}
-bulletResult.role = "DAMAGER"
-local bullets = TP.Scoring.Bullets.ForResult(bulletResult, { "Kick King" })
-check(#bullets == 5, ("5 bullets: award + 3 metrics + penalty (%d)"):format(#bullets))
-check(bullets[1].kind == "award" and bullets[1].text == "Kick King", "award bullet first, gold")
-check(bullets[2].text == "Excellent damage" and bullets[2].symbol == "+", "biggest weight first, human phrase, green +")
-check(bullets[3].text == "Too few interrupts (-2)" and bullets[3].symbol == "-",
-	"count metrics tier statically: 1 kick is grey when plenty happened")
-bulletResult.breakdown.interrupts.normalized = 100
-bulletResult.breakdown.interrupts.adjust = 1
-local shareKick
-for _, b in ipairs(TP.Scoring.Bullets.ForResult(bulletResult, nil)) do
-	if b.key == "interrupts" then shareKick = b end
-end
-check(shareKick.text == "Did their share of kicks (+1)" and shareKick.symbol == "+",
-	"1 kick covering the fight's whole demand is credited, not scolded")
-bulletResult.breakdown.interrupts.normalized = 60
-bulletResult.breakdown.interrupts.value = 3
-local threeKick
-for _, b in ipairs(TP.Scoring.Bullets.ForResult(bulletResult, nil)) do
-	if b.key == "interrupts" then threeKick = b end
-end
-check(threeKick.text == "Good interrupting (+1)" and threeKick.symbol == "+", "3 kicks is blue")
-bulletResult.breakdown.interrupts.value = 5
-local fiveKick
-for _, b in ipairs(TP.Scoring.Bullets.ForResult(bulletResult, nil)) do
-	if b.key == "interrupts" then fiveKick = b end
-end
-check(fiveKick.text == "Godly interrupting (+1)", "5+ kicks is godly")
-bulletResult.breakdown.interrupts.value = 1
-check(bullets[4].text == "Little off-healing" and bullets[4].symbol == "-", "weak DPS healing phrased as off-healing")
-check(bullets[5].kind == "penalty" and bullets[5].text:find("^Died"), "penalty bullet human (now with points)")
-bulletResult.breakdown.interrupts.normalized = 0
-bulletResult.breakdown.interrupts.value = 0
-local zeroBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil)
-local kickText
-for _, b in ipairs(zeroBullets) do
-	if b.key == "interrupts" then kickText = b.text end
-end
-check(kickText == "Did not interrupt (+1)", ("zero kicks phrased plainly (%s)"):format(tostring(kickText)))
--- curve-scored metrics tier on the PERCENTILE the gauge shows, not the
--- transformed True score (p37 -> 55.9 called itself "Good" in blue while
--- the gauge marker sat in the green zone)
-local pctResult = { role = "DAMAGER", penaltyDetail = {}, breakdown = {
-	damage = { applicable = true, normalized = 55.9, pctile = 37, effectiveWeight = 0.85, value = 51920000 },
-} }
-local pctText
-for _, b in ipairs(TP.Scoring.Bullets.ForResult(pctResult, nil)) do
-	if b.key == "damage" then pctText = b.text end
-end
-check(pctText == "Average damage", ("bullet tier follows the gauge percentile (%s)"):format(tostring(pctText)))
--- Bloodlust window bullets: DPS-only, shown only when they score
--- (impact-only card, 2026-07-15)
-local lustResult = { role = "DAMAGER", penaltyDetail = {}, breakdown = {
-	damage = { applicable = true, normalized = 60, effectiveWeight = 1, value = 100 },
-} }
-local function lustText(extra, role, ad)
-	lustResult.role = role or "DAMAGER"
-	lustResult.adjustDetail = ad
-	for _, b in ipairs(TP.Scoring.Bullets.ForResult(lustResult, nil, extra)) do
-		if b.key == "lust" then return b.text end
-	end
-end
-check(lustText({ lustCasts = 2, lustPotion = 1 }, nil, { lust = 3 }) == "Made the most of Bloodlust (cooldowns + potion) (+3)",
-	"lust with CDs and potion gets full credit")
-check(lustText({ lustCasts = 1, lustPotion = 0 }, nil, { lust = 2 }) == "Used cooldowns during Bloodlust (+2)",
-	"lust with CDs only gets partial credit")
-check(lustText({ lustCasts = 0, lustPotion = 0 }, nil, { lust = -3 }) == "Wasted Bloodlust - no cooldowns used (-3)",
-	"lust with nothing used is called out")
-check(lustText({}) == nil, "no lust this fight, no bullet")
-check(lustText({ lustCasts = 0 }, "HEALER") == nil, "healers never get lust bullets")
--- WoWAnalyzer-style basics: only lines that moved the score appear
-local function infoText(extra, role, wantKey, ad)
-	lustResult.role = role or "DAMAGER"
-	lustResult.adjustDetail = ad
-	for _, b in ipairs(TP.Scoring.Bullets.ForResult(lustResult, nil, extra)) do
-		if b.key == wantKey then return b.text, b.symbol end
-	end
-end
-local aText, aSym = infoText({ activityPct = 93 }, "DAMAGER", "activity", { activity = 4 })
-check(aText == "Active 93% of the fight (+4)" and aSym == "+", "high activity credited")
-local _, aSym2 = infoText({ activityPct = 61 }, "DAMAGER", "activity", { activity = -4 })
-check(aSym2 == "-", "low activity flagged")
-check(infoText({ activityPct = 80 }, "DAMAGER", "activity") == nil, "neutral activity hidden")
-check(infoText({ overhealPct = 62 }, "HEALER", "overheal", { overheal = -2 }) == "62% overhealing (-2)",
-	"scored overheal shown")
-check(infoText({ overhealPct = 18 }, "HEALER", "overheal", { overheal = 1 }) == "Lean healing - 18% overheal (+1)",
-	"lean overheal credited")
-check(infoText({ overhealPct = 30 }, "HEALER", "overheal") == nil, "unscored overheal hidden")
-check(infoText({ overkillPct = 14 }, "DAMAGER", "overkill", { overkill = -1 }) == "14% of damage was overkill (-1)",
-	"scored overkill shown")
-check(infoText({}, "HEALER", "manaDry", { manaDry = -1 }) == "Ran out of mana mid-fight (-1)",
-	"mana dry scored and shown")
-check(infoText({ offensiveCDs = 3 }, "DAMAGER", "offensives") == nil, "unscored offensives hidden now")
--- mitigation reports through the Tanking composite now (2026-07-25):
--- no standalone bullet, even when the metric is present
-check(infoText({ mitigationPct = 82 }, "TANK", "mitigation", { mitigation = 4 }) == nil,
-	"mitigation has no standalone bullet")
-
 -- 14a. Every award has a description
 for _, label in pairs(TP.Scoring.Awards.LABELS) do
 	check(type(TP.Scoring.Awards.DESCRIPTIONS[label]) == "string",
 		("award '%s' has a description"):format(label))
 end
-
--- 14a2. Peer-reported defensives: shown when scored, silent otherwise
-bulletResult.adjustDetail = { defensives = 2 }
-local defBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { defensives = 3 })
-local defText
-for _, b in ipairs(defBullets) do
-	if b.kind == "info" then defText = b.text end
-end
-check(defText == "Used 3 defensive cooldowns (+2)", ("defensive info bullet (%s)"):format(tostring(defText)))
-bulletResult.adjustDetail = nil
-local zeroDefBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { defensives = 0 })
-local zeroDefShown = false
-for _, b in ipairs(zeroDefBullets) do
-	if b.key == "defensives" then
-		zeroDefShown = true
-	end
-end
-check(not zeroDefShown, "zero defensives says nothing when the player lived")
--- dying without ever using one is scored now, and red
-bulletResult.adjustDetail = { deathNoDefensives = -2 }
-local diedDefBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { defensives = 0, died = true })
-local zeroDefOk = false
-for _, b in ipairs(diedDefBullets) do
-	if b.kind == "info" and b.text == "Died without using a defensive (-2)" and b.symbol == "-" then
-		zeroDefOk = true
-	end
-end
-check(zeroDefOk, "dying without a defensive is scored and red")
-bulletResult.adjustDetail = nil
-local noDefBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, nil)
-for _, b in ipairs(noDefBullets) do
-	check(b.kind ~= "info", "no report -> no defensives bullet")
-end
-
--- consumables and death-readiness: scored lines only
-bulletResult.adjustDetail = { prepared = 1, deathReady = -3 }
-local consBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { consumables = 2, deathReady = 2 })
-local consText, readyText
-for _, b in ipairs(consBullets) do
-	if b.key == "consumables" then consText = b.text end
-	if b.key == "deathReady" then readyText = b.text end
-end
-check(consText == "Came prepared (flask/food up) (+1)", ("prepared bullet (%s)"):format(tostring(consText)))
-check(readyText == "Died with 2 defensives ready (-3)", ("death-ready bullet (%s)"):format(tostring(readyText)))
-bulletResult.adjustDetail = nil
-
--- flask + food scores both ways for everyone now (Josh 2026-07-26): praise
--- for both up, a penalty for each one missing, any role or client
-local function consBulletFor(role, count, isRetail, ad)
-	local res = { role = role, adjustDetail = ad, breakdown = { damage = { applicable = true, normalized = 60, effectiveWeight = 1, value = 100 } }, penaltyDetail = {} }
-	for _, b in ipairs(TP.Scoring.Bullets.ForResult(res, nil, { consumables = count, isRetail = isRetail })) do
-		if b.key == "consumables" then return b.text end
-	end
-	return nil
-end
-check(consBulletFor("DAMAGER", 0, false, { prepared = -2 }) == "No flask or food at the pull (-2)",
-	"missing both flask and food nags with the -2")
-check(consBulletFor("HEALER", 1, true, { prepared = -1 }) == "Flask or food missing (-1)",
-	"one short costs -1 for any role or client")
-check(consBulletFor("HEALER", 2, true, { prepared = 1 }) == "Came prepared (flask/food up) (+1)", "praise is universal")
-local exculpBullets = TP.Scoring.Bullets.ForResult(bulletResult, nil, { deathReady = 0 })
-local exculpText
-for _, b in ipairs(exculpBullets) do
-	if b.key == "deathReady" then exculpText = b.text end
-end
-check(exculpText == nil, "no-impact death context stays off the card")
 
 awardFight.players.d2.metrics.defensives = 3
 local wallAwards = TP.Scoring.Awards.Compute(awardFight)
@@ -1309,15 +1112,6 @@ check(byName.Tank.penaltyDetail.pull == 0, "tanks never pay for pulling")
 check(byName.Tank.penaltyDetail.aggro == 0, "tanks never pay for rips")
 check(byName.Ripper.penaltyDetail.aggroLoss == 0, "DPS never pay the tank-loss penalty")
 
--- threat penalty bullets are human phrases
-local threatBullets = TP.Scoring.Bullets.ForResult(byName.Ripper, nil)
-local sawPull, sawRip = false, false
-for _, b in ipairs(threatBullets) do
-	if b.kind == "penalty" and b.key == "pull" then sawPull = (b.text:find("^Pulled before the tank") ~= nil) end
-	if b.kind == "penalty" and b.key == "aggro" then sawRip = (b.text:find("^Ripped aggro off the tank") ~= nil) end
-end
-check(sawPull, "pull penalty bullet phrased")
-check(sawRip, "rip penalty bullet phrased")
 local groupThreatBullets = TP.Scoring.Bullets.ForGroup(threatResults)
 local sawGroupAggro, sawGroupLoss = false, false
 for _, b in ipairs(groupThreatBullets) do
@@ -1513,12 +1307,6 @@ for _, r in ipairs(oneKick) do
 end
 check(watcher.breakdown.interrupts.normalized <= 55,
 	("zero kicks caps in neutral territory (%.0f)"):format(watcher.breakdown.interrupts.normalized))
-local watcherBullets = TP.Scoring.Bullets.ForResult(watcher, nil)
-for _, b in ipairs(watcherBullets) do
-	if b.key == "interrupts" then
-		check(b.text == "Did not interrupt", ("zero kicks phrased honestly at any score (%s)"):format(b.text))
-	end
-end
 
 -- 19. Trivial healing demand: a healer isn't scolded for a fight with
 -- nothing to heal (nobody died, nobody dipped below 70%)
@@ -1538,13 +1326,6 @@ for _, r in ipairs(calm) do
 end
 check(calmHealer.breakdown.healing.normalized == 75, ("trivial demand floors healer healing at 75 (%.0f)"):format(calmHealer.breakdown.healing.normalized))
 check(calmHealer.breakdown.healing.lowDemand == true, "lowDemand flag set for the UI")
-local calmBullets = TP.Scoring.Bullets.ForResult(calmHealer, nil)
-local healBulletText
-for _, b in ipairs(calmBullets) do
-	if b.key == "healing" then healBulletText = b.text end
-end
-check(healBulletText == "Little healing needed - group stayed topped",
-	("neutral phrase replaces 'Low healing' (%s)"):format(tostring(healBulletText)))
 -- a death re-arms real grading
 calmFight.players.d.metrics.deaths = 1
 calm = TP.Scoring.Engine.ScoreFight(calmFight, { normalizeIlvl = false })
@@ -2433,21 +2214,6 @@ check(math.abs(bear.breakdown.healing.absolute - 50) < 1.5,
 -- scored metric - the Tanking metric is mitigation uptime vs WCL)
 TP.Percentiles = nil
 
--- self-sustain phrasing: mostly-self healing reads as sustain, not off-heals
-local sustainResult = { role = "DAMAGER", penaltyDetail = {}, breakdown = {
-	healing = { applicable = true, normalized = 80, effectiveWeight = 0.1, value = 500 },
-	damage = { applicable = true, normalized = 60, effectiveWeight = 0.9, value = 900 },
-} }
-local sustainText
-for _, b in ipairs(TP.Scoring.Bullets.ForResult(sustainResult, nil, { selfShare = 0.95 })) do
-	if b.key == "healing" then sustainText = b.text end
-end
-check(sustainText == "Excellent self-sustain", ("self-heavy healing phrased as sustain (%s)"):format(tostring(sustainText)))
-local offText
-for _, b in ipairs(TP.Scoring.Bullets.ForResult(sustainResult, nil, { selfShare = 0.3 })) do
-	if b.key == "healing" then offText = b.text end
-end
-check(offText == "Excellent off-healing", ("outward healing keeps off-healing phrase (%s)"):format(tostring(offText)))
 check(groupBullets[1].tooltip and groupBullets[1].tooltip.lines[1][1]:find("2 damage players") ~= nil, "group tooltip carries the numbers")
 
 -- group healing follows the same rules as the healer's own row: the
@@ -2742,22 +2508,6 @@ do
 	check(sawKicks and sawMana and sawSpikes, "kick coverage, mana, and spike pointers all fire")
 	check(#TP.Scoring.Insights.RunAdvice({ { totals = {}, players = {} } }) == 0,
 		"a clean run gets no scolding")
-end
-
--- weakness picker is role-primary: a card of low DPS off-heals must not
--- flag "healing" while the actual healer parsed fine
-do
-	local ins = TP.Scoring.Insights.ForResults({
-		{ role = "HEALER", penaltyDetail = {}, breakdown = {
-			healing = { applicable = true, normalized = 90 } } },
-		{ role = "DAMAGER", penaltyDetail = {}, breakdown = {
-			damage = { applicable = true, normalized = 70 },
-			healing = { applicable = true, normalized = 10 } } },
-		{ role = "DAMAGER", penaltyDetail = {}, breakdown = {
-			damage = { applicable = true, normalized = 72 },
-			healing = { applicable = true, normalized = 5 } } },
-	})
-	check(ins.weakness ~= "healing", ("off-heal averages never flag healing (%s)"):format(tostring(ins.weakness)))
 end
 
 -- 25. Whole-fight context gates (audit 2026-07-18): adjustments must not
@@ -3439,22 +3189,6 @@ end)()
 	TP.Scoring.Engine.InvalidateNameIndex(TP.Percentiles)
 	TP.Percentiles = savedP2
 
-	-- the coach reaches the CARD as a visible bullet (tooltip-only was
-	-- undiscoverable)
-	local res = { role = "HEALER", adjustDetail = {}, penaltyDetail = {},
-		breakdown = { healing = { applicable = true, normalized = 55, effectiveWeight = 0.79, value = 100000 } } }
-	local found
-	for _, b in ipairs(TP.Scoring.Bullets.ForResult(res, nil,
-		-- volume on-build (65% of profile) but short on Rejuvenation, so the
-		-- coach still fires; a bare 18 casts now reads as off-build/unmeasured
-		{ profCasts = { [774] = 30, [33763] = 13, [100] = 18 }, specID = 105,
-			duration = 180 })) do
-		if b.key == "coach" then
-			found = b.text
-		end
-	end
-	check(found and found:find("Cast Rejuvenation more often", 1, true),
-		("coach bullet survives the impact filter (%s)"):format(tostring(found)))
 	TP.SpellProfiles = savedProf
 end)()
 

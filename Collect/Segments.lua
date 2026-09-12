@@ -171,10 +171,8 @@ function Segments:ScheduleEndCheck()
 			Segments:CancelEndCheck()
 			return
 		end
-		for _, info in pairs(TP.Roster.players) do
-			if UnitExists(info.unit) and UnitAffectingCombat(info.unit) then
-				return -- someone still fighting; keep waiting
-			end
+		if TP.Compat.GroupInCombat() then
+			return -- someone still fighting; keep waiting
 		end
 		Segments:CancelEndCheck()
 		Segments:EndFight()

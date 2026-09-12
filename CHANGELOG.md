@@ -41,6 +41,17 @@ raw enemy count with a percent sign, and the tracker took it at its
 word. It reads the count over the requirement whenever the string is
 not a sane percentage, and /tp notes debug prints the raw fields.
 
+Cleanup, no behaviour change: about 800 lines of code with no live
+caller are gone (the old per-player bullet writer, the group insight
+list, three unused run-summary writers, the July tank probe and its
+slash command, dead breakdown widgets and a fallback fight menu), the
+Engine header describes the model that actually ships, three
+calibration constants live in Weights with the rest, one shared
+group-in-combat check and one shared minute-second formatter replace
+their copies, and Ace3's AceDB, AceConfigDialog and ChatThrottleLib
+are current (the last adds secret-value guards on retail). LibSharedMedia
+and AceDBOptions, which nothing used, no longer ship.
+
 Notes copy: every Cooldown and Lust line is a noun phrase again, so
 "Cooldown for each Umbral Rupture: top everyone before it" reads as a
 sentence where "Cooldown for Top everyone" did not. A death is called

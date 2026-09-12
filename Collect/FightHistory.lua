@@ -69,15 +69,6 @@ local function countPlayers(players)
 	return n
 end
 
-local function groupInCombat()
-	for _, info in pairs(TP.Roster.players) do
-		if UnitExists(info.unit) and UnitAffectingCombat(info.unit) then
-			return true
-		end
-	end
-	return false
-end
-
 -- Reads one attribute session; returns nil, true when still secret-locked.
 local function readAttribute(sessionID, enumValue)
 	local session = C_DamageMeter.GetCombatSessionFromID(sessionID, enumValue)
@@ -858,7 +849,7 @@ function FightHistory:Sweep()
 			maxID = id
 		end
 	end
-	local holdNewest = groupInCombat()
+	local holdNewest = TP.Compat.GroupInCombat()
 
 	local anyPending = false
 	for i = 1, #sessions do

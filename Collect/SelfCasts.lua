@@ -326,23 +326,6 @@ local function stopGrace()
 	end
 end
 
-local function groupInCombat()
-	if IsInRaid() then
-		for i = 1, GetNumGroupMembers() do
-			if UnitAffectingCombat("raid" .. i) then
-				return true
-			end
-		end
-	elseif IsInGroup() then
-		for i = 1, GetNumGroupMembers() - 1 do
-			if UnitAffectingCombat("party" .. i) then
-				return true
-			end
-		end
-	end
-	return false
-end
-
 local function finalizeFight()
 	stopGrace()
 	stopUptimeTicker()
@@ -761,7 +744,7 @@ frame:SetScript("OnEvent", function(_, event, unit, _, spellID)
 		stopGrace()
 		graceTicker = C_Timer.NewTicker(2, function()
 			waited = waited + 2
-			local ok, fighting = pcall(groupInCombat)
+			local ok, fighting = pcall(TP.Compat.GroupInCombat)
 			if (ok and fighting) and (encounterOpen or waited < GRACE_MAX_SECONDS) then
 				return -- fight still running; hold for ENCOUNTER_END
 			end

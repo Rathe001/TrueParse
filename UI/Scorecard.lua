@@ -56,10 +56,15 @@ function Scorecard:Acquire(parent)
 		-- Name ....... penalty score runAvg (white outlined name; scores in
 		-- parse-bracket colors; runAvg = dimmer cumulative True run average)
 		-- Details-style type: Arial Narrow with a hard drop shadow, no
-		-- outline — the look meter users already read all day
+		-- outline — the look meter users already read all day. Falls back
+		-- to the template's face at the same size on clients without
+		-- ARIALN (CJK), the way BreakdownPanel's face() does.
 		local function outlined(template, size)
 			local fs = row:CreateFontString(nil, "OVERLAY", template)
-			fs:SetFont("Fonts\\ARIALN.TTF", size or 12, "")
+			if not fs:SetFont("Fonts\\ARIALN.TTF", size or 12, "") then
+				local path = fs:GetFont()
+				fs:SetFont(path, size or 12, "")
+			end
 			fs:SetShadowColor(0, 0, 0, 1)
 			fs:SetShadowOffset(1, -1)
 			return fs

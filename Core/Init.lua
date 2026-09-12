@@ -61,12 +61,37 @@ local defaults = {
 	},
 }
 
+-- One-off SavedVariables scrubs, stamped with global.dbVersion so they run
+-- once per install instead of on every login. Bump DB_VERSION and add a
+-- step when a saved field is retired.
+--   1: probe log retired 2026-07-12 (all experiments concluded); the
+--      wipeDebrief / announce / announceSummary options retired 2026-07-25
+--      (Josh: a stuck-on value with no UI to disable it would be
+--      unfixable, and the defaults are gone, so nil removes them
+--      outright); the coach chat line retired 2026-07-28 (the breakdown
+--      card already shows the advice).
+local DB_VERSION = 1
+
+local function migrate(db)
+	local version = db.global.dbVersion or 0
+	if version >= DB_VERSION then
+		return
+	end
+	if version < 1 then
+		db.global.probeLog = nil
+		db.profile.wipeDebrief = nil
+		db.profile.announce = nil
+		db.profile.announceSummary = nil
+		db.profile.coach = nil
+	end
+	db.global.dbVersion = DB_VERSION
+end
+
 function Addon:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("TrueParseDB", defaults, true)
 	self:RegisterChatCommand("trueparse", "HandleSlash")
 	self:RegisterChatCommand("tp", "HandleSlash")
-	-- probes retired 2026-07-12 (all experiments concluded); clear the log
-	self.db.global.probeLog = nil
+	migrate(self.db)
 	-- error sink: persists so a capture handed over carries its own crash log
 	self.db.global.errors = self.db.global.errors or {}
 	TP.TrapInit(self.db.global.errors)
@@ -118,15 +143,6 @@ function Addon:OnEnable()
 	if not TP.Compat.IS_RETAIL then
 		TP.Scoring.Capabilities.SetMoPRules(true)
 	end
-	-- retired options must not linger in saved profiles (Josh 2026-07-25:
-	-- a stuck-on value with no UI to disable it would be unfixable) — the
-	-- defaults are gone too, so nil removes them outright
-	self.db.profile.wipeDebrief = nil
-	self.db.profile.announce = nil
-	self.db.profile.announceSummary = nil
-	-- coach chat line retired 2026-07-28: the breakdown card already shows
-	-- the advice, so the chat copy was just noise after every pull
-	self.db.profile.coach = nil
 	checkBenchmarkAge()
 	TP.Roster:OnEnable()
 	TP.Segments:OnEnable()
@@ -312,8 +328,6 @@ function Addon:HandleSlash(input)
 		else
 			TP.MockFight:Inject()
 		end
-	elseif cmd == "probe" then
-		TP.TankProbe:Toggle()
 	elseif cmd == "fights" then
 		local fights = TP.FightHistory.fights
 		if #fights == 0 then
@@ -651,7 +665,7 @@ function Addon:HandleSlash(input)
 		self:Print("  /tp diag - build, errors and every diagnostic below")
 		self:Print("    diag copy - all of it as one pasteable line")
 		self:Print("    diag who / mit / procs / baddies / buffs / fights")
-		self:Print("  /tp announce · /tp ilvl - toggles")
+		self:Print("  /tp ilvl - toggle item-level normalization · /tp reports - announcements")
 		self:Print("  /tp lock - lock the window · /tp reset - re-center it")
 		self:Print("Bugs: github.com/Rathe001/TrueParse/issues")
 	end

@@ -85,17 +85,6 @@ local function adjText(pts)
 	return ("%+.1f"):format(pts)
 end
 
--- Why a spike band has no ability/amount detail (fields 5-6 of a spike
--- record). There are two different reasons and they used to share one
--- message, which read as a lie on retail (Josh 2026-07-29: "This
--- shouldn't be before hit tracking... it was the last dungeon I ran"):
---   * Midnight has no combat log for addons, so the detail can NEVER
---     arrive. Personal windows come from UNIT_COMBAT swing amounts and
---     group windows from other reporters' vote times - neither carries a
---     spell name. Telling that player "new pulls carry the ability" is a
---     promise the client cannot keep.
---   * On a client that DOES have CLEU, a bare record really is a capture
---     from before the fields existed, and a new pull will fill them in.
 local frame
 local rows = {}
 
@@ -144,12 +133,8 @@ local function buildMetricTip()
 	-- multi-line value blocks (Tanking) left-align like everything else;
 	-- without this the extra lines centered (Josh 2026-07-24)
 	metricTip.value:SetJustifyH("LEFT")
-	metricTip.median = face(metricTip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
-	metricTip.median:SetPoint("TOPLEFT", 10, -38)
-	-- no right anchor: the TIP fits its longest line (fitTipWidth), so
-	-- lines never truncate or spill
-	metricTip.median:SetJustifyH("LEFT")
-	metricTip.median:SetWordWrap(false)
+	-- no right anchor on the value: the TIP fits its longest line (see the
+	-- width pass in showMetricTip), so lines never truncate or spill
 
 	-- (the parse-bracket gauge and the coach line both used to live here;
 	-- each moved onto the card itself — the tip is pure metric text now)
@@ -214,8 +199,7 @@ local function showMetricTip(anchor, data)
 		end
 		if key == "healing" and b.manaMinPct then
 			if b.dryAt then
-				valueText = valueText .. (" · ran dry at %d:%02d"):format(
-					math.floor(b.dryAt / 60), b.dryAt % 60)
+				valueText = valueText .. " · ran dry at " .. TP.FormatMMSS(b.dryAt)
 			else
 				valueText = valueText .. (" · lowest mana %d%%"):format(b.manaMinPct)
 			end
@@ -253,16 +237,12 @@ local function showMetricTip(anchor, data)
 	-- mitigation uptime long ago and the comment here outlived it.
 	--
 	-- Landing them in the VALUE slot is right: it is the one built for this
-	-- (SetJustifyH("LEFT") exists for exactly these). While the verdict lived
-	-- here they were displaced into the median slot, which sets
-	-- SetWordWrap(false).
+	-- (SetJustifyH("LEFT") exists for exactly these). The footer is
+	-- bottom-anchored and the tip's height below carries the extra rows.
 	local extraLines = 0
 	for _ in tostring(valueText or ""):gmatch("\n") do
 		extraLines = extraLines + 1
 	end
-	-- the median slot is always empty now, so it no longer needs repositioning
-	-- around a multi-line value block; the footer is bottom-anchored and the
-	-- tip's height below carries those extra rows
 
 	-- The evidence line: what you actually did, and what it was measured
 	-- against, on ONE line. These used to be two - the headline and the
@@ -306,15 +286,11 @@ local function showMetricTip(anchor, data)
 
 	-- Evidence goes in the VALUE slot now that the verdict rides the title, so
 	-- the tip is title / evidence / footer with nothing spare between them.
-	-- The median slot is cleared rather than removed: it still owns the
-	-- multi-line Tanking block's spacing, and a stale string here would
-	-- otherwise survive into the next hover.
 	if evidenceText and medianText and medianText ~= "" then
 		metricTip.value:SetText(evidenceText .. " |cff6f6880·|r " .. medianText)
 	else
 		metricTip.value:SetText(evidenceText or medianText or "")
 	end
-	metricTip.median:SetText("")
 
 	-- (the coach line left this tip 2026-07-25: it leads the card now)
 	-- one row shorter than it was: the verdict line is gone
@@ -342,8 +318,8 @@ local function showMetricTip(anchor, data)
 	-- sampled on content at a DIFFERENT difficulty, scaled to this player's
 	-- gear — not a 1:1 parse, and the card should never imply it is. Kept to
 	-- one short line: the footer word-wraps and its height is computed from
-	-- the value block above, so a paragraph here would clip. The median line
-	-- carries the "vs whom" half ("... median at your item level").
+	-- the value block above, so a paragraph here would clip. The value line
+	-- carries the "vs whom" half ("vs spec median ...").
 	-- NEVER :format() the concatenation: the footer already reads "carries 97%
 	-- of your grade", and that literal % makes format expect an argument
 	-- (live error 2026-07-28). Build the suffix, then concatenate.
@@ -360,7 +336,7 @@ local function showMetricTip(anchor, data)
 	-- fit the tip to its longest line (same rule as the card): text never
 	-- truncates and never spills past the border
 	local needed = GAUGE_W + 24
-	for _, fs in ipairs({ metricTip.title, metricTip.value, metricTip.median, metricTip.footer }) do
+	for _, fs in ipairs({ metricTip.title, metricTip.value, metricTip.footer }) do
 		local w = (fs:GetStringWidth() or 0) + 20
 		if w > needed then
 			needed = w
@@ -765,20 +741,11 @@ local function createFrame()
 	frame.role:SetPoint("TOPRIGHT", -10, -12)
 	frame.role:SetJustifyH("RIGHT")
 
-	frame.subtitle = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
-	frame.subtitle:SetPoint("TOPLEFT", 10, -24)
-	frame.subtitle:SetJustifyH("LEFT")
-
 	-- subheader: one dim line — boss · wipe % · duration · run avg
 	frame.scoreLine = face(frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 12)
 	frame.scoreLine:SetPoint("TOPLEFT", 10, -30)
 	frame.scoreLine:SetPoint("TOPRIGHT", -10, -30)
 	frame.scoreLine:SetJustifyH("LEFT")
-
-	frame.runLine = face(frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), 11)
-	frame.runLine:SetPoint("TOPLEFT", 10, -43)
-	frame.runLine:SetPoint("TOPRIGHT", -10, -43)
-	frame.runLine:SetJustifyH("LEFT")
 
 	-- duration + pull time, third header line (Josh 2026-07-25: the
 	-- footer's tenants moved up; the footer zone retires on player cards)
@@ -786,14 +753,6 @@ local function createFrame()
 	frame.timeLine:SetPoint("TOPLEFT", 10, -43)
 	frame.timeLine:SetPoint("TOPRIGHT", -10, -43)
 	frame.timeLine:SetJustifyH("LEFT")
-
-	frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	frame.total:SetPoint("BOTTOMLEFT", 10, 10)
-
-	-- mockup footer: dim closing line (flask/food · pull time)
-	frame.footer = face(frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"), 11)
-	frame.footer:SetPoint("BOTTOMLEFT", 12, 8)
-	frame.footer:SetJustifyH("LEFT")
 end
 
 -- group-card visualization elements (fight shape, team coverage,
@@ -835,8 +794,8 @@ local function deathRecapLines(player)
 			and ("|TInterface\\Buttons\\WHITE8X8:8:%d:0:0:8:8:0:8:0:8:230:77:77|t"):format(w)
 			or ("|TInterface\\Buttons\\WHITE8X8:8:%d:0:0:8:8:0:8:0:8:120:120:130|t"):format(w)
 		lines[#lines + 1] = {
-			("%d:%02d %s %s  %s%s"):format(
-				math.floor((hit.t or 0) / 60), (hit.t or 0) % 60,
+			("%s %s %s  %s%s"):format(
+				TP.FormatMMSS(hit.t or 0),
 				bar, hit.spell or "?", TP.FormatNumber(hit.amount or 0),
 				hit.avoidable and "  (avoidable)" or ""),
 			hit.avoidable and 0.95 or 0.75,
@@ -1176,8 +1135,6 @@ local ROLE_LABELS = {
 	DAMAGER = "DPS", TANK = "Tank", HEALER = "Healer", SUPPORT = "Support DPS",
 }
 
--- invisible hover targets over header fontstrings (name, big score):
--- tipTitle nil = inert for that render (Josh 2026-07-25)
 -- Header time line, "@6:20pm (10m34s)" (Josh 2026-07-25): the pull
 -- clock leads, the duration rides in parens. Raw mode (and fights
 -- with no capture stamp) show the bare duration.
@@ -1200,6 +1157,8 @@ local function timeLineText(fight, showPull)
 	return dur
 end
 
+-- invisible hover targets over header fontstrings (name, big score):
+-- tipTitle nil = inert for that render (Josh 2026-07-25)
 local function headerHover(which, target)
 	local hf = frame[which]
 	if not hf then
@@ -1285,7 +1244,6 @@ function Panel:ShowFor(fight, result)
 	th.tipLines = { { (specIcon and ("|T" .. specIcon .. ":16|t ") or "") .. specLine,
 		cr, cg, cb } }
 	frame.role:SetText(ROLE_LABELS[result.role] or result.role or "")
-	frame.subtitle:SetText("")
 	frame.bigScore:SetText("")
 
 	local myAwards = TP.Scoring.Awards.Compute(fight)[result.guid]
@@ -1347,7 +1305,6 @@ function Panel:ShowFor(fight, result)
 			trendText = table.concat(parts, " |cff888888\194\187|r ")
 		end
 	end
-	frame.runLine:SetText("")
 	local sh = headerHover("scoreHover", frame.bigScore)
 	sh.tipTitle = "Trend"
 	sh.tipLines = { trendText and { trendText, 1, 1, 1 }
@@ -1691,7 +1648,7 @@ function Panel:ShowFor(fight, result)
 					t:ClearAllPoints()
 					t:SetSize(3, 3)
 					t:SetPoint("BOTTOMLEFT", frame, "TOPLEFT",
-						12 + math.min(w - 3, dt / fight.duration * w), y - H + H + 2)
+						12 + math.min(w - 3, dt / fight.duration * w), y + 2)
 					t:Show()
 				end
 			end
@@ -1809,8 +1766,8 @@ function Panel:ShowFor(fight, result)
 				band.tex:SetVertexColor(0.90, 0.30, 0.30, 1)
 			end
 			-- the band's own story (fields 5-7; absent on legacy records)
-			band.tipTitle = ("Spike %d:%02d\226\128\147%d:%02d"):format(
-				math.floor(win[1] / 60), win[1] % 60, math.floor(win[2] / 60), win[2] % 60)
+			band.tipTitle = ("Spike %s\226\128\147%s"):format(
+				TP.FormatMMSS(win[1]), TP.FormatMMSS(win[2]))
 			local lines = {}
 			if win[5] then
 				lines[1] = { win[6] and ("%s \194\183 %s over %ds"):format(
@@ -1844,12 +1801,9 @@ function Panel:ShowFor(fight, result)
 		y = y - 11
 	end
 
-	frame.total:SetText("")
-	-- the player-card footer retired (Josh 2026-07-25): flask/food lives
-	-- in the verdict grid (scored, where points live) and the pull time
-	-- moved to the header's time line
-	frame.footer:SetText("")
-	frame.footer:Hide()
+	-- (the player-card footer retired 2026-07-25: flask/food lives in the
+	-- verdict grid, where points live, and the pull time moved to the
+	-- header's time line)
 	-- y already sits at the last row's bottom edge; +8 mirrors the top pad
 	frame:SetHeight(-y + 8)
 
@@ -1964,7 +1918,6 @@ function Panel:ShowForGroup(fight, results)
 	gth.tipTitle = label
 	gth.tipLines = frame.specIcon.tipLines
 	headerHover("scoreHover", frame.bigScore).tipTitle = nil
-	frame.subtitle:SetText("")
 	frame.bigScore:SetText("")
 	-- same compact header the player card uses
 	frame.role:SetText(("%d players"):format(#results))
@@ -1981,7 +1934,6 @@ function Panel:ShowForGroup(fight, results)
 		sub[#sub + 1] = "run avg " .. TP.Scoring.Grades.ColoredScore(self.groupRunScore)
 	end
 	frame.scoreLine:SetText(table.concat(sub, " \194\183 "))
-	frame.runLine:SetText("")
 	-- third header line: pull clock + duration (Josh 2026-07-25)
 	frame.timeLine:SetText(timeLineText(fight, true))
 	frame.timeLine:Show()
@@ -2057,9 +2009,6 @@ function Panel:ShowForGroup(fight, results)
 	-- encounter+bracket (the one number that compares GROUPS, not players)
 	local GICONS = TP.Scoring.Signals.ICONS
 	local speedPct, speedN, speedMedian, speedBounded = TP.Scoring.Engine.KillSpeedPercentile(fight)
-	local function mmss(s)
-		return ("%d:%02d"):format(math.floor(s / 60), s % 60)
-	end
 	if speedPct then
 		if speedBounded then
 			-- slower than WCL's served fastest 1000: we can't rank it, only
@@ -2067,7 +2016,7 @@ function Panel:ShowForGroup(fight, results)
 			sigs[#sigs + 1] = { key = "killSpeed", kind = "glyph", icon = GICONS.speed,
 				label = "Past fastest 1000", good = true,
 				tooltip = { title = "Kill speed", lines = {
-					{ ("Killed in %s. Slower than the fastest 1000 kills Warcraft Logs ranks, so there is no exact percentile."):format(mmss(fight.duration or 0)), 0.8, 0.8, 0.8, true },
+					{ ("Killed in %s. Slower than the fastest 1000 kills Warcraft Logs ranks, so there is no exact percentile."):format(TP.FormatMMSS(fight.duration or 0)), 0.8, 0.8, 0.8, true },
 				} } }
 		else
 			-- a REAL population percentile: bracket colors with authority
@@ -2080,8 +2029,8 @@ function Panel:ShowForGroup(fight, results)
 					key = "Kill speed",
 					duration = fight.duration,
 					valueText = speedMedian
-						and ("Killed in %s \194\183 median ranked kill %s"):format(mmss(fight.duration or 0), mmss(speedMedian))
-						or ("Killed in %s"):format(mmss(fight.duration or 0)),
+						and ("Killed in %s \194\183 median ranked kill %s"):format(TP.FormatMMSS(fight.duration or 0), TP.FormatMMSS(speedMedian))
+						or ("Killed in %s"):format(TP.FormatMMSS(fight.duration or 0)),
 					footerText = ("faster than %d%% of ~%s ranked kills"):format(
 						speedPct, TP.FormatNumber(speedN or 0)),
 				} }
@@ -2319,8 +2268,8 @@ function Panel:ShowForGroup(fight, results)
 					dot.tex:SetSize(3, 3)
 					dot:SetPoint("BOTTOMLEFT", frame, "TOPLEFT",
 						12 + math.min(w - 3, dt / fight.duration * w) - 3, y + 2 - 3)
-					dot.tipTitle = ("%s died  %d:%02d"):format(
-						TP.ShortName(p.name or "?"), math.floor(dt / 60), dt % 60)
+					dot.tipTitle = ("%s died  %s"):format(
+						TP.ShortName(p.name or "?"), TP.FormatMMSS(dt))
 					if p.deathRecap and #p.deathRecap > 0 then
 						dot.tipLines = deathRecapLines(p)
 					else
@@ -2405,8 +2354,8 @@ function Panel:ShowForGroup(fight, results)
 			band:ClearAllPoints()
 			band:SetSize(bw, 9)
 			band:SetPoint("TOPLEFT", 12 + left, y + 1)
-			band.tipTitle = ("Spike %d:%02d\226\128\147%d:%02d"):format(
-				math.floor(win[1] / 60), win[1] % 60, math.floor(win[2] / 60), win[2] % 60)
+			band.tipTitle = ("Spike %s\226\128\147%s"):format(
+				TP.FormatMMSS(win[1]), TP.FormatMMSS(win[2]))
 			local lines = {}
 			if win[5] then
 				lines[1] = { win[6] and ("%s \194\183 %s over %ds"):format(
@@ -2439,11 +2388,9 @@ function Panel:ShowForGroup(fight, results)
 	-- (the progression staircase retired 2026-07-25, Josh: the fight
 	-- picker's wipe-% labels already tell the night's story)
 
-	frame.total:SetText("") -- header lines carry the numbers now
-	-- the group footer retired too (Josh 2026-07-25): flask+food is a
-	-- chip in the grid now, like everything else countable
-	frame.footer:SetText("")
-	frame.footer:Hide()
+	-- (the group footer retired too, 2026-07-25: flask+food is a chip in
+	-- the grid, like everything else countable; header lines carry the
+	-- numbers)
 	frame:SetHeight(-y + 8)
 	anchorPanel()
 	frame.close:SetShown(self.pinned)

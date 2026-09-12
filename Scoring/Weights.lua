@@ -157,6 +157,7 @@ Weights.adjustments = {
 	activityLow = 70, -- real p25
 	activityHigh = 89, -- real p75
 	preparedBonus = 1, -- flask + food at the pull
+	preparedPenaltyPerMissing = 1, -- each of flask/food missing at the pull
 	healthstoneBonus = 1, -- ate a healthstone (warlock in group only)
 	healthstonePenalty = 1, -- sat on it (warlock in group only)
 	-- ...but ONLY when the fight gave a reason to press it (Josh 2026-07-29:
@@ -175,6 +176,7 @@ Weights.adjustments = {
 	cdTimingLow = 0.25,
 	cdTimingHigh = 0.75,
 	lustMax = 3, -- DPS cooldown+potion alignment inside lust windows
+	lustCdShadow = 90, -- seconds before lust in which a spent CD was still cooling during it
 	rezBonus = 2, -- per combat rez cast
 	-- every-metric-scores pass (2026-07-15); all data-gated, absent = 0.
 	-- Overheal thresholds below are the FALLBACK; per-spec crawled
@@ -183,6 +185,7 @@ Weights.adjustments = {
 	overhealMid = 1, overhealMidAt = 45,
 	overhealLowBonus = 1, overhealLowAt = 20,
 	overkillPenalty = 1, overkillAt = 10,
+	overkillMinDuration = 60, -- seconds; shorter fights can't show an overkill pattern
 	manaDryPenalty = 1, -- dry before 80% of the fight (dry at the kill is fine)
 	deathNoDefensives = 2, -- died having never used a defensive
 	rezCap = 4,
@@ -538,7 +541,24 @@ Weights.mopFiveManReference = {
 	HEALER  = { damage = 7.3, healing = 1.6 },
 }
 
+-- How much of its spec profile's expected cast volume a player must actually
+-- produce before the rotation coach will judge them on it. Below this the
+-- profile is not describing them - either a different build (a Fistweaver
+-- Mistweaver runs 1-7% of the caster rotation) or a self-report that never
+-- attached (a rogue at 74-86% on most fights read 3.1% on one). Those are
+-- indistinguishable from one fight and want the same answer: say nothing.
+-- Players on the profiled build measured 50-86%, so the gap is wide.
+Weights.profileFitMin = 0.25
+
 -- === Mythic+ key level ===============================================
+-- How far below a fight's key a crawled keystone band may sit before it stops
+-- being a fair comparison. The bands are crawled a few keys apart so 1-2 is
+-- the intended approximation; a larger gap means the band that SHOULD have
+-- covered this key is missing from the data, and scoring a +15 against a +5
+-- population inflates wildly. The highest crawled band is exempt - it stands
+-- for "this key and up" by design.
+Weights.mplusBandMaxGap = 3
+
 -- Key level below which the comparison stops being DIRECT. The dungeon curves
 -- are WCL's top 2000 BY KEYSTONE SCORE, so they describe high-key play, and
 -- tier 1 applies no gear normalization to absorb the gap. Measured on Josh's
@@ -555,23 +575,6 @@ Weights.mopFiveManReference = {
 -- +2 ("keep mplusDirectKey at 10"). It does override his earlier 2026-07-28
 -- call of "the BRACKET, not per-key" — that was decided before the +2/+3
 -- measurement above existed. Settled; don't reopen it without new data.
--- How far below a fight's key a crawled keystone band may sit before it stops
--- being a fair comparison. The bands are crawled a few keys apart so 1-2 is
--- the intended approximation; a larger gap means the band that SHOULD have
--- covered this key is missing from the data, and scoring a +15 against a +5
--- population inflates wildly. The highest crawled band is exempt - it stands
--- for "this key and up" by design.
--- How much of its spec profile's expected cast volume a player must actually
--- produce before the rotation coach will judge them on it. Below this the
--- profile is not describing them - either a different build (a Fistweaver
--- Mistweaver runs 1-7% of the caster rotation) or a self-report that never
--- attached (a rogue at 74-86% on most fights read 3.1% on one). Those are
--- indistinguishable from one fight and want the same answer: say nothing.
--- Players on the profiled build measured 50-86%, so the gap is wide.
-Weights.profileFitMin = 0.25
-
-Weights.mplusBandMaxGap = 3
-
 Weights.mplusDirectKey = 10
 
 -- Lift for a below-threshold key, replacing derivedOffDifficulty (fitted for

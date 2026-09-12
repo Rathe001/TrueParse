@@ -307,5 +307,5 @@ CurseForge (secret: `CF_API_KEY`).
 ## Credits
 
 Benchmark data derived from [Warcraft Logs](https://www.warcraftlogs.com)
-public statistics. Built on Ace3, LibSharedMedia, LibDataBroker, LibDBIcon.
+public statistics. Built on Ace3, LibDataBroker, LibDBIcon.
 MIT licensed.

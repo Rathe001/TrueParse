@@ -2,17 +2,19 @@
 -- returns 0-100 scores with full per-metric breakdowns.
 -- PURE LUA: no WoW API calls; loaded headlessly by tests/run.lua.
 --
--- Model (user-approved design):
---  1. Every metric normalizes to 0-100 first:
---     - damage / healing / damageTaken: relative to the best of your ROLE
---       cohort; when you're the only one of your role, your group share is
---       scored against Weights.expectedShare instead.
---     - interrupts / dispels: your count vs an equal share of the group's
---       total (opportunity data isn't exposed on Midnight clients).
---  2. Inapplicable metrics (no kick on your spec, nothing dispelled this
---     fight, not a tank) drop out and remaining weights renormalize — this
---     keeps 100 reachable for every role on every fight.
---  3. Penalties (avoidable damage excess, deaths) subtract; clamp [0,100].
+-- Model (2026-07-13 redesign, current):
+--  1. Each scored metric's BASE is the player's Warcraft Logs percentile:
+--     the rate is read against the crawled encounter/spec/bracket curve
+--     (TP.Percentiles). When the exact population is missing, a DERIVED
+--     tier widens the lens (tier II: a sibling encounter or key band,
+--     tier III: the pooled dungeon or raid) with a gear normalization and
+--     a ceiling so a borrowed reference cannot certify a 99.
+--  2. Signed ADJUSTMENTS (kicks, dispels, avoidable damage, activity,
+--     cooldown use, consumables, ...) add to or subtract from that base;
+--     every size and the net total are capped by Weights.adjustments.
+--  3. Only a fight with no curve at any tier falls back to the cohort
+--     comparison (relative to the best of your role, or your share of
+--     the group's total); clamp [0,100].
 local _, TP = ...
 
 TP.Scoring = TP.Scoring or {}
@@ -1808,9 +1810,8 @@ local PARSE_WEIGHTS = {
 	SUPPORT = { damage = 1, healing = 0 },
 }
 
--- Public for Awards (Virtuoso needs off-metric percentiles) and tooling
+-- Public for Awards (Virtuoso needs off-metric percentiles)
 Engine.ResolvePercentiles = resolvePercentiles
-Engine.PercentileFor = percentileFor
 Engine.EntryPercentileFor = entryPercentileFor
 
 -- Group kill speed vs WCL's ranked kills for this encounter+bracket.
@@ -2085,7 +2086,6 @@ function Engine.ScoreFight(fight, opts)
 		dispelCapable = 0,
 		normalizeIlvl = opts.normalizeIlvl ~= false,
 		parseMode = (opts.mode == "parse"),
-		percentiles = resolvePercentiles(fight), -- raw pct in parse; transformed in True
 		fightFactors = resolveFightFactors(fight),
 		curves = nil, -- widening WCL evidence ladder, set below
 		duration = fight.duration,
@@ -2141,11 +2141,12 @@ function Engine.ScoreFight(fight, opts)
 			-- a bulk-unlocked TW dungeon lost its instance context, read
 			-- as "not a dungeon", and its level-scaled mage was laddered
 			-- into max-level raid pools (parsed 9 while topping Details)
-			-- M+ ranks as ONE population regardless of key level (Josh
-			-- 2026-07-28: the bracket, not the key) — any key is a direct
-			-- comparison against the dungeon's curves.
+			-- M+ compares against the crawled KEY BAND at or below the fight's
+			-- own key (picked above; Josh's 2026-07-28 call of "the bracket, not
+			-- the key" predates the per-key crawl). A key with no band close
+			-- enough falls to the bracket-wide curve, and a low key pools below.
 			--
-			-- ...but only DOWN TO A POINT (Josh 2026-07-29). Those curves are
+			-- ...and only DOWN TO A POINT (Josh 2026-07-29). Those curves are
 			-- WCL's top 2000 BY KEYSTONE SCORE, so the ranked population is
 			-- high-key, high-gear players. Measured on his +2/+3 night: 42 DPS
 			-- scores, ratio to the reference p25 0.103 / median 0.186 / max
@@ -2155,10 +2156,11 @@ function Engine.ScoreFight(fight, opts)
 			-- gear should parse higher), so nothing absorbed that gap.
 			-- A low key is exactly the tier-II case — "the curves cover this
 			-- encounter, sampled at a difficulty the player didn't run" — so
-			-- treat it as derived: keep THIS dungeon's own curves (real
-			-- encounter evidence, no pooling), but gear-scale, lift, ceiling
-			-- and LABEL the comparison. At or above the threshold nothing
-			-- changes, so a genuine high-key parse can still certify 99.
+			-- treat it as derived: pooled against the seasonal dungeon
+			-- reference (the block below explains why this dungeon's own
+			-- curves cannot be scaled), gear-scaled, lifted, ceilinged and
+			-- LABELLED. At or above the threshold nothing changes, so a
+			-- genuine high-key parse can still certify 99.
 			-- An M+ fight whose key level went MISSING counts as low too: two
 			-- of Josh's Saprish pulls came back with keystoneLevel nil and
 			-- stayed on the direct path, scoring ~0 while their siblings from
@@ -2211,7 +2213,6 @@ function Engine.ScoreFight(fight, opts)
 						-- the top-key population
 						offDifficulty = (lowKey and W.mplusLowKeyLift)
 							or W.derivedOffDifficulty or 1,
-						lowKey = lowKey or nil,
 						label = fight.zone,
 					}
 				elseif fight.practice and enc then
@@ -2231,7 +2232,6 @@ function Engine.ScoreFight(fight, opts)
 						tier = 2,
 						refIlvl = percentileRefIlvl(P),
 						offDifficulty = W.derivedOffDifficulty or 1,
-						practice = true,
 						-- name the anchor this dummy actually scored against
 						-- (a Dungeoneer's dummy reads the dungeon anchor)
 						label = (TP.PracticeAnchorFor and TP.PracticeAnchorFor(fight.practiceNpcID)
@@ -2242,7 +2242,7 @@ function Engine.ScoreFight(fight, opts)
 				-- T3: nothing covers this fight. Rather than hand the room's
 				-- best a 99 by definition, compare against the pooled average
 				-- of every seasonal dungeon we ship.
-				local avg, poolKind = averageSeasonalDungeon(P)
+				local avg = averageSeasonalDungeon(P)
 				if avg then
 					-- The DERIVED comparison is True's alone. Raw means "your
 					-- actual WCL parse", and there is no parse to show on
@@ -2266,7 +2266,6 @@ function Engine.ScoreFight(fight, opts)
 						offDifficulty = ((fight.difficultyID == 24)
 							and W.derivedOffDifficultyScaled
 							or W.derivedOffDifficultyT3) or 1,
-						pool = poolKind,
 					}
 				end
 			end
@@ -2485,8 +2484,6 @@ function Engine.ScoreFight(fight, opts)
 					shifted.damage = dW + freed
 				end
 				weights = shifted
-				ctx.tankDemand = ctx.tankDemand or {}
-				ctx.tankDemand[p.guid] = ratio
 			end
 		end
 
@@ -2947,7 +2944,7 @@ function Engine.ScoreFight(fight, opts)
 				if m.consumables >= 2 then
 					put("prepared", A.preparedBonus or 1)
 				else
-					put("prepared", -(2 - m.consumables)) -- 0 -> -2, 1 -> -1
+					put("prepared", -(2 - m.consumables) * (A.preparedPenaltyPerMissing or 1)) -- 0 -> -2, 1 -> -1
 				end
 			end
 			if (m.defensives or 0) >= 2 then

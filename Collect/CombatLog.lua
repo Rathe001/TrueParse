@@ -36,7 +36,7 @@ function TP.EnableCombatLog()
 	if not TP.Compat.HAS_CLEU then
 		-- Midnight+: registering CLEU is an ADDON_ACTION_FORBIDDEN error.
 		-- Collect/BlizzardMeter.lua supplies combat data on these clients;
-		-- this path remains for Classic support later.
+		-- the CLEU path below is the Mists Classic path.
 		return
 	end
 	TP.Metrics:BuildDispatch()
