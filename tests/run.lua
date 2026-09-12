@@ -1647,6 +1647,63 @@ end
 		Engine.InvalidateNameIndex(TP.Percentiles)
 	end
 
+	-- NORMAL / HEROIC / MYTHIC 0 AGAINST THE LOWEST KEY (Josh 2026-09-12).
+	-- An unranked difficulty compares against THIS dungeon's +2 band, scaled to
+	-- the gear its runners wear, instead of the pooled raid reference.
+	do
+		local KB = W.dungeonKeyBaseline
+		local savedFactor, savedRef = KB.factor[2], TP.Percentiles.keyRefIlvl
+		local low = { n = 400, curve = { { 99, 420 }, { 95, 360 }, { 90, 320 },
+			{ 75, 260 }, { 50, 200 }, { 25, 150 }, { 10, 110 } } }
+		local mid = { n = 400, curve = { { 99, 450 }, { 95, 420 }, { 90, 400 },
+			{ 75, 360 }, { 50, 320 }, { 25, 285 }, { 10, 260 } } }
+		local PD = TP.Percentiles.encounters["Pool Dungeon"]
+		PD["k2"] = { dps = { [63] = low }, hps = {} }
+		PD["k5"] = { dps = { [63] = mid }, hps = {} }
+		TP.Percentiles.keyRefIlvl = 200 -- the fixture's players wear 200: gear-neutral
+		KB.factor[2] = 1.0
+		Engine.InvalidateNameIndex(TP.Percentiles)
+		local h = deeps(mk({ difficulty = "Heroic", difficultyID = 2 }))
+		check(h.derived == 2 and h.keyBaseline == "+2 keys",
+			("a Heroic dungeon is tier II against its +2 band (%s, %s)"):format(
+				tostring(h.derived), tostring(h.keyBaseline)))
+		check(h.breakdown.damage.curveFrom == "+2 keys",
+			("the tooltip names the +2 population (%s)"):format(tostring(h.breakdown.damage.curveFrom)))
+		check(math.abs(h.breakdown.damage.pctile - 50) < 0.01,
+			("the +2 median rate in the band's own gear scores 50 (%.2f)"):format(h.breakdown.damage.pctile))
+		local lowGear = deeps(mk({ difficulty = "Heroic", difficultyID = 2,
+			players = { d = { guid = "d", name = "Deeps", class = "MAGE", role = "DAMAGER",
+				specID = 63, ilvl = 170,
+				metrics = { damage = 20000, healing = 0, interrupts = 0, dispels = 0, deaths = 0 } } } }))
+		check(lowGear.breakdown.damage.pctile > h.breakdown.damage.pctile,
+			("the same rate in lower gear places higher (%.1f > %.1f)"):format(
+				lowGear.breakdown.damage.pctile, h.breakdown.damage.pctile))
+		check(deeps(mk({ difficulty = "Mythic", difficultyID = 23 })).keyBaseline == "+2 keys",
+			"Mythic 0 takes the same baseline")
+		check(deeps(mk({ difficulty = "Timewalking", difficultyID = 24 })).keyBaseline == nil,
+			"Timewalking keeps its own level-scaled path")
+		KB.factor[2] = 1.5
+		check(deeps(mk({ difficulty = "Heroic", difficultyID = 2 })).breakdown.damage.pctile
+			> h.breakdown.damage.pctile, "the per-difficulty factor lifts the rate")
+		KB.factor[2] = 1.0
+		-- Season 2 starts most dungeons at +5: the +5 curve, with the rate
+		-- converted into +2 terms first (band ratio from the data, else the step)
+		PD["k2"] = nil
+		Engine.InvalidateNameIndex(TP.Percentiles)
+		local via = deeps(mk({ difficulty = "Heroic", difficultyID = 2 }))
+		check(via.breakdown.damage.curveFrom == "+2 keys (via +5 keys)",
+			("a +5-only dungeon says which band it used (%s)"):format(tostring(via.breakdown.damage.curveFrom)))
+		local sm = via.breakdown.damage.specMedian
+		-- the shown median is the +5 median restated in +2 terms, so it carries
+		-- the conversion: 320 over it is the band ratio the engine applied
+		check(sm and 320 / sm > 1.2 and 320 / sm < 1.45,
+			("the rate is converted into +2 terms before it meets the +5 curve (ratio %.3f)"):format(sm and 320 / sm or 0))
+		PD["k5"] = nil
+		TP.Percentiles.keyRefIlvl = savedRef
+		KB.factor[2] = savedFactor
+		Engine.InvalidateNameIndex(TP.Percentiles)
+	end
+
 	-- A GROUP OF ONE HOLDS 100% OF EVERY SHARE. The expected-share fallback
 	-- exists for "the only healer in a five-man"; solo it compares a player
 	-- to themselves and always returns soloCohortCap. Josh's dummy scored 92

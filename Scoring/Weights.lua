@@ -590,6 +590,41 @@ Weights.mplusDirectKey = 10
 -- between 2.5 and 3.0 — which is why the low-key path pools; see Engine.)
 Weights.mplusLowKeyLift = 1.0
 
+-- NORMAL, HEROIC AND MYTHIC 0 DUNGEONS AGAINST THE LOWEST KEY (Josh
+-- 2026-09-12: "couldn't we just use the lowest mythic as a baseline, and
+-- then adjust for ilvl?"). Warcraft Logs ranks a dungeon only as keys, and
+-- its +2 band is ordinary players on the same dungeon and route: median
+-- p99/p10 3.37x across 157 spec curves, the same spread as a raid bracket
+-- (3.27x), unlike the top-2000-by-score "all" curve that the pooled-raid
+-- path exists to avoid. So an unranked difficulty compares against THIS
+-- dungeon's +2 band, gear-scaled to that population.
+--   band     the key level the comparison speaks in ("+2 keys")
+--   refIlvl  gear the band's runners wear. The crawl does not record it
+--            yet; 280 is the median of the +2 to +4 damagers in the
+--            maintainer's captures (2026-09-12). A band or data file that
+--            states one (bracket.refIlvl, P.keyRefIlvl) wins.
+--   factor   rate lift per difficulty id, and the switch: an id absent here
+--            keeps the pooled path. scripts/fit-dungeon-baseline.lua
+--            measured Normal 1.06 and Heroic 0.95 on 12 rows each against
+--            19 real +2 to +4 rows, all inside the noise, so 1.0 until the
+--            captures say otherwise. Mythic 0 has no captures yet.
+--            Against this season's key curves (the 2026-09-04 crawl, not in
+--            the tree while the refresh regression stands) Heroic fits
+--            1.23 on 36 rows from 11 players against 75 key rows from 12,
+--            the first estimate with real support. It moves the median
+--            Heroic damager by about one percentile, so it waits for that
+--            data to return rather than shipping on a guess.
+--   stepPct  output growth per key level, for a dungeon whose lowest band
+--            sits above +2 (Season 2 starts at +5 in seven of eight):
+--            9.4% per level between +2 and +5 across 157 spec curves.
+--            Used only when the shipped bands cannot give the ratio.
+Weights.dungeonKeyBaseline = {
+	band = 2,
+	refIlvl = 280,
+	factor = { [1] = 1.0, [2] = 1.0, [23] = 1.0 },
+	stepPct = 9.4,
+}
+
 -- Group-level adjustments: points that belong to the whole group rather
 -- than to any player, added to the average of the player scores by
 -- Engine.GroupScore. A raid buff no class present can bring (no Mage, so

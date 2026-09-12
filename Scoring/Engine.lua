@@ -472,6 +472,24 @@ local function keystoneBracketFor(enc, keystoneLevel)
 	return best
 end
 
+-- Key bands an encounter carries at or above a level, lowest first:
+-- { "k2", "k5", ... }. The dungeon baseline walks them in this order.
+local function keyBandsFrom(enc, minLevel)
+	local levels = {}
+	for key in pairs(enc or {}) do
+		local n = type(key) == "string" and tonumber(key:match("^k(%d+)$"))
+		if n and n >= minLevel then
+			levels[#levels + 1] = n
+		end
+	end
+	table.sort(levels)
+	local out = {}
+	for i, n in ipairs(levels) do
+		out[i] = "k" .. n
+	end
+	return out
+end
+
 local function bracketSearchOrder(bracketKey)
 	local order = {}
 	if bracketKey then
@@ -901,6 +919,15 @@ local function derivedCeil(ctx, v)
 	return math.min(ceiling, knee + (v - knee) * (ceiling - knee) / (99 - knee))
 end
 
+-- Gear the lowest-key runners wear: the band's own statement when the crawl
+-- records one, then the file's, then the fitted constant in Weights.
+local function keyRefIlvl(P, enc, bandKey)
+	local band = enc and enc[bandKey]
+	local KB = TP.Scoring.Weights.dungeonKeyBaseline
+	return (type(band) == "table" and band.refIlvl) or (P and P.keyRefIlvl)
+		or (KB and KB.refIlvl) or percentileRefIlvl(P)
+end
+
 local function derivedScale(ctx, p)
 	local d = ctx.derived
 	if not d then
@@ -1055,6 +1082,20 @@ end
 -- Returns entry, sourceLabel (nil = exact spec+bracket), rolePooledFlag,
 -- scale (multiply the player's rate by this before interpolating; the
 -- shown median divides by it). Never returns a curve under 2 points.
+-- Output growth between two key bands when the data cannot measure it
+-- (Season 2's crawl kept +2 for one spec in one dungeon): the per-level
+-- step in Weights.dungeonKeyBaseline, measured between +2 and +5. nil for
+-- anything that is not a pair of key bands, so raid brackets never see it.
+local function keyStepRatio(fromBk, toBk)
+	local a = type(fromBk) == "string" and tonumber(fromBk:match("^k(%d+)$"))
+	local b = type(toBk) == "string" and tonumber(toBk:match("^k(%d+)$"))
+	local KB = TP.Scoring.Weights.dungeonKeyBaseline
+	if not (a and b and KB and KB.stepPct) then
+		return nil
+	end
+	return (1 + KB.stepPct / 100) ^ (b - a)
+end
+
 local function usable(entry)
 	return entry and entry.curve and #entry.curve > 1
 end
@@ -1074,7 +1115,7 @@ local function findCurve(ctx, kind, specID, role, specOnly, encounterOnly)
 		if i == 1 or not exact or bk == exact or bk == "all" then
 			return 1
 		end
-		return bracketRatio(L.P, exact, bk, kind) or 1
+		return bracketRatio(L.P, exact, bk, kind) or keyStepRatio(exact, bk) or 1
 	end
 	local function specEntry(i, bk)
 		local tbl = enc and enc[bk] and enc[bk][kind]
@@ -1089,6 +1130,10 @@ local function findCurve(ctx, kind, specID, role, specOnly, encounterOnly)
 				label = POOL_LABELS[enc._pooled] or "pooled logs"
 			elseif bk == "all" then
 				label = "timed top runs"
+			elseif L.label then
+				-- a named baseline (the dungeon's lowest key): say which band supplied
+				-- the curve when it was not the target band itself
+				label = (i > 1) and ("%s (via %s)"):format(L.label, BRACKET_LABELS[bk] or bk) or L.label
 			elseif i > 1 then
 				label = "spec · " .. (BRACKET_LABELS[bk] or bk)
 			end
@@ -2179,6 +2224,20 @@ function Engine.ScoreFight(fight, opts)
 			local isMplus = (fight.keystoneLevel ~= nil or fight.difficultyID == 8
 				or DUNGEON_ABSOLUTE_DIFFICULTY[fight.difficulty or ""] or false)
 				and not lowKey
+			-- Normal, Heroic and Mythic 0 compare against the dungeon's lowest key
+			-- bands when it carries any (the block after the chain below).
+			local baseline, baselineFactor
+			do
+				local KB = W.dungeonKeyBaseline
+				baselineFactor = KB and KB.factor and fight.difficultyID
+					and KB.factor[fight.difficultyID] or nil
+				if baselineFactor and isDungeon and enc and not isKeyed and not isMplus then
+					baseline = keyBandsFrom(enc, KB.band or 2)
+					if #baseline == 0 then
+						baseline = nil
+					end
+				end
+			end
 			if (enc or bracketKey) and not (isDungeon and not enc) then
 				local useEnc, dOnly = enc, isDungeon or nil
 				-- A low key POOLS like any other derived fight. Keeping this
@@ -2236,6 +2295,31 @@ function Engine.ScoreFight(fight, opts)
 						-- (a Dungeoneer's dummy reads the dungeon anchor)
 						label = (TP.PracticeAnchorFor and TP.PracticeAnchorFor(fight.practiceNpcID)
 							or TP.PRACTICE_ANCHOR or {}).name,
+					}
+				end
+				-- NORMAL, HEROIC AND MYTHIC 0 AGAINST THE LOWEST KEY (Josh 2026-09-12:
+				-- "couldn't we just use the lowest mythic as a baseline, and then adjust
+				-- for ilvl?"). The chain above pooled these against raid logs; a dungeon
+				-- that carries key bands has a better population in its lowest-key
+				-- runners: same dungeon, same route, a raid-like spread. Walks the target
+				-- band first, then the crawled bands above it with the rate converted
+				-- down. Weights.dungeonKeyBaseline holds the factor, the gear and the step.
+				if baseline then
+					local target = "k" .. (W.dungeonKeyBaseline.band or 2)
+					local order = { target }
+					for _, bk in ipairs(baseline) do
+						if bk ~= target then
+							order[#order + 1] = bk
+						end
+					end
+					ctx.curves = { P = P, enc = enc, order = order, exact = target,
+						dungeonOnly = true, label = BRACKET_LABELS[target] }
+					ctx.derived = {
+						tier = 2,
+						refIlvl = keyRefIlvl(P, enc, target),
+						offDifficulty = baselineFactor,
+						label = BRACKET_LABELS[target],
+						baseline = true,
 					}
 				end
 			elseif fight.duration and fight.duration > 0 then
@@ -3173,6 +3257,9 @@ function Engine.ScoreFight(fight, opts)
 			-- parse to show on content nobody ranks.
 			derived = ctx.derived and ctx.derived.tier or nil,
 			derivedFrom = ctx.derived and ctx.derived.label or nil,
+			-- the key band a Normal/Heroic/Mythic 0 dungeon was measured against
+			-- ("+2 keys"), for the tier strip's explanation
+			keyBaseline = ctx.derived and ctx.derived.baseline and ctx.derived.label or nil,
 			-- 99 cap, WCL semantics: 100 doesn't exist. The base already
 			-- tops at 99.3; without the cap the positive adjustments were
 			-- minting routine 100s (and overflowing the run column).

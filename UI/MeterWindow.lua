@@ -1946,7 +1946,14 @@ local lastFightWhat -- ...and for its headline (practice is not "this dungeon")
 -- A fight that can explain its own tier better than the generic footnote.
 -- Practice is the case that matters: tier II's stock line names dungeons and
 -- Mythic+, which says nothing true about a training dummy.
-local function tierHowFor(fight)
+local function tierHowFor(fight, results)
+	-- a Normal/Heroic/Mythic 0 dungeon measured against its lowest key
+	local r = results and results[1]
+	if r and r.keyBaseline and not (fight and fight.practice) then
+		local KB = TP.Scoring.Weights.dungeonKeyBaseline
+		return ("Not a real parse: Warcraft Logs ranks this dungeon only as keys, so you are measured against the players who run it at +%d, scaled to your gear.")
+			:format(KB and KB.band or 2)
+	end
 	if fight and fight.practice then
 		local a = TP.PracticeAnchorFor and TP.PracticeAnchorFor(fight.practiceNpcID)
 		local anchor = (a and a.name) or (TP.PRACTICE_ANCHOR and TP.PRACTICE_ANCHOR.name)
@@ -2029,7 +2036,7 @@ function MeterWindow:RenderScorecard(fight)
 	lastRawAvailable = rawAvailable
 	-- the strip below the window says what the score is built on
 	lastFightTier = tierOfResults(results, rawAvailable)
-	lastFightHow = tierHowFor(fight)
+	lastFightHow = tierHowFor(fight, results)
 	lastFightWhat = tierWhatFor(fight)
 	MeterWindow:UpdateTierChip(lastFightTier, lastFightHow, lastFightWhat)
 	window.subtitle:SetText(subtitleText(rawAvailable))
@@ -2568,7 +2575,7 @@ local function refreshImpl(self)
 			lastFightTier = tierOfResults(scoreForDisplay(latest))
 			-- scoreForDisplay returns (results, rawAvailable); the call above
 			-- passes both through Lua's multiple returns
-			lastFightHow = tierHowFor(latest)
+			lastFightHow = tierHowFor(latest, (scoreForDisplay(latest)))
 			lastFightWhat = tierWhatFor(latest)
 			MeterWindow:UpdateTierChip(lastFightTier, lastFightHow, lastFightWhat)
 		else

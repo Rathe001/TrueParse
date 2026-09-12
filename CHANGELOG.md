@@ -26,6 +26,13 @@ and the segment closed, so Rattlegore came back as a 0:17 slice and a
 0:40 remainder. A boss fight now lasts as long as its boss frames do,
 and while you are a ghost an ally you cannot see counts as fighting.
 
+Normal, Heroic and Mythic 0 dungeons are measured against the same
+dungeon's lowest Mythic+ key instead of pooled raid logs: the players who
+run it at +2, on the same route, scaled to your gear. Where the lowest
+crawled band sits higher, the rate is converted down to +2 first. The tier
+strip and the tooltip say "+2 keys", so the number is never mistaken for a
+parse.
+
 ## 2.16.3
 
 In a raid, the group score gives a point back for each raid buff nobody
