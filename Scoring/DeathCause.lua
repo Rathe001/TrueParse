@@ -28,7 +28,11 @@ TP.Scoring.DeathCause = DeathCause
 -- no crawled hitPct — "how hard" comes from the live recap's own share.
 local T = {
 	oneShotHP = 0.9, -- a hit this fraction of max HP is unavoidable-once-hit
-	avoidableHitRate = 0.4, -- abilities <40% of players take are dodgeable
+	-- abilities fewer than half of players take are dodgeable: the same
+	-- bar the mechanic coach uses (Scoring/Insights MECHANIC_HITRATE), so a
+	-- hit is not "sidestep it" in coaching yet unavoidable when it killed
+	-- you (Josh 2026-09-11: one number, 50%)
+	avoidableHitRate = 0.5,
 	contributorShare = 0.30, -- a hit worth this much of the recap can name the death
 	dominantShare = 0.60, -- a single hit this big means it wasn't chip
 	tankbusterShare = 0.40, -- a tank-only killing blow this big is a buster
@@ -96,7 +100,7 @@ function DeathCause.Classify(deathRecap, maxHP, profiles)
 	end
 
 	-- 3) avoidable: the killing blow OR any hit contributing >= 30% of the
-	-- recap is "dodgeable" — profile hitRate < 0.4 (good players avoid it)
+	-- recap is "dodgeable" — profile hitRate < 0.5 (most players avoid it)
 	-- OR the per-hit avoidable flag (the fallback signal that works with
 	-- no profile).
 	for _, hit in ipairs(deathRecap) do

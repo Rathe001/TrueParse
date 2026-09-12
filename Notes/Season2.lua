@@ -58,7 +58,7 @@ KN.RegisterDungeon({
 				"Sidestep Molten Boulder, it stuns",
 			},
 			notes = {
-				{ tag = "CD", role = "healer", text = "Inferno from the add grows the longer it lives", ability = "Inferno" },
+				{ tag = "CD", role = "healer", text = "Inferno from the add, which grows the longer it lives", ability = "Inferno" },
 				{ tag = "TANK", role = "tank", text = "Defensive for every Searing Blows; pick up the Firestorm", ability = "Searing Blows" },
 			} },
 		{ name = "Kyrakka and Erkhart Stormvein",
@@ -68,7 +68,7 @@ KN.RegisterDungeon({
 				"Stop casting before Interrupting Cloudburst lands",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "phase 2, when Erkhart mounts", ability = "Inferno Spit" },
+				{ tag = "LUST", need = "lust", text = "in phase 2, when Erkhart mounts", ability = "Inferno Spit" },
 				{ tag = "MAGIC", need = "magic", text = "Stormslam off the tank before the next cast, it doubles nature damage", ability = "Stormslam" },
 				{ tag = "CD", role = "healer", text = "P2 Inferno Spit", ability = "Inferno Spit" },
 				{ tag = "TANK", role = "tank", text = "Undispelled Stormslam stacks: call for the dispel", ability = "Stormslam" },
@@ -80,7 +80,7 @@ KN.RegisterDungeon({
 		{ name = "Chillweaver", tag = "PURGE", need = "purge", text = "Purge Ice Shield, it keeps the pack alive", leg = 1 },
 		{ name = "Flamedancer", tag = "STUN", need = "stun", text = "Flame Dance can't be kicked: hard CC it", leg = 1 },
 		{ name = "Primal Thundercloud", tag = "PURGE", need = "purge", text = "Purge its shield" },
-		{ name = "Flamegullet", tag = "CD", role = "healer", text = "Enrages under 50%, party damage climbs fast", leg = 2 },
+		{ name = "Flamegullet", tag = "CD", role = "healer", text = "the enrage under 50%: party damage climbs fast", leg = 2 },
 		{ name = "Flamegullet", tag = "TANK", role = "tank", text = "Fire Maw: defensive, it leaves a DoT", leg = 2 },
 		{ name = "Thunderhead", tag = "MAGIC", need = "magic", text = "Dispel Rolling Thunder one player at a time, it spreads", leg = 3 },
 		{ name = "Thunderhead", tag = "TANK", role = "tank", text = "Thunder Jaw: defensive", leg = 3 },
@@ -171,7 +171,7 @@ KN.RegisterDungeon({
 				"Loose spread for Infernal Crush",
 			},
 			notes = {
-				{ tag = "CD", role = "healer", text = "Infernal Crush lands on top of Demonic Rage", ability = "Infernal Crush" },
+				{ tag = "CD", role = "healer", text = "Infernal Crush landing on top of Demonic Rage", ability = "Infernal Crush" },
 				{ tag = "TANK", role = "tank", text = "Legion Strike: defensive; hold him at the edge facing out", ability = "Legion Strike" },
 				{ role = "ranged", text = "Drop the Axe next to the boss so melee cleave it", ability = "Axe Toss" },
 			} },
@@ -184,7 +184,7 @@ KN.RegisterDungeon({
 			},
 			notes = {
 				{ tag = "LUST", need = "lust", text = "on pull, hardest boss in the dungeon" },
-				{ tag = "CD", role = "healer", text = "Searing Fel Flame rots all fight: rolling, not burst", ability = "Searing Fel Flame" },
+				{ tag = "CD", role = "healer", text = "Searing Fel Flame, a rot all fight: rolling, not burst", ability = "Searing Fel Flame" },
 				{ tag = "TANK", role = "tank", text = "The Infernal can't die and kills on contact: keep the boss away from it; pick up the Vilefiend", ability = "Summon Vilefiend" },
 			} },
 	},
@@ -193,7 +193,7 @@ KN.RegisterDungeon({
 		{ tag = "TASK", text = "The bar: everyone talks to Selenar Sunshy and works their job to five stars, +10% damage and healing for 5 min", leg = 2 },
 		{ tag = "BUILD", class = "SHAMAN", min = "k", text = "Improved Purify Spirit for Curse of Doom", leg = 1 },
 		{ name = "Massive Felwyrm", text = "Explodes on death, kill it away from the group", leg = 1 },
-		{ name = "Shivan Punisher", tag = "CD", role = "healer", text = "Enrages at 50%", leg = 3 },
+		{ name = "Shivan Punisher", tag = "CD", role = "healer", text = "the enrage at 50%", leg = 3 },
 		{ name = "Corrupted Warlock", tag = { "KICK", "CURSE" }, need = { "kick", "curse" }, text = "Kick Curse of Doom, or dispel it the moment it lands" },
 	},
 })
@@ -207,7 +207,7 @@ KN.RegisterDungeon({
 				"Dodge every Dark Bloom orb",
 			},
 			notes = {
-				{ tag = "CD", role = "healer", text = "Top everyone before each Umbral Rupture", ability = "Umbral Rupture" },
+				{ tag = "CD", role = "healer", text = "each Umbral Rupture: top everyone before it", ability = "Umbral Rupture" },
 				{ tag = "TANK", role = "tank", text = "Void Blast knocks you back: defensive, and don't land in a puddle", ability = "Void Blast" },
 			} },
 		{ name = "Atroxus",
@@ -218,7 +218,7 @@ KN.RegisterDungeon({
 			notes = {
 				{ tag = "LUST", need = "lust", affix = "Tyrannical", text = "on the first Creeper", ability = "Toxic Creeper" },
 				{ tag = "CD", role = "healer", text = "Every Creeper", ability = "Toxic Creeper" },
-				{ tag = "POISON", need = "poison", text = "Mind-Numbing Poison feeds Hulking Claw on the tank", ability = "Mind-Numbing Poison" },
+				{ tag = "POISON", need = "poison", text = "Mind-Numbing Poison, it feeds Hulking Claw on the tank", ability = "Mind-Numbing Poison" },
 				{ tag = "TANK", role = "tank", text = "The Creeper fixates you and every hit stacks Sickening Bite: kite it; defensive for Hulking Claw", ability = "Hulking Claw" },
 			} },
 		{ name = "Charonus",
@@ -265,7 +265,7 @@ KN.RegisterDungeon({
 			},
 			notes = {
 				{ tag = "LUST", need = "lust", affix = "Tyrannical", text = "at 50%, for the frenzy", ability = "Lightcrazed Frenzy" },
-				{ tag = "CD", role = "healer", text = "Thorncaller Roar pulses, hold majors for the frenzy", ability = "Thorncaller Roar" },
+				{ tag = "CD", role = "healer", text = "Thorncaller Roar pulses: hold majors for the frenzy", ability = "Thorncaller Roar" },
 				{ tag = "TANK", role = "tank", text = "Hold him next to rooted players so cleave clears the roots", ability = "Bloodthorn Roots" },
 			} },
 		{ name = "Lightwarden Ruia",
@@ -286,8 +286,8 @@ KN.RegisterDungeon({
 				"Soak Lightbloom's Essence orbs before they reach him",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", affix = "Fortified", text = "the first add phase", ability = "Awaken the Lightbloom" },
-				{ tag = "CD", role = "healer", text = "Oozing Xylem rot peaks in the add phase; watch high Essence stacks", ability = "Oozing Xylem" },
+				{ tag = "LUST", need = "lust", affix = "Fortified", text = "in the first add phase", ability = "Awaken the Lightbloom" },
+				{ tag = "CD", role = "healer", text = "the add phase, where Oozing Xylem rot peaks; watch high Essence stacks", ability = "Oozing Xylem" },
 				{ tag = "TANK", role = "tank", text = "Thornspike: defensive; group the lashers", ability = "Thornspike" },
 			} },
 	},
@@ -310,7 +310,7 @@ KN.RegisterDungeon({
 				"Tempest Winds targets away from the group",
 			},
 			notes = {
-				{ tag = "CD", role = "healer", text = "Right after the soak", ability = "Thunder and Lightning" },
+				{ tag = "CD", role = "healer", text = "the moment after the soak", ability = "Thunder and Lightning" },
 				{ tag = "TANK", role = "tank", text = "Overload: defensive every cast", ability = "Overload" },
 			} },
 		{ name = "Merektha",
@@ -333,7 +333,7 @@ KN.RegisterDungeon({
 			},
 			notes = {
 				{ tag = "LUST", need = "lust", text = "on pull, an energy race" },
-				{ tag = "CD", role = "healer", text = "Soakers stack Galvanized; top everyone before each Induction", ability = "Galvanized" },
+				{ tag = "CD", role = "healer", text = "each Induction: soakers stack Galvanized, top everyone before it", ability = "Galvanized" },
 				{ tag = "TANK", role = "tank", text = "Place him so the DPS can reach the spires; you don't soak", ability = "Lightning Spire" },
 				{ role = "dps", text = "The spires are yours: rotate soakers, Galvanized stacks", ability = "Lightning Spire" },
 			} },
@@ -392,7 +392,7 @@ KN.RegisterDungeon({
 			},
 			notes = {
 				{ tag = "LUST", need = "lust", affix = "Tyrannical", text = "when Zanazal steps in" },
-				{ tag = "CD", role = "healer", text = "Arc Lightning cleaves off the tank and hits hard", ability = "Arc Lightning" },
+				{ tag = "CD", role = "healer", text = "Arc Lightning, which cleaves off the tank and hits hard", ability = "Arc Lightning" },
 				{ tag = "TANK", role = "tank", text = "Debilitating Backhand: kite, stay out of melee until it drops; park Zanazal by his totems", ability = "Debilitating Backhand" },
 			} },
 		{ name = "Dazar, the First King",

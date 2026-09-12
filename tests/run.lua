@@ -269,7 +269,11 @@ end
 local Cap = TP.Scoring.Capabilities
 check(not Cap.CanInterrupt("PRIEST", "HEALER"), "priest healer cannot interrupt")
 check(not Cap.CanInterrupt("PRIEST", "DAMAGER"), "shadow priest cannot interrupt")
-check(not Cap.CanInterrupt("MONK", "HEALER"), "mistweaver cannot interrupt")
+-- Rebuke and Spear Hand Strike are baseline on retail (Josh 2026-09-11):
+-- the healer specs are scored on kicks; only the form-locked Resto druid is exempt
+check(Cap.CanInterrupt("MONK", "HEALER"), "mistweaver can interrupt (Spear Hand Strike is baseline)")
+check(Cap.CanInterrupt("PALADIN", "HEALER"), "holy paladin can interrupt (Rebuke is baseline)")
+check(not Cap.CanInterrupt("DRUID", "HEALER"), "resto druid still cannot (Skull Bash needs a form)")
 check(Cap.CanInterrupt("MONK", "TANK"), "brewmaster can interrupt")
 check(Cap.CanInterrupt("SHAMAN", "HEALER"), "resto shaman can interrupt")
 Cap.SetMoPRules(true)
@@ -4510,9 +4514,10 @@ end)()
 	check(sum.total == 4 and sum.avoidable == 2 and sum.chip == 1 and sum.oneShot == 1,
 		"Summarize tallies each category")
 
-	-- thresholds table present (a retune must be deliberate)
+	-- thresholds table present (a retune must be deliberate). avoidableHitRate
+	-- is the coach's MECHANIC_HITRATE, 0.5 (Josh 2026-09-11: one number)
 	check(DC.THRESHOLDS and DC.THRESHOLDS.oneShotHP == 0.9
-		and DC.THRESHOLDS.avoidableHitRate == 0.4 and DC.THRESHOLDS.tankbusterHitPct == nil, "threshold constants pinned")
+		and DC.THRESHOLDS.avoidableHitRate == 0.5 and DC.THRESHOLDS.tankbusterHitPct == nil, "threshold constants pinned")
 
 	-- ProfilesFor: encounterID first, then stripped name
 	TP.DAMAGE_PROFILES = { ids = { [1623] = "Garrosh Hellscream" },

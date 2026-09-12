@@ -158,7 +158,7 @@ KN.RegisterDungeon({
 			},
 			notes = {
 				{ tag = "TANK", role = "tank", text = "Point the Azure Serpent's Lightning Breath away from the group", ability = "Lightning Breath" },
-				{ tag = "CD", role = "healer", text = "Magnetic Shroud absorbs healing: one target, big casts", ability = "Magnetic Shroud" },
+				{ tag = "CD", role = "healer", text = "Magnetic Shroud, which absorbs healing: one target, big casts", ability = "Magnetic Shroud" },
 			} },
 		{ name = "Master Snowdrift",
 			core = {
@@ -309,7 +309,7 @@ KN.RegisterDungeon({
 				"Stay out of the Blazing Fists front",
 			},
 			notes = {
-				{ tag = "CD", role = "healer", text = "Rising Flame adds 10% fire damage every 5 seconds: the end of the fight is the danger", ability = "Rising Flame" },
+				{ tag = "CD", role = "healer", text = "the end of the fight: Rising Flame adds 10% fire damage every 5 seconds", ability = "Rising Flame" },
 			} },
 		{ name = "High Inquisitor Whitemane",
 			core = {
@@ -394,7 +394,7 @@ KN.RegisterRaid({
 			notes = {
 				{ tag = "KICK", need = "kick", text = "Epicenter, in the last phase", ability = "Epicenter" },
 				{ tag = "TANK", role = "tank", text = "Swap every two stacks: Arcane Shock, Flaming Spear, Shadowburn, Lightning Lash", ability = "Arcane Shock" },
-				{ tag = "CD", role = "healer", text = "Arcane Velocity, Draw Flame and Epicenter are all unavoidable", ability = "Draw Flame" },
+				{ tag = "CD", role = "healer", text = "Arcane Velocity, Draw Flame and Epicenter, all unavoidable", ability = "Draw Flame" },
 				{ min = "h", text = "Kill the soul fragments before they reach the Siphoning Shield", ability = "Siphoning Shield" },
 			} },
 		{ name = "Gara'jal the Spiritbinder",
@@ -464,7 +464,7 @@ KN.RegisterRaid({
 				"Convert mind-controls two to five of you: damage them to 50% to break it",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "the phase 2 opener at 40%", ability = "Force and Verve" },
+				{ tag = "LUST", need = "lust", text = "at 40%, on the phase 2 opener", ability = "Force and Verve" },
 				{ tag = "TANK", role = "tank", text = "Intercept the Exhale beam off whoever it picked", ability = "Exhale" },
 				{ tag = "CD", role = "healer", text = "Force and Verve, and keep instants rolling through Attenuation", ability = "Attenuation" },
 				{ text = "Stay off the centre until phase 2: Pheromones of Zeal fills it", ability = "Pheromones of Zeal" },
@@ -501,7 +501,7 @@ KN.RegisterRaid({
 			notes = {
 				{ tag = "KICK", need = "kick", text = "Mending from the Zar'thik Battle-Menders, without exception", ability = "Mending" },
 				{ tag = "PURGE", need = "purge", text = "Quickening: it gives every mantid 35% damage and attack speed", ability = "Quickening" },
-				{ tag = "LUST", need = "lust", text = "a Recklessness window once the adds are down", ability = "Recklessness" },
+				{ tag = "LUST", need = "lust", text = "in a Recklessness window once the adds are down", ability = "Recklessness" },
 				{ tag = "TANK", role = "tank", text = "Keep the active adds away from the ones you have CC'd; defensive through Recklessness", ability = "Recklessness" },
 				{ tag = "CD", role = "healer", text = "Rain of Blades, and the triple Kor'thik Strike on one player", ability = "Rain of Blades" },
 			} },
@@ -512,7 +512,7 @@ KN.RegisterRaid({
 				"Spread 8 yards so the Living Ambers don't chain their explosions",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "phase 3", ability = "Volatile Amber" },
+				{ tag = "LUST", need = "lust", text = "in phase 3", ability = "Volatile Amber" },
 				{ tag = "TANK", role = "tank", text = "Alternate the Construct duty and eat Burning Amber pools to keep Willpower up", ability = "Reshape Life" },
 				{ tag = "CD", role = "healer", text = "Parasitic Growth: heal it as little as you can, healing makes it hit harder; absorbs don't feed it", ability = "Parasitic Growth" },
 			} },
@@ -523,12 +523,12 @@ KN.RegisterRaid({
 				"Phase 3 under 30%: everything lands at once, stay ahead of Calamity",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "the moment phase 3 starts", ability = "Amassing Darkness" },
+				{ tag = "LUST", need = "lust", text = "as phase 3 starts", ability = "Amassing Darkness" },
 				{ tag = "KICK", need = "kick", text = "Dispatch from the Set'thik Windblades", ability = "Dispatch" },
 				-- FEAR, not MASSDISP: Mass Dispel is the efficient answer, not the only one
 				{ tag = "FEAR", need = "fear", text = "Answer the phase 3 fears: Visions of Demise marks players", ability = "Visions of Demise" },
 				{ tag = "TANK", role = "tank", text = "Eyes of the Empress: swap at three or four, five mind-controls you", ability = "Eyes of the Empress" },
-				{ tag = "CD", role = "healer", text = "phase 3 is continuous: rotate everything", ability = "Amassing Darkness" },
+				{ tag = "CD", role = "healer", text = "all of phase 3, which is continuous: rotate everything", ability = "Amassing Darkness" },
 				{ text = "Don't kill the Set'thik Windblades until two Amber Traps exist", ability = "Sticky Resin" },
 			} },
 	},
@@ -549,7 +549,7 @@ KN.RegisterRaid({
 				{ tag = "KICK", need = "kick", text = "both Lightning Bolt and Water Bolt", ability = "Lightning Bolt" },
 				{ tag = "PURGE", need = "purge", text = "Cleansing Waters off the kill target: it heals them 5% a second", ability = "Cleansing Waters" },
 				{ tag = "MAGIC", need = "magic", text = "Lightning Prison, and Touch of Sha", ability = "Lightning Prison" },
-				{ tag = "LUST", need = "lust", text = "phase 3, on the last one standing", ability = "Overwhelming Corruption" },
+				{ tag = "LUST", need = "lust", text = "in phase 3, on the last one standing", ability = "Overwhelming Corruption" },
 				{ min = "h", text = "Rotate the Corrupted Essence soaks: about nine stacks each before it explodes", ability = "Corrupted Essence" },
 			} },
 		{ name = "Tsulong",
@@ -562,7 +562,7 @@ KN.RegisterRaid({
 				-- a magic debuff on the boss, so MAGIC rather than FEAR
 				{ tag = "MAGIC", need = "magic", text = "Terrorize off Tsulong at once", ability = "Terrorize" },
 				{ tag = "TANK", role = "tank", text = "Swap after each Shadow Breath: it doubles the shadow damage you take for 30 seconds", ability = "Shadow Breath" },
-				{ tag = "CD", role = "healer", text = "save everything for the Day phase, under Bathed in Light", ability = "Bathed in Light" },
+				{ tag = "CD", role = "healer", text = "the Day phase, under Bathed in Light: save everything for it", ability = "Bathed in Light" },
 				{ text = "Spread: Nightmares explodes and fears", ability = "Nightmares" },
 				{ min = "h", text = "Kill the Dark of Night adds before they reach the Sunbeam", ability = "The Dark of Night" },
 			} },
@@ -584,7 +584,7 @@ KN.RegisterRaid({
 				"Phase 2: pass the Pure Light ball to break Huddle in Terror and kite the Dread Spawns",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "the start of phase 2: cooldowns reset over the transition", ability = "Dread Thrash" },
+				{ tag = "LUST", need = "lust", text = "at the start of phase 2: cooldowns reset over the transition", ability = "Dread Thrash" },
 				{ tag = "FEAR", need = "fear", text = "Answer the fear from Penetrating Bolt: the Terror Spawns fear after two hits", ability = "Penetrating Bolt" },
 				{ tag = "TANK", role = "tank", text = "Thrash, then Dread Thrash in phase 2: major defensive. Rotate when Naked and Afraid lands", ability = "Dread Thrash" },
 				{ tag = "CD", role = "healer", text = "the Huddle in Terror chains, and every Thrash window", ability = "Huddle in Terror" },
@@ -701,7 +701,7 @@ KN.RegisterRaid({
 				"Frost phase: keep off the shielded side of the Dead Zone and free frozen players",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "the final phase", ability = "Rising Anger" },
+				{ tag = "LUST", need = "lust", text = "in the final phase", ability = "Rising Anger" },
 				{ tag = "TANK", role = "tank", text = "Swap the debuff stacks; find tornado-free ground in the last phase", ability = "Fist Smash" },
 				{ tag = "CD", role = "healer", text = "the final phase, where everything overlaps", ability = "Fist Smash" },
 			} },
@@ -739,7 +739,7 @@ KN.RegisterRaid({
 				"From 40% it is a burn: Ruin scales with what you consumed",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", min = "h", text = "40%, when Ruin starts", ability = "Ruin" },
+				{ tag = "LUST", need = "lust", min = "h", text = "at 40%, when Ruin starts", ability = "Ruin" },
 				{ tag = "TANK", role = "tank", min = "h", text = "Rotate cooldowns for Fatal Strike; stay close for the Vita exchanges", ability = "Fatal Strike" },
 				{ tag = "CD", role = "healer", min = "h", text = "the Ruin phase from 40%", ability = "Ruin" },
 			} },
@@ -781,7 +781,7 @@ KN.RegisterRaid({
 				"Dodge the expanding Blind Hatred zones",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "30%, when Norushen dies and his Final Gift clears everyone's corruption", ability = "Final Gift" },
+				{ tag = "LUST", need = "lust", text = "at 30%, when Norushen dies and his Final Gift clears everyone's corruption", ability = "Final Gift" },
 				{ tag = "MAGIC", need = "magic", text = "Lingering Corruption, in the healer's trial", ability = "Lingering Corruption" },
 				{ tag = "TANK", role = "tank", text = "Self Doubt stacks: swap. Your trial is Test of Confidence", ability = "Self Doubt" },
 			} },
@@ -825,7 +825,7 @@ KN.RegisterRaid({
 				"Position them so the Ashen Wall doesn't cut the room in half",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "25%, the burn phase", ability = "Bloodlust" },
+				{ tag = "LUST", need = "lust", text = "at 25%, the burn phase", ability = "Bloodlust" },
 				{ tag = "TANK", role = "tank", text = "Froststorm Strike stacks: swap. Kite Foul Geyser and spread the slimes", ability = "Froststorm Strike" },
 				{ tag = "KICK", need = "kick", text = "the shamans' direct casts", ability = "Foul Stream" },
 			} },
@@ -838,7 +838,7 @@ KN.RegisterRaid({
 			notes = {
 				{ tag = "KICK", need = "kick", text = "Chain Heal from the War Shamans", ability = "Chain Heal" },
 				{ tag = "TANK", role = "tank", text = "Sundering Blow: swap at 3 to 4 stacks, and mind how much Rage each stance feeds him", ability = "Sundering Blow" },
-				{ tag = "CD", role = "healer", text = "War Song takes about two thirds of the raid's health", ability = "War Song" },
+				{ tag = "CD", role = "healer", text = "War Song, about two thirds of the raid's health", ability = "War Song" },
 				{ text = "Never turn your back on an Assassin", ability = "Assassin" },
 			} },
 		{ name = "Malkorok",
@@ -848,7 +848,7 @@ KN.RegisterRaid({
 				"Phase 2: stack tight at his face to split Blood Rage, and run Displaced Energy out",
 			},
 			notes = {
-				{ tag = "CD", role = "healer", text = "Ancient Miasma turns your healing into absorbs: blanket the raid, don't spot-heal", ability = "Ancient Miasma" },
+				{ tag = "CD", role = "healer", text = "Ancient Miasma, which turns your healing into absorbs: blanket the raid, don't spot-heal", ability = "Ancient Miasma" },
 				{ tag = "TANK", role = "tank", text = "Fatal Strike: swap at 10 to 15 stacks, and stay in melee", ability = "Fatal Strike" },
 			} },
 		{ name = "Spoils of Pandaria",
@@ -892,7 +892,7 @@ KN.RegisterRaid({
 			notes = {
 				{ tag = "MAGIC", need = "magic", text = "Injection", ability = "Injection" },
 				{ tag = "TANK", role = "tank", text = "Intercept the Bloodletting creatures; handle Rik'kal's parasites and the Mutation form", ability = "Bloodletting" },
-				{ tag = "CD", role = "healer", text = "Ingenious spreads your healing: take it if offered", ability = "Ingenious" },
+				{ tag = "CD", role = "healer", text = "Ingenious, which spreads your healing: take it if offered", ability = "Ingenious" },
 				{ text = "Break Korven's amber shells, and watch Kaz'tik's Mesmerize", ability = "Mesmerize" },
 			} },
 		{ name = "Garrosh Hellscream",
@@ -902,7 +902,7 @@ KN.RegisterRaid({
 				"Intermission: cut through the sha adds and stop his power drain",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "phase 3", ability = "Hellscream's Warsong" },
+				{ tag = "LUST", need = "lust", text = "in phase 3", ability = "Hellscream's Warsong" },
 				{ tag = "KICK", need = "kick", text = "Touch of Y'Shaarj, without exception", ability = "Touch of Y'Shaarj" },
 				{ tag = "TANK", role = "tank", text = "Gripping Despair stacks: swap", ability = "Gripping Despair" },
 				{ tag = "CD", role = "healer", text = "the minion phases, and every empowerment step", ability = "Desecrate" },

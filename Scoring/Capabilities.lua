@@ -13,10 +13,13 @@ TP.Scoring.Capabilities = Capabilities
 local NO_KICK = {
 	PRIEST = true, -- no interrupt on any spec
 }
+-- Rebuke and Spear Hand Strike are baseline for every Paladin and Monk on
+-- current retail, so Holy and Mistweaver are scored on kicks like the
+-- rest of their class (Josh 2026-09-11; the old exemptions dated from
+-- when both were spec-locked). Skull Bash still needs Bear or Cat form,
+-- so a Resto druid cannot kick without leaving the role.
 local NO_KICK_AS_HEALER = {
-	PALADIN = true, -- Holy lacks Rebuke
-	DRUID = true,   -- Resto lacks Skull Bash
-	MONK = true,    -- Mistweaver lacks Spear Hand Strike
+	DRUID = true, -- Resto: Skull Bash is a form ability
 }
 
 -- MoP Classic: Rebuke/Spear Hand Strike/Skull Bash are trained class-wide,

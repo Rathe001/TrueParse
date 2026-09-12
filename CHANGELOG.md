@@ -41,6 +41,14 @@ raw enemy count with a percent sign, and the tracker took it at its
 word. It reads the count over the requirement whenever the string is
 not a sane percentage, and /tp notes debug prints the raw fields.
 
+Notes copy: every Cooldown and Lust line is a noun phrase again, so
+"Cooldown for each Umbral Rupture: top everyone before it" reads as a
+sentence where "Cooldown for Top everyone" did not. A death is called
+avoidable at the same bar the coach uses, fewer than half of players
+taking the hit. Holy Paladins and Mistweavers are scored on kicks:
+Rebuke and Spear Hand Strike are baseline now, and only the form-locked
+Resto druid stays exempt.
+
 A completed key read "wipe" as its last attempt: on retail a fight is
 captured when its meter session unlocks, and the wipe before the kill
 unlocked after it, so it landed on top of the history. Captures now
