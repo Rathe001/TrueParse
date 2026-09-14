@@ -242,7 +242,11 @@ function Bullets.ForGroup(results, fight)
 			local role = TP.Scoring.Capabilities.EffectiveRole(p.role, p.specIconID, p.specID)
 			-- dead before the window opened = excused, same as the engine
 			if role == "DAMAGER" and m.lustCasts ~= nil
-				and not (fight.lustAt and p.deathTime and p.deathTime <= fight.lustAt) then
+				and not (fight.lustAt and p.deathTime and p.deathTime <= fight.lustAt)
+				-- no button to press, same as the engine: counted only when
+				-- they cast something in the window anyway
+				and not (m.lustCasts == 0 and TP.LUST_OPTIONAL_SPECS
+					and TP.LUST_OPTIONAL_SPECS[p.specID]) then
 				dps = dps + 1
 				if m.lustCasts > 0 then
 					aligned = aligned + 1

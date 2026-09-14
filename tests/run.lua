@@ -2650,6 +2650,21 @@ end
 	check((lb.lust or 0) == -1.5, ("early CDs halve the lust miss (%s)"):format(tostring(lb.lust)))
 	check((lc.lust or 0) == -3, ("no buttons at all keeps the full miss (%s)"):format(tostring(lc.lust)))
 
+	-- 25d'. a spec whose lust buttons are all optional (Windwalker: Tigereye
+	-- Brew waits on trinket procs, Xuen is a talent) is excused a miss but
+	-- still earns the bonus for a cast in the window
+	local savedOpt = TP.LUST_OPTIONAL_SPECS
+	TP.LUST_OPTIONAL_SPECS = { [269] = true }
+	local f3b = ctxFight({ lustAt = 20 })
+	f3b.players.a = dps("NoXuen", { class = "MONK", specID = 269, metrics = { lustCasts = 0 } })
+	f3b.players.b = dps("Xuen", { class = "MONK", specID = 269, metrics = { lustCasts = 1, offensiveCDs = 1 } })
+	f3b.players.c = dps("Mage", { metrics = { lustCasts = 0 } })
+	local lw, lx, lm = adFor(f3b, "NoXuen"), adFor(f3b, "Xuen"), adFor(f3b, "Mage")
+	check((lw.lust or 0) == 0, ("optional-cooldown spec: a lust miss is excused (%s)"):format(tostring(lw.lust)))
+	check((lx.lust or 0) == 1.5, ("optional-cooldown spec: a cast in lust still earns the bonus (%s)"):format(tostring(lx.lust)))
+	check((lm.lust or 0) == -3, ("everyone else keeps the miss (%s)"):format(tostring(lm.lust)))
+	TP.LUST_OPTIONAL_SPECS = savedOpt
+
 	-- 25e. manaDry judged against the trying phase, not the doomed tail
 	local f4 = ctxFight({ wipe = true, calledWipeAt = 150 })
 	f4.players.a = dps("DryLate", { role = "HEALER",
@@ -4605,6 +4620,19 @@ end)()
 	check(sustained and math.abs(sustained.normalized - 50) < 0.5,
 		("a self-healing group scores its healer the same (%.1f)")
 			:format(sustained and sustained.normalized or -1))
+
+	-- JOSH 2026-09-14: a group healed past its recorded intake (Raigonn: 2.07M
+	-- healed against 990K taken) left the solo healer 15% of intake to cover
+	-- and read 6.4x coverage, pinned at 100. Measured against the healing
+	-- that happened, a solo healer covered all of it: coverage 1.0.
+	local over = healScore(fight(5, 1, 1300, 105, 800 / 4), "Heal1")
+	check(over and math.abs(over.coverage - 1) < 0.01,
+		("healing past the recorded intake reads as full coverage, not 6x (%.2f)")
+			:format(over and over.coverage or -1))
+	local under = healScore(fight(5, 1, 510, 105, 250 / 4), "Heal1")
+	check(under and math.abs(under.coverage - 0.68) < 0.01,
+		("healing under the intake keeps the intake denominator (%.2f)")
+			:format(under and under.coverage or -1))
 
 	-- an uncrawled spec falls back to the median of the crawled ones
 	-- A Disc Priest does the same work as a shield. Reading raw metrics.healing

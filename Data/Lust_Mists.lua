@@ -65,6 +65,14 @@ TP.OFFENSIVE_CDS = {
 	[124974] = true, -- Nature's Vigil
 }
 
+-- Specs whose ONLY entries above are optional (Josh 2026-09-14): Windwalker
+-- spends Tigereye Brew on Rune of Re-Origination procs, lust or not, and
+-- Xuen is a talent. A cast inside the window still earns the bonus; a miss
+-- is excused, because the addon cannot read another player's talents.
+TP.LUST_OPTIONAL_SPECS = {
+	[269] = true, -- Windwalker Monk
+}
+
 -- DPS potion buffs (SPELL_AURA_APPLIED IDs)
 TP.DPS_POTIONS = {
 	[105706] = true, -- Potion of Mogu Power (strength)

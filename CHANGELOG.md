@@ -1,5 +1,17 @@
 # TrueParse Changelog
 
+## 2.16.7
+
+A Windwalker Monk is no longer charged for missing Bloodlust. Tigereye
+Brew waits on Rune of Re-Origination procs and Xuen is a talent, so the
+spec has no cooldown it must press in the window. A cast inside it still
+earns the bonus, and the group's lust line leaves them out otherwise.
+
+Five-man healers are no longer pinned at the top of the meter when the
+group was healed past the damage it was recorded taking. That left the
+healer a sliver of intake to cover and read as several times a full
+share; coverage is now measured against the healing that happened.
+
 ## 2.16.6
 
 Nymrissa Wavecaller has written notes. She is alone in The Tidebound

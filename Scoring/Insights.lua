@@ -126,7 +126,8 @@ function Insights.RunAdvice(fights)
 			end
 			-- dead before the window opened = excused, same as the engine
 			if role == "DAMAGER" and m.lustCasts ~= nil and m.lustCasts == 0
-				and not (f.lustAt and p.deathTime and p.deathTime <= f.lustAt) then
+				and not (f.lustAt and p.deathTime and p.deathTime <= f.lustAt)
+				and not (TP.LUST_OPTIONAL_SPECS and TP.LUST_OPTIONAL_SPECS[p.specID]) then
 				lustWasted = lustWasted + 1
 			end
 			if p.aggroPulled then

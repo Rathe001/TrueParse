@@ -1562,11 +1562,12 @@ local function normalizeMetric(p, role, key, ctx)
 	-- points. Data/HealerCoverage.lua has the full reasoning.
 	if role == "HEALER" and key == "healing" and not ctx.parseMode
 		and TP.HEALER_COVERAGE_UNIT == "healable-share-x-healers" then
-		local scored, healerN, selfHeal, absorbed = 0, 0, 0, 0
+		local scored, healerN, selfHeal, absorbed, groupHeal = 0, 0, 0, 0, 0
 		for r, list in pairs(ctx.cohorts or {}) do
 			scored = scored + #list
 			for _, any in ipairs(list) do
 				absorbed = absorbed + ((any.metrics and any.metrics.absorbs) or 0)
+				groupHeal = groupHeal + effHealing(any.metrics or {})
 			end
 			if r == "HEALER" then
 				healerN = healerN + #list
@@ -1594,7 +1595,14 @@ local function normalizeMetric(p, role, key, ctx)
 		-- absorbed damage to the intake restores it to 3% (+0.18), which is
 		-- where healing-only also lands (+0.13) - and unlike healing-only it
 		-- does not quietly undercount a Discipline Priest to nothing.
-		local handled = (intake or 0) + absorbed
+		-- A group can't receive more healing than it had damage to heal, so
+		-- healing past the recorded intake means the intake undercounts
+		-- (damage from before the pull healed during it, top-offs after the
+		-- kill). Josh's Raigonn, 2026-09-14: 2.07M healed against 990K
+		-- handled left 203K "healable" and read a solo Mistweaver at 6.4x
+		-- coverage, pinned at 100; 20 of his 116 celestial pulls healed past
+		-- intake. Measure against the healing that happened instead.
+		local handled = math.max((intake or 0) + absorbed, groupHeal)
 		if a and scored > 0 and scored <= 5 and healerN > 0 and handled > 0 then
 			-- only what nobody else picked up is the healer's to cover; the
 			-- floor stops a group that out-heals its own intake (overheal
@@ -3210,7 +3218,13 @@ function Engine.ScoreFight(fight, opts)
 					put("lust", (A.lustMax or 3) * 0.5)
 				-- a corpse can't press cooldowns: dead before the window
 				-- opened is not "wasted" (the twin of the pre-grace fix)
-				elseif not (fight.lustAt and p.deathTime and p.deathTime <= fight.lustAt) then
+				elseif not (fight.lustAt and p.deathTime and p.deathTime <= fight.lustAt)
+					-- no button to press (Josh 2026-09-14): a Windwalker's
+					-- Tigereye Brew waits on trinket procs and Xuen is a
+					-- talent, so a miss is excused; a cast still earns the
+					-- bonus above
+					and not (TP.LUST_OPTIONAL_SPECS and p.specID
+						and TP.LUST_OPTIONAL_SPECS[p.specID]) then
 					-- availability (Josh 2026-07-23): a CD spent in the
 					-- ~90s before the window was still on cooldown DURING
 					-- it — no penalty for a button that wasn't there
