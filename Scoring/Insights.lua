@@ -311,15 +311,39 @@ end
 --
 -- Gross inactivity is still caught: the activity metric owns that, and it
 -- measures time rather than spell choice.
+-- Channel TICKS a crawl can take for casts (Josh 2026-09-15): WCL's Casts
+-- table lists Fists of Fury's per-tick spell as a cast, so a profile built
+-- from it carries four to five times a real channel rate, and CLEU fires
+-- SPELL_CAST_SUCCESS per tick on our side too - "you 6, top 4" a minute on a
+-- 25-second cooldown. The Mists profile now counts presses by the ids in
+-- scripts/press-ids-mists.json (fetch-report-tables -PressIds), which leaves
+-- ticks out; a spell carrying one of these ids still stays out of the
+-- comparison, so a profile built some other way cannot bring the inflated
+-- rate back.
+local TICK_IDS = {
+	[117418] = true, -- Fists of Fury (tick); 113656 is the channel
+}
+local function tickInflated(sp)
+	for _, id in ipairs(sp.ids or {}) do
+		if TICK_IDS[id] then
+			return true
+		end
+	end
+	return false
+end
+Insights.TickInflated = tickInflated
+
 local function profileFits(prof, m, duration)
 	if not (duration and duration > 0) then
 		return false
 	end
 	local expect, mine = 0, 0
 	for _, sp in ipairs(prof.spells or {}) do
-		expect = expect + (sp.cpm or 0)
-		for _, id in ipairs(sp.ids or {}) do
-			mine = mine + ((m.profCasts and m.profCasts[id]) or 0)
+		if not tickInflated(sp) then
+			expect = expect + (sp.cpm or 0)
+			for _, id in ipairs(sp.ids or {}) do
+				mine = mine + ((m.profCasts and m.profCasts[id]) or 0)
+			end
 		end
 	end
 	if expect <= 0 then
@@ -357,19 +381,43 @@ function Insights.ParseGap(specID, m, duration)
 		local myCpm = mine / durMin
 		-- a gap worth coaching: under 70% of the top rate AND at least
 		-- one whole missing cast per minute (rounding noise isn't advice)
-		if sp.cpm and sp.cpm > 0 and myCpm < sp.cpm * 0.7 and (sp.cpm - myCpm) >= 1 then
+		if sp.cpm and sp.cpm > 0 and not tickInflated(sp) and myCpm < sp.cpm * 0.7 and (sp.cpm - myCpm) >= 1 then
 			local shortfall = sp.cpm - myCpm
 			if not best or shortfall > best.shortfall then
 				best = { spell = sp.name, topCpm = sp.cpm, myCpm = myCpm, shortfall = shortfall }
 			end
 		end
 	end
+	if best then
+		-- human first (Josh 2026-07-24): lead with the action, then the
+		-- numbers that justify it
+		best.text = ("Cast %s more often - you average %.0f/min, top parses %.0f."):format(
+			best.spell, best.myCpm, best.topCpm)
+		return best
+	end
+	-- OVER-casting (Josh 2026-09-15). Top Siege Windwalkers cast Tiger Palm
+	-- four times a minute - Tiger Power refreshes and Combo Breaker procs -
+	-- and put the rest of the Chi into Blackout Kick; Josh's own cards read
+	-- ten to eleven against a profile of 3.7, and the coach said nothing
+	-- because it only ever coached shortfalls. Twice the top rate AND three
+	-- whole casts a minute over is a habit, not haste or a fight's shape.
+	for _, sp in ipairs(prof.spells) do
+		local mine = 0
+		for _, id in ipairs(sp.ids or {}) do
+			mine = mine + ((m.profCasts and m.profCasts[id]) or 0)
+		end
+		local myCpm = mine / durMin
+		if sp.cpm and sp.cpm > 0 and not tickInflated(sp) and myCpm >= sp.cpm * 2 and (myCpm - sp.cpm) >= 3 then
+			local excess = myCpm - sp.cpm
+			if not best or excess > best.excess then
+				best = { spell = sp.name, topCpm = sp.cpm, myCpm = myCpm, excess = excess, over = true }
+			end
+		end
+	end
 	if not best then
 		return nil
 	end
-	-- human first (Josh 2026-07-24): lead with the action, then the
-	-- numbers that justify it
-	best.text = ("Cast %s more often - you average %.0f/min, top parses %.0f."):format(
+	best.text = ("Cast %s less often - you average %.0f/min, top parses %.0f."):format(
 		best.spell, best.myCpm, best.topCpm)
 	return best
 end
@@ -391,7 +439,7 @@ function Insights.RotationGaps(specID, m, duration)
 	local durMin = duration / 60
 	local rows = {}
 	for _, sp in ipairs(prof.spells) do
-		if sp.cpm and sp.cpm > 0 then
+		if sp.cpm and sp.cpm > 0 and not tickInflated(sp) then
 			local mine = 0
 			for _, id in ipairs(sp.ids or {}) do
 				mine = mine + ((m.profCasts[id]) or 0)

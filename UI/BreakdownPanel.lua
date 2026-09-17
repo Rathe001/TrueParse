@@ -1426,9 +1426,10 @@ function Panel:ShowFor(fight, result)
 				tipLines[#tipLines + 1] = { " ", 1, 1, 1 }
 				tipLines[#tipLines + 1] = { "Rotation vs top parses (casts/min):", 1, 1, 1 }
 				for _, r in ipairs(rot) do
-					-- green when you keep pace, red when well behind
+					-- green when you keep pace, red when well behind - or
+					-- well over (twice the top rate is the coach's over-cast bar)
 					local cr, cg, cb = 0.65, 0.65, 0.65
-					if r.delta <= -1 then
+					if r.delta <= -1 or (r.delta >= 3 and r.myCpm >= r.topCpm * 2) then
 						cr, cg, cb = 0.90, 0.45, 0.45
 					elseif r.delta >= -0.25 then
 						cr, cg, cb = 0.45, 0.85, 0.45

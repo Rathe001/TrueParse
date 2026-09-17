@@ -203,8 +203,11 @@ jobs:
           # walks every boss and pulls Casts + Healing + DamageTaken per
           # report in ONE query, emitting SpellProfiles + Overheal +
           # DamageProfiles together (replaces the separate spellprofiles/
-          # overheal crawls). ~350 requests.
-          ./scripts/fetch-report-tables.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Suffix _Mists -OutSpell "$PWD/Data/SpellProfiles_Mists.lua" -OutOverheal "$PWD/Data/Overheal_Mists.lua" -OutDamage "$PWD/Data/DamageProfiles_Mists.lua"
+          # overheal crawls). ~350 requests. -PressIds builds SpellProfiles
+          # from each spec's own two top parses per boss, counted by press id
+          # (~2,400 more requests, about 3,000 points; tests/run.lua 34b
+          # refuses a profile built without it).
+          ./scripts/fetch-report-tables.ps1 -GameBase "https://classic.warcraftlogs.com" -ZoneId 1054 -Suffix _Mists -PressIds "$PWD/scripts/press-ids-mists.json" -OutSpell "$PWD/Data/SpellProfiles_Mists.lua" -OutOverheal "$PWD/Data/Overheal_Mists.lua" -OutDamage "$PWD/Data/DamageProfiles_Mists.lua"
 
       # Per-spec tank active-mitigation UPTIME baselines from the Buffs
       # table (retail zone 53 + MoP zone 1054), run SEQUENTIALLY in one

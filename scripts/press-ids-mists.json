@@ -1,0 +1,2394 @@
+{
+ "_comment": "Press ids per Mists spec for fetch-report-tables -PressIds (Josh 2026-09-16). Each entry is one button: the SPELL_CAST_SUCCESS ids a press logs, weapon and glyph variants together. Channel ticks, weapon-hit components, procs and auto attacks are left out, so a profile rate is what Metrics/SpellProfile counts in game. Built from the spec research sheets and checked against 98 top Siege kills per spec: every id here was cast at least once. A spec whose press is not logged (Arcane Missiles, Penance) has no entry for it.",
+ "62": [
+  {
+   "name": "Arcane Blast",
+   "ids": [
+    30451
+   ]
+  },
+  {
+   "name": "Arcane Barrage",
+   "ids": [
+    44425
+   ]
+  },
+  {
+   "name": "Arcane Explosion",
+   "ids": [
+    1449
+   ]
+  },
+  {
+   "name": "Living Bomb",
+   "ids": [
+    44457
+   ]
+  },
+  {
+   "name": "Nether Tempest",
+   "ids": [
+    114923
+   ]
+  },
+  {
+   "name": "Rune of Power",
+   "ids": [
+    116011
+   ]
+  }
+ ],
+ "63": [
+  {
+   "name": "Fireball",
+   "ids": [
+    133
+   ]
+  },
+  {
+   "name": "Inferno Blast",
+   "ids": [
+    108853
+   ]
+  },
+  {
+   "name": "Pyroblast",
+   "ids": [
+    11366
+   ]
+  },
+  {
+   "name": "Living Bomb",
+   "ids": [
+    44457
+   ]
+  },
+  {
+   "name": "Scorch",
+   "ids": [
+    2948
+   ]
+  },
+  {
+   "name": "Evocation",
+   "ids": [
+    12051
+   ]
+  },
+  {
+   "name": "Flamestrike",
+   "ids": [
+    2120
+   ]
+  },
+  {
+   "name": "Arcane Explosion",
+   "ids": [
+    1449
+   ]
+  }
+ ],
+ "64": [
+  {
+   "name": "Frostbolt",
+   "ids": [
+    116
+   ]
+  },
+  {
+   "name": "Ice Lance",
+   "ids": [
+    30455
+   ]
+  },
+  {
+   "name": "Flurry",
+   "ids": [
+    44614
+   ]
+  },
+  {
+   "name": "Frozen Orb",
+   "ids": [
+    84714
+   ]
+  },
+  {
+   "name": "Living Bomb",
+   "ids": [
+    44457
+   ]
+  },
+  {
+   "name": "Nether Tempest",
+   "ids": [
+    114923
+   ]
+  },
+  {
+   "name": "Frost Bomb",
+   "ids": [
+    112948
+   ]
+  },
+  {
+   "name": "Evocation",
+   "ids": [
+    12051
+   ]
+  },
+  {
+   "name": "Blizzard",
+   "ids": [
+    10
+   ]
+  },
+  {
+   "name": "Arcane Explosion",
+   "ids": [
+    1449
+   ]
+  }
+ ],
+ "65": [
+  {
+   "name": "Holy Shock",
+   "ids": [
+    20473
+   ]
+  },
+  {
+   "name": "Eternal Flame",
+   "ids": [
+    114163
+   ]
+  },
+  {
+   "name": "Crusader Strike",
+   "ids": [
+    35395
+   ]
+  },
+  {
+   "name": "Holy Radiance",
+   "ids": [
+    82327
+   ]
+  },
+  {
+   "name": "Holy Prism",
+   "ids": [
+    114165
+   ]
+  },
+  {
+   "name": "Light's Hammer",
+   "ids": [
+    114158
+   ]
+  },
+  {
+   "name": "Light of Dawn",
+   "ids": [
+    85222
+   ]
+  },
+  {
+   "name": "Flash of Light",
+   "ids": [
+    19750
+   ]
+  },
+  {
+   "name": "Divine Light",
+   "ids": [
+    82326
+   ]
+  },
+  {
+   "name": "Holy Light",
+   "ids": [
+    635
+   ]
+  },
+  {
+   "name": "Judgment",
+   "ids": [
+    20271
+   ]
+  },
+  {
+   "name": "Denounce",
+   "ids": [
+    2812
+   ]
+  }
+ ],
+ "66": [
+  {
+   "name": "Shield of the Righteous",
+   "ids": [
+    53600
+   ]
+  },
+  {
+   "name": "Judgment",
+   "ids": [
+    20271
+   ]
+  },
+  {
+   "name": "Crusader Strike",
+   "ids": [
+    35395
+   ]
+  },
+  {
+   "name": "Hammer of the Righteous",
+   "ids": [
+    53595
+   ]
+  },
+  {
+   "name": "Avenger's Shield",
+   "ids": [
+    31935
+   ]
+  },
+  {
+   "name": "Holy Wrath",
+   "ids": [
+    119072
+   ]
+  },
+  {
+   "name": "Consecration",
+   "ids": [
+    26573
+   ]
+  },
+  {
+   "name": "Hammer of Wrath",
+   "ids": [
+    24275
+   ]
+  },
+  {
+   "name": "Word of Glory",
+   "ids": [
+    85673
+   ]
+  },
+  {
+   "name": "Eternal Flame",
+   "ids": [
+    114163
+   ]
+  },
+  {
+   "name": "Sacred Shield",
+   "ids": [
+    20925
+   ]
+  },
+  {
+   "name": "Seal of Insight",
+   "ids": [
+    20165
+   ]
+  },
+  {
+   "name": "Seal of Truth",
+   "ids": [
+    31801
+   ]
+  }
+ ],
+ "70": [
+  {
+   "name": "Inquisition",
+   "ids": [
+    84963
+   ]
+  },
+  {
+   "name": "Hammer of Wrath",
+   "ids": [
+    24275
+   ]
+  },
+  {
+   "name": "Crusader Strike",
+   "ids": [
+    35395
+   ]
+  },
+  {
+   "name": "Hammer of the Righteous",
+   "ids": [
+    53595
+   ]
+  },
+  {
+   "name": "Judgment",
+   "ids": [
+    20271
+   ]
+  },
+  {
+   "name": "Exorcism",
+   "ids": [
+    879,
+    122032
+   ]
+  },
+  {
+   "name": "Templar's Verdict",
+   "ids": [
+    85256
+   ]
+  },
+  {
+   "name": "Divine Storm",
+   "ids": [
+    53385
+   ]
+  },
+  {
+   "name": "Light's Hammer",
+   "ids": [
+    114158
+   ]
+  },
+  {
+   "name": "Holy Prism",
+   "ids": [
+    114165
+   ]
+  }
+ ],
+ "71": [
+  {
+   "name": "Mortal Strike",
+   "ids": [
+    12294
+   ]
+  },
+  {
+   "name": "Colossus Smash",
+   "ids": [
+    86346
+   ]
+  },
+  {
+   "name": "Execute",
+   "ids": [
+    5308
+   ]
+  },
+  {
+   "name": "Overpower",
+   "ids": [
+    7384
+   ]
+  },
+  {
+   "name": "Slam",
+   "ids": [
+    1464
+   ]
+  },
+  {
+   "name": "Heroic Strike",
+   "ids": [
+    78
+   ]
+  },
+  {
+   "name": "Cleave",
+   "ids": [
+    845
+   ]
+  },
+  {
+   "name": "Thunder Clap",
+   "ids": [
+    6343
+   ]
+  },
+  {
+   "name": "Sweeping Strikes",
+   "ids": [
+    12328
+   ]
+  },
+  {
+   "name": "Whirlwind",
+   "ids": [
+    1680
+   ]
+  },
+  {
+   "name": "Heroic Throw",
+   "ids": [
+    57755
+   ]
+  },
+  {
+   "name": "Battle Shout",
+   "ids": [
+    6673
+   ]
+  }
+ ],
+ "72": [
+  {
+   "name": "Colossus Smash",
+   "ids": [
+    86346
+   ]
+  },
+  {
+   "name": "Bloodthirst",
+   "ids": [
+    23881
+   ]
+  },
+  {
+   "name": "Raging Blow",
+   "ids": [
+    85288
+   ]
+  },
+  {
+   "name": "Heroic Strike",
+   "ids": [
+    78
+   ]
+  },
+  {
+   "name": "Wild Strike",
+   "ids": [
+    100130
+   ]
+  },
+  {
+   "name": "Execute",
+   "ids": [
+    5308
+   ]
+  },
+  {
+   "name": "Storm Bolt",
+   "ids": [
+    107570
+   ]
+  },
+  {
+   "name": "Berserker Rage",
+   "ids": [
+    18499
+   ]
+  },
+  {
+   "name": "Whirlwind",
+   "ids": [
+    1680
+   ]
+  },
+  {
+   "name": "Cleave",
+   "ids": [
+    845
+   ]
+  },
+  {
+   "name": "Dragon Roar",
+   "ids": [
+    118000
+   ]
+  }
+ ],
+ "73": [
+  {
+   "name": "Shield Slam",
+   "ids": [
+    23922
+   ]
+  },
+  {
+   "name": "Revenge",
+   "ids": [
+    6572
+   ]
+  },
+  {
+   "name": "Devastate",
+   "ids": [
+    20243
+   ]
+  },
+  {
+   "name": "Thunder Clap",
+   "ids": [
+    6343
+   ]
+  },
+  {
+   "name": "Heroic Strike",
+   "ids": [
+    78
+   ]
+  },
+  {
+   "name": "Cleave",
+   "ids": [
+    845
+   ]
+  },
+  {
+   "name": "Execute",
+   "ids": [
+    5308
+   ]
+  },
+  {
+   "name": "Shield Block",
+   "ids": [
+    2565
+   ]
+  },
+  {
+   "name": "Shield Barrier",
+   "ids": [
+    112048
+   ]
+  },
+  {
+   "name": "Berserker Rage",
+   "ids": [
+    18499
+   ]
+  },
+  {
+   "name": "Heroic Throw",
+   "ids": [
+    57755
+   ]
+  }
+ ],
+ "102": [
+  {
+   "name": "Starsurge",
+   "ids": [
+    78674
+   ]
+  },
+  {
+   "name": "Wrath",
+   "ids": [
+    5176
+   ]
+  },
+  {
+   "name": "Starfire",
+   "ids": [
+    2912
+   ]
+  },
+  {
+   "name": "Moonfire",
+   "ids": [
+    8921
+   ]
+  },
+  {
+   "name": "Sunfire",
+   "ids": [
+    93402
+   ]
+  },
+  {
+   "name": "Starfall",
+   "ids": [
+    48505
+   ]
+  },
+  {
+   "name": "Astral Communion",
+   "ids": [
+    127663
+   ]
+  },
+  {
+   "name": "Wild Mushroom",
+   "ids": [
+    88747
+   ]
+  },
+  {
+   "name": "Wild Mushroom: Detonate",
+   "ids": [
+    88751
+   ]
+  },
+  {
+   "name": "Hurricane",
+   "ids": [
+    16914
+   ]
+  },
+  {
+   "name": "Astral Storm",
+   "ids": [
+    106996
+   ]
+  }
+ ],
+ "103": [
+  {
+   "name": "Mangle",
+   "ids": [
+    33876
+   ]
+  },
+  {
+   "name": "Shred",
+   "ids": [
+    5221,
+    114236
+   ]
+  },
+  {
+   "name": "Rake",
+   "ids": [
+    1822
+   ]
+  },
+  {
+   "name": "Rip",
+   "ids": [
+    1079
+   ]
+  },
+  {
+   "name": "Savage Roar",
+   "ids": [
+    127538
+   ]
+  },
+  {
+   "name": "Ferocious Bite",
+   "ids": [
+    22568
+   ]
+  },
+  {
+   "name": "Thrash",
+   "ids": [
+    106830
+   ]
+  },
+  {
+   "name": "Swipe",
+   "ids": [
+    62078
+   ]
+  },
+  {
+   "name": "Healing Touch",
+   "ids": [
+    5185
+   ]
+  },
+  {
+   "name": "Faerie Fire",
+   "ids": [
+    770
+   ]
+  },
+  {
+   "name": "Ravage",
+   "ids": [
+    6785
+   ]
+  },
+  {
+   "name": "Tiger's Fury",
+   "ids": [
+    5217
+   ]
+  }
+ ],
+ "104": [
+  {
+   "name": "Mangle",
+   "ids": [
+    33878
+   ]
+  },
+  {
+   "name": "Lacerate",
+   "ids": [
+    33745
+   ]
+  },
+  {
+   "name": "Thrash",
+   "ids": [
+    77758
+   ]
+  },
+  {
+   "name": "Faerie Fire",
+   "ids": [
+    770
+   ]
+  },
+  {
+   "name": "Swipe",
+   "ids": [
+    779
+   ]
+  },
+  {
+   "name": "Maul",
+   "ids": [
+    6807
+   ]
+  },
+  {
+   "name": "Savage Defense",
+   "ids": [
+    62606
+   ]
+  },
+  {
+   "name": "Frenzied Regeneration",
+   "ids": [
+    22842
+   ]
+  }
+ ],
+ "105": [
+  {
+   "name": "Rejuvenation",
+   "ids": [
+    774
+   ]
+  },
+  {
+   "name": "Lifebloom",
+   "ids": [
+    33763
+   ]
+  },
+  {
+   "name": "Wild Growth",
+   "ids": [
+    48438
+   ]
+  },
+  {
+   "name": "Swiftmend",
+   "ids": [
+    18562
+   ]
+  },
+  {
+   "name": "Regrowth",
+   "ids": [
+    8936
+   ]
+  },
+  {
+   "name": "Healing Touch",
+   "ids": [
+    5185
+   ]
+  },
+  {
+   "name": "Nourish",
+   "ids": [
+    50464
+   ]
+  },
+  {
+   "name": "Wild Mushroom",
+   "ids": [
+    145205,
+    147349
+   ]
+  },
+  {
+   "name": "Wild Mushroom: Bloom",
+   "ids": [
+    102791
+   ]
+  },
+  {
+   "name": "Genesis",
+   "ids": [
+    145518
+   ]
+  },
+  {
+   "name": "Moonfire",
+   "ids": [
+    8921
+   ]
+  }
+ ],
+ "250": [
+  {
+   "name": "Rune Strike",
+   "ids": [
+    56815
+   ]
+  },
+  {
+   "name": "Death Strike",
+   "ids": [
+    49998
+   ]
+  },
+  {
+   "name": "Heart Strike",
+   "ids": [
+    55050
+   ]
+  },
+  {
+   "name": "Blood Boil",
+   "ids": [
+    48721
+   ]
+  },
+  {
+   "name": "Soul Reaper",
+   "ids": [
+    114866
+   ]
+  },
+  {
+   "name": "Outbreak",
+   "ids": [
+    77575
+   ]
+  },
+  {
+   "name": "Death and Decay",
+   "ids": [
+    43265
+   ]
+  },
+  {
+   "name": "Bone Shield",
+   "ids": [
+    49222
+   ]
+  },
+  {
+   "name": "Horn of Winter",
+   "ids": [
+    57330
+   ]
+  },
+  {
+   "name": "Icy Touch",
+   "ids": [
+    45477
+   ]
+  },
+  {
+   "name": "Plague Strike",
+   "ids": [
+    45462
+   ]
+  },
+  {
+   "name": "Death Siphon",
+   "ids": [
+    108196
+   ]
+  },
+  {
+   "name": "Blood Tap",
+   "ids": [
+    45529
+   ]
+  }
+ ],
+ "251": [
+  {
+   "name": "Howling Blast",
+   "ids": [
+    49184
+   ]
+  },
+  {
+   "name": "Frost Strike",
+   "ids": [
+    49143
+   ]
+  },
+  {
+   "name": "Obliterate",
+   "ids": [
+    49020
+   ]
+  },
+  {
+   "name": "Soul Reaper",
+   "ids": [
+    130735
+   ]
+  },
+  {
+   "name": "Outbreak",
+   "ids": [
+    77575
+   ]
+  },
+  {
+   "name": "Plague Strike",
+   "ids": [
+    45462
+   ]
+  },
+  {
+   "name": "Blood Tap",
+   "ids": [
+    45529
+   ]
+  },
+  {
+   "name": "Plague Leech",
+   "ids": [
+    123693
+   ]
+  },
+  {
+   "name": "Death and Decay",
+   "ids": [
+    43265
+   ]
+  },
+  {
+   "name": "Pestilence",
+   "ids": [
+    50842
+   ]
+  },
+  {
+   "name": "Horn of Winter",
+   "ids": [
+    57330
+   ]
+  }
+ ],
+ "252": [
+  {
+   "name": "Death Coil",
+   "ids": [
+    47541
+   ]
+  },
+  {
+   "name": "Scourge Strike",
+   "ids": [
+    55090
+   ]
+  },
+  {
+   "name": "Festering Strike",
+   "ids": [
+    85948
+   ]
+  },
+  {
+   "name": "Soul Reaper",
+   "ids": [
+    130736
+   ]
+  },
+  {
+   "name": "Blood Tap",
+   "ids": [
+    45529
+   ]
+  },
+  {
+   "name": "Outbreak",
+   "ids": [
+    77575
+   ]
+  },
+  {
+   "name": "Plague Strike",
+   "ids": [
+    45462
+   ]
+  },
+  {
+   "name": "Blood Boil",
+   "ids": [
+    48721
+   ]
+  },
+  {
+   "name": "Pestilence",
+   "ids": [
+    50842
+   ]
+  },
+  {
+   "name": "Death and Decay",
+   "ids": [
+    43265
+   ]
+  },
+  {
+   "name": "Dark Transformation",
+   "ids": [
+    63560
+   ]
+  },
+  {
+   "name": "Horn of Winter",
+   "ids": [
+    57330
+   ]
+  },
+  {
+   "name": "Icy Touch",
+   "ids": [
+    45477
+   ]
+  },
+  {
+   "name": "Plague Leech",
+   "ids": [
+    123693
+   ]
+  },
+  {
+   "name": "Unholy Blight",
+   "ids": [
+    115989
+   ]
+  }
+ ],
+ "253": [
+  {
+   "name": "Kill Command",
+   "ids": [
+    34026
+   ]
+  },
+  {
+   "name": "Kill Shot",
+   "ids": [
+    53351
+   ]
+  },
+  {
+   "name": "Arcane Shot",
+   "ids": [
+    3044
+   ]
+  },
+  {
+   "name": "Cobra Shot",
+   "ids": [
+    77767
+   ]
+  },
+  {
+   "name": "Multi-Shot",
+   "ids": [
+    2643
+   ]
+  },
+  {
+   "name": "Serpent Sting",
+   "ids": [
+    1978
+   ]
+  },
+  {
+   "name": "Focus Fire",
+   "ids": [
+    82692
+   ]
+  },
+  {
+   "name": "Dire Beast",
+   "ids": [
+    120679
+   ]
+  },
+  {
+   "name": "Barrage",
+   "ids": [
+    120360
+   ]
+  },
+  {
+   "name": "Glaive Toss",
+   "ids": [
+    117050
+   ]
+  }
+ ],
+ "254": [
+  {
+   "name": "Steady Shot",
+   "ids": [
+    56641
+   ]
+  },
+  {
+   "name": "Chimera Shot",
+   "ids": [
+    53209
+   ]
+  },
+  {
+   "name": "Aimed Shot",
+   "ids": [
+    19434
+   ]
+  },
+  {
+   "name": "Aimed Shot (Master Marksman)",
+   "ids": [
+    82928
+   ]
+  },
+  {
+   "name": "Kill Shot",
+   "ids": [
+    53351
+   ]
+  },
+  {
+   "name": "Serpent Sting",
+   "ids": [
+    1978
+   ]
+  },
+  {
+   "name": "Arcane Shot",
+   "ids": [
+    3044
+   ]
+  },
+  {
+   "name": "Multi-Shot",
+   "ids": [
+    2643
+   ]
+  },
+  {
+   "name": "Glaive Toss",
+   "ids": [
+    117050
+   ]
+  },
+  {
+   "name": "Barrage",
+   "ids": [
+    120360
+   ]
+  }
+ ],
+ "255": [
+  {
+   "name": "Explosive Shot",
+   "ids": [
+    53301
+   ]
+  },
+  {
+   "name": "Black Arrow",
+   "ids": [
+    3674
+   ]
+  },
+  {
+   "name": "Serpent Sting",
+   "ids": [
+    1978
+   ]
+  },
+  {
+   "name": "Cobra Shot",
+   "ids": [
+    77767
+   ]
+  },
+  {
+   "name": "Arcane Shot",
+   "ids": [
+    3044
+   ]
+  },
+  {
+   "name": "Kill Shot",
+   "ids": [
+    53351
+   ]
+  },
+  {
+   "name": "Multi-Shot",
+   "ids": [
+    2643
+   ]
+  },
+  {
+   "name": "Glaive Toss",
+   "ids": [
+    117050
+   ]
+  },
+  {
+   "name": "Barrage",
+   "ids": [
+    120360
+   ]
+  },
+  {
+   "name": "Hunter's Mark",
+   "ids": [
+    1130
+   ]
+  }
+ ],
+ "256": [
+  {
+   "name": "Prayer of Healing",
+   "ids": [
+    596
+   ]
+  },
+  {
+   "name": "Spirit Shell",
+   "ids": [
+    109964
+   ]
+  },
+  {
+   "name": "Power Word: Shield",
+   "ids": [
+    17
+   ]
+  },
+  {
+   "name": "Smite",
+   "ids": [
+    585
+   ]
+  },
+  {
+   "name": "Holy Fire",
+   "ids": [
+    14914
+   ]
+  },
+  {
+   "name": "Power Word: Solace",
+   "ids": [
+    129250
+   ]
+  },
+  {
+   "name": "Archangel",
+   "ids": [
+    81700
+   ]
+  },
+  {
+   "name": "Prayer of Mending",
+   "ids": [
+    33076
+   ]
+  },
+  {
+   "name": "Divine Star",
+   "ids": [
+    110744
+   ]
+  },
+  {
+   "name": "Halo",
+   "ids": [
+    120517
+   ]
+  },
+  {
+   "name": "Cascade",
+   "ids": [
+    121135
+   ]
+  },
+  {
+   "name": "Flash Heal",
+   "ids": [
+    2061
+   ]
+  },
+  {
+   "name": "Binding Heal",
+   "ids": [
+    32546
+   ]
+  },
+  {
+   "name": "Greater Heal",
+   "ids": [
+    2060
+   ]
+  },
+  {
+   "name": "Renew",
+   "ids": [
+    139
+   ]
+  }
+ ],
+ "257": [
+  {
+   "name": "Prayer of Mending",
+   "ids": [
+    33076
+   ]
+  },
+  {
+   "name": "Circle of Healing",
+   "ids": [
+    34861
+   ]
+  },
+  {
+   "name": "Holy Word: Serenity",
+   "ids": [
+    88684
+   ]
+  },
+  {
+   "name": "Holy Word: Sanctuary",
+   "ids": [
+    88685
+   ]
+  },
+  {
+   "name": "Renew",
+   "ids": [
+    139
+   ]
+  },
+  {
+   "name": "Prayer of Healing",
+   "ids": [
+    596
+   ]
+  },
+  {
+   "name": "Flash Heal",
+   "ids": [
+    2061
+   ]
+  },
+  {
+   "name": "Binding Heal",
+   "ids": [
+    32546
+   ]
+  },
+  {
+   "name": "Greater Heal",
+   "ids": [
+    2060
+   ]
+  },
+  {
+   "name": "Heal",
+   "ids": [
+    2050
+   ]
+  },
+  {
+   "name": "Divine Star",
+   "ids": [
+    110744
+   ]
+  },
+  {
+   "name": "Cascade",
+   "ids": [
+    121135
+   ]
+  },
+  {
+   "name": "Halo",
+   "ids": [
+    120517
+   ]
+  },
+  {
+   "name": "Holy Fire",
+   "ids": [
+    14914
+   ]
+  },
+  {
+   "name": "Smite",
+   "ids": [
+    585
+   ]
+  }
+ ],
+ "258": [
+  {
+   "name": "Shadow Word: Pain",
+   "ids": [
+    589
+   ]
+  },
+  {
+   "name": "Vampiric Touch",
+   "ids": [
+    34914
+   ]
+  },
+  {
+   "name": "Mind Blast",
+   "ids": [
+    8092
+   ]
+  },
+  {
+   "name": "Shadow Word: Death",
+   "ids": [
+    32379
+   ]
+  },
+  {
+   "name": "Devouring Plague",
+   "ids": [
+    2944
+   ]
+  },
+  {
+   "name": "Mind Flay (Insanity)",
+   "ids": [
+    129197
+   ]
+  },
+  {
+   "name": "Mind Flay",
+   "ids": [
+    15407
+   ]
+  },
+  {
+   "name": "Mind Sear",
+   "ids": [
+    48045
+   ]
+  },
+  {
+   "name": "Mind Spike",
+   "ids": [
+    73510
+   ]
+  },
+  {
+   "name": "Halo",
+   "ids": [
+    120644
+   ]
+  },
+  {
+   "name": "Cascade",
+   "ids": [
+    127632
+   ]
+  }
+ ],
+ "259": [
+  {
+   "name": "Mutilate",
+   "ids": [
+    1329
+   ]
+  },
+  {
+   "name": "Dispatch",
+   "ids": [
+    111240
+   ]
+  },
+  {
+   "name": "Rupture",
+   "ids": [
+    1943
+   ]
+  },
+  {
+   "name": "Slice and Dice",
+   "ids": [
+    5171
+   ]
+  },
+  {
+   "name": "Garrote",
+   "ids": [
+    703
+   ]
+  },
+  {
+   "name": "Ambush",
+   "ids": [
+    8676
+   ]
+  },
+  {
+   "name": "Fan of Knives",
+   "ids": [
+    51723
+   ]
+  },
+  {
+   "name": "Crimson Tempest",
+   "ids": [
+    121411
+   ]
+  },
+  {
+   "name": "Marked for Death",
+   "ids": [
+    137619
+   ]
+  },
+  {
+   "name": "Redirect",
+   "ids": [
+    73981
+   ]
+  }
+ ],
+ "260": [
+  {
+   "name": "Revealing Strike",
+   "ids": [
+    84617
+   ]
+  },
+  {
+   "name": "Sinister Strike",
+   "ids": [
+    1752
+   ]
+  },
+  {
+   "name": "Ambush",
+   "ids": [
+    8676
+   ]
+  },
+  {
+   "name": "Eviscerate",
+   "ids": [
+    2098
+   ]
+  },
+  {
+   "name": "Slice and Dice",
+   "ids": [
+    5171
+   ]
+  },
+  {
+   "name": "Rupture",
+   "ids": [
+    1943
+   ]
+  },
+  {
+   "name": "Fan of Knives",
+   "ids": [
+    51723
+   ]
+  },
+  {
+   "name": "Crimson Tempest",
+   "ids": [
+    121411
+   ]
+  },
+  {
+   "name": "Blade Flurry",
+   "ids": [
+    13877
+   ]
+  },
+  {
+   "name": "Redirect",
+   "ids": [
+    73981
+   ]
+  }
+ ],
+ "261": [
+  {
+   "name": "Backstab",
+   "ids": [
+    53
+   ]
+  },
+  {
+   "name": "Ambush",
+   "ids": [
+    8676
+   ]
+  },
+  {
+   "name": "Hemorrhage",
+   "ids": [
+    16511
+   ]
+  },
+  {
+   "name": "Premeditation",
+   "ids": [
+    14183
+   ]
+  },
+  {
+   "name": "Slice and Dice",
+   "ids": [
+    5171
+   ]
+  },
+  {
+   "name": "Rupture",
+   "ids": [
+    1943
+   ]
+  },
+  {
+   "name": "Eviscerate",
+   "ids": [
+    2098
+   ]
+  },
+  {
+   "name": "Fan of Knives",
+   "ids": [
+    51723
+   ]
+  },
+  {
+   "name": "Crimson Tempest",
+   "ids": [
+    121411
+   ]
+  },
+  {
+   "name": "Garrote",
+   "ids": [
+    703
+   ]
+  },
+  {
+   "name": "Redirect",
+   "ids": [
+    73981
+   ]
+  }
+ ],
+ "262": [
+  {
+   "name": "Flame Shock",
+   "ids": [
+    8050
+   ]
+  },
+  {
+   "name": "Lava Burst",
+   "ids": [
+    51505
+   ]
+  },
+  {
+   "name": "Earth Shock",
+   "ids": [
+    8042
+   ]
+  },
+  {
+   "name": "Lightning Bolt",
+   "ids": [
+    403
+   ]
+  },
+  {
+   "name": "Chain Lightning",
+   "ids": [
+    421
+   ]
+  },
+  {
+   "name": "Lava Beam",
+   "ids": [
+    114074
+   ]
+  },
+  {
+   "name": "Earthquake",
+   "ids": [
+    61882
+   ]
+  },
+  {
+   "name": "Elemental Blast",
+   "ids": [
+    117014
+   ]
+  },
+  {
+   "name": "Unleash Elements",
+   "ids": [
+    73680
+   ]
+  },
+  {
+   "name": "Searing Totem",
+   "ids": [
+    3599
+   ]
+  },
+  {
+   "name": "Thunderstorm",
+   "ids": [
+    51490
+   ]
+  }
+ ],
+ "263": [
+  {
+   "name": "Stormstrike",
+   "ids": [
+    17364
+   ]
+  },
+  {
+   "name": "Windstrike",
+   "ids": [
+    115356
+   ]
+  },
+  {
+   "name": "Lava Lash",
+   "ids": [
+    60103
+   ]
+  },
+  {
+   "name": "Lightning Bolt",
+   "ids": [
+    403
+   ]
+  },
+  {
+   "name": "Chain Lightning",
+   "ids": [
+    421
+   ]
+  },
+  {
+   "name": "Unleash Elements",
+   "ids": [
+    73680
+   ]
+  },
+  {
+   "name": "Flame Shock",
+   "ids": [
+    8050
+   ]
+  },
+  {
+   "name": "Searing Totem",
+   "ids": [
+    3599
+   ]
+  },
+  {
+   "name": "Earth Shock",
+   "ids": [
+    8042
+   ]
+  },
+  {
+   "name": "Fire Nova",
+   "ids": [
+    1535
+   ]
+  }
+ ],
+ "264": [
+  {
+   "name": "Riptide",
+   "ids": [
+    61295
+   ]
+  },
+  {
+   "name": "Unleash Elements",
+   "ids": [
+    73680
+   ]
+  },
+  {
+   "name": "Healing Rain",
+   "ids": [
+    73920
+   ]
+  },
+  {
+   "name": "Healing Stream Totem",
+   "ids": [
+    5394
+   ]
+  },
+  {
+   "name": "Chain Heal",
+   "ids": [
+    1064
+   ]
+  },
+  {
+   "name": "Healing Wave",
+   "ids": [
+    331,
+    77472
+   ]
+  },
+  {
+   "name": "Healing Surge",
+   "ids": [
+    8004
+   ]
+  },
+  {
+   "name": "Earth Shield",
+   "ids": [
+    974
+   ]
+  },
+  {
+   "name": "Lightning Bolt",
+   "ids": [
+    403
+   ]
+  },
+  {
+   "name": "Flame Shock",
+   "ids": [
+    8050
+   ]
+  },
+  {
+   "name": "Lava Burst",
+   "ids": [
+    51505
+   ]
+  }
+ ],
+ "265": [
+  {
+   "name": "Agony",
+   "ids": [
+    980
+   ]
+  },
+  {
+   "name": "Corruption",
+   "ids": [
+    172
+   ]
+  },
+  {
+   "name": "Unstable Affliction",
+   "ids": [
+    30108
+   ]
+  },
+  {
+   "name": "Haunt",
+   "ids": [
+    48181
+   ]
+  },
+  {
+   "name": "Soulburn",
+   "ids": [
+    74434
+   ]
+  },
+  {
+   "name": "Soul Swap",
+   "ids": [
+    86121,
+    119678
+   ]
+  },
+  {
+   "name": "Soul Swap Exhale",
+   "ids": [
+    86213
+   ]
+  },
+  {
+   "name": "Malefic Grasp",
+   "ids": [
+    103103
+   ]
+  },
+  {
+   "name": "Drain Soul",
+   "ids": [
+    1120
+   ]
+  },
+  {
+   "name": "Seed of Corruption",
+   "ids": [
+    27243,
+    114790
+   ]
+  },
+  {
+   "name": "Fel Flame",
+   "ids": [
+    77799
+   ]
+  },
+  {
+   "name": "Life Tap",
+   "ids": [
+    1454
+   ]
+  }
+ ],
+ "266": [
+  {
+   "name": "Shadow Bolt",
+   "ids": [
+    686
+   ]
+  },
+  {
+   "name": "Soul Fire",
+   "ids": [
+    6353,
+    104027
+   ]
+  },
+  {
+   "name": "Hand of Gul'dan",
+   "ids": [
+    105174
+   ]
+  },
+  {
+   "name": "Metamorphosis",
+   "ids": [
+    103958
+   ]
+  },
+  {
+   "name": "Touch of Chaos",
+   "ids": [
+    103964
+   ]
+  },
+  {
+   "name": "Chaos Wave",
+   "ids": [
+    124916
+   ]
+  },
+  {
+   "name": "Doom",
+   "ids": [
+    603
+   ]
+  },
+  {
+   "name": "Corruption",
+   "ids": [
+    172
+   ]
+  },
+  {
+   "name": "Curse of the Elements",
+   "ids": [
+    1490,
+    116202
+   ]
+  },
+  {
+   "name": "Life Tap",
+   "ids": [
+    1454
+   ]
+  },
+  {
+   "name": "Fel Flame",
+   "ids": [
+    77799
+   ]
+  },
+  {
+   "name": "Immolation Aura",
+   "ids": [
+    104025
+   ]
+  },
+  {
+   "name": "Carrion Swarm",
+   "ids": [
+    103967
+   ]
+  },
+  {
+   "name": "Hellfire",
+   "ids": [
+    1949
+   ]
+  },
+  {
+   "name": "Void Ray",
+   "ids": [
+    115422
+   ]
+  }
+ ],
+ "267": [
+  {
+   "name": "Incinerate",
+   "ids": [
+    29722
+   ]
+  },
+  {
+   "name": "Conflagrate",
+   "ids": [
+    17962
+   ]
+  },
+  {
+   "name": "Immolate",
+   "ids": [
+    348
+   ]
+  },
+  {
+   "name": "Chaos Bolt",
+   "ids": [
+    116858
+   ]
+  },
+  {
+   "name": "Shadowburn",
+   "ids": [
+    17877
+   ]
+  },
+  {
+   "name": "Havoc",
+   "ids": [
+    80240
+   ]
+  },
+  {
+   "name": "Rain of Fire",
+   "ids": [
+    104232
+   ]
+  },
+  {
+   "name": "Fire and Brimstone",
+   "ids": [
+    108683
+   ]
+  },
+  {
+   "name": "Fel Flame",
+   "ids": [
+    77799
+   ]
+  }
+ ],
+ "268": [
+  {
+   "name": "Keg Smash",
+   "ids": [
+    121253
+   ]
+  },
+  {
+   "name": "Jab",
+   "ids": [
+    100780,
+    108557,
+    115687,
+    115693,
+    115695,
+    115698
+   ]
+  },
+  {
+   "name": "Expel Harm",
+   "ids": [
+    115072
+   ]
+  },
+  {
+   "name": "Blackout Kick",
+   "ids": [
+    100784
+   ]
+  },
+  {
+   "name": "Breath of Fire",
+   "ids": [
+    115181
+   ]
+  },
+  {
+   "name": "Tiger Palm",
+   "ids": [
+    100787
+   ]
+  },
+  {
+   "name": "Dizzying Haze",
+   "ids": [
+    115180
+   ]
+  },
+  {
+   "name": "Rushing Jade Wind",
+   "ids": [
+    116847
+   ]
+  },
+  {
+   "name": "Spinning Crane Kick",
+   "ids": [
+    101546
+   ]
+  },
+  {
+   "name": "Chi Wave",
+   "ids": [
+    115098
+   ]
+  },
+  {
+   "name": "Chi Burst",
+   "ids": [
+    123986
+   ]
+  },
+  {
+   "name": "Zen Sphere",
+   "ids": [
+    124081
+   ]
+  }
+ ],
+ "269": [
+  {
+   "name": "Jab",
+   "ids": [
+    100780,
+    108557,
+    115687,
+    115693,
+    115695,
+    115698
+   ]
+  },
+  {
+   "name": "Tiger Palm",
+   "ids": [
+    100787
+   ]
+  },
+  {
+   "name": "Blackout Kick",
+   "ids": [
+    100784
+   ]
+  },
+  {
+   "name": "Rising Sun Kick",
+   "ids": [
+    107428
+   ]
+  },
+  {
+   "name": "Fists of Fury",
+   "ids": [
+    113656
+   ]
+  },
+  {
+   "name": "Spinning Crane Kick",
+   "ids": [
+    101546
+   ]
+  },
+  {
+   "name": "Rushing Jade Wind",
+   "ids": [
+    116847
+   ]
+  },
+  {
+   "name": "Chi Wave",
+   "ids": [
+    115098
+   ]
+  },
+  {
+   "name": "Chi Burst",
+   "ids": [
+    123986
+   ]
+  },
+  {
+   "name": "Expel Harm",
+   "ids": [
+    115072
+   ]
+  },
+  {
+   "name": "Touch of Death",
+   "ids": [
+    115080
+   ]
+  }
+ ],
+ "270": [
+  {
+   "name": "Renewing Mist",
+   "ids": [
+    115151
+   ]
+  },
+  {
+   "name": "Uplift",
+   "ids": [
+    116670,
+    130316
+   ]
+  },
+  {
+   "name": "Jab",
+   "ids": [
+    100780,
+    108557,
+    115687,
+    115693,
+    115695,
+    115698
+   ]
+  },
+  {
+   "name": "Tiger Palm",
+   "ids": [
+    100787
+   ]
+  },
+  {
+   "name": "Blackout Kick",
+   "ids": [
+    100784
+   ]
+  },
+  {
+   "name": "Expel Harm",
+   "ids": [
+    115072
+   ]
+  },
+  {
+   "name": "Rushing Jade Wind",
+   "ids": [
+    116847
+   ]
+  },
+  {
+   "name": "Spinning Crane Kick",
+   "ids": [
+    101546
+   ]
+  },
+  {
+   "name": "Chi Burst",
+   "ids": [
+    123986
+   ]
+  },
+  {
+   "name": "Chi Wave",
+   "ids": [
+    115098
+   ]
+  },
+  {
+   "name": "Zen Sphere",
+   "ids": [
+    124081
+   ]
+  },
+  {
+   "name": "Surging Mist",
+   "ids": [
+    116694,
+    123273
+   ]
+  },
+  {
+   "name": "Soothing Mist",
+   "ids": [
+    115175
+   ]
+  },
+  {
+   "name": "Enveloping Mist",
+   "ids": [
+    124682
+   ]
+  },
+  {
+   "name": "Healing Sphere",
+   "ids": [
+    115460
+   ]
+  },
+  {
+   "name": "Crackling Jade Lightning",
+   "ids": [
+    117952
+   ]
+  }
+ ]
+}

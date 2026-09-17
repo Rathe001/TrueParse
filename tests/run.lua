@@ -3196,6 +3196,30 @@ end)()
 	-- multi-id casts SUM before comparing (9+9 over 3min = 6/min = at profile)
 	local m2 = { profCasts = { [774] = 63, [33763] = 14, [100] = 9, [200] = 9 } }
 	check(PG(105, m2, 180) == nil, "close to profile on every spell -> no coaching")
+	-- OVER-casting (Josh 2026-09-15): twice the top rate and 3+/min over is
+	-- coached down - the Windwalker Tiger Palm habit - but only once no
+	-- shortfall is on the table, and never for a modest excess
+	local over = PG(105, { profCasts = { [774] = 63, [33763] = 14, [100] = 27, [200] = 30 } }, 180)
+	check(over and over.over and over.spell == "Splitspell"
+		and over.text == "Cast Splitspell less often - you average 19/min, top parses 6.",
+		("over-casting a signature spell is coached down (%s)"):format(tostring(over and over.text)))
+	local both = PG(105, { profCasts = { [774] = 18, [33763] = 14, [100] = 27, [200] = 30 } }, 180)
+	check(both and both.spell == "Rejuvenation" and not both.over,
+		("a shortfall still leads an over-cast (%s)"):format(tostring(both and both.spell)))
+	local mild = PG(105, { profCasts = { [774] = 63, [33763] = 14, [100] = 15, [200] = 15 } }, 180)
+	check(mild == nil, ("a modest excess is not a habit (%s)"):format(tostring(mild and mild.text)))
+	-- a spell the crawl counted by channel tick (Fists of Fury, 117418) is
+	-- compared on neither side until the profile is regenerated
+	TP.SpellProfiles[105].spells[4] = { ids = { 113656, 117418 }, name = "Fists of Fury", cpm = 3.9 }
+	local tick = PG(105, { profCasts = { [774] = 63, [33763] = 14, [100] = 9, [200] = 9, [113656] = 3, [117418] = 15 } }, 180)
+	check(tick == nil, ("a tick-inflated spell is never coached, up or down (%s)"):format(tostring(tick and tick.text)))
+	local rotT = TP.Scoring.Insights.RotationGaps(105, { profCasts = { [774] = 63, [33763] = 14, [100] = 9, [200] = 9, [113656] = 3 } }, 180)
+	local seen = false
+	for _, r in ipairs(rotT or {}) do
+		if r.spell == "Fists of Fury" then seen = true end
+	end
+	check(not seen, "...and stays off the rotation hover")
+	TP.SpellProfiles[105].spells[4] = nil
 	-- short fights are noise, absent profiles are silence
 	check(PG(105, { profCasts = {} }, 45) == nil, "sub-minute fights aren't coached")
 	check(PG(63, { profCasts = {} }, 180) == nil, "no profile for the spec -> nil")
@@ -3720,6 +3744,44 @@ end)()
 		("healer row pools group + tank windows (%s)"):format(tostring(cdRow and cdRow.num)))
 	check(cdRow and cdRow.detail and cdRow.detail:find("Guardian Spirit", 1, true) ~= nil,
 		"detail names the spec's external")
+end)()
+
+-- 34b. The Mists spell profile counts presses (Josh 2026-09-16). A refresh
+-- run without scripts/press-ids-mists.json names Classic Jab 100780 "Tiger
+-- Palm", sums Fists of Fury ticks and Raging Blow's weapon hits into the
+-- rate, and lets procs and Shadow Blade swings in as spells; any of those
+-- fails the data gate here instead of shipping coach lines no one can follow.
+;(function()
+	local P = {}
+	loadModule("Data/SpellProfiles_Mists.lua", P)
+	local notPress = {
+		[117418] = "Fists of Fury tick", [7268] = "Arcane Missiles missile",
+		[47666] = "Penance bolt", [47750] = "Penance bolt", [96103] = "Raging Blow hit",
+		[85384] = "Raging Blow hit", [27576] = "Mutilate hit", [5374] = "Mutilate hit",
+		[121473] = "Shadow Blade swing", [121474] = "Shadow Blade swing", [48108] = "Hot Streak!",
+		[139546] = "Combo Point", [124503] = "Gift of the Ox orb", [124506] = "Gift of the Ox orb",
+		[146739] = "Corruption component", [33917] = "unlogged Mangle",
+	}
+	local bad
+	for specID, prof in pairs(P.SpellProfiles or {}) do
+		for _, sp in ipairs(prof.spells or {}) do
+			for _, id in ipairs(sp.ids or {}) do
+				if notPress[id] then
+					bad = ("%d %s carries %d (%s)"):format(specID, sp.name, id, notPress[id])
+				end
+				if id == 100780 and sp.name ~= "Jab" then
+					bad = ("%d %s carries Jab 100780"):format(specID, sp.name)
+				end
+			end
+		end
+	end
+	check(bad == nil, ("Mists profile holds presses only (%s)"):format(tostring(bad)))
+	local ww = P.SpellProfiles and P.SpellProfiles[269]
+	local jab
+	for _, sp in ipairs(ww and ww.spells or {}) do
+		if sp.name == "Jab" then jab = sp end
+	end
+	check(jab and #jab.ids == 6, "Windwalker Jab counts all six weapon variants")
 end)()
 
 -- 35. /tp mock: the synthetic raid night must flow through the whole

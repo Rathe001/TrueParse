@@ -1,5 +1,35 @@
 # TrueParse Changelog
 
+## 2.16.8
+
+The coach now speaks up when you cast a signature spell far more than the
+top parses do, not only when you cast one less. Twice the top rate and
+three or more extra casts a minute reads as a habit: a Windwalker refreshing
+Tiger Palm ten times a minute against four is told to cast it less. A
+shortfall still leads when there is one.
+
+Mists rotation profiles are rebuilt from the top Heroic and Normal parses
+of each spec itself on every Siege of Orgrimmar boss. The old profile came
+from whichever players shared a report with other specs, so its top-parse
+rates sat well below the real top, and it grouped spells by their modern
+names: a Windwalker with a fist weapon read Jab 0, and Fists of Fury counted
+every channel tick. It also saw only each player's five most-cast spells.
+Every spell is now counted once per button press: Jab is one spell whatever
+the weapon, and channel ticks and weapon hits are gone, so Raging Blow reads
+ten a minute, not twenty-three. Procs and Shadow Blade swings no longer
+appear as spells. Arcane Missiles and Penance leave the comparison, since the
+combat log only records their missiles and bolts. Tanks are now compared on
+their active mitigation presses too. The monthly data refresh builds the
+profile the same way.
+
+The Mists notes gain ranked-kill data: kicks and stuns most of a spec uses
+on a boss, and where most groups lust. The hand-written lust lines follow
+what the top kills do: Dark Shaman and Sha of Pride on the pull, Galakras in
+phase 2, Norushen at 50% once the DPS are purified, Paragons on Korven or
+Xaril, Garrosh in phase 3 or as phase 2 opens. Galakras names the Tidal
+Shamans' Chain Heal as the kick, and Spoils adds the Stone Mogu and the
+Staff of Resonating Water.
+
 ## 2.16.7
 
 A Windwalker Monk is no longer charged for missing Bloodlust. Tigereye

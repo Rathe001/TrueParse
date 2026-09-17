@@ -753,6 +753,7 @@ KN.RegisterRaid({
 	name = "Siege of Orgrimmar",
 	bosses = {
 		{ name = "Immerseus",
+			uses = { stun = "the Sha Puddles" },
 			core = {
 				"Split phase: DPS kill the Sha Puddles, healers heal the Contaminated Puddles to full",
 				"Grip, stun, root and knock the puddles so none reach the middle",
@@ -781,7 +782,7 @@ KN.RegisterRaid({
 				"Dodge the expanding Blind Hatred zones",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "at 30%, when Norushen dies and his Final Gift clears everyone's corruption", ability = "Final Gift" },
+				{ tag = "LUST", need = "lust", text = "at 50%, once every DPS is purified", ability = "Look Within" },
 				{ tag = "MAGIC", need = "magic", text = "Lingering Corruption, in the healer's trial", ability = "Lingering Corruption" },
 				{ tag = "TANK", role = "tank", text = "Self Doubt stacks: swap. Your trial is Test of Confidence", ability = "Self Doubt" },
 			} },
@@ -792,18 +793,21 @@ KN.RegisterRaid({
 				"Split the Bursting Pride explosions and free anyone in a Corrupted Prison",
 			},
 			notes = {
+				{ tag = "LUST", need = "lust", text = "on the pull, or at 30% when Norushen's Final Gift clears everyone's Pride", ability = "Final Gift" },
 				{ tag = "MAGIC", need = "magic", text = "Mark of Arrogance only while you are under Gift of the Titans", ability = "Mark of Arrogance" },
 				{ tag = "KICK", need = "kick", text = "Mocking Blast from the adds", ability = "Mocking Blast" },
 				{ tag = "TANK", role = "tank", text = "Wounded Pride: swap for its whole 15s, it feeds you 5 Pride per melee hit. Never leave melee", ability = "Wounded Pride" },
 			} },
 		{ name = "Galakras",
+			uses = { stun = "the ground packs" },
 			core = {
 				"Send a team up the towers to kill the commanders while the raid holds the ground waves",
 				"Line the raid up so the Flames of Galakrond beam is split",
 				"Kill the Flagbearers",
 			},
 			notes = {
-				{ tag = "KICK", need = "kick", text = "the Tidal Shamans' Healing Tide Totem, and Dagryn's Muzzle Spray", ability = "Healing Tide Totem" },
+				{ tag = "LUST", need = "lust", text = "in phase 2, as Galakras lands", ability = "Flames of Galakrond" },
+				{ tag = "KICK", need = "kick", text = "Chain Heal from the Tidal Shamans, and Dagryn's Muzzle Spray; kill the Healing Tide Totem", ability = "Chain Heal" },
 				{ tag = "TANK", role = "tank", text = "Swap on the stacking fire DoT", ability = "Flames of Galakrond" },
 				{ tag = "CD", role = "healer", text = "Pulsing Flames as it stacks: that is the soft enrage", ability = "Pulsing Flames" },
 				{ text = "Fireball soak: melee behind him, ranged 30 yards behind melee", ability = "Flames of Galakrond" },
@@ -825,11 +829,12 @@ KN.RegisterRaid({
 				"Position them so the Ashen Wall doesn't cut the room in half",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "at 25%, the burn phase", ability = "Bloodlust" },
+				{ tag = "LUST", need = "lust", text = "on the pull for a short kill, or at 25% when the bosses Bloodlust", ability = "Bloodlust" },
 				{ tag = "TANK", role = "tank", text = "Froststorm Strike stacks: swap. Kite Foul Geyser and spread the slimes", ability = "Froststorm Strike" },
 				{ tag = "KICK", need = "kick", text = "the shamans' direct casts", ability = "Foul Stream" },
 			} },
 		{ name = "General Nazgrim",
+			uses = { stun = "the add waves" },
 			core = {
 				"Watch his stance: in Defensive Stance nobody attacks but the tanks",
 				"Never let Ravager go off: that is 100 Rage",
@@ -859,7 +864,7 @@ KN.RegisterRaid({
 			},
 			notes = {
 				{ tag = "MAGIC", need = "magic", text = "Torment before it chains to the nearest player, and Rage of the Empress", ability = "Torment" },
-				{ tag = "KICK", need = "kick", text = "Forbidden Magic from the Shao-Tien", ability = "Forbidden Magic" },
+				{ tag = "KICK", need = "kick", text = "Forbidden Magic from the Shao-Tien, and the Animated Stone Mogu and the Staff of Resonating Water", ability = "Forbidden Magic" },
 				{ tag = "TANK", role = "tank", text = "Take whatever comes out of the Massive crates", ability = "Massive Crate" },
 			} },
 		{ name = "Thok the Bloodthirsty",
@@ -890,6 +895,7 @@ KN.RegisterRaid({
 				"Split Iyyokuk's Insane Calculation beams far apart",
 			},
 			notes = {
+				{ tag = "LUST", need = "lust", text = "on Korven's or Xaril's entry on Heroic, on the pull on Normal", ability = "Encase in Amber" },
 				{ tag = "MAGIC", need = "magic", text = "Injection", ability = "Injection" },
 				{ tag = "TANK", role = "tank", text = "Intercept the Bloodletting creatures; handle Rik'kal's parasites and the Mutation form", ability = "Bloodletting" },
 				{ tag = "CD", role = "healer", text = "Ingenious, which spreads your healing: take it if offered", ability = "Ingenious" },
@@ -902,7 +908,7 @@ KN.RegisterRaid({
 				"Intermission: cut through the sha adds and stop his power drain",
 			},
 			notes = {
-				{ tag = "LUST", need = "lust", text = "in phase 3", ability = "Hellscream's Warsong" },
+				{ tag = "LUST", need = "lust", text = "in phase 3, or as phase 2 opens", ability = "Hellscream's Warsong" },
 				{ tag = "KICK", need = "kick", text = "Touch of Y'Shaarj, without exception", ability = "Touch of Y'Shaarj" },
 				{ tag = "TANK", role = "tank", text = "Gripping Despair stacks: swap", ability = "Gripping Despair" },
 				{ tag = "CD", role = "healer", text = "the minion phases, and every empowerment step", ability = "Desecrate" },

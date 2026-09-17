@@ -11,6 +11,14 @@
 # NEVER run while another WCL crawl is active (single-active tokens).
 #  MoP:    -GameBase https://classic.warcraftlogs.com -ZoneId 1054 -Brackets "3x10,3x25" -Suffix _Mists
 #  Retail: -GameBase https://www.warcraftlogs.com     -ZoneId 53   -Brackets "4,3"       -Suffix ""
+# -PressIds (Josh 2026-09-16) switches SpellProfiles to each spec's OWN top
+# parses, counted by press id. Without it the profile came from whoever
+# shared a report with the ten ranked specs below, grouped spells by WCL's
+# modern names (Classic Jab 100780 is labelled Tiger Palm, so a Windwalker
+# read Jab 0 and Tiger Palm three times too high), summed channel ticks and
+# weapon hits into one rate (Fists of Fury, Raging Blow), and only ever saw
+# each player's top five abilities - the whole-raid Casts table cuts every
+# entry to five. Mists passes scripts/press-ids-mists.json.
 param(
     [string]$GameBase = "https://classic.warcraftlogs.com",
     [int]$ZoneId = 1054,
@@ -29,6 +37,11 @@ param(
     [string]$OutDamage = "",
     [string]$OutActivity = "",
     [int]$MinActPlayers = 12,  # activity-profile: encounters with fewer player-fights omitted
+    [string]$PressIds = "",       # spec -> press ids JSON; turns on the per-spec spell crawl
+    [string]$SpellBrackets = "4x10,3x10", # per-spec spell crawl: first bracket with rankings wins
+    [int]$SpellPerBoss = 2,       # per-spec spell crawl: top parses per spec per boss
+    [int]$MaxSpellFights = 1000,  # per-spec spell crawl: fight fetches per run (points budget)
+    [string]$OnlySpecs = "",      # per-spec spell crawl: "269,62" limits the specs (hand test runs)
     [string]$ClientFile = "$PSScriptRoot\wcl-v2-client.local.txt"
 )
 $ErrorActionPreference = "Stop"
@@ -36,6 +49,19 @@ if ($OutSpell -eq "") { $OutSpell = "SpellProfiles$Suffix.lua" }
 if ($OutOverheal -eq "") { $OutOverheal = "Overheal$Suffix.lua" }
 if ($OutDamage -eq "") { $OutDamage = "DamageProfiles$Suffix.lua" }
 if ($OutActivity -eq "") { $OutActivity = "ActivityProfiles$Suffix.lua" }
+$press = $null
+if ($PressIds -ne "") {
+    $pj = Get-Content -Raw -Encoding UTF8 $PressIds | ConvertFrom-Json
+    $press = @{}
+    foreach ($prop in $pj.PSObject.Properties) {
+        if ($prop.Name -match "^\d+$") { $press[[int]$prop.Name] = @($prop.Value) }
+    }
+    if ($OnlySpecs -ne "") {
+        $keep = @{}; foreach ($x in ($OnlySpecs -split ",")) { $keep[[int]$x.Trim()] = $true }
+        foreach ($k in @($press.Keys)) { if (-not $keep[$k]) { $press.Remove($k) } }
+    }
+    Write-Host ("Press ids: {0} specs from {1}" -f $press.Count, $PressIds)
+}
 
 if (-not (Test-Path $ClientFile)) {
     Write-Error "Missing $ClientFile (line 1 = client id, line 2 = secret)."
@@ -176,6 +202,7 @@ foreach ($enc in $zone.encounters) {
 # ---- phase 2: round-robin per encounter so every boss gets tables;
 # ONE multi-table query per ref harvests Casts + Healing + DamageTaken ----
 $spellSamples = @{}  # specID -> list of @{ durMin; activePct; casts; names }
+$actBySpec = @{}     # specID -> ArrayList of activity % (the SpellProfiles activity anchor)
 $overSamples = @{}   # specID -> ArrayList of overheal %
 $dmg = @{}           # encName -> @{ id; playerN; ab = @{ name -> @{ takers; total; tankT; nonTankT; guid } } }
 $actByEnc = @{}      # encName -> ArrayList of activity %
@@ -218,8 +245,14 @@ while ($fetched -lt $MaxTables) {
                 $activePct = [math]::Round(($e.activeTime / 1000.0) / ($ref.durMin * 60.0) * 100.0, 1)
                 if ($activePct -gt 100) { $activePct = 100 }
             }
-            if (-not $spellSamples.ContainsKey($sid)) { $spellSamples[$sid] = New-Object System.Collections.ArrayList }
-            [void]$spellSamples[$sid].Add(@{ durMin = $ref.durMin; activePct = $activePct; casts = $casts; names = $names })
+            if (-not $press) {
+                if (-not $spellSamples.ContainsKey($sid)) { $spellSamples[$sid] = New-Object System.Collections.ArrayList }
+                [void]$spellSamples[$sid].Add(@{ durMin = $ref.durMin; activePct = $activePct; casts = $casts; names = $names })
+            }
+            if ($null -ne $activePct) {
+                if (-not $actBySpec.ContainsKey($sid)) { $actBySpec[$sid] = New-Object System.Collections.ArrayList }
+                [void]$actBySpec[$sid].Add([double]$activePct)
+            }
             # Per-ENCOUNTER activity: the per-spec pool above averages every
             # boss together, so a fight with forced downtime (Immerseus
             # submerging, Galakras towers) is judged against a pooled
@@ -281,6 +314,107 @@ while ($fetched -lt $MaxTables) {
 }
 Write-Host ("Tables fetched: {0}; total HTTP requests: {1}" -f $fetched, $script:requestCount)
 
+# ---- phase 3 (with -PressIds): each spec's own top parses, whole ability list ----
+# One ranking query per spec per boss, then per fight one query for the
+# player actor ids and one with an aliased sourceID Casts table per ranked
+# player: a sourceID table lists every ability, the whole-raid one five.
+if ($press) {
+    $classSpec = @{}
+    foreach ($icon in $specByIcon.Keys) {
+        $sid = $specByIcon[$icon]
+        if (-not $press.ContainsKey($sid)) { continue }
+        $parts = $icon -split "-"
+        # Combat on Classic, Outlaw on retail: keep the name the zone ranks
+        if ($sid -eq 260 -and $parts[1] -eq "Outlaw" -and $GameBase -match "classic") { continue }
+        if ($sid -eq 260 -and $parts[1] -eq "Combat" -and $GameBase -notmatch "classic") { continue }
+        $classSpec[$sid] = @{ class = $parts[0]; spec = $parts[1]; metric = $(if ($healerSpecs[$sid]) { "hps" } else { "dps" }) }
+    }
+    $spellBr = @()
+    foreach ($b in ($SpellBrackets -split ",")) {
+        $b = $b.Trim()
+        if ($b -match "^(\d+)x(\d+)$") { $spellBr += (", difficulty: {0}, size: {1}" -f [int]$Matches[1], [int]$Matches[2]) }
+        elseif ($b -ne "") { $spellBr += (", difficulty: {0}" -f [int]$b) }
+    }
+    # fights[key] = @{ code; fight; durMin; players = @{ name -> sid } }. Fetched
+    # round-robin across specs, so a budget cut leaves every spec the same count.
+    $fights = @{}
+    $fightOrder = New-Object System.Collections.ArrayList
+    $perSpec = @{}
+    foreach ($sid in $classSpec.Keys) { $perSpec[$sid] = New-Object System.Collections.ArrayList }
+    foreach ($enc in $zone.encounters) {
+        $encFights = 0
+        foreach ($sid in ($classSpec.Keys | Sort-Object)) {
+            $cs = $classSpec[$sid]
+            foreach ($extra in $spellBr) {
+                Assert-Points
+                $q = "{ worldData { encounter(id: $($enc.id)) { characterRankings(metric: $($cs.metric), page: 1, className: `"$($cs.class)`", specName: `"$($cs.spec)`"$extra) } } }"
+                $cr = $null
+                try { $cr = (Invoke-GQL $q).worldData.encounter.characterRankings } catch { continue }
+                if ($cr -is [string]) { $cr = $cr | ConvertFrom-Json }
+                $got = 0
+                foreach ($r in @($cr.rankings)) {
+                    if ($got -ge $SpellPerBoss) { break }
+                    if (-not ($r -and $r.report -and $r.report.code -and $r.duration -and $r.name)) { continue }
+                    $key = "$($r.report.code)#$($r.report.fightID)"
+                    if (-not $fights.ContainsKey($key)) {
+                        $fights[$key] = @{ code = $r.report.code; fight = [int]$r.report.fightID
+                            durMin = [double]$r.duration / 60000.0; players = @{} }
+                        $encFights++
+                    }
+                    if (-not $fights[$key].players.ContainsKey([string]$r.name)) {
+                        $fights[$key].players[[string]$r.name] = $sid; $got++
+                        [void]$perSpec[$sid].Add($key)
+                    }
+                }
+                if ($got -gt 0) { break }
+            }
+        }
+        Write-Host ("  spells {0}: {1} fights" -f $enc.name, $encFights)
+    }
+    $queued = @{}
+    for ($i = 0; ; $i++) {
+        $more = $false
+        foreach ($sid in ($perSpec.Keys | Sort-Object)) {
+            if ($i -ge $perSpec[$sid].Count) { continue }
+            $more = $true
+            $key = $perSpec[$sid][$i]
+            if (-not $queued.ContainsKey($key)) { $queued[$key] = $true; [void]$fightOrder.Add($key) }
+        }
+        if (-not $more) { break }
+    }
+    $spellFetched = 0
+    foreach ($key in $fightOrder) {
+        if ($spellFetched -ge $MaxSpellFights) { Write-Host "  spell fight budget reached"; break }
+        $F = $fights[$key]
+        Assert-Points
+        $actors = $null
+        try { $actors = (Invoke-GQL "{ reportData { report(code: `"$($F.code)`") { masterData { actors(type: `"Player`") { id name } } } } }").reportData.report.masterData.actors } catch { continue }
+        $aliases = @(); $who = @{}; $n = 0
+        foreach ($name in $F.players.Keys) {
+            $a = @($actors | Where-Object { $_.name -eq $name })
+            if ($a.Count -ne 1) { continue } # absent or ambiguous
+            $n++; $who["p$n"] = $F.players[$name]
+            $aliases += "p${n}: table(fightIDs: [$($F.fight)], dataType: Casts, sourceID: $($a[0].id))"
+        }
+        if ($aliases.Count -eq 0) { continue }
+        $rep = $null
+        try { $rep = (Invoke-GQL "{ reportData { report(code: `"$($F.code)`") { $($aliases -join ' ') } } }").reportData.report } catch { continue }
+        $spellFetched++
+        foreach ($al in $who.Keys) {
+            $t = $rep.$al
+            $entries = $null
+            if ($t -and $t.data -and $t.data.entries) { $entries = $t.data.entries } elseif ($t -and $t.entries) { $entries = $t.entries }
+            if (-not $entries) { continue }
+            $casts = @{}
+            foreach ($ab in $entries) { $g = [int]$ab.guid; $casts[$g] = [int]$casts[$g] + [int]$ab.total }
+            $sid = $who[$al]
+            if (-not $spellSamples.ContainsKey($sid)) { $spellSamples[$sid] = New-Object System.Collections.ArrayList }
+            [void]$spellSamples[$sid].Add(@{ durMin = $F.durMin; casts = $casts })
+        }
+    }
+    Write-Host ("Spell fights fetched: {0} of {1}; total HTTP requests: {2}" -f $spellFetched, $fightOrder.Count, $script:requestCount)
+}
+
 function Median($list) {
     $s = @($list | Sort-Object)
     if ($s.Count -eq 0) { return $null }
@@ -302,8 +436,16 @@ $today = Get-Date -Format "yyyy-MM-dd"
 $L = New-Object System.Collections.ArrayList
 function E1($s) { [void]$script:L.Add($s) }
 E1 "-- GENERATED by scripts\fetch-report-tables.ps1 - do not edit by hand."
-E1 "-- Per-spec top-player habits from WCL Casts tables: median casts-per-"
-E1 "-- minute of each spec's signature spells, and median activity%."
+if ($press) {
+    E1 "-- Per-spec top-player habits from each spec's own top parses on every"
+    E1 ("-- boss ({0}, {1} per spec per boss): median casts-per-minute of the" -f $SpellBrackets, $SpellPerBoss)
+    E1 ("-- spec's signature presses, counted by the ids in {0}" -f (Split-Path $PressIds -Leaf))
+    E1 "-- (channel ticks, weapon hits and procs left out), and median activity%"
+    E1 "-- across the sampled raids."
+} else {
+    E1 "-- Per-spec top-player habits from WCL Casts tables: median casts-per-"
+    E1 "-- minute of each spec's signature spells, and median activity%."
+}
 E1 ("-- Generated {0} - {1}." -f $today, $zone.name)
 E1 "local _, TP = ..."
 E1 ""
@@ -312,7 +454,20 @@ foreach ($sid in ($spellSamples.Keys | Sort-Object)) {
     $list = $spellSamples[$sid]
     if ($list.Count -lt $MinPlayers) { Write-Host ("  spell spec {0}: only {1}; omitted" -f $sid, $list.Count); continue }
     $byName = @{}
-    foreach ($smp in $list) {
+    if ($press) {
+        # one entry per press: the button's ids summed, the ids kept from the map
+        foreach ($smp in $list) {
+            foreach ($btn in $press[$sid]) {
+                $n = 0
+                foreach ($spellID in $btn.ids) { $n += [int]$smp.casts[[int]$spellID] }
+                if ($n -le 0) { continue }
+                if (-not $byName.ContainsKey($btn.name)) { $byName[$btn.name] = @{ cpms = (New-Object System.Collections.ArrayList); ids = @{} } }
+                [void]$byName[$btn.name].cpms.Add($n / $smp.durMin)
+                foreach ($spellID in $btn.ids) { $byName[$btn.name].ids[[int]$spellID] = $true }
+            }
+        }
+    }
+    foreach ($smp in $(if ($press) { @() } else { $list })) {
         $perName = @{}
         foreach ($spellID in $smp.casts.Keys) {
             $nm = $smp.names[$spellID]
@@ -330,8 +485,9 @@ foreach ($sid in ($spellSamples.Keys | Sort-Object)) {
         $rec = $byName[$nm]; $usage = $rec.cpms.Count / $list.Count; $med = Median $rec.cpms
         if ($usage -ge 0.6 -and $med -ge 0.5) { $sigs += @{ name = $nm; ids = @($rec.ids.Keys | Sort-Object); cpm = [math]::Round($med, 1) } }
     }
-    $sigs = @($sigs | Sort-Object -Property cpm -Descending | Select-Object -First $MaxSpells)
-    $actMed = Median @($list | Where-Object { $null -ne $_.activePct } | ForEach-Object { $_.activePct })
+    $sigs = @($sigs | Sort-Object { $_.cpm } -Descending | Select-Object -First $MaxSpells)
+    $actMed = $null
+    if ($actBySpec.ContainsKey($sid)) { $actMed = Median $actBySpec[$sid] }
     $parts = @()
     foreach ($sg in $sigs) {
         $idList = ($sg.ids | ForEach-Object { "$_" }) -join ", "

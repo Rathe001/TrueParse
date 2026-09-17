@@ -722,6 +722,27 @@ for _, d in ipairs(KN.instances) do
 end
 check(coreOK, "every Mists boss carries one to three core lines")
 
+-- 13b. The Mists ranked-kill data (Data/BossCasts_Mists.lua, Josh 2026-09-16)
+--      loads in this namespace, puts a lust line on a boss with no
+--      hand-written one, and leaves a hand-written lust line alone.
+do
+	local chunk = assert(loadfile("Data/BossCasts_Mists.lua"))
+	chunk("TrueParse", TP)
+	local soo = TP.BossCasts and TP.BossCasts["Siege of Orgrimmar"]
+	check(soo and soo["Iron Juggernaut"] and soo["Iron Juggernaut"].lust and soo["Iron Juggernaut"].lust.at < 0.1,
+		"Mists ranked data loads: Iron Juggernaut lusts on the pull")
+	become(64) -- Frost Mage carries Time Warp
+	KN.Tracker.Preview("Siege of Orgrimmar", "h"); KN.Tracker.PreviewBoss("Iron Juggernaut")
+	check(has(KN.Tracker.Rows(), function(r) return r.tag == "LUST" and r.text == "Most groups lust on the pull" end),
+		"a lust spec sees the ranked lust timing on a boss with no lust line")
+	KN.Tracker.Preview("Siege of Orgrimmar", "h"); KN.Tracker.PreviewBoss("Dark Shaman")
+	local rr = KN.Tracker.Rows()
+	check(has(rr, function(r) return r.tag == "LUST" and r.text:find("on the pull for a short kill", 1, true) end)
+		and not has(rr, function(r) return r.tag == "LUST" and r.text:find("Most groups", 1, true) end),
+		"a hand-written lust line keeps the boss")
+	TP.BossCasts = nil
+end
+
 -- 14. The Mists capability table is its own: no retail-only classes, and
 --     the tools that differ between clients differ here.
 local rows, retailOnly = 0, false
