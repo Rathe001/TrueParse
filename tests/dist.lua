@@ -65,10 +65,12 @@ local function loadClient(isRetail)
 	end
 	local DATA = isRetail
 		and { "Benchmarks", "Percentiles", "Percentiles_Dungeons", "Percentiles_Keys",
-			"Percentiles_LFR", "Percentiles_Sporefall", "KillTimes", "KillTimes_LFR",
-			"KillTimes_Sporefall", "Totals", "Totals_Sporefall", "Totals_Dungeons",
+			"Percentiles_LFR", "Percentiles_Sporefall", "Percentiles_Season1", "KillTimes",
+			"KillTimes_LFR", "KillTimes_Sporefall", "KillTimes_Season1", "Totals",
+			"Totals_Sporefall", "Totals_Season1", "Totals_Dungeons",
 			"Potions", "GroupBuffs", "Defensives", "Mitigation", "Lust", "HealerCDs",
-			"SpellProfiles", "Overheal", "DamageProfiles", "ActivityProfiles",
+			"SpellProfiles", "Overheal", "DamageProfiles", "DamageProfiles_Season1",
+			"ActivityProfiles",
 			"TankAnchors", "TankDamage", "HealerCoverage", "ProcExclusions" }
 		or { "Benchmarks_Mists", "Percentiles_Mists", "Percentiles_Mists_25",
 			"Overheal_Mists", "KillTimes_Mists", "KillTimes_Mists_Dungeons",

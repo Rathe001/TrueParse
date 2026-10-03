@@ -24,13 +24,13 @@ local function check(cond, msg)
 end
 
 local DATA = { "Benchmarks", "Percentiles", "Percentiles_Dungeons", "Percentiles_LFR",
-	"Percentiles_Sporefall", "Percentiles_Mists", "KillTimes", "KillTimes_LFR",
-	"KillTimes_Sporefall", "KillTimes_Mists", "KillTimes_Mists_Dungeons",
-	"Benchmarks_Mists", "Totals", "Totals_Sporefall",
-	"Totals_Dungeons", "Totals_Mists", "Potions", "GroupBuffs", "Defensives",
+	"Percentiles_Sporefall", "Percentiles_Season1", "Percentiles_Mists", "KillTimes",
+	"KillTimes_LFR", "KillTimes_Sporefall", "KillTimes_Season1", "KillTimes_Mists",
+	"KillTimes_Mists_Dungeons", "Benchmarks_Mists", "Totals", "Totals_Sporefall",
+	"Totals_Season1", "Totals_Dungeons", "Totals_Mists", "Potions", "GroupBuffs", "Defensives",
 	"Mitigation", "Mitigation_Mists", "Lust", "HealerCDs", "SpellProfiles",
 	"SpellProfiles_Mists", "Overheal", "Overheal_Mists", "DamageProfiles",
-	"DamageProfiles_Mists", "TankAnchors", "TankAnchors_Mists", "TankDamage",
+	"DamageProfiles_Season1", "DamageProfiles_Mists", "TankAnchors", "TankAnchors_Mists", "TankDamage",
 	"TankDamage_Mists", "ProcExclusions_Mists" }
 
 -- one fully-loaded addon namespace per client

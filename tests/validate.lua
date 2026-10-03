@@ -39,7 +39,9 @@ local CLIENTS = {
 	retail = build(files({
 		"Data/Benchmarks.lua", "Data/Percentiles.lua", "Data/Percentiles_Dungeons.lua",
 		"Data/Percentiles_LFR.lua", "Data/Percentiles_Sporefall.lua",
+		"Data/Percentiles_Season1.lua",
 		"Data/Totals.lua", "Data/Totals_Dungeons.lua", "Data/Totals_Sporefall.lua",
+		"Data/Totals_Season1.lua",
 		"Data/TankAnchors.lua", "Data/TankDamage.lua", "Data/HealerCoverage.lua",
 	}), { HAS_CLEU = false, IS_RETAIL = true }),
 	mists = build(files({
@@ -65,7 +67,8 @@ local SCENARIOS = {
 	-- scenario reports "no shipped curve", data-regression-check.sh counts that
 	-- as a newly introduced problem, and the whole refresh is refused - a five
 	-- hour crawl discarded over a deliberate decision. CLEAR THIS FLAG in the
-	-- same change that puts "5" back in the retail crawl brackets.
+	-- same change that puts "5" back in the retail crawl brackets. The flag
+	-- also stops pickCurve falling back to a capped curve (see there).
 	{ client = "retail", label = "Raid · Mythic",       bracket = "5",   difficultyID = 16, itype = "raid",  tier = 1, uncrawled = true },
 	{ client = "retail", label = "Dungeon · M+ key",    bracket = "all", difficultyID = 8,  itype = "party", tier = 1, dungeon = true, keystone = 10 },
 	{ client = "retail", label = "Dungeon · Heroic",    bracket = "all", difficultyID = 2,  itype = "party", tier = 2, dungeon = true },
@@ -112,14 +115,21 @@ local function isCapped(e)
 end
 
 -- Find a real encounter+spec in this client's data for the wanted bracket.
-local function pickCurve(TP, bracket, dungeon, wantRole)
+--
+-- uncappedOnly skips pass 2, for UNCRAWLED brackets. Their only curves come
+-- from older tiers' frozen files, and when none of those is uncapped the
+-- fallback measures the cap, not the engine. On 2026-10-02 the retail crawl
+-- dropped the last uncapped Mythic curves, Raid · Mythic fell back to
+-- Sporefall's capped Rotmire curve, and the refresh failed on 30- and
+-- 44-point "errors" that were the n/total ratio. No curve means skipped.
+local function pickCurve(TP, bracket, dungeon, wantRole, uncappedOnly)
 	local P = TP.Percentiles
 	local roles = TP.SPEC_ROLES or {}
 	local names = {}
 	for name in pairs(P.encounters) do names[#names + 1] = name end
 	table.sort(names) -- deterministic pick
 	-- pass 1 demands an uncapped sample, pass 2 accepts anything
-	for _, requireUncapped in ipairs({ true, false }) do
+	for _, requireUncapped in ipairs(uncappedOnly and { true } or { true, false }) do
 		for _, name in ipairs(names) do
 			local enc = P.encounters[name]
 			local isDungeonKeyed = type(enc.all) == "table"
@@ -198,7 +208,7 @@ end
 
 for _, sc in ipairs(SCENARIOS) do
 	local TP = CLIENTS[sc.client]
-	local encName, specID, dpsEntry, hpsEntry = pickCurve(TP, sc.bracket, (not sc.unranked) and sc.dungeon or nil)
+	local encName, specID, dpsEntry, hpsEntry = pickCurve(TP, sc.bracket, (not sc.unranked) and sc.dungeon or nil, nil, sc.uncrawled)
 	if not encName and sc.uncrawled then
 		-- no row: the renderer below formats tier/medErr/lo/hi and would
 		-- throw on a placeholder that has none of them
@@ -312,7 +322,7 @@ print(("%-22s %-5s %-38s %s"):format("SCENARIO", "TIER", "score at ilvl 120/160/
 local invProblems = 0
 for _, sc in ipairs(SCENARIOS) do
 	local TP = CLIENTS[sc.client]
-	local encName, specID, dpsEntry = pickCurve(TP, sc.bracket, (not sc.unranked) and sc.dungeon or nil)
+	local encName, specID, dpsEntry = pickCurve(TP, sc.bracket, (not sc.unranked) and sc.dungeon or nil, nil, sc.uncrawled)
 	if encName then
 		-- the model must use the slope that content ACTUALLY has, or the
 		-- test manufactures drift: Timewalking rescales everyone, so item
@@ -382,7 +392,7 @@ print(("%-22s %-6s %-6s %s"):format("SCENARIO", "SPEC", "MEDERR", "reported perc
 for _, sc in ipairs(SCENARIOS) do
 	if sc.tier == 1 then -- derived tiers are covered by gear invariance
 		local TP = CLIENTS[sc.client]
-		local encName, specID, _, hpsEntry = pickCurve(TP, sc.bracket, sc.dungeon, "HEALER")
+		local encName, specID, _, hpsEntry = pickCurve(TP, sc.bracket, sc.dungeon, "HEALER", sc.uncrawled)
 		if not encName and sc.uncrawled then
 			print(("%-22s (bracket not crawled - skipped)"):format(sc.label))
 		elseif not encName then
@@ -812,7 +822,7 @@ local SIZE_SWEEP = { 6, 10, 20, 25 }
 local sizeProblems = 0
 for _, sc in ipairs(SCENARIOS) do
 	local TP = CLIENTS[sc.client]
-	local encName, specID, dpsEntry = pickCurve(TP, sc.bracket, (not sc.unranked) and sc.dungeon or nil)
+	local encName, specID, dpsEntry = pickCurve(TP, sc.bracket, (not sc.unranked) and sc.dungeon or nil, nil, sc.uncrawled)
 	if encName then
 		local duration = 300
 		local p50 = curveValueAt(dpsEntry.curve, 50)

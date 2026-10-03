@@ -25,6 +25,10 @@ local DATASETS = {
 		"Data/KillTimes.lua", "Data/KillTimes_LFR.lua" },
 		brackets = { "1", "3", "4", "5" },
 		bracketPairs = { { "1", "3" }, { "3", "4" }, { "4", "5" }, { "3", "5" }, { "1", "4" } } },
+	{ key = "season1", label = "Midnight Season 1 raids (VS / DR / MQD)", files = {
+		"Data/Percentiles_Season1.lua", "Data/KillTimes_Season1.lua" },
+		brackets = { "1", "3", "4", "5" },
+		bracketPairs = { { "1", "3" }, { "3", "4" }, { "4", "5" }, { "3", "5" }, { "1", "4" } } },
 	{ key = "retail_mplus", label = "Retail M+ dungeons", files = {
 		"Data/Percentiles_Dungeons.lua" },
 		brackets = { "all" }, bracketPairs = {} },

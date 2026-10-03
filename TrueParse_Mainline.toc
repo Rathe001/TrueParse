@@ -30,11 +30,14 @@ Data\Percentiles_Dungeons.lua
 Data\Percentiles_Keys.lua
 Data\Percentiles_LFR.lua
 Data\Percentiles_Sporefall.lua
+Data\Percentiles_Season1.lua
 Data\KillTimes.lua
 Data\KillTimes_LFR.lua
 Data\KillTimes_Sporefall.lua
+Data\KillTimes_Season1.lua
 Data\Totals.lua
 Data\Totals_Sporefall.lua
+Data\Totals_Season1.lua
 Data\Totals_Dungeons.lua
 Data\Potions.lua
 Data\GroupBuffs.lua
@@ -45,6 +48,7 @@ Data\HealerCDs.lua
 Data\SpellProfiles.lua
 Data\Overheal.lua
 Data\DamageProfiles.lua
+Data\DamageProfiles_Season1.lua
 Data\TankAnchors.lua
 Data\TankDamage.lua
 Data\HealerCoverage.lua
