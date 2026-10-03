@@ -6,158 +6,186 @@
 -- taker's typical damage from it (per-taker, not per-hit - the table
 -- has no hit counts). Feeds DeathCause (why a player died) and mechanic
 -- coaching (names + impact of the avoidable ability a player ate).
--- Generated 2026-08-03 - VS / DR / MQD.
+-- Generated 2026-10-03 - The Venomous Abyss.
 local _, TP = ...
 
 TP.DAMAGE_PROFILES = TP.DAMAGE_PROFILES or {}
 TP.DAMAGE_PROFILES.ids = TP.DAMAGE_PROFILES.ids or {}
 local E = TP.DAMAGE_PROFILES
-E["Belo'ren, Child of Al'ar"] = E["Belo'ren, Child of Al'ar"] or {}
-E["Belo'ren, Child of Al'ar"]["Burning Heart"] = { hitRate = 0.994, tankOnly = false, share = 0.263, avgDmg = 2218877, guid = 1264650, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Burning Rush"] = { hitRate = 0.025, tankOnly = false, share = 0.004, avgDmg = 1263330, guid = 111400, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Death Drop"] = { hitRate = 0.226, tankOnly = false, share = 0.006, avgDmg = 237257, guid = 1241333, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Light Burn"] = { hitRate = 0.075, tankOnly = false, share = 0.003, avgDmg = 359534, guid = 1244348, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Light Dive"] = { hitRate = 0.176, tankOnly = false, share = 0.008, avgDmg = 389612, guid = 1241291, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Light Echo"] = { hitRate = 0.179, tankOnly = false, share = 0.019, avgDmg = 903701, guid = 1242991, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Light Edict"] = { hitRate = 0.047, tankOnly = false, share = 0.014, avgDmg = 2479348, guid = 1241646, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Light Flames"] = { hitRate = 0.668, tankOnly = false, share = 0.197, avgDmg = 2470773, guid = 1242803, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Light Quill"] = { hitRate = 0.097, tankOnly = false, share = 0.006, avgDmg = 557158, guid = 1242093, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Melee"] = { hitRate = 0.069, tankOnly = true, share = 0.026, avgDmg = 3206467, guid = 1, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Omnium Folio"] = { hitRate = 0.019, tankOnly = false, share = 0, avgDmg = 9189, guid = 1302265, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Rebirth"] = { hitRate = 0.025, tankOnly = false, share = 0.001, avgDmg = 445052, guid = 1263412, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Stagger"] = { hitRate = 0.022, tankOnly = true, share = 0.015, avgDmg = 5842363, guid = 124255, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Stretch Time"] = { hitRate = 0.028, tankOnly = false, share = 0.001, avgDmg = 419745, guid = 413924, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Void Burn"] = { hitRate = 0.082, tankOnly = false, share = 0.004, avgDmg = 373472, guid = 1266404, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Void Dive"] = { hitRate = 0.207, tankOnly = false, share = 0.01, avgDmg = 404668, guid = 1241340, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Void Echo"] = { hitRate = 0.163, tankOnly = false, share = 0.014, avgDmg = 699606, guid = 1242996, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Void Edict"] = { hitRate = 0.038, tankOnly = true, share = 0.011, avgDmg = 2404856, guid = 1241676, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Void Flames"] = { hitRate = 0.602, tankOnly = false, share = 0.16, avgDmg = 2227567, guid = 1242815, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Void Quill"] = { hitRate = 0.097, tankOnly = false, share = 0.006, avgDmg = 556302, guid = 1242094, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Voidlight Convergence"] = { hitRate = 0.956, tankOnly = false, share = 0.209, avgDmg = 1828519, guid = 1241932, n = 319 }
-E["Belo'ren, Child of Al'ar"]["Voidlight Rupture"] = { hitRate = 0.091, tankOnly = false, share = 0.019, avgDmg = 1794238, guid = 1243866, n = 319 }
-E.ids[3182] = "Belo'ren, Child of Al'ar"
-E["Chimaerus, the Undreamt God"] = E["Chimaerus, the Undreamt God"] or {}
-E["Chimaerus, the Undreamt God"]["Alndust Essence"] = { hitRate = 0.016, tankOnly = false, share = 0.001, avgDmg = 282609, guid = 1245919, n = 320 }
-E["Chimaerus, the Undreamt God"]["Alndust Upheaval"] = { hitRate = 0.253, tankOnly = false, share = 0.049, avgDmg = 719691, guid = 1262305, n = 320 }
-E["Chimaerus, the Undreamt God"]["Blessing of Dawn"] = { hitRate = 0.025, tankOnly = false, share = 0.003, avgDmg = 380468, guid = 210380, n = 320 }
-E["Chimaerus, the Undreamt God"]["Cannibalized Essence"] = { hitRate = 0.047, tankOnly = false, share = 0.003, avgDmg = 268934, guid = 1280655, n = 320 }
-E["Chimaerus, the Undreamt God"]["Caustic Phlegm"] = { hitRate = 1, tankOnly = false, share = 0.508, avgDmg = 1893718, guid = 1246653, n = 320 }
-E["Chimaerus, the Undreamt God"]["Colossal Strikes"] = { hitRate = 0.028, tankOnly = true, share = 0.004, avgDmg = 491067, guid = 1262059, n = 320 }
-E["Chimaerus, the Undreamt God"]["Consume"] = { hitRate = 0.994, tankOnly = false, share = 0.212, avgDmg = 795829, guid = 1273112, n = 320 }
-E["Chimaerus, the Undreamt God"]["Consuming Miasma"] = { hitRate = 0.206, tankOnly = false, share = 0.022, avgDmg = 403273, guid = 1257087, n = 320 }
-E["Chimaerus, the Undreamt God"]["Discordant Roar"] = { hitRate = 0.062, tankOnly = false, share = 0.002, avgDmg = 115263, guid = 1249207, n = 320 }
-E["Chimaerus, the Undreamt God"]["Dissonance"] = { hitRate = 0.197, tankOnly = false, share = 0.011, avgDmg = 216287, guid = 1267201, n = 320 }
-E["Chimaerus, the Undreamt God"]["Fel Armor"] = { hitRate = 0.044, tankOnly = false, share = 0.001, avgDmg = 72634, guid = 387846, n = 320 }
-E["Chimaerus, the Undreamt God"]["Lingering Miasma"] = { hitRate = 0.344, tankOnly = false, share = 0.034, avgDmg = 366380, guid = 1258192, n = 320 }
-E["Chimaerus, the Undreamt God"]["Melee"] = { hitRate = 0.109, tankOnly = false, share = 0.048, avgDmg = 1651478, guid = 1, n = 320 }
-E["Chimaerus, the Undreamt God"]["Omnium Folio"] = { hitRate = 0.1, tankOnly = false, share = 0.001, avgDmg = 19744, guid = 1302265, n = 320 }
-E["Chimaerus, the Undreamt God"]["Rending Tear"] = { hitRate = 0.016, tankOnly = false, share = 0.002, avgDmg = 497980, guid = 1272726, n = 320 }
-E["Chimaerus, the Undreamt God"]["Rift Emergence"] = { hitRate = 0.931, tankOnly = false, share = 0.083, avgDmg = 333931, guid = 1258610, n = 320 }
-E["Chimaerus, the Undreamt God"]["Rift Madness"] = { hitRate = 0.047, tankOnly = false, share = 0.003, avgDmg = 244007, guid = 1275637, n = 320 }
-E["Chimaerus, the Undreamt God"]["Stagger"] = { hitRate = 0.025, tankOnly = true, share = 0.01, avgDmg = 1462495, guid = 124255, n = 320 }
-E.ids[3306] = "Chimaerus, the Undreamt God"
-E["Crown of the Cosmos"] = E["Crown of the Cosmos"] or {}
-E["Crown of the Cosmos"]["Cosmic Barrier"] = { hitRate = 0.832, tankOnly = false, share = 0.117, avgDmg = 2089325, guid = 1261289, n = 339 }
-E["Crown of the Cosmos"]["Echoing Darkness"] = { hitRate = 1, tankOnly = false, share = 0.197, avgDmg = 2923800, guid = 1281707, n = 339 }
-E["Crown of the Cosmos"]["Grasp of Emptiness"] = { hitRate = 0.139, tankOnly = false, share = 0.022, avgDmg = 2405600, guid = 1260027, n = 339 }
-E["Crown of the Cosmos"]["Gravity Collapse"] = { hitRate = 0.366, tankOnly = false, share = 0.049, avgDmg = 1987958, guid = 1239095, n = 339 }
-E["Crown of the Cosmos"]["Melee"] = { hitRate = 0.1, tankOnly = true, share = 0.09, avgDmg = 13340247, guid = 1, n = 339 }
-E["Crown of the Cosmos"]["Simulacrum Backlash"] = { hitRate = 0.77, tankOnly = false, share = 0.13, avgDmg = 2502032, guid = 1260019, n = 339 }
-E["Crown of the Cosmos"]["Stagger"] = { hitRate = 0.018, tankOnly = true, share = 0.011, avgDmg = 9629946, guid = 124255, n = 339 }
-E["Crown of the Cosmos"]["Void Expulsion"] = { hitRate = 0.729, tankOnly = false, share = 0.09, avgDmg = 1837212, guid = 1233826, n = 339 }
-E["Crown of the Cosmos"]["Voidstalker Sting"] = { hitRate = 0.965, tankOnly = false, share = 0.289, avgDmg = 4447837, guid = 1237040, n = 339 }
-E.ids[3181] = "Crown of the Cosmos"
-E["Fallen-King Salhadaar"] = E["Fallen-King Salhadaar"] or {}
-E["Fallen-King Salhadaar"]["Cosmic Breath"] = { hitRate = 0.02, tankOnly = false, share = 0.001, avgDmg = 223400, guid = 1236548, n = 344 }
-E["Fallen-King Salhadaar"]["Dark Radiation"] = { hitRate = 0.983, tankOnly = false, share = 0.241, avgDmg = 2155279, guid = 1285504, n = 344 }
-E["Fallen-King Salhadaar"]["Despotic Command"] = { hitRate = 0.666, tankOnly = false, share = 0.039, avgDmg = 519404, guid = 1260835, n = 344 }
-E["Fallen-King Salhadaar"]["Destabilizing Strikes"] = { hitRate = 0.102, tankOnly = false, share = 0.103, avgDmg = 8902107, guid = 1284963, n = 344 }
-E["Fallen-King Salhadaar"]["Entropic Unraveling"] = { hitRate = 0.945, tankOnly = false, share = 0.161, avgDmg = 1499660, guid = 1254018, n = 344 }
-E["Fallen-King Salhadaar"]["Melee"] = { hitRate = 0.11, tankOnly = false, share = 0.046, avgDmg = 3702309, guid = 1, n = 344 }
-E["Fallen-King Salhadaar"]["Shattering Twilight"] = { hitRate = 0.23, tankOnly = false, share = 0.012, avgDmg = 448394, guid = 1262989, n = 344 }
-E["Fallen-King Salhadaar"]["Stretch Time"] = { hitRate = 0.017, tankOnly = false, share = 0.002, avgDmg = 784080, guid = 413924, n = 344 }
-E["Fallen-King Salhadaar"]["Torturous Extract"] = { hitRate = 0.459, tankOnly = false, share = 0.031, avgDmg = 599596, guid = 1245592, n = 344 }
-E["Fallen-King Salhadaar"]["Twilight Spikes"] = { hitRate = 0.102, tankOnly = false, share = 0.006, avgDmg = 541420, guid = 1251213, n = 344 }
-E["Fallen-King Salhadaar"]["Twisting Obscurity"] = { hitRate = 0.988, tankOnly = false, share = 0.335, avgDmg = 2984615, guid = 1250686, n = 344 }
-E["Fallen-King Salhadaar"]["Umbral Beams"] = { hitRate = 0.038, tankOnly = false, share = 0.003, avgDmg = 626917, guid = 1260030, n = 344 }
-E["Fallen-King Salhadaar"]["Void Exposure"] = { hitRate = 0.177, tankOnly = false, share = 0.009, avgDmg = 457146, guid = 1250828, n = 344 }
-E.ids[3179] = "Fallen-King Salhadaar"
-E["Imperator Averzian"] = E["Imperator Averzian"] or {}
-E["Imperator Averzian"]["Burning Rush"] = { hitRate = 0.024, tankOnly = false, share = 0.002, avgDmg = 517816, guid = 111400, n = 340 }
-E["Imperator Averzian"]["Dark Barrage"] = { hitRate = 0.197, tankOnly = false, share = 0.002, avgDmg = 55450, guid = 1274846, n = 340 }
-E["Imperator Averzian"]["Dark Upheaval"] = { hitRate = 1, tankOnly = false, share = 0.786, avgDmg = 5218405, guid = 1259903, n = 340 }
-E["Imperator Averzian"]["Fel Armor"] = { hitRate = 0.038, tankOnly = false, share = 0, avgDmg = 82875, guid = 387846, n = 340 }
-E["Imperator Averzian"]["Lingering Darkness"] = { hitRate = 0.529, tankOnly = false, share = 0.047, avgDmg = 591078, guid = 1280075, n = 340 }
-E["Imperator Averzian"]["Melee"] = { hitRate = 0.109, tankOnly = false, share = 0.074, avgDmg = 4529837, guid = 1, n = 340 }
-E["Imperator Averzian"]["Oblivion's Wrath"] = { hitRate = 0.2, tankOnly = false, share = 0.011, avgDmg = 365779, guid = 1260718, n = 340 }
-E["Imperator Averzian"]["Omnium Folio"] = { hitRate = 0.138, tankOnly = false, share = 0.001, avgDmg = 32767, guid = 1302265, n = 340 }
-E["Imperator Averzian"]["Shadow Word: Death"] = { hitRate = 0.041, tankOnly = false, share = 0, avgDmg = 70280, guid = 32409, n = 340 }
-E["Imperator Averzian"]["Shadow's Advance"] = { hitRate = 0.088, tankOnly = false, share = 0.004, avgDmg = 265076, guid = 1253691, n = 340 }
-E["Imperator Averzian"]["Stagger"] = { hitRate = 0.024, tankOnly = true, share = 0.01, avgDmg = 2776981, guid = 124255, n = 340 }
-E["Imperator Averzian"]["Stretch Time"] = { hitRate = 0.038, tankOnly = false, share = 0.001, avgDmg = 103664, guid = 413924, n = 340 }
-E["Imperator Averzian"]["Umbral Collapse"] = { hitRate = 0.985, tankOnly = false, share = 0.057, avgDmg = 385962, guid = 1249262, n = 340 }
-E["Imperator Averzian"]["Void Fall"] = { hitRate = 0.047, tankOnly = false, share = 0.002, avgDmg = 299665, guid = 1258883, n = 340 }
-E["Imperator Averzian"]["Void Rupture"] = { hitRate = 0.044, tankOnly = false, share = 0.002, avgDmg = 273265, guid = 1261249, n = 340 }
-E.ids[3176] = "Imperator Averzian"
-E["Lightblinded Vanguard"] = E["Lightblinded Vanguard"] or {}
-E["Lightblinded Vanguard"]["Avenger's Shield"] = { hitRate = 0.712, tankOnly = false, share = 0.079, avgDmg = 1596695, guid = 1246502, n = 340 }
-E["Lightblinded Vanguard"]["Divine Consecration"] = { hitRate = 0.015, tankOnly = false, share = 0, avgDmg = 366538, guid = 1276982, n = 340 }
-E["Lightblinded Vanguard"]["Divine Hammer"] = { hitRate = 0.106, tankOnly = false, share = 0.007, avgDmg = 934815, guid = 1249047, n = 340 }
-E["Lightblinded Vanguard"]["Divine Storm"] = { hitRate = 0.226, tankOnly = false, share = 0.019, avgDmg = 1213451, guid = 1246765, n = 340 }
-E["Lightblinded Vanguard"]["Divine Toll"] = { hitRate = 0.021, tankOnly = false, share = 0.001, avgDmg = 788570, guid = 1248652, n = 340 }
-E["Lightblinded Vanguard"]["Execution Sentence"] = { hitRate = 0.653, tankOnly = false, share = 0.043, avgDmg = 936240, guid = 1249024, n = 340 }
-E["Lightblinded Vanguard"]["Exorcism"] = { hitRate = 0.065, tankOnly = true, share = 0.019, avgDmg = 4174824, guid = 1246745, n = 340 }
-E["Lightblinded Vanguard"]["Light Infusion"] = { hitRate = 1, tankOnly = false, share = 0.322, avgDmg = 4623244, guid = 1258661, n = 340 }
-E["Lightblinded Vanguard"]["Melee"] = { hitRate = 0.1, tankOnly = false, share = 0.068, avgDmg = 9701877, guid = 1, n = 340 }
-E["Lightblinded Vanguard"]["Sacred Toll"] = { hitRate = 0.932, tankOnly = false, share = 0.156, avgDmg = 2406019, guid = 1246749, n = 340 }
-E["Lightblinded Vanguard"]["Searing Radiance"] = { hitRate = 0.988, tankOnly = false, share = 0.266, avgDmg = 3864879, guid = 1255739, n = 340 }
-E["Lightblinded Vanguard"]["Shield of the Righteous"] = { hitRate = 0.035, tankOnly = true, share = 0.006, avgDmg = 2350341, guid = 1251859, n = 340 }
-E["Lightblinded Vanguard"]["Stagger"] = { hitRate = 0.018, tankOnly = true, share = 0.009, avgDmg = 7121819, guid = 124255, n = 340 }
-E.ids[3180] = "Lightblinded Vanguard"
-E["Midnight Falls"] = E["Midnight Falls"] or {}
-E["Midnight Falls"]["Burning Rush"] = { hitRate = 0.06, tankOnly = false, share = 0.004, avgDmg = 1635605, guid = 111400, n = 334 }
-E["Midnight Falls"]["Core Harvest"] = { hitRate = 0.368, tankOnly = false, share = 0.01, avgDmg = 581817, guid = 1282425, n = 334 }
-E["Midnight Falls"]["Criticality"] = { hitRate = 0.201, tankOnly = false, share = 0.006, avgDmg = 625453, guid = 1281178, n = 334 }
-E["Midnight Falls"]["Dark Constellation"] = { hitRate = 0.015, tankOnly = false, share = 0.001, avgDmg = 1062771, guid = 1266586, n = 334 }
-E["Midnight Falls"]["Dark Rune"] = { hitRate = 0.416, tankOnly = false, share = 0.013, avgDmg = 689984, guid = 1249594, n = 334 }
-E["Midnight Falls"]["Dimming"] = { hitRate = 0.048, tankOnly = false, share = 0.001, avgDmg = 445989, guid = 1252975, n = 334 }
-E["Midnight Falls"]["Disintegration"] = { hitRate = 0.772, tankOnly = false, share = 0.025, avgDmg = 720758, guid = 1251649, n = 334 }
-E["Midnight Falls"]["Glimmering"] = { hitRate = 0.356, tankOnly = false, share = 0.07, avgDmg = 4329041, guid = 1254398, n = 334 }
-E["Midnight Falls"]["Heaven's Glaives"] = { hitRate = 0.036, tankOnly = false, share = 0.001, avgDmg = 699612, guid = 1254076, n = 334 }
-E["Midnight Falls"]["Heaven's Lance"] = { hitRate = 0.096, tankOnly = true, share = 0.033, avgDmg = 7688586, guid = 1253878, n = 334 }
-E["Midnight Falls"]["Impaled"] = { hitRate = 0.096, tankOnly = true, share = 0.059, avgDmg = 13705249, guid = 1253879, n = 334 }
-E["Midnight Falls"]["Melee"] = { hitRate = 0.096, tankOnly = true, share = 0.042, avgDmg = 9656756, guid = 1253873, n = 334 }
-E["Midnight Falls"]["Overkill Current"] = { hitRate = 0.081, tankOnly = false, share = 0.002, avgDmg = 649019, guid = 1285827, n = 334 }
-E["Midnight Falls"]["Resonance"] = { hitRate = 0.257, tankOnly = false, share = 0.009, avgDmg = 744800, guid = 1249582, n = 334 }
-E["Midnight Falls"]["Shattered Sky"] = { hitRate = 0.952, tankOnly = false, share = 0.668, avgDmg = 15526945, guid = 1249797, n = 334 }
-E["Midnight Falls"]["Stagger"] = { hitRate = 0.03, tankOnly = true, share = 0.022, avgDmg = 16085818, guid = 124255, n = 334 }
-E["Midnight Falls"]["Starsplinter"] = { hitRate = 0.311, tankOnly = false, share = 0.011, avgDmg = 797896, guid = 1281473, n = 334 }
-E["Midnight Falls"]["Thunderous Well"] = { hitRate = 0.359, tankOnly = false, share = 0.011, avgDmg = 668945, guid = 1254644, n = 334 }
-E["Midnight Falls"]["Void Swarm"] = { hitRate = 0.081, tankOnly = false, share = 0.005, avgDmg = 1401557, guid = 1273033, n = 334 }
-E.ids[3183] = "Midnight Falls"
-E["Vaelgor & Ezzorak"] = E["Vaelgor & Ezzorak"] or {}
-E["Vaelgor & Ezzorak"]["Gloom"] = { hitRate = 0.286, tankOnly = false, share = 0.024, avgDmg = 895855, guid = 1245500, n = 339 }
-E["Vaelgor & Ezzorak"]["Gloomtouched"] = { hitRate = 0.118, tankOnly = false, share = 0.016, avgDmg = 1471652, guid = 1283712, n = 339 }
-E["Vaelgor & Ezzorak"]["Melee"] = { hitRate = 0.121, tankOnly = false, share = 0.103, avgDmg = 9024781, guid = 1, n = 339 }
-E["Vaelgor & Ezzorak"]["Midnight Flames"] = { hitRate = 0.959, tankOnly = false, share = 0.187, avgDmg = 2063039, guid = 1250071, n = 339 }
-E["Vaelgor & Ezzorak"]["Midnight Manifestation"] = { hitRate = 0.935, tankOnly = false, share = 0.251, avgDmg = 2834974, guid = 1259275, n = 339 }
-E["Vaelgor & Ezzorak"]["Nullbeam"] = { hitRate = 0.059, tankOnly = false, share = 0.011, avgDmg = 1883102, guid = 1283856, n = 339 }
-E["Vaelgor & Ezzorak"]["Nullsnap"] = { hitRate = 0.088, tankOnly = false, share = 0.007, avgDmg = 783957, guid = 1244413, n = 339 }
-E["Vaelgor & Ezzorak"]["Nullzone Implosion"] = { hitRate = 0.953, tankOnly = false, share = 0.156, avgDmg = 1734057, guid = 1285954, n = 339 }
-E["Vaelgor & Ezzorak"]["Stagger"] = { hitRate = 0.015, tankOnly = true, share = 0.012, avgDmg = 8736588, guid = 124255, n = 339 }
-E["Vaelgor & Ezzorak"]["Vaelwing"] = { hitRate = 0.1, tankOnly = true, share = 0.049, avgDmg = 5133122, guid = 1280434, n = 339 }
-E["Vaelgor & Ezzorak"]["Void Howl"] = { hitRate = 0.622, tankOnly = false, share = 0.073, avgDmg = 1237540, guid = 1245302, n = 339 }
-E["Vaelgor & Ezzorak"]["Voidbolt"] = { hitRate = 0.614, tankOnly = false, share = 0.105, avgDmg = 1810443, guid = 1245175, n = 339 }
-E.ids[3178] = "Vaelgor & Ezzorak"
-E["Vorasius"] = E["Vorasius"] or {}
-E["Vorasius"]["Aftershock"] = { hitRate = 0.046, tankOnly = false, share = 0.005, avgDmg = 598107, guid = 1276812, n = 371 }
-E["Vorasius"]["Blisterburst"] = { hitRate = 0.563, tankOnly = false, share = 0.088, avgDmg = 882382, guid = 1259186, n = 371 }
-E["Vorasius"]["Dark Energy"] = { hitRate = 0.803, tankOnly = false, share = 0.158, avgDmg = 1102411, guid = 1280101, n = 371 }
-E["Vorasius"]["Dark Goo"] = { hitRate = 0.016, tankOnly = false, share = 0.003, avgDmg = 873839, guid = 1243270, n = 371 }
-E["Vorasius"]["Melee"] = { hitRate = 0.108, tankOnly = false, share = 0.033, avgDmg = 1732051, guid = 1, n = 371 }
-E["Vorasius"]["Parasite Expulsion"] = { hitRate = 0.458, tankOnly = false, share = 0.076, avgDmg = 928670, guid = 1275558, n = 371 }
-E["Vorasius"]["Primordial Power"] = { hitRate = 0.908, tankOnly = false, share = 0.335, avgDmg = 2072624, guid = 1272950, n = 371 }
-E["Vorasius"]["Primordial Roar"] = { hitRate = 0.075, tankOnly = false, share = 0.006, avgDmg = 439766, guid = 1260052, n = 371 }
-E["Vorasius"]["Shadowclaw Slam"] = { hitRate = 0.903, tankOnly = false, share = 0.267, avgDmg = 1663463, guid = 1241808, n = 371 }
-E["Vorasius"]["Void Breath"] = { hitRate = 0.073, tankOnly = false, share = 0.026, avgDmg = 1973377, guid = 1257607, n = 371 }
-E.ids[3177] = "Vorasius"
+E["Entombed Sentinels"] = E["Entombed Sentinels"] or {}
+E["Entombed Sentinels"]["Blessing of Dawn"] = { hitRate = 0.013, tankOnly = false, share = 0.002, avgDmg = 2182966, guid = 210380, n = 397 }
+E["Entombed Sentinels"]["Blighted Blood"] = { hitRate = 0.063, tankOnly = false, share = 0.005, avgDmg = 1328277, guid = 1284471, n = 397 }
+E["Entombed Sentinels"]["Blood Venom"] = { hitRate = 0.154, tankOnly = false, share = 0.014, avgDmg = 1564322, guid = 1284210, n = 397 }
+E["Entombed Sentinels"]["Bloodvenom Injection"] = { hitRate = 0.086, tankOnly = true, share = 0.042, avgDmg = 8578443, guid = 1310126, n = 397 }
+E["Entombed Sentinels"]["Burning Rush"] = { hitRate = 0.015, tankOnly = false, share = 0.001, avgDmg = 1366643, guid = 111400, n = 397 }
+E["Entombed Sentinels"]["Clinging Murk"] = { hitRate = 0.023, tankOnly = false, share = 0.001, avgDmg = 686185, guid = 1303097, n = 397 }
+E["Entombed Sentinels"]["Contaminate"] = { hitRate = 0.907, tankOnly = false, share = 0.124, avgDmg = 2380241, guid = 1284258, n = 397 }
+E["Entombed Sentinels"]["Cultivated Burst"] = { hitRate = 0.055, tankOnly = false, share = 0.006, avgDmg = 1792045, guid = 1284948, n = 397 }
+E["Entombed Sentinels"]["Deadly Venom"] = { hitRate = 0.043, tankOnly = false, share = 0.006, avgDmg = 2312944, guid = 1297338, n = 397 }
+E["Entombed Sentinels"]["Empowering Slam"] = { hitRate = 0.053, tankOnly = true, share = 0.01, avgDmg = 3453121, guid = 1284458, n = 397 }
+E["Entombed Sentinels"]["Helical Toxins"] = { hitRate = 0.02, tankOnly = false, share = 0, avgDmg = 280960, guid = 1284813, n = 397 }
+E["Entombed Sentinels"]["Living Venom"] = { hitRate = 0.123, tankOnly = false, share = 0.009, avgDmg = 1250401, guid = 1284209, n = 397 }
+E["Entombed Sentinels"]["Mark of Acid"] = { hitRate = 0.965, tankOnly = false, share = 0.291, avgDmg = 5254453, guid = 1284500, n = 397 }
+E["Entombed Sentinels"]["Mark of Blood"] = { hitRate = 0.962, tankOnly = false, share = 0.287, avgDmg = 5187866, guid = 1284506, n = 397 }
+E["Entombed Sentinels"]["Melee"] = { hitRate = 0.086, tankOnly = true, share = 0.083, avgDmg = 16852635, guid = 1, n = 397 }
+E["Entombed Sentinels"]["Noxious Blast"] = { hitRate = 0.06, tankOnly = false, share = 0.002, avgDmg = 640785, guid = 1284452, n = 397 }
+E["Entombed Sentinels"]["Refraction"] = { hitRate = 0.078, tankOnly = false, share = 0.007, avgDmg = 1510303, guid = 1309786, n = 397 }
+E["Entombed Sentinels"]["Stagger"] = { hitRate = 0.013, tankOnly = true, share = 0.01, avgDmg = 13844191, guid = 124255, n = 397 }
+E["Entombed Sentinels"]["Toxic Droplets"] = { hitRate = 0.65, tankOnly = false, share = 0.065, avgDmg = 1737777, guid = 1284451, n = 397 }
+E["Entombed Sentinels"]["Unstable Miasma"] = { hitRate = 0.531, tankOnly = false, share = 0.034, avgDmg = 1105651, guid = 1288282, n = 397 }
+E.ids[3445] = "Entombed Sentinels"
+E["Nek'zali the Soulcoiler"] = E["Nek'zali the Soulcoiler"] or {}
+E["Nek'zali the Soulcoiler"]["Anguished Echoes"] = { hitRate = 0.049, tankOnly = false, share = 0.003, avgDmg = 636051, guid = 1294846, n = 425 }
+E["Nek'zali the Soulcoiler"]["Corpse Blight"] = { hitRate = 0.969, tankOnly = false, share = 0.199, avgDmg = 2519940, guid = 1307939, n = 425 }
+E["Nek'zali the Soulcoiler"]["Cremation"] = { hitRate = 0.421, tankOnly = false, share = 0.036, avgDmg = 1057763, guid = 1289875, n = 425 }
+E["Nek'zali the Soulcoiler"]["Essence Rend"] = { hitRate = 0.054, tankOnly = false, share = 0.003, avgDmg = 780133, guid = 1287434, n = 425 }
+E["Nek'zali the Soulcoiler"]["Hollowing Strikes"] = { hitRate = 0.08, tankOnly = true, share = 0.033, avgDmg = 5102126, guid = 1284109, n = 425 }
+E["Nek'zali the Soulcoiler"]["Hungering Pyre"] = { hitRate = 0.035, tankOnly = false, share = 0.003, avgDmg = 901286, guid = 1289855, n = 425 }
+E["Nek'zali the Soulcoiler"]["Latent Cultist"] = { hitRate = 0.332, tankOnly = false, share = 0.049, avgDmg = 1809244, guid = 1288554, n = 425 }
+E["Nek'zali the Soulcoiler"]["Melee"] = { hitRate = 0.094, tankOnly = false, share = 0.038, avgDmg = 4921605, guid = 1, n = 425 }
+E["Nek'zali the Soulcoiler"]["Possession Barrage"] = { hitRate = 0.951, tankOnly = false, share = 0.111, avgDmg = 1426534, guid = 1292034, n = 425 }
+E["Nek'zali the Soulcoiler"]["Refraction"] = { hitRate = 0.087, tankOnly = false, share = 0.009, avgDmg = 1260225, guid = 1309786, n = 425 }
+E["Nek'zali the Soulcoiler"]["Slithering Flame"] = { hitRate = 0.148, tankOnly = false, share = 0.012, avgDmg = 962679, guid = 1294933, n = 425 }
+E["Nek'zali the Soulcoiler"]["Soul Transfer"] = { hitRate = 0.092, tankOnly = false, share = 0.009, avgDmg = 1200631, guid = 1295085, n = 425 }
+E["Nek'zali the Soulcoiler"]["Soulcoil Rite"] = { hitRate = 1, tankOnly = false, share = 0.436, avgDmg = 5341771, guid = 1288772, n = 425 }
+E["Nek'zali the Soulcoiler"]["Soulcoil Well"] = { hitRate = 0.012, tankOnly = false, share = 0.002, avgDmg = 1639824, guid = 1290390, n = 425 }
+E["Nek'zali the Soulcoiler"]["Uncoiling"] = { hitRate = 0.435, tankOnly = false, share = 0.034, avgDmg = 954774, guid = 1292315, n = 425 }
+E["Nek'zali the Soulcoiler"]["Vessel of Awakening"] = { hitRate = 0.181, tankOnly = false, share = 0.018, avgDmg = 1235580, guid = 1297630, n = 425 }
+E.ids[3470] = "Nek'zali the Soulcoiler"
+E["Nymrissa Wavecaller"] = E["Nymrissa Wavecaller"] or {}
+E["Nymrissa Wavecaller"]["Abyssal Rain"] = { hitRate = 1, tankOnly = false, share = 0.628, avgDmg = 7282859, guid = 1260843, n = 421 }
+E["Nymrissa Wavecaller"]["Blessing of Dawn"] = { hitRate = 0.012, tankOnly = false, share = 0.002, avgDmg = 1612071, guid = 210380, n = 421 }
+E["Nymrissa Wavecaller"]["Blessing of Sacrifice"] = { hitRate = 0.012, tankOnly = false, share = 0, avgDmg = 449232, guid = 6940, n = 421 }
+E["Nymrissa Wavecaller"]["Burning Rush"] = { hitRate = 0.055, tankOnly = false, share = 0.005, avgDmg = 1034209, guid = 111400, n = 421 }
+E["Nymrissa Wavecaller"]["Chilling Frost"] = { hitRate = 0.42, tankOnly = false, share = 0.017, avgDmg = 461667, guid = 1313393, n = 421 }
+E["Nymrissa Wavecaller"]["Fel Armor"] = { hitRate = 0.071, tankOnly = false, share = 0.002, avgDmg = 250951, guid = 387846, n = 421 }
+E["Nymrissa Wavecaller"]["Frost Orb"] = { hitRate = 0.449, tankOnly = false, share = 0.063, avgDmg = 1633109, guid = 1313448, n = 421 }
+E["Nymrissa Wavecaller"]["Iceblade Flurry"] = { hitRate = 0.076, tankOnly = false, share = 0.063, avgDmg = 9654540, guid = 1282945, n = 421 }
+E["Nymrissa Wavecaller"]["Lingering Frost"] = { hitRate = 0.361, tankOnly = false, share = 0.003, avgDmg = 107556, guid = 1257654, n = 421 }
+E["Nymrissa Wavecaller"]["Melee"] = { hitRate = 0.078, tankOnly = false, share = 0.024, avgDmg = 3612104, guid = 1, n = 421 }
+E["Nymrissa Wavecaller"]["Omnium Folio"] = { hitRate = 0.052, tankOnly = false, share = 0, avgDmg = 14051, guid = 1302265, n = 421 }
+E["Nymrissa Wavecaller"]["Pop!"] = { hitRate = 0.936, tankOnly = false, share = 0.054, avgDmg = 666247, guid = 1266340, n = 421 }
+E["Nymrissa Wavecaller"]["Pulsing Tides"] = { hitRate = 0.216, tankOnly = false, share = 0.034, avgDmg = 1817607, guid = 1271380, n = 421 }
+E["Nymrissa Wavecaller"]["Refraction"] = { hitRate = 0.124, tankOnly = false, share = 0.01, avgDmg = 956762, guid = 1309786, n = 421 }
+E["Nymrissa Wavecaller"]["Seriously Sharp Seashell"] = { hitRate = 0.112, tankOnly = false, share = 0, avgDmg = 47942, guid = 1292299, n = 421 }
+E["Nymrissa Wavecaller"]["Set Fire to the Pain"] = { hitRate = 0.019, tankOnly = false, share = 0, avgDmg = 244189, guid = 453286, n = 421 }
+E["Nymrissa Wavecaller"]["Shadow Word: Death"] = { hitRate = 0.017, tankOnly = false, share = 0, avgDmg = 116279, guid = 32409, n = 421 }
+E["Nymrissa Wavecaller"]["Shatter"] = { hitRate = 0.067, tankOnly = false, share = 0.016, avgDmg = 2788051, guid = 1313456, n = 421 }
+E["Nymrissa Wavecaller"]["Stretch Time"] = { hitRate = 0.021, tankOnly = false, share = 0.001, avgDmg = 610380, guid = 413924, n = 421 }
+E["Nymrissa Wavecaller"]["Swirling Whirlpools"] = { hitRate = 0.145, tankOnly = false, share = 0.008, avgDmg = 604327, guid = 1258677, n = 421 }
+E["Nymrissa Wavecaller"]["Wild Bite"] = { hitRate = 0.204, tankOnly = false, share = 0.065, avgDmg = 3708051, guid = 1265425, n = 421 }
+E.ids[3379] = "Nymrissa Wavecaller"
+E["Sszorak"] = E["Sszorak"] or {}
+E["Sszorak"]["Blessing of Dawn"] = { hitRate = 0.013, tankOnly = false, share = 0.001, avgDmg = 2016045, guid = 210380, n = 451 }
+E["Sszorak"]["Melee"] = { hitRate = 0.078, tankOnly = false, share = 0.035, avgDmg = 8228564, guid = 1, n = 451 }
+E["Sszorak"]["Mutilate"] = { hitRate = 0.763, tankOnly = false, share = 0.066, avgDmg = 1578620, guid = 1285999, n = 451 }
+E["Sszorak"]["Mutilated Gash"] = { hitRate = 0.953, tankOnly = false, share = 0.315, avgDmg = 6028357, guid = 1285998, n = 451 }
+E["Sszorak"]["Raging Crosswinds"] = { hitRate = 0.016, tankOnly = false, share = 0.001, avgDmg = 662378, guid = 1285616, n = 451 }
+E["Sszorak"]["Ravage"] = { hitRate = 0.086, tankOnly = false, share = 0.012, avgDmg = 2504638, guid = 1277101, n = 451 }
+E["Sszorak"]["Refraction"] = { hitRate = 0.082, tankOnly = false, share = 0.008, avgDmg = 1790076, guid = 1309786, n = 451 }
+E["Sszorak"]["Tempest"] = { hitRate = 0.424, tankOnly = false, share = 0.049, avgDmg = 2107949, guid = 1287083, n = 451 }
+E["Sszorak"]["Ula'tek's Presence"] = { hitRate = 1, tankOnly = false, share = 0.345, avgDmg = 6302312, guid = 1285965, n = 451 }
+E["Sszorak"]["Venomous Surge"] = { hitRate = 0.494, tankOnly = false, share = 0.028, avgDmg = 1027294, guid = 1306120, n = 451 }
+E["Sszorak"]["Viscous Cyst"] = { hitRate = 0.916, tankOnly = false, share = 0.134, avgDmg = 2679098, guid = 1287205, n = 451 }
+E.ids[3420] = "Sszorak"
+E["The Coiled Altar"] = E["The Coiled Altar"] or {}
+E["The Coiled Altar"]["Axegrinder"] = { hitRate = 0.061, tankOnly = false, share = 0.004, avgDmg = 1280666, guid = 1285017, n = 377 }
+E["The Coiled Altar"]["Burning Rush"] = { hitRate = 0.013, tankOnly = false, share = 0.001, avgDmg = 1819240, guid = 111400, n = 377 }
+E["The Coiled Altar"]["Coalesced Venom"] = { hitRate = 0.984, tankOnly = false, share = 0.333, avgDmg = 7254627, guid = 1282408, n = 377 }
+E["The Coiled Altar"]["Corrupted Toxin"] = { hitRate = 0.061, tankOnly = true, share = 0.018, avgDmg = 6152001, guid = 1298795, n = 377 }
+E["The Coiled Altar"]["Dread Bolt"] = { hitRate = 0.045, tankOnly = true, share = 0.01, avgDmg = 4857809, guid = 1307184, n = 377 }
+E["The Coiled Altar"]["Dreadful Presence"] = { hitRate = 0.881, tankOnly = false, share = 0.188, avgDmg = 4575282, guid = 1288635, n = 377 }
+E["The Coiled Altar"]["Fangs of the Coiled Altar"] = { hitRate = 0.451, tankOnly = false, share = 0.014, avgDmg = 678144, guid = 1282512, n = 377 }
+E["The Coiled Altar"]["Gravebound"] = { hitRate = 0.061, tankOnly = false, share = 0.021, avgDmg = 7472937, guid = 1308330, n = 377 }
+E["The Coiled Altar"]["Guillotine"] = { hitRate = 0.016, tankOnly = false, share = 0.001, avgDmg = 1359460, guid = 1283594, n = 377 }
+E["The Coiled Altar"]["Melee"] = { hitRate = 0.085, tankOnly = true, share = 0.048, avgDmg = 12050314, guid = 1, n = 377 }
+E["The Coiled Altar"]["Refraction"] = { hitRate = 0.09, tankOnly = false, share = 0.01, avgDmg = 2306940, guid = 1309786, n = 377 }
+E["The Coiled Altar"]["Retaliatory Malice"] = { hitRate = 0.029, tankOnly = false, share = 0.001, avgDmg = 882634, guid = 1308323, n = 377 }
+E["The Coiled Altar"]["Soul Sever"] = { hitRate = 0.019, tankOnly = false, share = 0.002, avgDmg = 2101574, guid = 1312630, n = 377 }
+E["The Coiled Altar"]["Spirit Erasure"] = { hitRate = 0.801, tankOnly = false, share = 0.117, avgDmg = 3133805, guid = 1287722, n = 377 }
+E["The Coiled Altar"]["Venom Rupture"] = { hitRate = 0.955, tankOnly = false, share = 0.212, avgDmg = 4752816, guid = 1299838, n = 377 }
+E["The Coiled Altar"]["Venomfang"] = { hitRate = 0.167, tankOnly = false, share = 0.007, avgDmg = 936260, guid = 1306906, n = 377 }
+E["The Coiled Altar"]["Volatile Venom"] = { hitRate = 0.101, tankOnly = false, share = 0.006, avgDmg = 1374658, guid = 1282288, n = 377 }
+E["The Coiled Altar"]["Widow's Kiss"] = { hitRate = 0.032, tankOnly = false, share = 0.001, avgDmg = 388410, guid = 1283623, n = 377 }
+E.ids[3429] = "The Coiled Altar"
+E["The Lost Explorers"] = E["The Lost Explorers"] or {}
+E["The Lost Explorers"]["Aftershock"] = { hitRate = 0.034, tankOnly = false, share = 0.001, avgDmg = 200832, guid = 1310500, n = 437 }
+E["The Lost Explorers"]["Blast Wave"] = { hitRate = 0.059, tankOnly = false, share = 0.009, avgDmg = 1854261, guid = 1305844, n = 437 }
+E["The Lost Explorers"]["Blink Nova"] = { hitRate = 0.95, tankOnly = false, share = 0.108, avgDmg = 1433426, guid = 1294334, n = 437 }
+E["The Lost Explorers"]["Burning Flames"] = { hitRate = 0.048, tankOnly = false, share = 0.003, avgDmg = 824120, guid = 1310667, n = 437 }
+E["The Lost Explorers"]["Elemental Explosion"] = { hitRate = 0.14, tankOnly = false, share = 0.005, avgDmg = 468652, guid = 1295952, n = 437 }
+E["The Lost Explorers"]["Evil Eyes"] = { hitRate = 0.059, tankOnly = false, share = 0.002, avgDmg = 487061, guid = 1292764, n = 437 }
+E["The Lost Explorers"]["Falling"] = { hitRate = 0.023, tankOnly = false, share = 0, avgDmg = 107939, guid = 3, n = 437 }
+E["The Lost Explorers"]["Fel Armor"] = { hitRate = 0.025, tankOnly = false, share = 0.001, avgDmg = 303183, guid = 387846, n = 437 }
+E["The Lost Explorers"]["Final Ascension"] = { hitRate = 0.16, tankOnly = false, share = 0.014, avgDmg = 1089362, guid = 1292780, n = 437 }
+E["The Lost Explorers"]["Malevolent Presence"] = { hitRate = 1, tankOnly = false, share = 0.479, avgDmg = 6029101, guid = 1295450, n = 437 }
+E["The Lost Explorers"]["Melee"] = { hitRate = 0.082, tankOnly = false, share = 0.099, avgDmg = 15068941, guid = 1, n = 437 }
+E["The Lost Explorers"]["Mighty Thud"] = { hitRate = 0.652, tankOnly = false, share = 0.046, avgDmg = 890148, guid = 1300237, n = 437 }
+E["The Lost Explorers"]["Piercing Frost"] = { hitRate = 0.039, tankOnly = false, share = 0.003, avgDmg = 1043122, guid = 1310662, n = 437 }
+E["The Lost Explorers"]["Refraction"] = { hitRate = 0.085, tankOnly = false, share = 0.007, avgDmg = 1003624, guid = 1309786, n = 437 }
+E["The Lost Explorers"]["Relic Rupture"] = { hitRate = 0.16, tankOnly = false, share = 0.007, avgDmg = 585996, guid = 1310027, n = 437 }
+E["The Lost Explorers"]["Seriously Sharp Seashell"] = { hitRate = 0.014, tankOnly = false, share = 0, avgDmg = 41790, guid = 1292299, n = 437 }
+E["The Lost Explorers"]["Shadow Breath"] = { hitRate = 0.023, tankOnly = false, share = 0.002, avgDmg = 1284705, guid = 1308238, n = 437 }
+E["The Lost Explorers"]["Shredding Shards"] = { hitRate = 0.076, tankOnly = true, share = 0.018, avgDmg = 3055517, guid = 1310616, n = 437 }
+E["The Lost Explorers"]["Splinters"] = { hitRate = 0.789, tankOnly = false, share = 0.167, avgDmg = 2654719, guid = 1308853, n = 437 }
+E["The Lost Explorers"]["Spreading Flames"] = { hitRate = 0.018, tankOnly = false, share = 0.001, avgDmg = 522811, guid = 1314061, n = 437 }
+E["The Lost Explorers"]["Stagger"] = { hitRate = 0.011, tankOnly = true, share = 0.008, avgDmg = 9296747, guid = 124255, n = 437 }
+E["The Lost Explorers"]["Stretch Time"] = { hitRate = 0.021, tankOnly = false, share = 0.002, avgDmg = 1039089, guid = 413924, n = 437 }
+E["The Lost Explorers"]["Throw Junk"] = { hitRate = 0.245, tankOnly = false, share = 0.014, avgDmg = 706012, guid = 1291935, n = 437 }
+E.ids[3497] = "The Lost Explorers"
+E["The Twin Fangs"] = E["The Twin Fangs"] or {}
+E["The Twin Fangs"]["Blessing of Dawn"] = { hitRate = 0.012, tankOnly = false, share = 0.001, avgDmg = 1638512, guid = 210380, n = 418 }
+E["The Twin Fangs"]["Burning Rush"] = { hitRate = 0.014, tankOnly = false, share = 0.001, avgDmg = 2070264, guid = 111400, n = 418 }
+E["The Twin Fangs"]["Caustic Deluge"] = { hitRate = 0.112, tankOnly = false, share = 0.019, avgDmg = 3943257, guid = 1289237, n = 418 }
+E["The Twin Fangs"]["Caustic Globule"] = { hitRate = 0.39, tankOnly = false, share = 0.022, avgDmg = 1291129, guid = 1289201, n = 418 }
+E["The Twin Fangs"]["Coiling Ichor"] = { hitRate = 0.844, tankOnly = false, share = 0.075, avgDmg = 2032756, guid = 1290878, n = 418 }
+E["The Twin Fangs"]["Congealed Gore"] = { hitRate = 0.012, tankOnly = false, share = 0.001, avgDmg = 1542678, guid = 1292552, n = 418 }
+E["The Twin Fangs"]["Deadly Venom"] = { hitRate = 0.043, tankOnly = false, share = 0.003, avgDmg = 1518055, guid = 1297338, n = 418 }
+E["The Twin Fangs"]["Eternal Venom"] = { hitRate = 0.959, tankOnly = false, share = 0.27, avgDmg = 6448989, guid = 1290480, n = 418 }
+E["The Twin Fangs"]["Melee"] = { hitRate = 0.086, tankOnly = false, share = 0.075, avgDmg = 19925550, guid = 1, n = 418 }
+E["The Twin Fangs"]["Ravenous Feast"] = { hitRate = 0.452, tankOnly = false, share = 0.04, avgDmg = 2048024, guid = 1290662, n = 418 }
+E["The Twin Fangs"]["Refraction"] = { hitRate = 0.069, tankOnly = false, share = 0.006, avgDmg = 2060437, guid = 1309786, n = 418 }
+E["The Twin Fangs"]["Sanguine Storm"] = { hitRate = 0.019, tankOnly = false, share = 0.001, avgDmg = 993676, guid = 1306876, n = 418 }
+E["The Twin Fangs"]["Stir the Depths"] = { hitRate = 0.782, tankOnly = false, share = 0.043, avgDmg = 1269545, guid = 1292806, n = 418 }
+E["The Twin Fangs"]["Stone Breaker"] = { hitRate = 0.074, tankOnly = false, share = 0.009, avgDmg = 2867968, guid = 1289153, n = 418 }
+E["The Twin Fangs"]["Stretch Time"] = { hitRate = 0.017, tankOnly = false, share = 0.001, avgDmg = 1904285, guid = 413924, n = 418 }
+E["The Twin Fangs"]["Toxic Fumes"] = { hitRate = 1, tankOnly = false, share = 0.427, avgDmg = 9800639, guid = 1294976, n = 418 }
+E["The Twin Fangs"]["Venomous Emergence"] = { hitRate = 0.022, tankOnly = false, share = 0, avgDmg = 89902, guid = 1308122, n = 418 }
+E["The Twin Fangs"]["Vile Flood"] = { hitRate = 0.012, tankOnly = false, share = 0, avgDmg = 701032, guid = 1294605, n = 418 }
+E.ids[3421] = "The Twin Fangs"
+E["Ula'tek"] = E["Ula'tek"] or {}
+E["Ula'tek"]["Acidic Expulsion"] = { hitRate = 0.257, tankOnly = false, share = 0.022, avgDmg = 2694700, guid = 1313531, n = 420 }
+E["Ula'tek"]["Blight Vein"] = { hitRate = 0.245, tankOnly = false, share = 0.015, avgDmg = 1918570, guid = 1317955, n = 420 }
+E["Ula'tek"]["Caustic Waves"] = { hitRate = 0.14, tankOnly = false, share = 0.013, avgDmg = 2833330, guid = 1292403, n = 420 }
+E["Ula'tek"]["Deadly Venom"] = { hitRate = 0.031, tankOnly = false, share = 0.001, avgDmg = 876591, guid = 1297338, n = 420 }
+E["Ula'tek"]["Malignant Shell"] = { hitRate = 0.343, tankOnly = false, share = 0.031, avgDmg = 2876491, guid = 1297213, n = 420 }
+E["Ula'tek"]["Melee"] = { hitRate = 0.098, tankOnly = false, share = 0.049, avgDmg = 15975966, guid = 1, n = 420 }
+E["Ula'tek"]["Mephitic Thrash"] = { hitRate = 0.119, tankOnly = false, share = 0.005, avgDmg = 1250926, guid = 1296301, n = 420 }
+E["Ula'tek"]["Mother's Wrath"] = { hitRate = 0.064, tankOnly = true, share = 0.015, avgDmg = 7643745, guid = 1298369, n = 420 }
+E["Ula'tek"]["Necrotic Vapors"] = { hitRate = 1, tankOnly = false, share = 0.526, avgDmg = 16717199, guid = 1286835, n = 420 }
+E["Ula'tek"]["Poisonous Bite"] = { hitRate = 0.012, tankOnly = true, share = 0.002, avgDmg = 4791701, guid = 1287032, n = 420 }
+E["Ula'tek"]["Putrid Membrane"] = { hitRate = 0.169, tankOnly = false, share = 0.02, avgDmg = 3692288, guid = 1308275, n = 420 }
+E["Ula'tek"]["Rage of the Shackled"] = { hitRate = 0.821, tankOnly = false, share = 0.078, avgDmg = 3014949, guid = 1307367, n = 420 }
+E["Ula'tek"]["Refraction"] = { hitRate = 0.1, tankOnly = false, share = 0.013, avgDmg = 4148065, guid = 1309786, n = 420 }
+E["Ula'tek"]["Serpent's Bite"] = { hitRate = 0.136, tankOnly = false, share = 0.012, avgDmg = 2860968, guid = 1293146, n = 420 }
+E["Ula'tek"]["Spectral Coils"] = { hitRate = 0.905, tankOnly = false, share = 0.086, avgDmg = 3034117, guid = 1287265, n = 420 }
+E["Ula'tek"]["Stagger"] = { hitRate = 0.014, tankOnly = true, share = 0.007, avgDmg = 16164130, guid = 124255, n = 420 }
+E["Ula'tek"]["Stone Venom"] = { hitRate = 0.076, tankOnly = true, share = 0.066, avgDmg = 27474917, guid = 1298418, n = 420 }
+E["Ula'tek"]["Time Dilation"] = { hitRate = 0.012, tankOnly = false, share = 0.002, avgDmg = 4718727, guid = 361029, n = 420 }
+E["Ula'tek"]["Volatile Purge"] = { hitRate = 0.343, tankOnly = false, share = 0.034, avgDmg = 3112559, guid = 1316357, n = 420 }
+E.ids[3492] = "Ula'tek"
+E["Vashnik the Malignant"] = E["Vashnik the Malignant"] or {}
+E["Vashnik the Malignant"]["Burning Presence"] = { hitRate = 0.652, tankOnly = false, share = 0.111, avgDmg = 1844220, guid = 1305901, n = 431 }
+E["Vashnik the Malignant"]["Catalytic Bile"] = { hitRate = 0.016, tankOnly = false, share = 0.001, avgDmg = 372543, guid = 1282616, n = 431 }
+E["Vashnik the Malignant"]["Caustic Explosion"] = { hitRate = 0.872, tankOnly = false, share = 0.144, avgDmg = 1794432, guid = 1295209, n = 431 }
+E["Vashnik the Malignant"]["Caustic Surge"] = { hitRate = 0.826, tankOnly = false, share = 0.114, avgDmg = 1501854, guid = 1285979, n = 431 }
+E["Vashnik the Malignant"]["Deadly Venom"] = { hitRate = 0.016, tankOnly = false, share = 0.001, avgDmg = 449330, guid = 1297338, n = 431 }
+E["Vashnik the Malignant"]["Dripping Fangs"] = { hitRate = 0.079, tankOnly = true, share = 0.05, avgDmg = 6916883, guid = 1280934, n = 431 }
+E["Vashnik the Malignant"]["Exploding Infection"] = { hitRate = 0.037, tankOnly = false, share = 0.006, avgDmg = 1709072, guid = 1295173, n = 431 }
+E["Vashnik the Malignant"]["Malignant Catalyst"] = { hitRate = 0.139, tankOnly = false, share = 0.014, avgDmg = 1115437, guid = 1282525, n = 431 }
+E["Vashnik the Malignant"]["Melee"] = { hitRate = 0.079, tankOnly = true, share = 0.071, avgDmg = 9785300, guid = 1, n = 431 }
+E["Vashnik the Malignant"]["Plague Froth"] = { hitRate = 0.754, tankOnly = false, share = 0.162, avgDmg = 2339968, guid = 1281925, n = 431 }
+E["Vashnik the Malignant"]["Plague Wave"] = { hitRate = 0.362, tankOnly = false, share = 0.059, avgDmg = 1771170, guid = 1295798, n = 431 }
+E["Vashnik the Malignant"]["Refraction"] = { hitRate = 0.049, tankOnly = false, share = 0.008, avgDmg = 1729681, guid = 1309786, n = 431 }
+E["Vashnik the Malignant"]["Toxic Vapor"] = { hitRate = 0.998, tankOnly = false, share = 0.255, avgDmg = 2775979, guid = 1284561, n = 431 }
+E.ids[3455] = "Vashnik the Malignant"

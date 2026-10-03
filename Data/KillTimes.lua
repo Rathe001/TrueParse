@@ -13,41 +13,32 @@ local function put(name, bracket, killTime)
 	E[name][bracket].killTime = killTime
 end
 
-put("Belo'ren, Child of Al'ar", "3", { n = 1000, curve = { { 99, 67.1 }, { 95, 84.6 }, { 90, 95 }, { 75, 119.5 }, { 50, 131.5 }, { 25, 146.3 }, { 10, 175.3 } }, avgSize = 14.2, healers = { avg = 2.6, mode = 2, modePct = 46 } })
-put("Belo'ren, Child of Al'ar", "4", { n = 1000, curve = { { 99, 79.3 }, { 95, 86.6 }, { 90, 91 }, { 75, 98.2 }, { 50, 105.4 }, { 25, 112.5 }, { 10, 124.2 } }, avgSize = 15.7, healers = { avg = 2.3, mode = 2, modePct = 49 } })
-put("Belo'ren, Child of Al'ar", "5", { n = 1000, curve = { { 99, 121 }, { 95, 222.4 }, { 90, 238.3 }, { 75, 266.9 }, { 50, 284.4 }, { 25, 292.7 }, { 10, 297 } }, avgSize = 20, healers = { avg = 3.1, mode = 3, modePct = 59 } })
-put("Chimaerus, the Undreamt God", "3", { n = 1000, curve = { { 99, 107.1 }, { 95, 144.6 }, { 90, 154.1 }, { 75, 248.4 }, { 50, 281.8 }, { 25, 314.5 }, { 10, 328.7 } }, avgSize = 13.9, healers = { avg = 2.6, mode = 2, modePct = 54 } })
-put("Chimaerus, the Undreamt God", "4", { n = 1000, curve = { { 99, 126.6 }, { 95, 138.3 }, { 90, 149.5 }, { 75, 250.2 }, { 50, 261.2 }, { 25, 271.4 }, { 10, 279.3 } }, avgSize = 15.2, healers = { avg = 2.5, mode = 2, modePct = 57 } })
-put("Chimaerus, the Undreamt God", "5", { n = 1000, curve = { { 99, 120.1 }, { 95, 130.4 }, { 90, 133.5 }, { 75, 138.2 }, { 50, 143.3 }, { 25, 146.6 }, { 10, 148.9 } }, avgSize = 20, healers = { avg = 2, mode = 2, modePct = 92 } })
-put("Crown of the Cosmos", "3", { n = 1000, curve = { { 99, 222.2 }, { 95, 243.9 }, { 90, 254 }, { 75, 272.3 }, { 50, 299.6 }, { 25, 324.1 }, { 10, 340.3 } }, avgSize = 14.7, healers = { avg = 2.5, mode = 2, modePct = 50 } })
-put("Crown of the Cosmos", "4", { n = 1000, curve = { { 99, 328.3 }, { 95, 359.4 }, { 90, 371.2 }, { 75, 393.4 }, { 50, 420.6 }, { 25, 440.2 }, { 10, 453 } }, avgSize = 13.7, healers = { avg = 2.6, mode = 2, modePct = 53 } })
-put("Crown of the Cosmos", "5", { n = 1000, curve = { { 99, 380.7 }, { 95, 404.5 }, { 90, 416.5 }, { 75, 436.4 }, { 50, 453.7 }, { 25, 469.2 }, { 10, 478.3 } }, avgSize = 20, healers = { avg = 3.8, mode = 4, modePct = 78 } })
-put("Fallen-King Salhadaar", "3", { n = 1000, curve = { { 99, 94.2 }, { 95, 111.4 }, { 90, 121.8 }, { 75, 138.9 }, { 50, 170.8 }, { 25, 203.8 }, { 10, 225.4 } }, avgSize = 14.8, healers = { avg = 2.4, mode = 2, modePct = 48 } })
-put("Fallen-King Salhadaar", "4", { n = 1000, curve = { { 99, 152.9 }, { 95, 176 }, { 90, 184.5 }, { 75, 202.3 }, { 50, 223.7 }, { 25, 236 }, { 10, 243.1 } }, avgSize = 15.2, healers = { avg = 2.5, mode = 2, modePct = 53 } })
-put("Fallen-King Salhadaar", "5", { n = 1000, curve = { { 99, 146.9 }, { 95, 162.4 }, { 90, 173.9 }, { 75, 188.1 }, { 50, 205.7 }, { 25, 229.7 }, { 10, 237.3 } }, avgSize = 20, healers = { avg = 3, mode = 3, modePct = 51 } })
-put("Imperator Averzian", "3", { n = 1000, curve = { { 99, 61.2 }, { 95, 79 }, { 90, 97.7 }, { 75, 146.3 }, { 50, 204.6 }, { 25, 211.4 }, { 10, 215.9 } }, avgSize = 14.2, healers = { avg = 2.4, mode = 2, modePct = 48 } })
-put("Imperator Averzian", "4", { n = 1000, curve = { { 99, 102.3 }, { 95, 111.6 }, { 90, 121 }, { 75, 138.8 }, { 50, 150.4 }, { 25, 160.6 }, { 10, 166.1 } }, avgSize = 14.9, healers = { avg = 2.5, mode = 2, modePct = 54 } })
-put("Imperator Averzian", "5", { n = 1000, curve = { { 99, 143.5 }, { 95, 164.7 }, { 90, 170.9 }, { 75, 184.1 }, { 50, 196.4 }, { 25, 205.2 }, { 10, 209.6 } }, avgSize = 20, healers = { avg = 2.6, mode = 2, modePct = 45 } })
-put("Lightblinded Vanguard", "3", { n = 1000, curve = { { 99, 109.8 }, { 95, 150.2 }, { 90, 165.3 }, { 75, 173.1 }, { 50, 179.3 }, { 25, 186.8 }, { 10, 193.2 } }, avgSize = 14.2, healers = { avg = 2.4, mode = 2, modePct = 50 } })
-put("Lightblinded Vanguard", "4", { n = 1000, curve = { { 99, 148 }, { 95, 181.4 }, { 90, 189.6 }, { 75, 201.4 }, { 50, 213.3 }, { 25, 242.6 }, { 10, 249.3 } }, avgSize = 15.6, healers = { avg = 2.8, mode = 2, modePct = 43 } })
-put("Lightblinded Vanguard", "5", { n = 1000, curve = { { 99, 271 }, { 95, 287.5 }, { 90, 297.5 }, { 75, 334.8 }, { 50, 345.5 }, { 25, 365.1 }, { 10, 387.2 } }, avgSize = 20, healers = { avg = 4.3, mode = 4, modePct = 59 } })
-put("Midnight Falls", "3", { n = 1000, curve = { { 99, 167.1 }, { 95, 229.3 }, { 90, 263.6 }, { 75, 409.3 }, { 50, 431.7 }, { 25, 457.9 }, { 10, 485.2 } }, avgSize = 14, healers = { avg = 2.6, mode = 2, modePct = 43 } })
-put("Midnight Falls", "4", { n = 1000, curve = { { 99, 252.9 }, { 95, 275.5 }, { 90, 290.5 }, { 75, 308.9 }, { 50, 332.7 }, { 25, 346.4 }, { 10, 353.6 } }, avgSize = 16.2, healers = { avg = 2.8, mode = 2, modePct = 40 } })
-put("Midnight Falls", "5", { n = 1000, curve = { { 99, 481.5 }, { 95, 487.6 }, { 90, 490.5 }, { 75, 496.2 }, { 50, 502.5 }, { 25, 507.7 }, { 10, 510.6 } }, avgSize = 20, healers = { avg = 4, mode = 4, modePct = 95 } })
-put("Vaelgor & Ezzorak", "3", { n = 1000, curve = { { 99, 114.2 }, { 95, 133 }, { 90, 143.9 }, { 75, 172 }, { 50, 208.7 }, { 25, 239.8 }, { 10, 278.5 } }, avgSize = 15, healers = { avg = 2.5, mode = 2, modePct = 48 } })
-put("Vaelgor & Ezzorak", "4", { n = 1000, curve = { { 99, 228.6 }, { 95, 275.4 }, { 90, 283.5 }, { 75, 301.4 }, { 50, 319.4 }, { 25, 335 }, { 10, 345.1 } }, avgSize = 15.1, healers = { avg = 2.6, mode = 2, modePct = 49 } })
-put("Vaelgor & Ezzorak", "5", { n = 1000, curve = { { 99, 231.1 }, { 95, 251.3 }, { 90, 260.5 }, { 75, 277.8 }, { 50, 296.6 }, { 25, 351.8 }, { 10, 361.4 } }, avgSize = 20, healers = { avg = 3.5, mode = 4, modePct = 48 } })
-put("Vorasius", "3", { n = 1000, curve = { { 99, 99.5 }, { 95, 141.4 }, { 90, 161.9 }, { 75, 230 }, { 50, 286.7 }, { 25, 306.4 }, { 10, 319 } }, avgSize = 13.5, healers = { avg = 2.3, mode = 2, modePct = 56 } })
-put("Vorasius", "4", { n = 1000, curve = { { 99, 144.8 }, { 95, 157.6 }, { 90, 165.9 }, { 75, 179.5 }, { 50, 196.6 }, { 25, 211.8 }, { 10, 223.6 } }, avgSize = 14.7, healers = { avg = 2.4, mode = 2, modePct = 58 } })
-put("Vorasius", "5", { n = 1000, curve = { { 99, 156.3 }, { 95, 174.6 }, { 90, 182 }, { 75, 193.9 }, { 50, 205.9 }, { 25, 223.9 }, { 10, 234.3 } }, avgSize = 20, healers = { avg = 2.6, mode = 3, modePct = 43 } })
+put("Entombed Sentinels", "3", { n = 1000, curve = { { 99, 174.7 }, { 95, 183.7 }, { 90, 189.6 }, { 75, 197.4 }, { 50, 204.2 }, { 25, 208.9 }, { 10, 211.3 } }, avgSize = 23.4, healers = { avg = 3.4, mode = 4, modePct = 38 } })
+put("Entombed Sentinels", "4", { n = 1000, curve = { { 99, 219.6 }, { 95, 228.4 }, { 90, 235.9 }, { 75, 247.3 }, { 50, 265.3 }, { 25, 271.8 }, { 10, 275 } }, avgSize = 21.7, healers = { avg = 3.4, mode = 4, modePct = 40 } })
+put("Nek'zali the Soulcoiler", "3", { n = 1000, curve = { { 99, 143.1 }, { 95, 156.8 }, { 90, 163 }, { 75, 173.2 }, { 50, 183.5 }, { 25, 190.2 }, { 10, 192.9 } }, avgSize = 21.8, healers = { avg = 3.3, mode = 3, modePct = 33 } })
+put("Nek'zali the Soulcoiler", "4", { n = 1000, curve = { { 99, 191.9 }, { 95, 206.9 }, { 90, 211.4 }, { 75, 217.8 }, { 50, 225.6 }, { 25, 232.4 }, { 10, 236.5 } }, avgSize = 24.3, healers = { avg = 3.8, mode = 4, modePct = 45 } })
+put("Nymrissa Wavecaller", "3", { n = 1000, curve = { { 99, 128.6 }, { 95, 140.3 }, { 90, 147.1 }, { 75, 159.6 }, { 50, 173 }, { 25, 182 }, { 10, 186.2 } }, avgSize = 22.7, healers = { avg = 3.6, mode = 4, modePct = 33 } })
+put("Nymrissa Wavecaller", "4", { n = 1000, curve = { { 99, 179.8 }, { 95, 194.4 }, { 90, 200.5 }, { 75, 211.5 }, { 50, 221.8 }, { 25, 232.5 }, { 10, 236.7 } }, avgSize = 23, healers = { avg = 3.8, mode = 4, modePct = 43 } })
+put("Sszorak", "3", { n = 1000, curve = { { 99, 171.4 }, { 95, 190.7 }, { 90, 197.9 }, { 75, 206.4 }, { 50, 216.1 }, { 25, 222.4 }, { 10, 225.7 } }, avgSize = 20.8, healers = { avg = 3, mode = 2, modePct = 31 } })
+put("Sszorak", "4", { n = 1000, curve = { { 99, 220.5 }, { 95, 236.9 }, { 90, 245.7 }, { 75, 253.5 }, { 50, 259.6 }, { 25, 264.1 }, { 10, 266.1 } }, avgSize = 21.5, healers = { avg = 3.5, mode = 4, modePct = 42 } })
+put("The Coiled Altar", "3", { n = 1000, curve = { { 99, 174.7 }, { 95, 193.2 }, { 90, 199.3 }, { 75, 209.7 }, { 50, 219.1 }, { 25, 225.4 }, { 10, 228.9 } }, avgSize = 22, healers = { avg = 3.5, mode = 4, modePct = 40 } })
+put("The Coiled Altar", "4", { n = 1000, curve = { { 99, 277.5 }, { 95, 295.5 }, { 90, 302.5 }, { 75, 314.4 }, { 50, 325.9 }, { 25, 334.5 }, { 10, 338.8 } }, avgSize = 24.2, healers = { avg = 4.1, mode = 4, modePct = 52 } })
+put("The Lost Explorers", "3", { n = 1000, curve = { { 99, 125.8 }, { 95, 133.5 }, { 90, 136.9 }, { 75, 142.5 }, { 50, 148.7 }, { 25, 153.2 }, { 10, 155.8 } }, avgSize = 23.8, healers = { avg = 3.6, mode = 4, modePct = 40 } })
+put("The Lost Explorers", "4", { n = 1000, curve = { { 99, 161.7 }, { 95, 182 }, { 90, 190.6 }, { 75, 202 }, { 50, 211.1 }, { 25, 218.9 }, { 10, 222.2 } }, avgSize = 24.2, healers = { avg = 3.9, mode = 4, modePct = 41 } })
+put("The Twin Fangs", "3", { n = 1000, curve = { { 99, 209.5 }, { 95, 224 }, { 90, 232.3 }, { 75, 244 }, { 50, 254.6 }, { 25, 261.2 }, { 10, 264.9 } }, avgSize = 23.4, healers = { avg = 3.5, mode = 4, modePct = 36 } })
+put("The Twin Fangs", "4", { n = 1000, curve = { { 99, 276.7 }, { 95, 298.7 }, { 90, 307.9 }, { 75, 329.2 }, { 50, 344 }, { 25, 352.3 }, { 10, 355.7 } }, avgSize = 23.6, healers = { avg = 3.9, mode = 4, modePct = 45 } })
+put("Ula'tek", "3", { n = 1000, curve = { { 99, 145.4 }, { 95, 147.5 }, { 90, 149 }, { 75, 151.3 }, { 50, 154.2 }, { 25, 156.4 }, { 10, 254.2 } }, avgSize = 24.5, healers = { avg = 3.9, mode = 4, modePct = 43 } })
+put("Ula'tek", "4", { n = 1000, curve = { { 99, 433.7 }, { 95, 441 }, { 90, 444.7 }, { 75, 452.7 }, { 50, 466.6 }, { 25, 479.4 }, { 10, 494.1 } }, avgSize = 24.9, healers = { avg = 4.5, mode = 4, modePct = 52 } })
+put("Vashnik the Malignant", "3", { n = 1000, curve = { { 99, 135.6 }, { 95, 142.8 }, { 90, 146 }, { 75, 152.3 }, { 50, 158.6 }, { 25, 163 }, { 10, 165.5 } }, avgSize = 24, healers = { avg = 3.6, mode = 4, modePct = 38 } })
+put("Vashnik the Malignant", "4", { n = 1000, curve = { { 99, 204.4 }, { 95, 219.4 }, { 90, 225.5 }, { 75, 234.5 }, { 50, 243 }, { 25, 248.7 }, { 10, 251.2 } }, avgSize = 23.9, healers = { avg = 3.7, mode = 4, modePct = 45 } })
 
 TP.Percentiles.ids = TP.Percentiles.ids or {}
-TP.Percentiles.ids[3182] = "Belo'ren, Child of Al'ar"
-TP.Percentiles.ids[3306] = "Chimaerus, the Undreamt God"
-TP.Percentiles.ids[3181] = "Crown of the Cosmos"
-TP.Percentiles.ids[3179] = "Fallen-King Salhadaar"
-TP.Percentiles.ids[3176] = "Imperator Averzian"
-TP.Percentiles.ids[3180] = "Lightblinded Vanguard"
-TP.Percentiles.ids[3183] = "Midnight Falls"
-TP.Percentiles.ids[3178] = "Vaelgor & Ezzorak"
-TP.Percentiles.ids[3177] = "Vorasius"
+TP.Percentiles.ids[3445] = "Entombed Sentinels"
+TP.Percentiles.ids[3470] = "Nek'zali the Soulcoiler"
+TP.Percentiles.ids[3379] = "Nymrissa Wavecaller"
+TP.Percentiles.ids[3420] = "Sszorak"
+TP.Percentiles.ids[3429] = "The Coiled Altar"
+TP.Percentiles.ids[3497] = "The Lost Explorers"
+TP.Percentiles.ids[3421] = "The Twin Fangs"
+TP.Percentiles.ids[3492] = "Ula'tek"
+TP.Percentiles.ids[3455] = "Vashnik the Malignant"
