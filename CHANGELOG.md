@@ -1,5 +1,10 @@
 # TrueParse Changelog
 
+## 2.16.9
+
+Automated monthly Warcraft Logs data refresh (percentile curves and kill times).
+
+
 ## 2.16.8
 
 The coach now speaks up when you cast a signature spell far more than the

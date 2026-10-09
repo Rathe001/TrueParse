@@ -5,17 +5,17 @@
 -- as bad play - this carries each boss's own expected activity so the
 -- anchor can shift to match what the fight actually allows.
 -- factor = this encounter's median / the median across all encounters.
--- Generated 2026-08-03 - VS / DR / MQD. Reference median: 99.2%.
+-- Generated 2026-10-03 - The Venomous Abyss. Reference median: 99.2%.
 local _, TP = ...
 
 TP.ActivityProfiles = TP.ActivityProfiles or {}
 TP.ActivityProfiles.reference = 99.2
-TP.ActivityProfiles["Belo'ren, Child of Al'ar"] = { n = 295, p50 = 98.4, factor = 0.992 }
-TP.ActivityProfiles["Chimaerus, the Undreamt God"] = { n = 303, p50 = 99, factor = 0.998 }
-TP.ActivityProfiles["Crown of the Cosmos"] = { n = 317, p50 = 92.8, factor = 0.935 }
-TP.ActivityProfiles["Fallen-King Salhadaar"] = { n = 315, p50 = 99.3, factor = 1.001 }
-TP.ActivityProfiles["Imperator Averzian"] = { n = 319, p50 = 99.3, factor = 1.001 }
-TP.ActivityProfiles["Lightblinded Vanguard"] = { n = 320, p50 = 99.5, factor = 1.003 }
-TP.ActivityProfiles["Midnight Falls"] = { n = 298, p50 = 97.6, factor = 0.984 }
-TP.ActivityProfiles["Vaelgor & Ezzorak"] = { n = 318, p50 = 99.4, factor = 1.002 }
-TP.ActivityProfiles["Vorasius"] = { n = 320, p50 = 99.2, factor = 1 }
+TP.ActivityProfiles["Entombed Sentinels"] = { n = 384, p50 = 98.5, factor = 0.993 }
+TP.ActivityProfiles["Nek'zali the Soulcoiler"] = { n = 408, p50 = 99.4, factor = 1.002 }
+TP.ActivityProfiles["Nymrissa Wavecaller"] = { n = 409, p50 = 99.4, factor = 1.002 }
+TP.ActivityProfiles["Sszorak"] = { n = 439, p50 = 99.4, factor = 1.002 }
+TP.ActivityProfiles["The Coiled Altar"] = { n = 367, p50 = 99.3, factor = 1.001 }
+TP.ActivityProfiles["The Lost Explorers"] = { n = 407, p50 = 99.1, factor = 0.999 }
+TP.ActivityProfiles["The Twin Fangs"] = { n = 403, p50 = 99.3, factor = 1.001 }
+TP.ActivityProfiles["Ula'tek"] = { n = 409, p50 = 93.4, factor = 0.942 }
+TP.ActivityProfiles["Vashnik the Malignant"] = { n = 408, p50 = 99.3, factor = 1.001 }
