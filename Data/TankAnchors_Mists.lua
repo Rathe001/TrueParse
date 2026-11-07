@@ -10,10 +10,10 @@
 local _, TP = ...
 
 TP.TANK_ANCHORS = {
-	default = { 32.1, 54.9, 69.4 }, -- DERIVED: median of the 5 crawled specs
-	[66] = { 32.1, 54.9, 73.3 }, -- Prot Paladin (n=77)
-	[73] = { 12, 28.9, 41.2 }, -- Prot Warrior (n=60)
-	[104] = { 5.1, 15.7, 30.2 }, -- Guardian Druid (n=59)
-	[250] = { 49.2, 60.1, 69.4 }, -- Blood DK (n=96)
-	[268] = { 67.1, 80.1, 96.1 }, -- Brewmaster (n=68)
+	default = { 34.5, 46.7, 69.4 }, -- DERIVED: median of the 5 crawled specs
+	[66] = { 34.5, 46.7, 73.4 }, -- Prot Paladin (n=71)
+	[73] = { 16.3, 28.9, 36.9 }, -- Prot Warrior (n=64)
+	[104] = { 8.6, 16.6, 43.5 }, -- Guardian Druid (n=64)
+	[250] = { 47, 61.4, 69.4 }, -- Blood DK (n=94)
+	[268] = { 65.9, 88, 96.9 }, -- Brewmaster (n=56)
 }
