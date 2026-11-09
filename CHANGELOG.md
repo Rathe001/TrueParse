@@ -1,5 +1,10 @@
 # TrueParse Changelog
 
+## 2.16.10
+
+Automated monthly Warcraft Logs data refresh (percentile curves and kill times).
+
+
 ## 2.16.9
 
 Automated monthly Warcraft Logs data refresh (percentile curves and kill times).
